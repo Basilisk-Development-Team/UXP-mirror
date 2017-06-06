@@ -2039,7 +2039,6 @@ IonBuilder::inspectOpcode(JSOp op)
       case JSOP_CALL_IGNORES_RV:
       case JSOP_CALLITER:
       case JSOP_NEW:
-      case JSOP_SUPERCALL:
         if (op == JSOP_CALLITER) {
             if (!outermostBuilder()->iterators_.append(current->peek(-1)))
                 return abort(AbortReason::Alloc);
@@ -2332,6 +2331,8 @@ IonBuilder::inspectOpcode(JSOp op)
       case JSOP_FRESHENLEXICALENV:
       case JSOP_RECREATELEXICALENV:
       case JSOP_POPLEXICALENV:
+      case JSOP_SPREADSUPERCALL:
+      case JSOP_SUPERCALL:
         // These opcodes are currently unhandled by Ion, but in principle
         // there's no reason they couldn't be.  Whenever this happens, OSR
         // will have to consider that JSOP_{FRESHEN,RECREATE}LEXICALENV
