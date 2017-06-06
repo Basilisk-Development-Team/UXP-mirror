@@ -218,6 +218,7 @@ namespace jit {
     _(JSOP_RESUME)             \
     _(JSOP_CALLEE)             \
     _(JSOP_SUPERBASE)          \
+    _(JSOP_SUPERFUN)           \
     _(JSOP_GETRVAL)            \
     _(JSOP_SETRVAL)            \
     _(JSOP_RETRVAL)            \
@@ -227,6 +228,7 @@ namespace jit {
     _(JSOP_CHECKISOBJ)         \
     _(JSOP_CHECKISCALLABLE)    \
     _(JSOP_CHECKTHIS)          \
+    _(JSOP_CHECKTHISREINIT)    \
     _(JSOP_CHECKRETURN)        \
     _(JSOP_NEWTARGET)          \
     _(JSOP_SUPERCALL)          \
@@ -298,7 +300,7 @@ class BaselineCompiler : public BaselineCompilerSpecific
   private:
     MethodStatus emitBody();
 
-    [[nodiscard]] bool emitCheckThis(ValueOperand val);
+    [[nodiscard]] bool emitCheckThis(ValueOperand val, bool reinit=false);
     void emitLoadReturnValue(ValueOperand val);
 
     void emitInitializeLocals();

@@ -810,6 +810,9 @@ ThrowReadOnlyError(JSContext* cx, HandleObject obj, int32_t index);
 BaselineThrowUninitializedThis(JSContext* cx, BaselineFrame* frame);
 
 [[nodiscard]] bool
+BaselineThrowInitializedThis(JSContext* cx, BaselineFrame* frame);
+
+[[nodiscard]] bool
 ThrowBadDerivedReturn(JSContext* cx, HandleValue v);
 
 [[nodiscard]] bool
