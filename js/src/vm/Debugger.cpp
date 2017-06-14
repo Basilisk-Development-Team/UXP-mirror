@@ -3047,19 +3047,11 @@ Debugger::markAllForMovingGC(JSTracer* trc)
 void
 Debugger::markForMovingGC(JSTracer* trc)
 {
+    trace(trc);
+
     for (WeakGlobalObjectSet::Enum e(debuggees); !e.empty(); e.popFront())
         TraceManuallyBarrieredEdge(trc, e.mutableFront().unsafeGet(), "Global Object");
 
-    GCPtrNativeObject& dbgobj = toJSObjectRef();
-    TraceEdge(trc, &dbgobj, "Debugger Object");
-
-    scripts.trace(trc);
-    sources.trace(trc);
-    objects.trace(trc);
-    environments.trace(trc);
-    wasmInstanceScripts.trace(trc);
-    wasmInstanceSources.trace(trc);
-    
     for (Breakpoint* bp = firstBreakpoint(); bp; bp = bp->nextInDebugger()) {
             TraceManuallyBarrieredEdge(trc, &bp->site->script, "breakpoint script");
             TraceEdge(trc, &bp->getHandlerRef(), "breakpoint handler");
@@ -3076,6 +3068,8 @@ Debugger::traceObject(JSTracer* trc, JSObject* obj)
 void
 Debugger::trace(JSTracer* trc)
 {
+    TraceEdge(trc, &object, "Debugger Object");
+
     TraceNullableEdge(trc, &uncaughtExceptionHook, "hooks");
 
     /*
@@ -3086,10 +3080,12 @@ Debugger::trace(JSTracer* trc)
      * weakly-referenced Debugger.Frame objects as well, for suspended generator
      * frames.)
      */
-    for (FrameMap::Range r = frames.all(); !r.empty(); r.popFront()) {
-        HeapPtr<DebuggerFrame*>& frameobj = r.front().value();
-        MOZ_ASSERT(MaybeForwarded(frameobj.get())->getPrivate());
-        TraceEdge(trc, &frameobj, "live Debugger.Frame");
+    if (frames.initialized()) {
+        for (FrameMap::Range r = frames.all(); !r.empty(); r.popFront()) {
+            HeapPtr<DebuggerFrame*>& frameobj = r.front().value();
+            MOZ_ASSERT(MaybeForwarded(frameobj.get())->getPrivate());
+            TraceEdge(trc, &frameobj, "live Debugger.Frame");
+        }
     }
 
     allocationsLog.trace(trc);

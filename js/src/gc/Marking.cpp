@@ -216,8 +216,8 @@ js::CheckTracedThing(JSTracer* trc, T* thing)
     Zone* zone = thing->zoneFromAnyThread();
     JSRuntime* rt = trc->runtime();
 
-    MOZ_ASSERT_IF(!IsMovingTracer(trc), CurrentThreadCanAccessZone(zone));
-    MOZ_ASSERT_IF(!IsMovingTracer(trc), CurrentThreadCanAccessRuntime(rt));
+    MOZ_ASSERT_IF(!IsMovingTracer(trc), !IsClearEdgesTracer(trc), CurrentThreadCanAccessZone(zone));
+    MOZ_ASSERT_IF(!IsMovingTracer(trc), !IsClearEdgesTracer(trc), CurrentThreadCanAccessRuntime(rt));
 
     MOZ_ASSERT(zone->runtimeFromAnyThread() == trc->runtime());
 
