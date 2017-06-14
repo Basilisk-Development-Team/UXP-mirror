@@ -223,9 +223,6 @@ class Nursery
         return cellsWithUid_.append(cell);
     }
 
-    using SweepThunk = void (*)(void *data);
-    void queueSweepAction(SweepThunk thunk, void* data);
-
     [[nodiscard]] bool queueDictionaryModeObjectToSweep(NativeObject* obj);
 
     size_t sizeOfHeapCommitted() const {
@@ -379,9 +376,6 @@ class Nursery
     using CellsWithUniqueIdVector = Vector<gc::Cell*, 8, SystemAllocPolicy>;
     CellsWithUniqueIdVector cellsWithUid_;
 
-    struct SweepAction;
-    SweepAction* sweepActions_;
-
     using NativeObjectVector = Vector<NativeObject*, 0, SystemAllocPolicy>;
     NativeObjectVector dictionaryModeObjects_;
 
@@ -444,7 +438,6 @@ class Nursery
      */
     void sweep();
 
-    void runSweepActions();
     void sweepDictionaryModeObjects();
 
     /* Change the allocable space provided by the nursery. */

@@ -577,7 +577,11 @@ class Debugger : private mozilla::LinkedListElement<Debugger>
     GlobalObject* unwrapDebuggeeArgument(JSContext* cx, const Value& v);
 
     static void traceObject(JSTracer* trc, JSObject* obj);
+
     void trace(JSTracer* trc);
+
+    friend struct js::GCManagedDeletePolicy<Debugger>;
+
     void markForMovingGC(JSTracer* trc);
     static void finalize(FreeOp* fop, JSObject* obj);
     void markCrossCompartmentEdges(JSTracer* tracer);
