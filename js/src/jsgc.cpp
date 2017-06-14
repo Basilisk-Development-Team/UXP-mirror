@@ -2405,8 +2405,8 @@ GCRuntime::updateRuntimePointersToRelocatedCells(AutoLockForExclusiveAccess& loc
     // Sweep everything to fix up weak pointers.
     Debugger::sweepAll(rt->defaultFreeOp());
     jit::JitRuntime::SweepJitcodeGlobalTable(rt);
-    for (JS::WeakCache<void*>* cache : rt->weakCaches())
-            cache->sweep();
+    for (JS::detail::WeakCacheBase* cache : rt->weakCaches())
+        cache->sweep();
 
     // Type inference may put more blocks here to free.
     blocksToFreeAfterSweeping.ref().freeAll();
@@ -4465,12 +4465,12 @@ GCRuntime::endMarkingZoneGroup()
 // Causes the given WeakCache to be swept when run.
 class SweepWeakCacheTask : public GCParallelTask
 {
-    JS::WeakCache<void*>& cache;
+    JS::detail::WeakCacheBase& cache;
 
     SweepWeakCacheTask(const SweepWeakCacheTask&) = delete;
 
   public:
-    SweepWeakCacheTask(JSRuntime* rt, JS::WeakCache<void*>& wc)
+    SweepWeakCacheTask(JSRuntime* rt, JS::detail::WeakCacheBase& wc)
       : GCParallelTask(rt), cache(wc)
     {}
 
@@ -4680,13 +4680,13 @@ static inline bool
 IterateWeakCaches(JSRuntime* rt, Functor f)
 {
     for (GCZoneGroupIter zone(rt); !zone.done(); zone.next()) {
-        for (JS::WeakCache<void*>* cache : zone->weakCaches()) {
+        for (JS::detail::WeakCacheBase* cache : zone->weakCaches()) {
             if (!f(cache))
                 return false;
         }
     }
 
-    for (JS::WeakCache<void*>* cache : rt->weakCaches()) {
+    for (JS::detail::WeakCacheBase* cache : rt->weakCaches()) {
         if (!f(cache))
             return false;
     }
@@ -4699,13 +4699,13 @@ PrepareWeakCacheTasks(JSRuntime* rt)
 {
     // Build a vector of sweep tasks to run on a helper thread.
     WeakCacheTaskVector tasks;
-    bool ok = IterateWeakCaches(rt, [&] (JS::WeakCache<void*>* cache) {
+    bool ok = IterateWeakCaches(rt, [&] (JS::detail::WeakCacheBase* cache) {
         return tasks.emplaceBack(rt, *cache);
     });
     // If we ran out of memory, do all the work now and ensure we return an
     // empty list.
     if (!ok) {
-        IterateWeakCaches(rt, [&] (JS::WeakCache<void*>* cache) {
+        IterateWeakCaches(rt, [&] (JS::detail::WeakCacheBase* cache) {
             SweepWeakCacheTask(rt, *cache).runFromActiveCooperatingThread(rt);
             return true;
         });

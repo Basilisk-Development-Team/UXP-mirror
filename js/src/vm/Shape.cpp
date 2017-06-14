@@ -1268,7 +1268,7 @@ Zone::checkBaseShapeTableAfterMovingGC()
     if (!baseShapes().initialized())
         return;
 
-    for (BaseShapeSet::Enum e(baseShapes().get()); !e.empty(); e.popFront()) {
+    for (BaseShapeSet::Enum e(baseShapes()); !e.empty(); e.popFront()) {
         UnownedBaseShape* base = e.front().unbarrieredGet();
         CheckGCThingAfterMovingGC(base);
 
@@ -1329,7 +1329,7 @@ Zone::checkInitialShapesTableAfterMovingGC()
      * initialShapes that points into the nursery, and that the hash table
      * entries are discoverable.
      */
-    for (InitialShapeSet::Enum e(initialShapes().get()); !e.empty(); e.popFront()) {
+    for (InitialShapeSet::Enum e(initialShapes()); !e.empty(); e.popFront()) {
         InitialShapeEntry entry = e.front();
         JSProtoKey protoKey = entry.proto.key();
         TaggedProto proto = entry.proto.proto().unbarrieredGet();
@@ -1874,7 +1874,7 @@ EmptyShape::getInitialShape(JSContext* cx, const Class* clasp, TaggedProto proto
 
     JSProtoKey key = GetInitialShapeProtoKey(protoRoot, cx);
     if (key != JSProto_LIMIT) {
-        keyPointer.emplace(MakeDependentAddPtr(cx, table.get(),
+        keyPointer.emplace(MakeDependentAddPtr(cx, table,
                                                Lookup(clasp, Lookup::ShapeProto(key),
                                                       nfixed, objectFlags)));
         if (keyPointer.ref()) {
@@ -1905,7 +1905,7 @@ EmptyShape::getInitialShape(JSContext* cx, const Class* clasp, TaggedProto proto
     if (insertKey) {
         Lookup::ShapeProto shapeProto(key);
         Lookup lookup(clasp, shapeProto, nfixed, objectFlags);
-        if (!keyPointer->add(cx, table.get(), lookup, InitialShapeEntry(shape, shapeProto)))
+        if (!keyPointer->add(cx, table, lookup, InitialShapeEntry(shape, shapeProto)))
             return nullptr;
     }
 
@@ -2009,7 +2009,7 @@ Zone::fixupInitialShapeTable()
     if (!initialShapes().initialized())
         return;
 
-    for (InitialShapeSet::Enum e(initialShapes().get()); !e.empty(); e.popFront()) {
+    for (InitialShapeSet::Enum e(initialShapes()); !e.empty(); e.popFront()) {
         // The shape may have been moved, but we can update that in place.
         Shape* shape = e.front().shape.unbarrieredGet();
         if (IsForwarded(shape)) {
