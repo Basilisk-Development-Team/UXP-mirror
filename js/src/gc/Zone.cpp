@@ -37,7 +37,7 @@ JS::Zone::Zone(JSRuntime* rt, ZoneGroup* group)
     weakCaches_(group),
     gcWeakKeys_(group, SystemAllocPolicy(), rt->randomHashCodeScrambler()),
     gcZoneGroupEdges_(group),
-    typeDescrObjects_(group, this, SystemAllocPolicy()),
+    typeDescrObjects_(group, this),
     markedAtoms_(group),
     atomCache_(group),
     externalStringCache_(group),
@@ -45,8 +45,8 @@ JS::Zone::Zone(JSRuntime* rt, ZoneGroup* group)
     threshold(),
     gcDelayBytes(0),
     propertyTree_(group, this),
-    baseShapes_(group, this, BaseShapeSet()),
-    initialShapes_(group, this, InitialShapeSet()),
+    baseShapes_(group, this),
+    initialShapes_(group, this),
     data(group, nullptr),
     isSystem(group, false),
     active(false),
@@ -472,7 +472,7 @@ ZoneList::clear()
 }
 
 JS_PUBLIC_API(void)
-JS::shadow::RegisterWeakCache(JS::Zone* zone, WeakCache<void*>* cachep)
+JS::shadow::RegisterWeakCache(JS::Zone* zone, detail::WeakCacheBase* cachep)
 {
     zone->registerWeakCache(cachep);
 }
