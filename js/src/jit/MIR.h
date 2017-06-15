@@ -6301,15 +6301,19 @@ class MSinCos
 };
 
 class MStringSplit
-  : public MTernaryInstruction,
+  : public MBinaryInstruction,
     public MixPolicy<StringPolicy<0>, StringPolicy<1> >::Data
 {
+    CompilerObjectGroup group_;
+
     MStringSplit(CompilerConstraintList* constraints, MDefinition* string, MDefinition* sep,
-                 MConstant* templateObject)
-      : MTernaryInstruction(classOpcode, string, sep, templateObject)
+                 ObjectGroup* group)
+      : MBinaryInstruction(classOpcode, string, sep),
+       group_(group)
     {
         setResultType(MIRType::Object);
-        setResultTypeSet(templateObject->resultTypeSet());
+        TemporaryTypeSet* types = MakeSingletonTypeSet(constraints, group);
+        setResultTypeSet(types);
     }
 
   public:
@@ -6317,11 +6321,8 @@ class MStringSplit
     TRIVIAL_NEW_WRAPPERS
     NAMED_OPERANDS((0, string), (1, separator))
 
-    JSObject* templateObject() const {
-        return &getOperand(2)->toConstant()->toObject();
-    }
     ObjectGroup* group() const {
-        return templateObject()->group();
+        return group_;
     }
     bool possiblyCalls() const override {
         return true;
@@ -6334,6 +6335,9 @@ class MStringSplit
     [[nodiscard]] bool writeRecoverData(CompactBufferWriter& writer) const override;
     bool canRecoverOnBailout() const override {
         return true;
+    }
+    bool appendRoots(MRootList& roots) const override {
+        return roots.append(group_);
     }
 };
 
