@@ -349,7 +349,7 @@ NativeObject::getChildProperty(JSContext* cx,
         return shape;
     }
 
-    Shape* shape = cx->zone()->propertyTree().getChild(cx, parent, child);
+    Shape* shape = cx->zone()->propertyTree().inlinedGetChild(cx, parent, child);
     if (!shape)
         return nullptr;
     MOZ_ASSERT(shape->parent == parent);
@@ -1388,13 +1388,13 @@ EmptyShape::new_(JSContext* cx, Handle<UnownedBaseShape*> base, uint32_t nfixed)
     return shape;
 }
 
-inline HashNumber
+MOZ_ALWAYS_INLINE HashNumber
 ShapeHasher::hash(const Lookup& l)
 {
     return l.hash();
 }
 
-inline bool
+MOZ_ALWAYS_INLINE bool
 ShapeHasher::match(const Key k, const Lookup& l)
 {
     return k->matches(l);
@@ -1492,8 +1492,8 @@ Shape::removeChild(Shape* child)
     }
 }
 
-Shape*
-PropertyTree::getChild(JSContext* cx, Shape* parent, Handle<StackShape> child)
+MOZ_ALWAYS_INLINE Shape*
+PropertyTree::inlinedGetChild(JSContext* cx, Shape* parent, Handle<StackShape> child)
 {
     MOZ_ASSERT(parent);
 
@@ -1555,6 +1555,12 @@ PropertyTree::getChild(JSContext* cx, Shape* parent, Handle<StackShape> child)
         return nullptr;
 
     return shape;
+}
+
+Shape*
+PropertyTree::getChild(JSContext* cx, Shape* parent, Handle<StackShape> child)
+{
+    return inlinedGetChild(cx, parent, child);
 }
 
 void
