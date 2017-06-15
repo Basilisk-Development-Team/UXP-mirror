@@ -481,7 +481,7 @@ class RRandom final : public RInstruction
 class RStringSplit final : public RInstruction
 {
   public:
-    RINSTRUCTION_HEADER_NUM_OP_(StringSplit, 3)
+    RINSTRUCTION_HEADER_NUM_OP_(StringSplit, 2)
 
     [[nodiscard]] bool recover(JSContext* cx, SnapshotIterator& iter) const override;
 };
