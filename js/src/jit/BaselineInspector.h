@@ -109,8 +109,8 @@ class BaselineInspector
     bool hasSeenDoubleResult(jsbytecode* pc);
     bool hasSeenNonStringIterMore(jsbytecode* pc);
 
-    [[nodiscard]] bool isOptimizableCallStringSplit(jsbytecode* pc, JSString** strOut,
-                                                   JSString** sepOut, JSObject** objOut);
+    [[nodiscard]] bool isOptimizableConstStringSplit(jsbytecode* pc, JSString** strOut,
+                                                     JSString** sepOut, JSObject** objOut);
     JSObject* getTemplateObject(jsbytecode* pc);
     JSObject* getTemplateObjectForNative(jsbytecode* pc, Native native);
     JSObject* getTemplateObjectForClassHook(jsbytecode* pc, const Class* clasp);
