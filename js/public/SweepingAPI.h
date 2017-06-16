@@ -37,6 +37,7 @@ class WeakCacheBase : public mozilla::LinkedListElement<WeakCacheBase>
     virtual ~WeakCacheBase() {}
 
     virtual void sweep() = 0;
+    virtual bool needsSweep() = 0;
 };
 } // namespace detail
 
@@ -67,6 +68,10 @@ class WeakCache : protected detail::WeakCacheBase,
 
     void sweep() override {
         GCPolicy<T>::sweep(&cache);
+    }
+
+    bool needsSweep() override {
+        return cache.needsSweep();
     }
 };
 

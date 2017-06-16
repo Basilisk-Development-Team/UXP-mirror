@@ -4700,6 +4700,9 @@ PrepareWeakCacheTasks(JSRuntime* rt)
     // Build a vector of sweep tasks to run on a helper thread.
     WeakCacheTaskVector tasks;
     bool ok = IterateWeakCaches(rt, [&] (JS::detail::WeakCacheBase* cache) {
+        if (!cache->needsSweep())
+            return true;
+
         return tasks.emplaceBack(rt, *cache);
     });
     // If we ran out of memory, do all the work now and ensure we return an
