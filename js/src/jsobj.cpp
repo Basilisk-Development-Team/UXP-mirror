@@ -3441,6 +3441,12 @@ JSObject::uninlinedIsProxy() const
     return is<ProxyObject>();
 }
 
+bool
+JSObject::uninlinedNonProxyIsExtensible() const
+{
+    return nonProxyIsExtensible();
+}
+
 void
 JSObject::dump(FILE* fp) const
 {
