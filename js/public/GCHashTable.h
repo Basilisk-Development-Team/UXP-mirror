@@ -68,6 +68,10 @@ class GCHashMap : public js::HashMap<Key, Value, HashPolicy, AllocPolicy>
         }
     }
 
+    bool needsSweep() const {
+        return this->initialized() && !this->empty();
+    }
+
     void sweep() {
         if (!this->initialized())
             return;
@@ -243,6 +247,10 @@ class GCHashSet : public js::HashSet<T, HashPolicy, AllocPolicy>
             return;
         for (typename Base::Enum e(*this); !e.empty(); e.popFront())
             GCPolicy<T>::trace(trc, &e.mutableFront(), "hashset element");
+    }
+
+    bool needsSweep() const {
+        return this->initialized() && !this->empty();
     }
 
     void sweep() {
