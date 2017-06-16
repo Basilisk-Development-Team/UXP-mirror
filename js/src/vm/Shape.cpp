@@ -1268,12 +1268,12 @@ Zone::checkBaseShapeTableAfterMovingGC()
     if (!baseShapes().initialized())
         return;
 
-    for (BaseShapeSet::Enum e(baseShapes()); !e.empty(); e.popFront()) {
-        UnownedBaseShape* base = e.front().unbarrieredGet();
+    for (auto r = baseShapes().all(); !r.empty(); r.popFront()) {
+        UnownedBaseShape* base = r.front().unbarrieredGet();
         CheckGCThingAfterMovingGC(base);
 
         BaseShapeSet::Ptr ptr = baseShapes().lookup(base);
-        MOZ_RELEASE_ASSERT(ptr.found() && &*ptr == &e.front());
+        MOZ_RELEASE_ASSERT(ptr.found() && &*ptr == &r.front());
     }
 }
 
@@ -1329,8 +1329,8 @@ Zone::checkInitialShapesTableAfterMovingGC()
      * initialShapes that points into the nursery, and that the hash table
      * entries are discoverable.
      */
-    for (InitialShapeSet::Enum e(initialShapes()); !e.empty(); e.popFront()) {
-        InitialShapeEntry entry = e.front();
+    for (auto r = initialShapes().all(); !r.empty(); r.popFront()) {
+        InitialShapeEntry entry = r.front();
         JSProtoKey protoKey = entry.proto.key();
         TaggedProto proto = entry.proto.proto().unbarrieredGet();
         Shape* shape = entry.shape.unbarrieredGet();
@@ -1345,7 +1345,7 @@ Zone::checkInitialShapesTableAfterMovingGC()
                       shape->numFixedSlots(),
                       shape->getObjectFlags());
         InitialShapeSet::Ptr ptr = initialShapes().lookup(lookup);
-        MOZ_RELEASE_ASSERT(ptr.found() && &*ptr == &e.front());
+        MOZ_RELEASE_ASSERT(ptr.found() && &*ptr == &r.front());
     }
 }
 
