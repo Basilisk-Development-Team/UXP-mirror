@@ -820,7 +820,7 @@ struct TypeHashSet
 
     // Lookup an entry in a hash set, return nullptr if it does not exist.
     template <class T, class U, class KEY>
-    static inline U*
+    static MOZ_ALWAYS_INLINE U*
     Lookup(U** values, unsigned count, T key)
     {
         if (count == 0)
