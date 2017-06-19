@@ -1018,7 +1018,7 @@
      *   Operands: uint32_t nameIndex
      *   Stack: receiver obj => obj[name]
      */ \
-    macro(JSOP_GETPROP_SUPER,   104, "getprop-super", NULL, 5,  2,  1, JOF_ATOM|JOF_PROP) \
+    macro(JSOP_GETPROP_SUPER,   104, "getprop-super", NULL, 5,  2,  1, JOF_ATOM|JOF_PROP|JOF_TYPESET) \
     /*
      * Pops the top three values on the stack as 'val' and 'obj', and 'receiver',
      * and performs 'obj.prop = val', pushing 'val' back onto the stack.
@@ -1279,7 +1279,7 @@
      *   Operands:
      *   Stack: receiver, propval, obj => obj[propval]
      */ \
-    macro(JSOP_GETELEM_SUPER, 125, "getelem-super", NULL, 1,  3,  1, JOF_BYTE |JOF_ELEM|JOF_LEFTASSOC) \
+    macro(JSOP_GETELEM_SUPER, 125, "getelem-super", NULL, 1,  3,  1, JOF_BYTE|JOF_ELEM|JOF_TYPESET|JOF_LEFTASSOC) \
     /*
      * Pushes newly created array for a spread call onto the stack. This has
      * the same semantics as JSOP_NEWARRAY, but is distinguished to avoid
