@@ -263,8 +263,6 @@ CodeGenerator::visitOutOfLineICFallback(OutOfLineICFallback* ool)
         masm.jump(ool->rejoin());
         return;
       }
-      case CacheKind::TypeOf:
-        MOZ_CRASH("Baseline-specific for now");
       case CacheKind::HasOwn: {
         IonHasOwnIC* hasOwnIC = ic->asHasOwnIC();
 
@@ -284,8 +282,9 @@ CodeGenerator::visitOutOfLineICFallback(OutOfLineICFallback* ool)
         return;
       }
       case CacheKind::Call:
-        /* CacheIR Call ICs should not show up in Ion. */
-        MOZ_CRASH();
+      case CacheKind::TypeOf:
+      case CacheKind::GetPropSuper:
+        MOZ_CRASH("Unsupported IC");
     }
     MOZ_CRASH();
 }
