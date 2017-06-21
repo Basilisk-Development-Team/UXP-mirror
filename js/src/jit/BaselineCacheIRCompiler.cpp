@@ -1923,6 +1923,7 @@ BaselineCacheIRCompiler::init(CacheKind kind)
         allocator.initInputLocation(0, R0);
         allocator.initInputLocation(1, R1);
         break;
+      case CacheKind::GetElemSuper:
       case CacheKind::SetElem:
         MOZ_ASSERT(numInputs == 3);
         allocator.initInputLocation(0, R0);
@@ -1994,6 +1995,7 @@ jit::AttachBaselineCacheIRStub(JSContext* cx, const CacheIRWriter& writer,
       case CacheKind::GetElem:
       case CacheKind::GetName:
       case CacheKind::GetPropSuper:
+      case CacheKind::GetElemSuper:
       case CacheKind::Call:
         stubDataOffset = sizeof(ICCacheIR_Monitored);
         stubKind = CacheIRStubKind::Monitored;

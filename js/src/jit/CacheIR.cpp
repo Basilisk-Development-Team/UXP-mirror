@@ -144,6 +144,10 @@ GetPropIRGenerator::tryAttachStub()
         MOZ_ASSERT_IF(cacheKind_ != CacheKind::GetPropSuper, getElemKeyValueId().id() == 1);
         writer.setInputOperandId(1);
     }
+    if (cacheKind_ == CacheKind::GetElemSuper) {
+        MOZ_ASSERT(getSuperReceiverValueId().id() == 2);
+        writer.setInputOperandId(2);
+    }
 
     RootedId id(cx_);
     bool nameOrSymbol;
@@ -181,8 +185,7 @@ GetPropIRGenerator::tryAttachStub()
             trackNotAttached();
             return false;
         }
-        MOZ_ASSERT(cacheKind_ == CacheKind::GetElem);
-
+        MOZ_ASSERT(cacheKind_ == CacheKind::GetElem || cacheKind_ == CacheKind::GetElemSuper);
         if (tryAttachProxyElement(obj, objId))
             return true;
 
@@ -558,7 +561,7 @@ GetPropIRGenerator::attachMegamorphicNativeSlot(ObjOperandId objId, jsid id, boo
         writer.megamorphicLoadSlotResult(objId, JSID_TO_ATOM(id)->asPropertyName(),
                                          handleMissing);
     } else {
-        MOZ_ASSERT(cacheKind_ == CacheKind::GetElem);
+        MOZ_ASSERT(cacheKind_ == CacheKind::GetElem || cacheKind_ == CacheKind::GetElemSuper);
         writer.megamorphicLoadSlotByValueResult(objId, getElemKeyValueId(), handleMissing);
     }
     writer.typeMonitorResult();
@@ -1567,6 +1570,10 @@ GetPropIRGenerator::tryAttachProxyElement(HandleObject obj, ObjOperandId objId)
     if (!obj->is<ProxyObject>())
         return false;
 
+    // The proxy stubs don't currently support |super| access.
+    if (isSuper())
+        return false;
+
     writer.guardIsProxy(objId);
 
     // We are not guarding against DOM proxies here, because there is no other
@@ -1636,7 +1643,7 @@ GetPropIRGenerator::maybeEmitIdGuard(jsid id)
         return;
     }
 
-    MOZ_ASSERT(cacheKind_ == CacheKind::GetElem);
+    MOZ_ASSERT(cacheKind_ == CacheKind::GetElem || cacheKind_ == CacheKind::GetElemSuper);
     emitIdGuard(getElemKeyValueId(), id);
 }
 
