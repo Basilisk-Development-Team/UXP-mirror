@@ -402,6 +402,7 @@ class CodeGenerator final : public CodeGeneratorSpecific
     void visitDebugCheckSelfHosted(LDebugCheckSelfHosted* ins);
     void visitNaNToZero(LNaNToZero* ins);
     void visitOutOfLineNaNToZero(OutOfLineNaNToZero* ool);
+    void visitFinishBoundFunctionInit(LFinishBoundFunctionInit* lir);
 
     void visitCheckOverRecursed(LCheckOverRecursed* lir);
     void visitCheckOverRecursedFailure(CheckOverRecursedFailure* ool);

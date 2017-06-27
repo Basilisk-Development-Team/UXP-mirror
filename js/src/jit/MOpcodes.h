@@ -280,6 +280,7 @@ namespace jit {
     _(CheckObjCoercible)                                                    \
     _(DebugCheckSelfHosted)                                                 \
     _(AsmJSNeg)                                                             \
+    _(FinishBoundFunctionInit)                                              \
     _(AsmJSLoadHeap)                                                        \
     _(AsmJSStoreHeap)                                                       \
     _(AsmJSCompareExchangeHeap)                                             \
