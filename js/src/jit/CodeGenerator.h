@@ -374,6 +374,8 @@ class CodeGenerator final : public CodeGeneratorSpecific
     void visitOutOfLineIsCallable(OutOfLineIsCallable* ool);
     void visitIsConstructor(LIsConstructor* lir);
     void visitOutOfLineIsConstructor(OutOfLineIsConstructor* ool);
+    void visitIsArrayO(LIsArrayO* lir);
+    void visitIsArrayV(LIsArrayV* lir);
     void visitIsObject(LIsObject* lir);
     void visitIsObjectAndBranch(LIsObjectAndBranch* lir);
     void visitIsNullOrUndefined(LIsNullOrUndefined* ins);
