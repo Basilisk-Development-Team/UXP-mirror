@@ -398,18 +398,33 @@ static const FinalizePhase BackgroundFinalizePhases[] = {
 // Incremental sweeping is controlled by a list of actions that describe what
 // happens and in what order. Due to the incremental nature of sweeping an
 // action does not necessarily run to completion so the current state is tracked
-// in the GCRuntime by the performSweepActions() method.
+// in the GCRuntime by the performSweepActions() method. We may yield to the
+// mutator after running part of any action.
 //
-// Actions are performed in phases run per sweep group, and each action is run
-// for every zone in the group, i.e. as if by the following pseudocode:
+// There are two types of action: per-sweep-group and per-zone.
+//
+// Per-sweep-group actions are run first. Per-zone actions are grouped into
+// phases, with each phase run once per sweep group, and each action in it run
+// for every zone in the group.
+//
+// This is illustrated by the following pseudocode:
 //
 //   for each sweep group:
-//     for each phase:
+//     for each per-sweep-group action:
+//       run part or all of action
+//       maybe yield to the mutator
+//     for each per-zone phase:
 //       for each zone in sweep group:
 //         for each action in phase:
-//           perform_action
+//           run part or all of action
+//           maybe yield to the mutator
+//
+// Progress through the loops is stored in GCRuntime, e.g. |sweepActionIndex|
+// for looping through the sweep actions.
 
-struct SweepAction
+using PerZoneGroupSweepAction = IncrementalProgress (*)(GCRuntime* gc, SliceBudget& budget);
+
+struct PerZoneSweepAction
 {
     using Func = IncrementalProgress (*)(GCRuntime* gc, FreeOp* fop, Zone* zone,
                                          SliceBudget& budget, AllocKind kind);
@@ -417,13 +432,15 @@ struct SweepAction
     Func func;
     AllocKind kind;
 
-    SweepAction(Func func, AllocKind kind) : func(func), kind(kind) {}
+    PerZoneSweepAction(Func func, AllocKind kind) : func(func), kind(kind) {}
 };
 
-using SweepActionVector = Vector<SweepAction, 0, SystemAllocPolicy>;
-using SweepPhaseVector = Vector<SweepActionVector, 0, SystemAllocPolicy>;
+using PerZoneGroupActionVector = Vector<PerZoneGroupSweepAction, 0, SystemAllocPolicy>;
+using PerZoneSweepActionVector = Vector<PerZoneSweepAction, 0, SystemAllocPolicy>;
+using PerZoneSweepPhaseVector = Vector<PerZoneSweepActionVector, 0, SystemAllocPolicy>;
 
-static SweepPhaseVector SweepPhases;
+static PerZoneGroupActionVector PerZoneGroupSweepActions;
+static PerZoneSweepPhaseVector PerZoneSweepPhases;
 
 bool
 js::gc::InitializeStaticData()
@@ -4847,9 +4864,10 @@ GCRuntime::beginSweepingZoneGroup()
         zone->arenas.queueForegroundThingsForSweep(&fop);
     }
 
+    sweepActionList = PerZoneGroupActionList;
+    sweepActionIndex = 0;
     sweepPhaseIndex = 0;
     sweepZone = currentZoneGroup;
-    sweepActionIndex = 0;
 
     {
         gcstats::AutoPhase ap(stats(), gcstats::PHASE_FINALIZE_END);
@@ -5059,10 +5077,9 @@ GCRuntime::startSweepingAtomsTable()
 }
 
 /* static */ IncrementalProgress
-GCRuntime::sweepAtomsTable(GCRuntime* gc, FreeOp* fop, Zone* zone, SliceBudget& budget,
-                           AllocKind kind)
+GCRuntime::sweepAtomsTable(GCRuntime* gc, SliceBudget& budget)
 {
-    if (!zone->isAtomsZone())
+    if (!gc->atomsZone->isGCSweeping())
         return Finished;
 
     return gc->sweepAtomsTable(budget);
@@ -5146,17 +5163,24 @@ GCRuntime::sweepShapeTree(GCRuntime* gc, FreeOp* fop, Zone* zone, SliceBudget& b
 }
 
 static void
-AddSweepPhase(bool* ok)
+AddPerZoneGroupSweepAction(bool* ok, PerZoneGroupSweepAction action)
 {
     if (*ok)
-        *ok = SweepPhases.emplaceBack();
+        *ok = PerZoneGroupSweepActions.emplaceBack(action);
 }
 
 static void
-AddSweepAction(bool* ok, SweepAction::Func func, AllocKind kind = AllocKind::LIMIT)
+AddPerZoneSweepPhase(bool* ok)
 {
     if (*ok)
-        *ok = SweepPhases.back().emplaceBack(func, kind);
+        *ok = PerZoneSweepPhases.emplaceBack();
+}
+
+static void
+AddPerZoneSweepAction(bool* ok, PerZoneSweepAction::Func func, AllocKind kind = AllocKind::LIMIT)
+{
+    if (*ok)
+        *ok = PerZoneSweepPhases.back().emplaceBack(func, kind);
 }
 
 /* static */ bool
@@ -5164,22 +5188,31 @@ GCRuntime::initializeSweepActions()
 {
     bool ok = true;
 
-    AddSweepPhase(&ok);
-    AddSweepAction(&ok, GCRuntime::sweepAtomsTable);
+    AddPerZoneGroupSweepAction(&ok, GCRuntime::sweepAtomsTable);
 
-    AddSweepAction(&ok, GCRuntime::sweepTypeInformation);
-    AddSweepAction(&ok, GCRuntime::mergeSweptObjectArenas);
+    AddPerZoneSweepPhase(&ok);
+
+    AddPerZoneSweepPhase(&ok);
+    AddPerZoneSweepAction(&ok, GCRuntime::sweepTypeInformation);
+    AddPerZoneSweepAction(&ok, GCRuntime::mergeSweptObjectArenas);
 
     for (const auto& finalizePhase : IncrementalFinalizePhases) {
-        AddSweepPhase(&ok);
+        AddPerZoneSweepPhase(&ok);
         for (auto kind : finalizePhase.kinds)
-            AddSweepAction(&ok, GCRuntime::finalizeAllocKind, kind);
+            AddPerZoneSweepAction(&ok, GCRuntime::finalizeAllocKind, kind);
     }
 
-    AddSweepPhase(&ok);
-    AddSweepAction(&ok, GCRuntime::sweepShapeTree);
+    AddPerZoneSweepPhase(&ok);
+    AddPerZoneSweepAction(&ok, GCRuntime::sweepShapeTree);
 
     return ok;
+}
+
+static inline SweepActionList
+NextSweepActionList(SweepActionList list)
+{
+    MOZ_ASSERT(list < SweepActionListCount);
+    return SweepActionList(unsigned(list) + 1);
 }
 
 IncrementalProgress
@@ -5195,22 +5228,43 @@ GCRuntime::performSweepActions(SliceBudget& budget, AutoLockForExclusiveAccess& 
 
 
     for (;;) {
-        for (; sweepPhaseIndex < SweepPhases.length(); sweepPhaseIndex++) {
-            const auto& actions = SweepPhases[sweepPhaseIndex];
-            for (; sweepZone; sweepZone = sweepZone->nextNodeInGroup()) {
+        for (; sweepActionList < SweepActionListCount;
+             sweepActionList = NextSweepActionList(sweepActionList))
+        {
+            switch (sweepActionList) {
+              case PerZoneGroupActionList: {
+                const auto& actions = PerZoneGroupSweepActions;
                 for (; sweepActionIndex < actions.length(); sweepActionIndex++) {
-                    const auto& action = actions[sweepActionIndex];
-                    if (action.func(this, &fop, sweepZone, budget, action.kind) == NotFinished)
+                    auto action = actions[sweepActionIndex];
+                    if (action(this, budget) == NotFinished)
                         return NotFinished;
                 }
                 // Reset action index to first.
                 sweepActionIndex = 0;
-            }
-            sweepZone = currentZoneGroup;
-        }
+                break;
+              }
 
-        // Reset phase index.
-        sweepPhaseIndex = 0;
+              case PerZoneActionList:
+                for (; sweepPhaseIndex < PerZoneSweepPhases.length(); sweepPhaseIndex++) {
+                    const auto& actions = PerZoneSweepPhases[sweepPhaseIndex];
+                    for (; sweepZone; sweepZone = sweepZone->nextNodeInGroup()) {
+                        for (; sweepActionIndex < actions.length(); sweepActionIndex++) {
+                            const auto& action = actions[sweepActionIndex];
+                            if (action.func(this, &fop, sweepZone, budget, action.kind) == NotFinished)
+                                return NotFinished;
+                        }
+                        sweepActionIndex = 0;
+                    }
+                    sweepZone = currentZoneGroup;
+                }
+                sweepPhaseIndex = 0;
+                break;
+
+              default:
+                MOZ_CRASH("Unexpected sweepActionList value");
+            }
+        }
+        sweepActionList = PerZoneGroupActionList;
         
         endSweepingZoneGroup();
         getNextZoneGroup();
