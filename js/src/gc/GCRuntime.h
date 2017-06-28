@@ -44,6 +44,13 @@ enum IncrementalProgress
     Finished
 };
 
+enum SweepActionList
+{
+    PerZoneGroupActionList,
+    PerZoneActionList,
+    SweepActionListCount
+};
+
 class ChunkPool
 {
     Chunk* head_;
@@ -976,8 +983,7 @@ class GCRuntime
                                                     SliceBudget& budget, AllocKind kind);
     static IncrementalProgress mergeSweptObjectArenas(GCRuntime* gc, FreeOp* fop, Zone* zone,
                                                       SliceBudget& budget, AllocKind kind);
-    static IncrementalProgress sweepAtomsTable(GCRuntime* gc, FreeOp* fop, Zone* zone,
-                                               SliceBudget& budget, AllocKind kind);
+    static IncrementalProgress sweepAtomsTable(GCRuntime* gc, SliceBudget& budget);
     void startSweepingAtomsTable();
     IncrementalProgress sweepAtomsTable(SliceBudget& budget);
     static IncrementalProgress finalizeAllocKind(GCRuntime* gc, FreeOp* fop, Zone* zone,
@@ -1200,6 +1206,7 @@ class GCRuntime
      */
     ActiveThreadData<JS::Zone*> zoneGroups;
     ActiveThreadData<JS::Zone*> currentZoneGroup;
+    ActiveThreadData<SweepActionList> sweepActionList;
     ActiveThreadData<size_t> sweepPhaseIndex;
     ActiveThreadData<JS::Zone*> sweepZone;
     ActiveThreadData<size_t> sweepActionIndex;
