@@ -12187,6 +12187,23 @@ class MGuardToClass
     }
 };
 
+// Note: we might call a proxy trap, so this instruction is effectful.
+class MIsArray
+  : public MUnaryInstruction,
+    public BoxExceptPolicy<0, MIRType::Object>::Data
+{
+    explicit MIsArray(MDefinition* value)
+      : MUnaryInstruction(classOpcode, value)
+    {
+        setResultType(MIRType::Boolean);
+    }
+
+  public:
+    INSTRUCTION_HEADER(IsArray)
+    TRIVIAL_NEW_WRAPPERS
+    NAMED_OPERANDS((0, value))
+};
+
 class MObjectClassToString
   : public MUnaryInstruction,
     public SingleObjectPolicy::Data

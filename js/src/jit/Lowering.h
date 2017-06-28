@@ -289,6 +289,7 @@ class LIRGenerator : public LIRGeneratorSpecific
     void visitCallInstanceOf(MCallInstanceOf* ins);
     void visitIsCallable(MIsCallable* ins);
     void visitIsConstructor(MIsConstructor* ins);
+    void visitIsArray(MIsArray* ins);
     void visitIsObject(MIsObject* ins);
     void visitIsNullOrUndefined(MIsNullOrUndefined* ins);
     void visitHasClass(MHasClass* ins);
