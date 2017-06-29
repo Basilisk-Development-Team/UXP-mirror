@@ -2149,44 +2149,6 @@ JS::IdentifyStandardConstructor(JSObject* obj)
 }
 
 bool
-JSObject::isCallable() const
-{
-    if (is<JSFunction>())
-        return true;
-    if (is<js::ProxyObject>()) {
-        const js::ProxyObject& p = as<js::ProxyObject>();
-        return p.handler()->isCallable(const_cast<JSObject*>(this));
-    }
-    return callHook() != nullptr;
-}
-
-bool
-JSObject::isConstructor() const
-{
-    if (is<JSFunction>()) {
-        const JSFunction& fun = as<JSFunction>();
-        return fun.isConstructor();
-    }
-    if (is<js::ProxyObject>()) {
-        const js::ProxyObject& p = as<js::ProxyObject>();
-        return p.handler()->isConstructor(const_cast<JSObject*>(this));
-    }
-    return constructHook() != nullptr;
-}
-
-JSNative
-JSObject::callHook() const
-{
-    return getClass()->getCall();
-}
-
-JSNative
-JSObject::constructHook() const
-{
-    return getClass()->getConstruct();
-}
-
-bool
 js::LookupProperty(JSContext* cx, HandleObject obj, js::HandleId id,
                    MutableHandleObject objp, MutableHandle<PropertyResult> propp)
 {
@@ -2896,18 +2858,6 @@ js::GetPropertyDescriptor(JSContext* cx, HandleObject obj, HandleId id,
     MOZ_ASSERT(!desc.object());
     return true;
 }
-
-const char*
-js::GetObjectClassName(JSContext* cx, HandleObject obj)
-{
-    assertSameCompartment(cx, obj);
-
-    if (obj->is<ProxyObject>())
-        return Proxy::className(cx, obj);
-
-    return obj->getClass()->name;
-}
-
 
 /* * */
 

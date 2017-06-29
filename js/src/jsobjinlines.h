@@ -822,6 +822,68 @@ InitClass(JSContext* cx, HandleObject obj, HandleObject parent_proto,
           NativeObject** ctorp = nullptr,
           gc::AllocKind ctorKind = gc::AllocKind::FUNCTION);
 
+MOZ_ALWAYS_INLINE const char*
+GetObjectClassName(JSContext* cx, HandleObject obj)
+{
+    assertSameCompartment(cx, obj);
+
+    if (obj->is<ProxyObject>())
+        return Proxy::className(cx, obj);
+
+    return obj->getClass()->name;
+}
+
+inline bool
+IsCallable(const Value& v)
+{
+    return v.isObject() && v.toObject().isCallable();
+}
+
+// ES6 rev 24 (2014 April 27) 7.2.5 IsConstructor
+inline bool
+IsConstructor(const Value& v)
+{
+    return v.isObject() && v.toObject().isConstructor();
+}
+
 } /* namespace js */
+
+MOZ_ALWAYS_INLINE bool
+JSObject::isCallable() const
+{
+    if (is<JSFunction>())
+        return true;
+    if (is<js::ProxyObject>()) {
+        const js::ProxyObject& p = as<js::ProxyObject>();
+        return p.handler()->isCallable(const_cast<JSObject*>(this));
+    }
+    return callHook() != nullptr;
+}
+
+MOZ_ALWAYS_INLINE bool
+JSObject::isConstructor() const
+{
+    if (is<JSFunction>()) {
+        const JSFunction& fun = as<JSFunction>();
+        return fun.isConstructor();
+    }
+    if (is<js::ProxyObject>()) {
+        const js::ProxyObject& p = as<js::ProxyObject>();
+        return p.handler()->isConstructor(const_cast<JSObject*>(this));
+    }
+    return constructHook() != nullptr;
+}
+
+MOZ_ALWAYS_INLINE JSNative
+JSObject::callHook() const
+{
+    return getClass()->getCall();
+}
+
+MOZ_ALWAYS_INLINE JSNative
+JSObject::constructHook() const
+{
+    return getClass()->getConstruct();
+}
 
 #endif /* jsobjinlines_h */
