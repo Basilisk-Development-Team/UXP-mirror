@@ -2846,7 +2846,6 @@ CASE(JSOP_STRICTSETELEM_SUPER)
     static_assert(JSOP_SETELEM_SUPER_LENGTH == JSOP_STRICTSETELEM_SUPER_LENGTH,
                   "setelem-super and strictsetelem-super must be the same size");
 
-
     ReservedRooted<Value> receiver(&rootValue0, REGS.sp[-4]);
     ReservedRooted<Value> index(&rootValue1, REGS.sp[-3]);
 
@@ -2854,7 +2853,7 @@ CASE(JSOP_STRICTSETELEM_SUPER)
     HandleValue value = REGS.stackHandleAt(-1);
 
     bool strict = JSOp(*REGS.pc) == JSOP_STRICTSETELEM_SUPER;
-    if (!SetObjectElementOperation(cx, obj, id, value, receiver, strict))
+    if (!SetObjectElement(cx, obj, index, value, receiver, strict))
         goto error;
     REGS.sp[-4] = value;
     REGS.sp -= 3;
@@ -4565,6 +4564,16 @@ js::SetObjectElement(JSContext* cx, HandleObject obj, HandleValue index, HandleV
         return false;
     RootedValue receiver(cx, ObjectValue(*obj));
     return SetObjectElementOperation(cx, obj, id, value, receiver, strict, script, pc);
+}
+
+bool
+js::SetObjectElement(JSContext* cx, HandleObject obj, HandleValue index, HandleValue value,
+                     HandleValue receiver, bool strict)
+{
+    RootedId id(cx);
+    if (!ToPropertyKey(cx, index, &id))
+        return false;
+    return SetObjectElementOperation(cx, obj, id, value, receiver, strict);
 }
 
 bool
