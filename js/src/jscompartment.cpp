@@ -132,9 +132,6 @@ JSCompartment::init(JSContext* maybecx)
         return false;
     }
 
-    if (!regExps.init(maybecx))
-        return false;
-
     enumerators = NativeIterator::allocateSentinel(maybecx);
     if (!enumerators)
         return false;
@@ -986,7 +983,6 @@ JSCompartment::clearTables()
     MOZ_ASSERT(!jitCompartment_);
     MOZ_ASSERT(!debugEnvs);
     MOZ_ASSERT(enumerators->next() == enumerators);
-    MOZ_ASSERT(regExps.empty());
 
     objectGroups.clearTables();
     if (savedStacks_.initialized())
@@ -1250,7 +1246,6 @@ JSCompartment::addSizeOfIncludingThis(mozilla::MallocSizeOf mallocSizeOf,
                                       size_t* lazyArrayBuffersArg,
                                       size_t* objectMetadataTablesArg,
                                       size_t* crossCompartmentWrappersArg,
-                                      size_t* regexpCompartment,
                                       size_t* savedStacksSet,
                                       size_t* varNamesSet,
                                       size_t* nonSyntacticLexicalEnvironmentsArg,
@@ -1268,7 +1263,6 @@ JSCompartment::addSizeOfIncludingThis(mozilla::MallocSizeOf mallocSizeOf,
     if (objectMetadataTable)
         *objectMetadataTablesArg += objectMetadataTable->sizeOfIncludingThis(mallocSizeOf);
     *crossCompartmentWrappersArg += crossCompartmentWrappers.sizeOfExcludingThis(mallocSizeOf);
-    *regexpCompartment += regExps.sizeOfExcludingThis(mallocSizeOf);
     *savedStacksSet += savedStacks_.sizeOfExcludingThis(mallocSizeOf);
     *varNamesSet += varNames_.sizeOfExcludingThis(mallocSizeOf);
     if (nonSyntacticLexicalEnvironments_)
