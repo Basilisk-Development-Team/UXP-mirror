@@ -7023,9 +7023,12 @@ class MRegExp : public MNullaryInstruction
 {
     CompilerGCPointer<RegExpObject*> source_;
 
-    MRegExp(CompilerConstraintList* constraints, RegExpObject* source)
+    bool hasShared_;
+
+    MRegExp(CompilerConstraintList* constraints, RegExpObject* source, bool hasShared)
       : MNullaryInstruction(classOpcode),
-        source_(source)
+        source_(source),
+        hasShared_(hasShared)
     {
         setResultType(MIRType::Object);
         setResultTypeSet(MakeSingletonTypeSet(constraints, source));
@@ -7035,6 +7038,10 @@ class MRegExp : public MNullaryInstruction
     INSTRUCTION_HEADER(RegExp)
     TRIVIAL_NEW_WRAPPERS
 
+    bool hasShared() const {
+        return hasShared_;
+    }
+	
     RegExpObject* source() const {
         return source_;
     }

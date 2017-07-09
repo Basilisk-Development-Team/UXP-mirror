@@ -2305,8 +2305,8 @@ LIRGenerator::visitToObjectOrNull(MToObjectOrNull* ins)
 void
 LIRGenerator::visitRegExp(MRegExp* ins)
 {
-    LRegExp* lir = new(alloc()) LRegExp();
-    defineReturn(lir, ins);
+    LRegExp* lir = new (alloc()) LRegExp(temp());
+    define(lir, ins);
     assignSafepoint(lir, ins);
 }
 
