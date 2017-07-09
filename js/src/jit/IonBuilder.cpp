@@ -11897,7 +11897,11 @@ IonBuilder::jsop_delelem()
 AbortReasonOr<Ok>
 IonBuilder::jsop_regexp(RegExpObject* reobj)
 {
-    MRegExp* regexp = MRegExp::New(alloc(), constraints(), reobj);
+    // Determine this while we're still on the main thread to avoid races.
+    bool hasShared = reobj->hasShared();
+
+    MRegExp* regexp = MRegExp::New(alloc(), constraints(), reobj, hasShared);
+
     current->add(regexp);
     current->push(regexp);
 
