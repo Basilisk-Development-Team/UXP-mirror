@@ -37,14 +37,14 @@ BEGIN_TEST(testGCUID)
     CHECK(!obj->zone()->hasUniqueId(obj));
 
     // Ensure we can get a new UID.
-    CHECK(obj->zone()->getUniqueId(obj, &uid));
+    CHECK(obj->zone()->getOrCreateUniqueId(obj, &uid));
     CHECK(uid > js::gc::LargestTaggedNullCellPointer);
 
     // We should now have an id.
     CHECK(obj->zone()->hasUniqueId(obj));
 
     // Calling again should get us the same thing.
-    CHECK(obj->zone()->getUniqueId(obj, &tmp));
+    CHECK(obj->zone()->getOrCreateUniqueId(obj, &tmp));
     CHECK(uid == tmp);
 
     // Tenure the thing and check that the UID moved with it.
@@ -53,7 +53,7 @@ BEGIN_TEST(testGCUID)
     CHECK(tenuredAddr != nurseryAddr);
     CHECK(!js::gc::IsInsideNursery(obj));
     CHECK(obj->zone()->hasUniqueId(obj));
-    CHECK(obj->zone()->getUniqueId(obj, &tmp));
+    CHECK(obj->zone()->getOrCreateUniqueId(obj, &tmp));
     CHECK(uid == tmp);
 
     // Allocate a new nursery thing in the same location and check that we
@@ -71,7 +71,7 @@ BEGIN_TEST(testGCUID)
     MinimizeHeap(cx);
     CHECK(uintptr_t(obj.get()) == tenuredAddr);
     CHECK(!obj->zone()->hasUniqueId(obj));
-    CHECK(obj->zone()->getUniqueId(obj, &tmp));
+    CHECK(obj->zone()->getOrCreateUniqueId(obj, &tmp));
     CHECK(uid != tmp);
     uid = tmp;
 
@@ -101,7 +101,7 @@ BEGIN_TEST(testGCUID)
     obj = vec2.back();
     CHECK(obj);
     tenuredAddr = uintptr_t(obj.get());
-    CHECK(obj->zone()->getUniqueId(obj, &uid));
+    CHECK(obj->zone()->getOrCreateUniqueId(obj, &uid));
 
     // Force a compaction to move the object and check that the uid moved to
     // the new tenured heap location.
@@ -110,7 +110,7 @@ BEGIN_TEST(testGCUID)
     MinimizeHeap(cx);
     CHECK(uintptr_t(obj.get()) != tenuredAddr);
     CHECK(obj->zone()->hasUniqueId(obj));
-    CHECK(obj->zone()->getUniqueId(obj, &tmp));
+    CHECK(obj->zone()->getOrCreateUniqueId(obj, &tmp));
     CHECK(uid == tmp);
 
     return true;
