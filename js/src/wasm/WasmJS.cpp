@@ -1231,18 +1231,18 @@ WasmMemoryObject::hasObservers() const
     return !getReservedSlot(OBSERVERS_SLOT).isUndefined();
 }
 
-WasmMemoryObject::WeakInstanceSet&
+WasmMemoryObject::InstanceSet&
 WasmMemoryObject::observers() const
 {
     MOZ_ASSERT(hasObservers());
-    return *reinterpret_cast<WeakInstanceSet*>(getReservedSlot(OBSERVERS_SLOT).toPrivate());
+    return *reinterpret_cast<InstanceSet*>(getReservedSlot(OBSERVERS_SLOT).toPrivate());
 }
 
-WasmMemoryObject::WeakInstanceSet*
+WasmMemoryObject::InstanceSet*
 WasmMemoryObject::getOrCreateObservers(JSContext* cx)
 {
     if (!hasObservers()) {
-        auto observers = MakeUnique<WeakInstanceSet>(cx->zone());
+        auto observers = MakeUnique<InstanceSet>(cx->zone());
         if (!observers || !observers->init()) {
             ReportOutOfMemory(cx);
             return nullptr;
@@ -1269,7 +1269,7 @@ WasmMemoryObject::addMovingGrowObserver(JSContext* cx, WasmInstanceObject* insta
 {
     MOZ_ASSERT(movingGrowable());
 
-    WeakInstanceSet* observers = getOrCreateObservers(cx);
+    InstanceSet* observers = getOrCreateObservers(cx);
     if (!observers)
         return false;
 

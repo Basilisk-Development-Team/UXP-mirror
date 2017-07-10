@@ -200,13 +200,12 @@ class WasmMemoryObject : public NativeObject
     static bool growImpl(JSContext* cx, const CallArgs& args);
     static bool grow(JSContext* cx, unsigned argc, Value* vp);
 
-    using InstanceSet = GCHashSet<ReadBarrieredWasmInstanceObject,
-                                  MovableCellHasher<ReadBarrieredWasmInstanceObject>,
-                                  SystemAllocPolicy>;
-    using WeakInstanceSet = JS::WeakCache<InstanceSet>;
+    using InstanceSet = JS::WeakCache<GCHashSet<ReadBarrieredWasmInstanceObject,
+                                                MovableCellHasher<ReadBarrieredWasmInstanceObject>,
+                                                SystemAllocPolicy>>;
     bool hasObservers() const;
-    WeakInstanceSet& observers() const;
-    WeakInstanceSet* getOrCreateObservers(JSContext* cx);
+    InstanceSet& observers() const;
+    InstanceSet* getOrCreateObservers(JSContext* cx);
 
   public:
     static const unsigned RESERVED_SLOTS = 2;
