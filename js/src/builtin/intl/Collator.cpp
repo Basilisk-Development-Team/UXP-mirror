@@ -86,7 +86,7 @@ Collator(JSContext* cx, const CallArgs& args)
 
     // Steps 2-5 (Inlined 9.1.14, OrdinaryCreateFromConstructor).
     RootedObject proto(cx);
-    if (args.isConstructing() && !GetPrototypeFromCallableConstructor(cx, args, &proto))
+    if (!GetPrototypeFromBuiltinConstructor(cx, args, &proto))
         return false;
 
     if (!proto) {
