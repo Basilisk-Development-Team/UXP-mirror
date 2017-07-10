@@ -525,6 +525,19 @@ struct Zone : public JS::shadow::Zone,
         return true;
     }
 
+    // Gets an existing UID in |uidp| if one exists.
+    [[nodiscard]] bool maybeGetUniqueId(js::gc::Cell* cell, uint64_t* uidp) {
+        MOZ_ASSERT(uidp);
+        MOZ_ASSERT(js::CurrentThreadCanAccessZone(this));
+
+        // Get an existing uid, if one has been set.
+        auto p = uniqueIds().lookup(cell);
+        if (p)
+            *uidp = p->value();
+
+        return p.found();
+    }
+
     // Puts an existing UID in |uidp|, or creates a new UID for this Cell and
     // puts that into |uidp|. Returns false on OOM.
     [[nodiscard]] bool getOrCreateUniqueId(js::gc::Cell* cell, uint64_t* uidp) {
