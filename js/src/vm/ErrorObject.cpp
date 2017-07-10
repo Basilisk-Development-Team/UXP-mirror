@@ -266,7 +266,7 @@ static bool Error(JSContext* cx, unsigned argc, Value* vp)
 
     // ES6 19.5.1.1 mandates the .prototype lookup happens before the toString
     RootedObject proto(cx);
-    if (!GetPrototypeFromCallableConstructor(cx, args, &proto))
+    if (!GetPrototypeFromBuiltinConstructor(cx, args, &proto))
         return false;
 
     auto* obj = CreateErrorObject(cx, args, 0, exnType, proto);
@@ -317,7 +317,7 @@ static bool AggregateError(JSContext* cx, unsigned argc, Value* vp)
 
     // Steps 1-2. (9.1.13 OrdinaryCreateFromConstructor, steps 1-2).
     RootedObject proto(cx);
-    if (!GetPrototypeFromCallableConstructor(cx, args, &proto)) {
+    if (!GetPrototypeFromBuiltinConstructor(cx, args, &proto)) {
         return false;
     }
 
