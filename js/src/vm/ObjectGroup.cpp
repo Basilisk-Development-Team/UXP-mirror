@@ -388,6 +388,15 @@ struct ObjectGroupCompartment::NewEntry
           : clasp(clasp), proto(proto), associated(associated)
         {}
 
+        explicit Lookup(const NewEntry& entry)
+          : clasp(entry.group.unbarrieredGet()->clasp()),
+            proto(entry.group.unbarrieredGet()->proto()),
+            associated(entry.associated)
+        {
+            if (associated && associated->is<JSFunction>())
+                clasp = nullptr;
+        }
+
         bool hasAssocId() const {
             return !associated || associated->zone()->hasUniqueId(associated);
         }
@@ -440,6 +449,10 @@ struct ObjectGroupCompartment::NewEntry
     bool needsSweep() {
         return (IsAboutToBeFinalized(&group) ||
                 (associated && IsAboutToBeFinalizedUnbarriered(&associated)));
+    }
+
+    bool operator==(const NewEntry& other) const {
+        return group == other.group && associated == other.associated;
     }
 };
 
@@ -1872,12 +1885,7 @@ ObjectGroupCompartment::checkNewTableAfterMovingGC(NewTable* table)
             CheckGCThingAfterMovingGC(proto.toObject());
         CheckGCThingAfterMovingGC(entry.associated);
 
-        const Class* clasp = entry.group.unbarrieredGet()->clasp();
-        if (entry.associated && entry.associated->is<JSFunction>())
-            clasp = nullptr;
-
-        NewEntry::Lookup lookup(clasp, proto, entry.associated);
-        auto ptr = table->lookup(lookup);
+        auto ptr = table->lookup(NewEntry::Lookup(entry));
         MOZ_RELEASE_ASSERT(ptr.found() && &*ptr == &r.front());
     }
 }
