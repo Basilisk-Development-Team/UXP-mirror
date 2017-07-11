@@ -2477,10 +2477,14 @@ static const JSFunctionSpec intrinsic_functions[] = {
 
     JS_INLINABLE_FN("GuardToMapObject", intrinsic_GuardToBuiltin<MapObject>, 1, 0,
           IntrinsicGuardToMapObject),
-    JS_FN("IsWeakSet", intrinsic_IsInstanceOfBuiltin<WeakSetObject>, 1,0),
+
+    JS_FN("CallMapMethodIfWrapped", CallNonGenericSelfhostedMethod<Is<MapObject>>, 2, 0),
 
     JS_INLINABLE_FN("GuardToSetObject", intrinsic_GuardToBuiltin<SetObject>, 1, 0,
           IntrinsicGuardToSetObject),
+    JS_FN("CallSetMethodIfWrapped", CallNonGenericSelfhostedMethod<Is<SetObject>>, 2, 0),
+    
+    JS_FN("IsWeakSet", intrinsic_IsInstanceOfBuiltin<WeakSetObject>, 1,0),
     JS_FN("CallWeakSetMethodIfWrapped",
           CallNonGenericSelfhostedMethod<Is<WeakSetObject>>, 2, 0),
 

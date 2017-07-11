@@ -10,6 +10,7 @@
 #include "jsstr.h"
 
 #include "builtin/AtomicsObject.h"
+#include "builtin/MapObject.h"
 #include "builtin/TestingFunctions.h"
 #include "builtin/TypedObject.h"
 #include "builtin/intl/Collator.h"
