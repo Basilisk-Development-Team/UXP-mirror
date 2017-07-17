@@ -111,6 +111,7 @@
     _(IntrinsicSubstringKernel)     \
     _(IntrinsicObjectHasPrototype)  \
     _(IntrinsicFinishBoundFunctionInit) \
+    _(IntrinsicIsPackedArray)       \
                                     \
     _(IntrinsicGuardToArrayIterator) \
     _(IntrinsicGuardToMapIterator)  \

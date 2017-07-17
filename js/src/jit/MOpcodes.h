@@ -281,6 +281,7 @@ namespace jit {
     _(DebugCheckSelfHosted)                                                 \
     _(AsmJSNeg)                                                             \
     _(FinishBoundFunctionInit)                                              \
+    _(IsPackedArray)                                                        \
     _(AsmJSLoadHeap)                                                        \
     _(AsmJSStoreHeap)                                                       \
     _(AsmJSCompareExchangeHeap)                                             \
