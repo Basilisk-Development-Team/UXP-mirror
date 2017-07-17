@@ -119,6 +119,7 @@ GetObject(const MDefinition* ins)
       case MDefinition::Opcode::LoadElementHole:
       case MDefinition::Opcode::TypedArrayElements:
       case MDefinition::Opcode::TypedObjectElements:
+      case MDefinition::Opcode::IsPackedArray:
         object = ins->getOperand(0);
         break;
       case MDefinition::Opcode::GetPropertyCache:
