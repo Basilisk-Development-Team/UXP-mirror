@@ -74,6 +74,7 @@ namespace JS {
     D(FULL_VALUE_BUFFER)                        \
     D(FULL_CELL_PTR_BUFFER)                     \
     D(FULL_SLOT_BUFFER)                         \
+    D(FULL_SHAPE_BUFFER)                        \
                                                 \
     /* These are reserved for future use. */    \
     D(RESERVED0)                                \
@@ -85,12 +86,6 @@ namespace JS {
     D(RESERVED6)                                \
     D(RESERVED7)                                \
     D(RESERVED8)                                \
-    D(RESERVED9)                                \
-    D(RESERVED10)                               \
-    D(RESERVED11)                               \
-    D(RESERVED12)                               \
-    D(RESERVED13)                               \
-    D(RESERVED14)                               \
                                                 \
     /* Reasons from Firefox */                  \
     D(DOM_WINDOW_UTILS)                         \
