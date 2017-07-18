@@ -255,6 +255,7 @@ namespace jit {
     _(IsConstructor)                                                        \
     _(IsCallable)                                                           \
     _(IsArray)                                                              \
+    _(IsTypedArray)                                                         \
     _(IsObject)                                                             \
     _(IsNullOrUndefined)                                                    \
     _(HasClass)                                                             \

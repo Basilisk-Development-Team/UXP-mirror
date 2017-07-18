@@ -12231,6 +12231,27 @@ class MIsArray
     NAMED_OPERANDS((0, value))
 };
 
+class MIsTypedArray
+  : public MUnaryInstruction,
+    public SingleObjectPolicy::Data
+{
+    explicit MIsTypedArray(MDefinition* value)
+      : MUnaryInstruction(classOpcode, value)
+    {
+        setResultType(MIRType::Boolean);
+        setMovable();
+    }
+
+  public:
+    INSTRUCTION_HEADER(IsTypedArray)
+    TRIVIAL_NEW_WRAPPERS
+    NAMED_OPERANDS((0, value))
+
+    AliasSet getAliasSet() const override {
+        return AliasSet::None();
+    }
+};
+
 class MObjectClassToString
   : public MUnaryInstruction,
     public SingleObjectPolicy::Data
