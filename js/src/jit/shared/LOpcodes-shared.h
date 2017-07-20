@@ -40,7 +40,6 @@
     _(InitElem)                     \
     _(InitElemGetterSetter)         \
     _(MutateProto)                  \
-    _(InitProp)                     \
     _(InitPropGetterSetter)         \
     _(CheckOverRecursed)            \
     _(DefVar)                       \

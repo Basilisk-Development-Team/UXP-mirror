@@ -247,13 +247,6 @@ MutatePrototype(JSContext* cx, HandlePlainObject obj, HandleValue value)
     return SetPrototype(cx, obj, newProto);
 }
 
-bool
-InitProp(JSContext* cx, HandleObject obj, HandlePropertyName name, HandleValue value,
-         jsbytecode* pc)
-{
-    return InitPropertyOperation(cx, JSOp(*pc), obj, name, value);
-}
-
 template<bool Equal>
 bool
 LooselyEqual(JSContext* cx, MutableHandleValue lhs, MutableHandleValue rhs, bool* res)

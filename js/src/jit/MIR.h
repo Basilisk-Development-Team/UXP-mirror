@@ -2758,39 +2758,6 @@ class MMutateProto
     }
 };
 
-// Slow path for adding a property to an object without a known base.
-class MInitProp
-  : public MBinaryInstruction,
-    public MixPolicy<ObjectPolicy<0>, BoxPolicy<1> >::Data
-{
-    CompilerPropertyName name_;
-
-  protected:
-    MInitProp(MDefinition* obj, PropertyName* name, MDefinition* value)
-      : MBinaryInstruction(classOpcode, obj, value),
-        name_(name)
-    {
-        setResultType(MIRType::None);
-    }
-
-  public:
-    INSTRUCTION_HEADER(InitProp)
-    TRIVIAL_NEW_WRAPPERS
-    NAMED_OPERANDS((0, getObject), (1, getValue))
-
-    PropertyName* propertyName() const {
-        return name_;
-    }
-
-    bool possiblyCalls() const override {
-        return true;
-    }
-
-    bool appendRoots(MRootList& roots) const override {
-        return roots.append(name_);
-    }
-};
-
 class MInitPropGetterSetter
   : public MBinaryInstruction,
     public MixPolicy<ObjectPolicy<0>, ObjectPolicy<1> >::Data
