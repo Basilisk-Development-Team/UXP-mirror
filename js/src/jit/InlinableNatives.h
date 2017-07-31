@@ -87,6 +87,7 @@
     _(IntrinsicStringSplitString)   \
                                     \
     _(ObjectCreate)                 \
+    _(ObjectToString)               \
                                     \
     _(TestBailout)                  \
     _(TestAssertFloat32)            \
