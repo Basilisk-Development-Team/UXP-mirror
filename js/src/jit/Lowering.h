@@ -293,6 +293,7 @@ class LIRGenerator : public LIRGeneratorSpecific
     void visitIsNullOrUndefined(MIsNullOrUndefined* ins);
     void visitHasClass(MHasClass* ins);
     void visitGuardToClass(MGuardToClass* ins);
+    void visitObjectClassToString(MObjectClassToString* ins);
     void visitWasmAddOffset(MWasmAddOffset* ins);
     void visitWasmBoundsCheck(MWasmBoundsCheck* ins);
     void visitWasmLoadGlobalVar(MWasmLoadGlobalVar* ins);

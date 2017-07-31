@@ -12187,6 +12187,30 @@ class MGuardToClass
     }
 };
 
+class MObjectClassToString
+  : public MUnaryInstruction,
+    public SingleObjectPolicy::Data
+{
+    explicit MObjectClassToString(MDefinition* obj)
+      : MUnaryInstruction(classOpcode, obj)
+    {
+        setMovable();
+        setResultType(MIRType::String);
+    }
+
+  public:
+    INSTRUCTION_HEADER(ObjectClassToString)
+    TRIVIAL_NEW_WRAPPERS
+    NAMED_OPERANDS((0, object))
+
+    AliasSet getAliasSet() const override {
+        return AliasSet::None();
+    }
+    bool congruentTo(const MDefinition* ins) const override {
+        return congruentIfOperandsEqual(ins);
+    }
+};
+
 class MCheckReturn
   : public MBinaryInstruction,
     public BoxInputsPolicy::Data

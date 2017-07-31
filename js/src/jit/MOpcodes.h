@@ -256,6 +256,7 @@ namespace jit {
     _(IsNullOrUndefined)                                                    \
     _(HasClass)                                                             \
     _(GuardToClass)                                                         \
+    _(ObjectClassToString)                                                  \
     _(CopySign)                                                             \
     _(Rotate)                                                               \
     _(NewDerivedTypedObject)                                                \

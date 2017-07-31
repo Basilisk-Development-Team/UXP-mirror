@@ -50,6 +50,9 @@ obj_isExtensible(JSContext* cx, unsigned argc, JS::Value* vp);
 [[nodiscard]] bool
 obj_toString(JSContext* cx, unsigned argc, JS::Value* vp);
 
+JSString*
+ObjectClassToString(JSContext* cx, HandleObject obj);
+
 // Exposed so SelfHosting.cpp can use it in the OwnPropertyKeys intrinsic
 [[nodiscard]] bool
 GetOwnPropertyKeys(JSContext* cx, const JS::CallArgs& args, unsigned flags);
