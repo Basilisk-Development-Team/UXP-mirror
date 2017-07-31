@@ -5022,14 +5022,13 @@ IonBuilder::jsop_funcall(uint32_t argc)
           case InliningDecision_DontInline:
           case InliningDecision_WarmUpCountTooLow:
             break;
-          case InliningDecision_Inline:
-            if (target->isInterpreted()) {
-                InliningStatus status;
-                MOZ_TRY_VAR(status, inlineScriptedCall(callInfo, target));
-                if (status == InliningStatus_Inlined)
-                    return Ok();
-            }
+          case InliningDecision_Inline: {
+            InliningStatus status;
+            MOZ_TRY_VAR(status, inlineSingleCall(callInfo, target));
+            if (status == InliningStatus_Inlined)
+                return Ok();
             break;
+          }
         }
     }
 
@@ -5255,13 +5254,12 @@ IonBuilder::jsop_funapplyarguments(uint32_t argc)
       case InliningDecision_DontInline:
       case InliningDecision_WarmUpCountTooLow:
         break;
-      case InliningDecision_Inline:
-        if (target->isInterpreted()) {
-            InliningStatus status;
-            MOZ_TRY_VAR(status, inlineScriptedCall(callInfo, target));
-            if (status == InliningStatus_Inlined)
-                return Ok();
-        }
+      case InliningDecision_Inline: {
+        InliningStatus status;
+        MOZ_TRY_VAR(status, inlineSingleCall(callInfo, target));
+        if (status == InliningStatus_Inlined)
+            return Ok();
+      }
     }
 
     return makeCall(target, callInfo);
