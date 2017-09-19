@@ -39,6 +39,7 @@
 #ifndef GCPolicyAPI_h
 #define GCPolicyAPI_h
 
+#include "mozilla/Maybe.h"
 #include "mozilla/UniquePtr.h"
 
 #include "js/TraceKind.h"
@@ -93,6 +94,10 @@ struct StructGCPolicy
     static bool needsSweep(T* tp) {
         return tp->needsSweep();
     }
+
+    static bool isValid(const T& tp) {
+        return true;
+    }
 };
 
 // The default GC policy attempts to defer to methods on the underlying type.
@@ -107,6 +112,7 @@ struct IgnoreGCPolicy {
     static T initial() { return T(); }
     static void trace(JSTracer* trc, T* t, const char* name) {}
     static bool needsSweep(T* v) { return false; }
+    static bool isValid(const T& v) { return true; }
 };
 template <> struct GCPolicy<uint32_t> : public IgnoreGCPolicy<uint32_t> {};
 template <> struct GCPolicy<uint64_t> : public IgnoreGCPolicy<uint64_t> {};
@@ -124,6 +130,9 @@ struct GCPointerPolicy
             return js::gc::IsAboutToBeFinalizedUnbarriered(vp);
         return false;
     }
+    static bool isValid(T v) {
+        return js::gc::IsCellPointerValid(v);
+    }
 };
 template <> struct GCPolicy<JS::Symbol*> : public GCPointerPolicy<JS::Symbol*> {};
 template <> struct GCPolicy<JS::BigInt*> : public GCPointerPolicy<JS::BigInt*> {};
@@ -132,6 +141,24 @@ template <> struct GCPolicy<JSFunction*> : public GCPointerPolicy<JSFunction*> {
 template <> struct GCPolicy<JSObject*> : public GCPointerPolicy<JSObject*> {};
 template <> struct GCPolicy<JSScript*> : public GCPointerPolicy<JSScript*> {};
 template <> struct GCPolicy<JSString*> : public GCPointerPolicy<JSString*> {};
+
+template <typename T>
+struct NonGCPointerPolicy
+{
+    static T initial() { return nullptr; }
+    static void trace(JSTracer* trc, T* vp, const char* name) {
+        if (*vp)
+            (*vp)->trace(trc);
+    }
+    static bool needsSweep(T* vp) {
+        if (*vp)
+            return (*vp)->needsSweep();
+        return false;
+    }
+    static bool isValid(T v) {
+        return true;
+    }
+};
 
 template <typename T>
 struct GCPolicy<JS::Heap<T>>
@@ -157,6 +184,33 @@ struct GCPolicy<mozilla::UniquePtr<T, D>>
         if (tp->get())
             return GCPolicy<T>::needsSweep(tp->get());
         return false;
+    }
+    static bool isValid(const mozilla::UniquePtr<T,D>& t) {
+        if (t.get())
+            return GCPolicy<T>::isValid(*t.get());
+        return true;
+    }
+};
+
+// GCPolicy<Maybe<T>> forwards tracing/sweeping to GCPolicy<T*> if
+// when the Maybe<T> is full.
+template <typename T>
+struct GCPolicy<mozilla::Maybe<T>>
+{
+    static mozilla::Maybe<T> initial() { return mozilla::Maybe<T>(); }
+    static void trace(JSTracer* trc, mozilla::Maybe<T>* tp, const char* name) {
+        if (tp->isSome())
+            GCPolicy<T>::trace(trc, tp->ptr(), name);
+    }
+    static bool needsSweep(mozilla::Maybe<T>* tp) {
+        if (tp->isSome())
+            return GCPolicy<T>::needsSweep(tp->ptr());
+        return false;
+    }
+    static bool isValid(const mozilla::Maybe<T>& t) {
+        if (t.isSome())
+            return GCPolicy<T>::isValid(t.ref());
+        return true;
     }
 };
 
