@@ -9682,6 +9682,40 @@ class MGetPropertyCache
     }
 };
 
+class MHomeObjectSuperBase
+  : public MUnaryInstruction,
+    public SingleObjectPolicy::Data
+{
+    explicit MHomeObjectSuperBase(MDefinition* homeObject)
+      : MUnaryInstruction(classOpcode, homeObject)
+    {
+        setResultType(MIRType::Object);
+        setGuard(); // May throw if [[Prototype]] is null
+    }
+
+  public:
+    INSTRUCTION_HEADER(HomeObjectSuperBase)
+    TRIVIAL_NEW_WRAPPERS
+    NAMED_OPERANDS((0, homeObject))
+};
+
+class MGetPropSuperCache
+  : public MTernaryInstruction,
+    public Mix3Policy<ObjectPolicy<0>, BoxExceptPolicy<1, MIRType::Object>, CacheIdPolicy<2>>::Data
+{
+    MGetPropSuperCache(MDefinition* obj, MDefinition* receiver, MDefinition* id)
+      : MTernaryInstruction(classOpcode, obj, receiver, id)
+    {
+        setResultType(MIRType::Value);
+        setGuard();
+    }
+
+  public:
+    INSTRUCTION_HEADER(GetPropSuperCache)
+    TRIVIAL_NEW_WRAPPERS
+    NAMED_OPERANDS((0, object), (1, receiver), (2, idval))
+};
+
 struct PolymorphicEntry {
     // The group and/or shape to guard against.
     ReceiverGuard receiver;
@@ -10421,6 +10455,28 @@ class MFunctionEnvironment
     }
 };
 
+
+class MHomeObject
+  : public MUnaryInstruction,
+    public SingleObjectPolicy::Data
+{
+    explicit MHomeObject(MDefinition* function)
+        : MUnaryInstruction(classOpcode, function)
+    {
+        setResultType(MIRType::Object);
+        setMovable();
+    }
+
+  public:
+    INSTRUCTION_HEADER(HomeObject)
+    TRIVIAL_NEW_WRAPPERS
+    NAMED_OPERANDS((0, function))
+
+    // A function's [[HomeObject]] is fixed.
+    AliasSet getAliasSet() const override {
+        return AliasSet::None();
+    }
+};
 
 // Store to vp[slot] (slots that are not inline in an object).
 class MStoreSlot
