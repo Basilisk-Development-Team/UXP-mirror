@@ -2850,9 +2850,10 @@ CASE(JSOP_STRICTSETELEM_SUPER)
     static_assert(JSOP_SETELEM_SUPER_LENGTH == JSOP_STRICTSETELEM_SUPER_LENGTH,
                   "setelem-super and strictsetelem-super must be the same size");
 
+
     ReservedRooted<Value> receiver(&rootValue0, REGS.sp[-4]);
-    ReservedRooted<jsid> id(&rootId0);
-    FETCH_ELEMENT_ID(-3, id);
+    ReservedRooted<Value> index(&rootValue1, REGS.sp[-3]);
+
     ReservedRooted<JSObject*> obj(&rootObject1, &REGS.sp[-2].toObject());
     HandleValue value = REGS.stackHandleAt(-1);
 

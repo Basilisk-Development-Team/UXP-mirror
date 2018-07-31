@@ -9607,8 +9607,8 @@ AbortReasonOr<Ok>
 IonBuilder::jsop_getelem_super()
 {
     MDefinition* obj = current->pop();
-    MDefinition* receiver = current->pop();
     MDefinition* id = current->pop();
+    MDefinition* receiver = current->pop();
 
     auto* ins = MGetPropSuperCache::New(alloc(), obj, receiver, id);
     current->add(ins);
