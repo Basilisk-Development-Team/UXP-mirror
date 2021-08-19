@@ -79,8 +79,9 @@ T*
 nsClassHashtable<KeyClass, T>::LookupOrAdd(KeyType aKey,
                                            Args&&... aConstructionArgs)
 {
+  auto count = this->Count();
   typename base_type::EntryType* ent = this->PutEntry(aKey);
-  if (!ent->mData) {
+  if (count != this->Count()) {
     ent->mData = new T(mozilla::Forward<Args>(aConstructionArgs)...);
   }
   return ent->mData;

@@ -2608,7 +2608,7 @@ EventStateManager::DoScrollText(nsIScrollableFrame* aScrollableFrame,
       ComputeScrollAmountForDefaultAction(aEvent, scrollAmountInDevPixels);
 
   // Don't scroll around the axis whose overflow style is hidden.
-  ScrollStyles overflowStyle = aScrollableFrame->GetScrollStyles();
+    ScrollStyles overflowStyle = aScrollableFrame->GetScrollStyles();
   if (overflowStyle.mHorizontal == NS_STYLE_OVERFLOW_HIDDEN) {
     actualDevPixelScrollAmount.x = 0;
   }
@@ -3093,6 +3093,7 @@ EventStateManager::PostHandleEvent(nsPresContext* aPresContext,
             // focused frame
             EnsureDocument(mPresContext);
             if (mDocument) {
+
 #ifdef XP_MACOSX
               if (!activeContent || !activeContent->IsXULElement())
 #endif
@@ -4362,13 +4363,8 @@ EventStateManager::GetWrapperByEventID(WidgetMouseEvent* aEvent)
     }
     return mMouseEnterLeaveHelper;
   }
-  RefPtr<OverOutElementsWrapper> helper;
-  if (!mPointersEnterLeaveHelper.Get(pointer->pointerId, getter_AddRefs(helper))) {
-    helper = new OverOutElementsWrapper();
-    mPointersEnterLeaveHelper.Put(pointer->pointerId, helper);
-  }
-
-  return helper;
+  return mPointersEnterLeaveHelper.LookupForAdd(pointer->pointerId).OrInsert(
+           [] () { return new OverOutElementsWrapper(); });
 }
 
 /* static */ void
