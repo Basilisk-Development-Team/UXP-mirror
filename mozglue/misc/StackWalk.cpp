@@ -1,4 +1,5 @@
 /* -*- Mode: C++; tab-width: 8; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
+/* vim: set ts=8 sts=2 et sw=2 tw=80: */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -214,6 +215,11 @@ struct WalkStackData
 DWORD gStackWalkThread;
 CRITICAL_SECTION gDbgHelpCS;
 
+#ifdef _M_AMD64
+static uint8_t* sJitCodeRegionStart;
+static size_t sJitCodeRegionSize;
+#endif
+
 // Routine to print an error message to standard error.
 static void
 PrintError(const char* aPrefix)
@@ -375,6 +381,14 @@ WalkStackMain64(struct WalkStackData* aData)
     }
 
 #elif defined(_M_AMD64)
+    // If we reach a frame in JIT code, we don't have enough information to
+    // unwind, so we have to give up.
+    if (sJitCodeRegionStart &&
+        (uint8_t*)context.Rip >= sJitCodeRegionStart &&
+        (uint8_t*)context.Rip < sJitCodeRegionStart + sJitCodeRegionSize) {
+      break;
+    }
+
     // 64-bit frame unwinding.
     // Try to look up unwind metadata for the current function.
     ULONG64 imageBase;
@@ -475,6 +489,32 @@ ReleaseStackWalkWorkaroundLock()
 {
 #ifdef _M_AMD64
   LeaveCriticalSection(&gWorkaroundLock.lock);
+#endif
+}
+
+MFBT_API void
+RegisterJitCodeRegion(uint8_t* aStart, size_t aSize)
+{
+#ifdef _M_AMD64
+  // Currently we can only handle one JIT code region at a time
+  MOZ_RELEASE_ASSERT(!sJitCodeRegionStart);
+
+  sJitCodeRegionStart = aStart;
+  sJitCodeRegionSize = aSize;
+#endif
+}
+
+MFBT_API void
+UnregisterJitCodeRegion(uint8_t* aStart, size_t aSize)
+{
+#ifdef _M_AMD64
+  // Currently we can only handle one JIT code region at a time
+  MOZ_RELEASE_ASSERT(sJitCodeRegionStart &&
+                     sJitCodeRegionStart == aStart &&
+                     sJitCodeRegionSize == aSize);
+
+  sJitCodeRegionStart = nullptr;
+  sJitCodeRegionSize = 0;
 #endif
 }
 
@@ -698,7 +738,20 @@ callbackEspecial64(
  * This code rectifies that problem.
  */
 
+// New members were added to IMAGEHLP_MODULE64 (that show up in the
+// Platform SDK that ships with VC8, but not the Platform SDK that ships
+// with VC7.1, i.e., between DbgHelp 6.0 and 6.1), but we don't need to
+// use them, and it's useful to be able to function correctly with the
+// older library.  (Stock Windows XP SP2 seems to ship with dbghelp.dll
+// version 5.1.)  Since Platform SDK version need not correspond to
+// compiler version, and the version number in debughlp.h was NOT bumped
+// when these changes were made, ifdef based on a constant that was
+// added between these versions.
+#ifdef SSRVOPT_SETCONTEXT
 #define NS_IMAGEHLP_MODULE64_SIZE (((offsetof(IMAGEHLP_MODULE64, LoadedPdbName) + sizeof(DWORD64) - 1) / sizeof(DWORD64)) * sizeof(DWORD64))
+#else
+#define NS_IMAGEHLP_MODULE64_SIZE sizeof(IMAGEHLP_MODULE64)
+#endif
 
 BOOL SymGetModuleInfoEspecial64(HANDLE aProcess, DWORD64 aAddr,
                                 PIMAGEHLP_MODULE64 aModuleInfo,
@@ -943,7 +996,7 @@ unwind_callback(struct _Unwind_Context* context, void* closure)
     info->isCriticalAbort = true;
     // We just want to stop the walk, so any error code will do.  Using
     // _URC_NORMAL_STOP would probably be the most accurate, but it is not
-    // defined on all OSes for ARM.
+    // defined on Android for ARM.
     return _URC_FOREIGN_EXCEPTION_CAUGHT;
   }
   if (--info->skip < 0) {
@@ -976,7 +1029,10 @@ MozStackWalk(MozWalkStackCallback aCallback, uint32_t aSkipFrames,
   (void)_Unwind_Backtrace(unwind_callback, &info);
 
   // We ignore the return value from _Unwind_Backtrace and instead determine
-  // the outcome from |info|.  The main reason for this:
+  // the outcome from |info|.  There are two main reasons for this:
+  // - On ARM/Android bionic's _Unwind_Backtrace usually (always?) returns
+  //   _URC_FAILURE.  See
+  //   https://bugzilla.mozilla.org/show_bug.cgi?id=717853#c110.
   // - If aMaxFrames != 0, we want to stop early, and the only way to do that
   //   is to make unwind_callback return something other than _URC_NO_REASON,
   //   which causes _Unwind_Backtrace to return a non-success code.
