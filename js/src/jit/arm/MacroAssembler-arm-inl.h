@@ -322,8 +322,9 @@ void
 MacroAssembler::patchAdd32ToPtr(CodeOffset offset, Imm32 imm)
 {
     ScratchRegisterScope scratch(*this);
-    ma_mov_patch(imm, scratch, Always,
-                 HasMOVWT() ? L_MOVWT : L_LDR, offsetToInstruction(offset));
+    BufferInstructionIterator iter(BufferOffset(offset.offset()), &m_buffer);
+    iter.maybeSkipAutomaticInstructions();
+    ma_mov_patch(imm, scratch, Always, HasMOVWT() ? L_MOVWT : L_LDR, iter);
 }
 
 void
