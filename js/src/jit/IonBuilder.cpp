@@ -2433,6 +2433,8 @@ IonBuilder::replaceTypeSet(MDefinition* subject, TemporaryTypeSet* type, MTest* 
     if (type->unknown())
         return Ok();
 
+    MOZ_ASSERT(!type->hasType(TypeSet::MagicArgType()));
+
     // Don't emit MFilterTypeSet if it doesn't improve the typeset.
     if (subject->resultTypeSet()) {
         if (subject->resultTypeSet()->equals(type))
