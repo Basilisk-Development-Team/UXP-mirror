@@ -1010,11 +1010,7 @@ js::FunctionToString(JSContext* cx, HandleFunction fun, bool isToSource)
     }
 
     if (haveSource) {
-        Rooted<JSFlatString*> src(cx, JSScript::sourceDataForToString(cx, script));
-        if (!src)
-            return nullptr;
-
-        if (!out.append(src))
+        if (!script->appendSourceDataForToString(cx, out))
             return nullptr;
     } else {
         if (fun->isAsync()) {
