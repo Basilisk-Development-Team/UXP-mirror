@@ -550,6 +550,8 @@ class ScriptSource
     JSFlatString* substring(JSContext* cx, size_t start, size_t stop);
     JSFlatString* substringDontDeflate(JSContext* cx, size_t start, size_t stop);
 
+    [[nodiscard]] bool appendSubstring(JSContext* cx, js::StringBuffer& buf, size_t start, size_t stop);
+
     bool isFunctionBody() {
         return parameterListEnd_ != 0;
     }
@@ -1689,8 +1691,9 @@ class JSScript : public js::gc::TenuredCell
     bool mayReadFrameArgsDirectly();
 
     static JSFlatString* sourceData(JSContext* cx, JS::HandleScript script);
-    static JSFlatString* sourceDataForToString(JSContext* cx, JS::HandleScript script);
-    
+
+    [[nodiscard]] bool appendSourceDataForToString(JSContext* cx, js::StringBuffer& buf);
+
     static bool loadSource(JSContext* cx, js::ScriptSource* ss, bool* worked);
 
     void setSourceObject(JSObject* object);
