@@ -1007,6 +1007,8 @@ bool HostImportModuleDynamically(JSContext* aCx,
                                  JS::Handle<JS::Value> aReferencingPrivate,
                                  JS::Handle<JSString*> aSpecifier,
                                  JS::Handle<JSObject*> aPromise) {
+  MOZ_DIAGNOSTIC_ASSERT(aPromise);
+
   RefPtr<LoadedScript> script(GetLoadedScriptOrNull(aCx, aReferencingPrivate));
 
   // Attempt to resolve the module specifier.
@@ -1073,6 +1075,11 @@ void ScriptLoader::FinishDynamicImport(JSContext* aCx,
                                        nsresult aResult) {
   // Complete the dynamic import, report failures indicated by aResult or as a
   // pending exception on the context.
+
+  if (!aRequest->mDynamicPromise) {
+    // Import has already been completed.
+    return;
+  }
 
   if (NS_FAILED(aResult)) {
     MOZ_ASSERT(!JS_IsExceptionPending(aCx));
