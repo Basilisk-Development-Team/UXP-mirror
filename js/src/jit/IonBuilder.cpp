@@ -4885,6 +4885,9 @@ IonBuilder::createThisScriptedBaseline(MDefinition* callee)
     if (!target || !target->hasScript())
         return nullptr;
 
+    if (target->isBoundFunction() || target->isDerivedClassConstructor())
+        return nullptr;
+
     JSObject* templateObject = inspector->getTemplateObject(pc);
     if (!templateObject)
         return nullptr;
