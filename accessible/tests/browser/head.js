@@ -112,5 +112,5 @@ function shutdownPromise(contentBrowser) {
  */
 function forceGC() {
   Cu.forceCC();
-  Cu.forceGC();
+  Cu.forceShrinkingGC();
 }

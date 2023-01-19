@@ -95,7 +95,7 @@ var cacheFlushObserver = cacheFlushObserver = { observe: function() {
 function flushAndOpenAltChannel()
 {
   // We need to do a GC pass to ensure the cache entry has been freed.
-  gc();
+  Cu.forceShrinkingGC();
   Services.cache2.QueryInterface(Ci.nsICacheTesting).flush(cacheFlushObserver);
 }
 
