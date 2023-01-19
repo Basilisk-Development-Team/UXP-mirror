@@ -599,10 +599,11 @@ js::Nursery::doCollection(JS::gcreason::Reason reason,
     StoreBuffer& sb = runtime()->gc.storeBuffer();
 
     // The MIR graph only contains nursery pointers if cancelIonCompilations()
-    // is set on the store buffer, in which case we cancel all compilations.
+    // is set on the store buffer, in which case we cancel all compilations
+    // of such graphs.
     maybeStartProfile(ProfileKey::CancelIonCompilations);
     if (sb.cancelIonCompilations())
-        js::CancelOffThreadIonCompile(rt);
+        js::CancelOffThreadIonCompilesUsingNurseryPointers(rt);
     maybeEndProfile(ProfileKey::CancelIonCompilations);
 
     maybeStartProfile(ProfileKey::TraceValues);
