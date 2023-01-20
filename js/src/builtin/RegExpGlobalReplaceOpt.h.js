@@ -62,10 +62,10 @@ function FUNC_NAME(rx, S, lengthS, replaceValue, fullUnicode
         var matched = result[0];
 
         // Step 14.d.
-        var matchLength = matched.length;
+        var matchLength = matched.length | 0;
 
         // Steps 14.e-f.
-        var position = result.index;
+        var position = result.index | 0;
         lastIndex = position + matchLength;
 
         // Steps g-l.
