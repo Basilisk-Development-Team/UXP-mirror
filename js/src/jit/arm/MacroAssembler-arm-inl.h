@@ -1456,6 +1456,12 @@ MacroAssembler::branchPtrWithPatch(Condition cond, Register lhs, T rhs, RepatchL
     return jumpWithPatch(label, cond);
 }
 
+void
+MacroAssembler::branchPtr(Condition cond, const BaseIndex& lhs, ImmWord rhs, Label* label)
+{
+    branch32(cond, lhs, Imm32(rhs.value), label);
+}
+
 template <typename T>
 inline CodeOffsetJump
 MacroAssembler::branchPtrWithPatch(Condition cond, Address lhs, T rhs, RepatchLabel* label)
