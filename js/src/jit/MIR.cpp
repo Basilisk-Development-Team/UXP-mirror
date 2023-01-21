@@ -4840,10 +4840,13 @@ MStoreSlot::printOpcode(GenericPrinter& out) const
 MDefinition*
 MFunctionEnvironment::foldsTo(TempAllocator& alloc)
 {
-    if (!input()->isLambda())
-        return this;
-
-    return input()->toLambda()->environmentChain();
+    if (input()->isLambda()) {
+      return input()->toLambda()->environmentChain();
+    }
+    if (input()->isLambdaArrow()) {
+      return input()->toLambdaArrow()->environmentChain();
+    }
+  return this;
 }
 
 static bool
