@@ -5038,6 +5038,14 @@ HTMLInputElement::HandleTypeChange(uint8_t aNewType, bool aNotify)
   uint8_t oldType = mType;
   MOZ_ASSERT(oldType != aNewType);
 
+  nsFocusManager* fm = nsFocusManager::GetFocusManager();
+  if (fm) {
+    // Input element can represent very different kinds of UIs, and we may
+    // need to flush styling even when focusing the already focused input
+    // element.
+    fm->NeedsFlushBeforeEventHandling(this);
+  }
+
   if (aNewType == NS_FORM_INPUT_FILE || oldType == NS_FORM_INPUT_FILE) {
     // Strictly speaking, we only need to clear files on going _to_ or _from_
     // the NS_FORM_INPUT_FILE type, not both, since we'll never confuse values
