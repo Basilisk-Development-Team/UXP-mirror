@@ -772,6 +772,21 @@ GetFileHandleThreadPoolFor(FileHandleStorage aStorage)
   }
 }
 
+nsresult ClampResultCode(nsresult aResultCode) {
+  if (NS_SUCCEEDED(aResultCode) ||
+      NS_ERROR_GET_MODULE(aResultCode) == NS_ERROR_MODULE_DOM_FILEHANDLE) {
+    return aResultCode;
+  }
+
+  NS_WARNING(nsPrintfCString("Converting non-filehandle error code (0x%" PRIX32
+                             ") to "
+                             "NS_ERROR_DOM_FILEHANDLE_UNKNOWN_ERR",
+                             static_cast<uint32_t>(aResultCode))
+                 .get());
+
+  return NS_ERROR_DOM_FILEHANDLE_UNKNOWN_ERR;
+}
+
 } // namespace
 
 /*******************************************************************************
@@ -2092,7 +2107,8 @@ NormalFileHandleOp::SendFailureResult(nsresult aResultCode)
 
   if (!IsActorDestroyed()) {
     result =
-      PBackgroundFileRequestParent::Send__delete__(this, aResultCode);
+      PBackgroundFileRequestParent::Send__delete__(
+        this, ClampResultCode(aResultCode));
   }
 
   DEBUGONLY(mResponseSent = true;)
@@ -2254,6 +2270,10 @@ CopyFileHandleOp::DoFileWork(FileHandle* aFileHandle)
     mOwningThread->Dispatch(runnable, NS_DISPATCH_NORMAL);
   } while (true);
 
+  if (mOffset < mSize) {
+    // end-of-file reached
+    return NS_ERROR_FAILURE;
+  }
   MOZ_ASSERT(mOffset == mSize);
 
   if (mRead) {
@@ -2578,6 +2598,25 @@ TruncateOp::DoFileWork(FileHandle* aFileHandle)
   nsCOMPtr<nsISeekableStream> sstream = do_QueryInterface(mFileStream);
   MOZ_ASSERT(sstream);
 
+  if (mParams.offset()) {
+    nsCOMPtr<nsIFileMetadata> fileMetadata = do_QueryInterface(mFileStream);
+    MOZ_ASSERT(fileMetadata);
+
+    int64_t size;
+    nsresult rv = fileMetadata->GetSize(&size);
+    if (NS_WARN_IF(NS_FAILED(rv))) {
+      return rv;
+    }
+    MOZ_ASSERT(size >= 0);
+
+    if (mParams.offset() > static_cast<uint64_t>(size)) {
+      // Cannot extend the size of a file through truncate.
+      return NS_ERROR_DOM_INVALID_MODIFICATION_ERR;
+    }
+  }
+
+  // XXX If we allowed truncate to extend the file size, we would to ensure that
+  // the quota limit is checked, e.g. by making FileQuotaStream override Seek.
   nsresult rv = sstream->Seek(nsISeekableStream::NS_SEEK_SET, mParams.offset());
   if (NS_WARN_IF(NS_FAILED(rv))) {
     return rv;

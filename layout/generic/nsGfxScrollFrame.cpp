@@ -4003,7 +4003,12 @@ ScrollFrameHelper::ScrollBy(nsIntPoint aDelta,
     return;
   }
 
-  nsPoint newPos = mDestination + nsPoint(aDelta.x*deltaMultiplier.width, aDelta.y*deltaMultiplier.height);
+  nsPoint newPos(NSCoordSaturatingAdd(mDestination.x,
+                                      NSCoordSaturatingNonnegativeMultiply(
+                                          aDelta.x, deltaMultiplier.width)),
+                 NSCoordSaturatingAdd(mDestination.y,
+                                      NSCoordSaturatingNonnegativeMultiply(
+                                          aDelta.y, deltaMultiplier.height)));
 
   if (aSnap == nsIScrollableFrame::ENABLE_SNAP) {
     ScrollStyles styles = GetScrollStylesFromFrame();

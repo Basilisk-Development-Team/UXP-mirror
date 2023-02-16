@@ -693,6 +693,9 @@ HTMLEditor::HandleKeyPressEvent(nsIDOMKeyEvent* aKeyEvent)
 bool
 HTMLEditor::NodeIsBlockStatic(const nsINode* aElement)
 {
+  if (!aElement->IsElement()) {
+    return false;
+  }
   MOZ_ASSERT(aElement);
 
   // We want to treat these as block nodes even though nsHTMLElement says
@@ -1772,6 +1775,10 @@ HTMLEditor::GetCSSBackgroundColorState(bool* aMixed,
     if (IsTextNode(nodeToExamine)) {
       // if the node of interest is a text node, let's climb a level
       nodeToExamine = nodeToExamine->GetParentNode();
+    }
+    // Return default value due to no parent node
+    if (!nodeToExamine) {
+      return NS_OK;
     }
     do {
       // is the node to examine a block ?

@@ -1658,6 +1658,9 @@ private:
     ParserHasNotified,
     // Sets if the node is apz aware or we have apz aware listeners.
     MayBeApzAware,
+	// Set if the element might have any kind of anonymous content children,
+    // which would not be found through the element's children list.
+    ElementMayHaveAnonymousChildren,
     // Set if this node has at some point (and may still have)
     // display:none or display:contents children.
     NodeMayHaveChildrenWithLayoutBoxesDisabled,
@@ -1799,6 +1802,9 @@ public:
   {
     return GetBoolFlag(MayBeApzAware);
   }
+
+  void SetMayHaveAnonymousChildren() { SetBoolFlag(ElementMayHaveAnonymousChildren); }
+  bool MayHaveAnonymousChildren() const { return GetBoolFlag(ElementMayHaveAnonymousChildren); }
 
   void SetMayHaveChildrenWithLayoutBoxesDisabled()
   {

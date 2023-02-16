@@ -884,6 +884,10 @@ IMEContentObserver::CharacterDataWillChange(nsIDocument* aDocument,
 {
   NS_ASSERTION(aContent->IsNodeOfType(nsINode::eTEXT),
                "character data changed for non-text node");
+  if (!aContent->IsNodeOfType(nsINode::eTEXT)) {
+    return;  // Ignore if it's a comment node or something other invisible data
+             // node.
+  }
   MOZ_ASSERT(mPreCharacterDataChangeLength < 0,
              "CharacterDataChanged() should've reset "
              "mPreCharacterDataChangeLength");
@@ -903,6 +907,10 @@ IMEContentObserver::CharacterDataChanged(nsIDocument* aDocument,
                                          nsIContent* aContent,
                                          CharacterDataChangeInfo* aInfo)
 {
+  if (!aContent->IsNodeOfType(nsINode::eTEXT)) {
+    return;  // Ignore if it's a comment node or something other invisible data
+             // node.
+  }
   NS_ASSERTION(aContent->IsNodeOfType(nsINode::eTEXT),
                "character data changed for non-text node");
 

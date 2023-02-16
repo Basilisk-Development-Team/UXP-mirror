@@ -6305,7 +6305,7 @@ FindAppendPrevSibling(nsIFrame* aParentFrame, nsIFrame* aNextSibling)
   aParentFrame->DrainSelfOverflowList();
 
   if (aNextSibling) {
-    MOZ_ASSERT(aNextSibling->GetParent() == aParentFrame, "Wrong parent");
+    MOZ_ASSERT(aNextSibling->GetParent()->GetContentInsertionFrame() == aParentFrame, "Wrong parent");
     MOZ_ASSERT(aNextSibling->GetPrevSibling() ||
                aParentFrame->PrincipalChildList().FirstChild() == aNextSibling,
                "next sibling must be on the principal child list here");

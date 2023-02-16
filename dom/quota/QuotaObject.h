@@ -35,8 +35,7 @@ public:
     return mPath;
   }
 
-  bool
-  MaybeUpdateSize(int64_t aSize, bool aTruncate);
+  [[nodiscard]] bool MaybeUpdateSize(int64_t aSize, bool aTruncate);
 
   void
   DisableQuotaCheck();
