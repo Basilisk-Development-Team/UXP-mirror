@@ -5191,6 +5191,21 @@ Selection::Collapse(nsINode& aParentNode, uint32_t aOffset, ErrorResult& aRv)
     return;
   }
 
+  if (aParentNode.NodeType() == nsIDOMNode::DOCUMENT_TYPE_NODE) {
+    aRv.Throw(NS_ERROR_DOM_INVALID_NODE_TYPE_ERR);
+    return;
+  }
+
+  if (aOffset > aParentNode.Length()) {
+    aRv.Throw(NS_ERROR_DOM_INDEX_SIZE_ERR);
+    return;
+  }
+
+  if (!HasSameRoot(aParentNode)) {
+    // Return with no error
+    return;
+  }
+
   nsCOMPtr<nsINode> parentNode = &aParentNode;
 
   RefPtr<nsFrameSelection> frameSelection = mFrameSelection;
@@ -5579,6 +5594,11 @@ Selection::Extend(nsINode& aParentNode, uint32_t aOffset, ErrorResult& aRv)
     return;
   }
 
+  if (!HasSameRoot(aParentNode)) {
+    // Return with no error
+    return;
+  }
+
   nsresult res;
   if (!IsValidSelectionPoint(mFrameSelection, &aParentNode)) {
     aRv.Throw(NS_ERROR_FAILURE);
@@ -5863,6 +5883,15 @@ Selection::SelectAllChildrenJS(nsINode& aNode, ErrorResult& aRv)
 void
 Selection::SelectAllChildren(nsINode& aNode, ErrorResult& aRv)
 {
+  if (aNode.NodeType() == nsIDOMNode::DOCUMENT_TYPE_NODE) {
+    aRv.Throw(NS_ERROR_DOM_INVALID_NODE_TYPE_ERR);
+    return;
+  }
+
+  if (!HasSameRoot(aNode)) {
+    // Return with no error
+    return;
+  }
   if (mFrameSelection) {
     mFrameSelection->PostReason(nsISelectionListener::SELECTALL_REASON);
   }
@@ -6659,6 +6688,12 @@ Selection::SetBaseAndExtent(nsINode& aAnchorNode, uint32_t aAnchorOffset,
     return;
   }
 
+  if (!HasSameRoot(aAnchorNode) ||
+      !HasSameRoot(aFocusNode)) {
+    // Return with no error
+    return;
+  }
+
   SelectionBatcher batch(this);
 
   int32_t relativePosition =
@@ -6803,6 +6838,14 @@ AutoHideSelectionChanges::AutoHideSelectionChanges(const nsFrameSelection* aFram
   : AutoHideSelectionChanges(
       aFrame ? aFrame->GetSelection(SelectionType::eNormal) : nullptr)
 {}
+
+bool
+Selection::HasSameRoot(nsINode& aNode)
+{
+  nsINode* root = aNode.SubtreeRoot();
+  nsIDocument* doc = GetParentObject();
+  return doc == root || (root && doc == root->GetComposedDoc());
+}
 
 // nsAutoCopyListener
 

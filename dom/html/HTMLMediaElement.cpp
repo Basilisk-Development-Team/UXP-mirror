@@ -3977,6 +3977,10 @@ nsresult HTMLMediaElement::FinishDecoderSetup(MediaDecoder* aDecoder,
   NotifyOwnerDocumentActivityChanged();
   UpdateAudioChannelPlayingState();
 
+  if (mPausedForInactiveDocumentOrChannel) {
+    mDecoder->Suspend();
+  }
+
   if (!mPaused) {
     SetPlayedOrSeeked(true);
     if (!mPausedForInactiveDocumentOrChannel) {
