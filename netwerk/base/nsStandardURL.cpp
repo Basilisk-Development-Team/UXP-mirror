@@ -2541,7 +2541,15 @@ nsStandardURL::Resolve(const nsACString &in, nsACString &out)
         // locate result path
         resultPath = PL_strstr(result, "://");
         if (resultPath) {
-            resultPath = PL_strchr(resultPath + 3, '/');
+            // If there are multiple slashes after :// we must ignore them
+            // otherwise net_CoalesceDirs may think the host is a part of the path.
+            resultPath += 3;
+            if (protocol.IsEmpty() && !SegmentIs(mScheme,"file")) {
+              while (*resultPath == '/') {
+                resultPath++;
+              }
+            }
+            resultPath = PL_strchr(resultPath, '/');
             if (resultPath)
                 net_CoalesceDirs(coalesceFlag,resultPath);
         }
@@ -3523,8 +3531,7 @@ ToIPCSegment(const nsStandardURL::URLSegment& aSegment)
     return ipc::StandardURLSegment(aSegment.mPos, aSegment.mLen);
 }
 
-inline
-MOZ_MUST_USE bool
+[[nodiscard]] inline bool
 FromIPCSegment(const nsACString& aSpec, const ipc::StandardURLSegment& aSegment, nsStandardURL::URLSegment& aTarget)
 {
     // This seems to be just an empty segment.
