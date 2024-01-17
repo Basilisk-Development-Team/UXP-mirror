@@ -51,7 +51,9 @@
 #include "nsIContentViewer.h"
 #include "nsFrameManager.h"
 #include "nsITabChild.h"
+#ifdef MOZ_ENABLE_NPAPI
 #include "nsPluginFrame.h"
+#endif
 #include "nsMenuPopupFrame.h"
 
 #include "nsIDOMXULElement.h"
@@ -2440,6 +2442,7 @@ EventStateManager::ComputeScrollTarget(nsIFrame* aTargetFrame,
     // hasn't moved.
     nsIFrame* lastScrollFrame = WheelTransaction::GetTargetFrame();
     if (lastScrollFrame) {
+#ifdef MOZ_ENABLE_NPAPI
       if (aOptions & INCLUDE_PLUGIN_AS_TARGET) {
         nsPluginFrame* pluginFrame = do_QueryFrame(lastScrollFrame);
         if (pluginFrame &&
@@ -2447,6 +2450,7 @@ EventStateManager::ComputeScrollTarget(nsIFrame* aTargetFrame,
           return lastScrollFrame;
         }
       }
+#endif
       nsIScrollableFrame* scrollableFrame =
         lastScrollFrame->GetScrollTargetFrame();
       if (scrollableFrame) {
@@ -2476,6 +2480,7 @@ EventStateManager::ComputeScrollTarget(nsIFrame* aTargetFrame,
     // Check whether the frame wants to provide us with a scrollable view.
     nsIScrollableFrame* scrollableFrame = scrollFrame->GetScrollTargetFrame();
     if (!scrollableFrame) {
+#ifdef MOZ_ENABLE_NPAPI
       // If the frame is a plugin frame, then, the plugin content may handle
       // wheel events.  Only when the caller computes the scroll target for
       // default action handling, we should assume the plugin frame as
@@ -2488,6 +2493,7 @@ EventStateManager::ComputeScrollTarget(nsIFrame* aTargetFrame,
           return scrollFrame;
         }
       }
+#endif
       nsMenuPopupFrame* menuPopupFrame = do_QueryFrame(scrollFrame);
       if (menuPopupFrame) {
         return nullptr;
@@ -3213,11 +3219,13 @@ EventStateManager::PostHandleEvent(nsPresContext* aPresContext,
       nsIFrame* frameToScroll =
         ComputeScrollTarget(mCurrentTarget, wheelEvent,
                             COMPUTE_DEFAULT_ACTION_TARGET);
+#ifdef MOZ_ENABLE_NPAPI
       nsPluginFrame* pluginFrame = do_QueryFrame(frameToScroll);
-
+#endif
       // When APZ is enabled, the actual scroll animation might be handled by
       // the compositor.
       WheelPrefs::Action action;
+#ifdef MOZ_ENABLE_NPAPI
       if (pluginFrame) {
         MOZ_ASSERT(pluginFrame->WantsToHandleWheelEventAsDefaultAction());
         action = WheelPrefs::ACTION_SEND_TO_PLUGIN;
@@ -3226,6 +3234,7 @@ EventStateManager::PostHandleEvent(nsPresContext* aPresContext,
       } else {
         action = WheelPrefs::GetInstance()->ComputeActionFor(wheelEvent);
       }
+#endif
       switch (action) {
         case WheelPrefs::ACTION_HSCROLL: {
           // Swap axes and fall through
@@ -3288,6 +3297,7 @@ EventStateManager::PostHandleEvent(nsPresContext* aPresContext,
           DoScrollZoom(mCurrentTarget, intDelta);
           break;
         }
+#ifdef MOZ_ENABLE_NPAPI
         case WheelPrefs::ACTION_SEND_TO_PLUGIN:
           MOZ_ASSERT(pluginFrame);
 
@@ -3305,6 +3315,7 @@ EventStateManager::PostHandleEvent(nsPresContext* aPresContext,
 
           pluginFrame->HandleWheelEventAsDefaultAction(wheelEvent);
           break;
+#endif
         case WheelPrefs::ACTION_NONE:
         default:
           bool allDeltaOverflown = false;
@@ -4843,48 +4854,13 @@ GetLabelTarget(nsIContent* aPossibleLabel)
   return label->GetLabeledElement();
 }
 
-static nsIContent* FindCommonAncestor(nsIContent *aNode1, nsIContent *aNode2)
+static nsIContent*
+FindCommonAncestor(nsIContent *aNode1, nsIContent *aNode2)
 {
-  // Find closest common ancestor
-  if (aNode1 && aNode2) {
-    // Find the nearest common ancestor by counting the distance to the
-    // root and then walking up again, in pairs.
-    int32_t offset = 0;
-    nsIContent *anc1 = aNode1;
-    for (;;) {
-      ++offset;
-      nsIContent* parent = anc1->GetFlattenedTreeParent();
-      if (!parent)
-        break;
-      anc1 = parent;
-    }
-    nsIContent *anc2 = aNode2;
-    for (;;) {
-      --offset;
-      nsIContent* parent = anc2->GetFlattenedTreeParent();
-      if (!parent)
-        break;
-      anc2 = parent;
-    }
-    if (anc1 == anc2) {
-      anc1 = aNode1;
-      anc2 = aNode2;
-      while (offset > 0) {
-        anc1 = anc1->GetFlattenedTreeParent();
-        --offset;
-      }
-      while (offset < 0) {
-        anc2 = anc2->GetFlattenedTreeParent();
-        ++offset;
-      }
-      while (anc1 != anc2) {
-        anc1 = anc1->GetFlattenedTreeParent();
-        anc2 = anc2->GetFlattenedTreeParent();
-      }
-      return anc1;
-    }
+  if (!aNode1 || !aNode2) {
+    return nullptr;
   }
-  return nullptr;
+  return nsContentUtils::GetCommonFlattenedTreeAncestor(aNode1, aNode2);
 }
 
 /* static */

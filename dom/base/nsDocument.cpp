@@ -9687,6 +9687,7 @@ nsDocument::RemovePlugin(nsIObjectLoadingContent* aPlugin)
   mPlugins.RemoveEntry(aPlugin);
 }
 
+#ifdef MOZ_ENABLE_NPAPI
 static bool
 AllSubDocumentPluginEnum(nsIDocument* aDocument, void* userArg)
 {
@@ -9706,6 +9707,7 @@ nsDocument::GetPlugins(nsTArray<nsIObjectLoadingContent*>& aPlugins)
   }
   EnumerateSubDocuments(AllSubDocumentPluginEnum, &aPlugins);
 }
+#endif
 
 nsresult
 nsDocument::AddResponsiveContent(nsIContent* aContent)
@@ -11871,6 +11873,7 @@ nsIDocument::InlineScriptAllowedByCSP()
                                        true,          // aParserCreated
                                        EmptyString(), // FIXME get script sample (bug 1314567)
                                        0,             // aLineNumber
+                                       0,             // aColumnNumber
                                        &allowsInlineScript);
     NS_ENSURE_SUCCESS(rv, true);
   }
