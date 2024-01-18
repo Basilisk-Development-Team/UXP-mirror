@@ -8724,7 +8724,6 @@ PresShell::WillPaintWindow()
     return;
   }
 
-
 #if !defined(XP_MACOSX) && defined(MOZ_ENABLE_NPAPI)
   rootPresContext->ApplyPluginGeometryUpdates();
 #endif

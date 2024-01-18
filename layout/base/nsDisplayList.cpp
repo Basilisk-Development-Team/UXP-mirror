@@ -1496,7 +1496,6 @@ nsDisplayListBuilder::IsInWillChangeBudget(nsIFrame* aFrame,
 
 const float gAGRBudgetAreaMultiplier = 3.0;
 
-
 bool
 nsDisplayListBuilder::AddToAGRBudget(nsIFrame* aFrame)
 {
