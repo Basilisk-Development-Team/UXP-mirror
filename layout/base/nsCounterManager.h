@@ -219,7 +219,6 @@ private:
  */
 class nsCounterManager {
 public:
-    nsCounterManager();
     // Returns true if dirty
     bool AddCounterResetsAndIncrements(nsIFrame *aFrame);
 

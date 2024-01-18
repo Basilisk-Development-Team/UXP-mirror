@@ -1184,12 +1184,10 @@ CycleCollectedJSContext::RemoveJSHolder(void* aHolder)
 {
   MOZ_ASSERT(mJSContext);
 
-  nsScriptObjectTracer* tracer = mJSHolders.Get(aHolder);
-  if (!tracer) {
-    return;
+  if (auto entry = mJSHolders.Lookup(aHolder)) {
+    entry.Data()->Trace(aHolder, ClearJSHolder(), nullptr);
+    entry.Remove();
   }
-  tracer->Trace(aHolder, ClearJSHolder(), nullptr);
-  mJSHolders.Remove(aHolder);
 }
 
 #ifdef DEBUG
@@ -1362,12 +1360,11 @@ CycleCollectedJSContext::DeferredFinalize(DeferredFinalizeAppendFunction aAppend
 {
   MOZ_ASSERT(mJSContext);
 
-  void* thingArray = nullptr;
-  bool hadThingArray = mDeferredFinalizerTable.Get(aFunc, &thingArray);
-
-  thingArray = aAppendFunc(thingArray, aThing);
-  if (!hadThingArray) {
-    mDeferredFinalizerTable.Put(aFunc, thingArray);
+  if (auto entry = mDeferredFinalizerTable.LookupForAdd(aFunc)) {
+    aAppendFunc(entry.Data(), aThing);
+  } else {
+    entry.OrInsert(
+      [aAppendFunc, aThing] () { return aAppendFunc(nullptr, aThing); });
   }
 }
 

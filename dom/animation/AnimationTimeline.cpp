@@ -1,4 +1,5 @@
 /* -*- Mode: C++; tab-width: 8; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
+/* vim: set ts=8 sts=2 et sw=2 tw=80: */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this file,
  * You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -35,16 +36,12 @@ NS_INTERFACE_MAP_END
 void
 AnimationTimeline::NotifyAnimationUpdated(Animation& aAnimation)
 {
-  if (mAnimations.Contains(&aAnimation)) {
-    return;
+  if (mAnimations.EnsureInserted(&aAnimation)) {
+    if (aAnimation.GetTimeline() && aAnimation.GetTimeline() != this) {
+      aAnimation.GetTimeline()->RemoveAnimation(&aAnimation);
+    }
+    mAnimationOrder.insertBack(&aAnimation);
   }
-
-  if (aAnimation.GetTimeline() && aAnimation.GetTimeline() != this) {
-    aAnimation.GetTimeline()->RemoveAnimation(&aAnimation);
-  }
-
-  mAnimations.PutEntry(&aAnimation);
-  mAnimationOrder.insertBack(&aAnimation);
 }
 
 void
