@@ -226,7 +226,7 @@ public:
       mEntry = nullptr;
     }
 
-    MOZ_MUST_USE DataType& Data()
+    [[nodiscard]] DataType& Data()
     {
       MOZ_ASSERT(!!*this, "must have an entry to access its value");
       return mEntry->mData;
@@ -251,7 +251,7 @@ public:
    * lookups.  If you want to insert a new entry if one does not exist, then use
    * LookupForAdd instead, see below.
    */
-  MOZ_MUST_USE LookupResult Lookup(KeyType aKey)
+  [[nodiscard]] LookupResult Lookup(KeyType aKey)
   {
     return LookupResult(this->GetEntry(aKey), *this);
   }
@@ -303,7 +303,7 @@ public:
       return mEntry.mData;
     }
 
-    MOZ_MUST_USE DataType& Data()
+    [[nodiscard]] DataType& Data()
     {
       MOZ_ASSERT(mTableGeneration == mTable.GetGeneration());
       return mEntry.mData;
@@ -335,7 +335,7 @@ public:
    * hashtable if one doesn't exist before but would like to avoid two hashtable
    * lookups.
    */
-  MOZ_MUST_USE EntryPtr LookupForAdd(KeyType aKey)
+  [[nodiscard]] EntryPtr LookupForAdd(KeyType aKey)
   {
     auto count = Count();
     EntryType* ent = this->PutEntry(aKey);

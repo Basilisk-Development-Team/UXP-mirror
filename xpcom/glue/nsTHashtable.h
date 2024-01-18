@@ -169,7 +169,7 @@ public:
    * @return    true if a new entry was created, or false if an existing entry
    *            was found
    */
-  MOZ_MUST_USE
+  [[nodiscard]]
   bool EnsureInserted(KeyType aKey, EntryType** aEntry = nullptr)
   {
     auto oldCount = Count();
@@ -562,7 +562,7 @@ public:
       Base::PutEntry(aKey, mozilla::fallible));
   }
 
-  MOZ_MUST_USE
+  [[nodiscard]]
   bool EnsureInserted(T* aKey, EntryType** aEntry = nullptr)
   {
     return Base::EnsureInserted(aKey, reinterpret_cast<::detail::VoidPtrHashKey**>(aEntry));
