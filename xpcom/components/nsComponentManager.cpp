@@ -517,8 +517,8 @@ nsComponentManagerImpl::RegisterCIDEntryLocked(
     return;
   }
 
-  nsFactoryEntry* f = mFactories.Get(*aEntry->cid);
-  if (f) {
+  if (auto entry = mFactories.LookupForAdd(*aEntry->cid)) {
+    nsFactoryEntry* f = entry.Data();
     NS_WARNING("Re-registering a CID?");
 
     char idstr[NSID_LENGTH];
@@ -535,11 +535,9 @@ nsComponentManagerImpl::RegisterCIDEntryLocked(
                aModule->Description().get(),
                idstr,
                existing.get());
-    return;
+    } else {
+    entry.OrInsert([aEntry, aModule] () { return new nsFactoryEntry(aEntry, aModule); });
   }
-
-  f = new nsFactoryEntry(aEntry, aModule);
-  mFactories.Put(*aEntry->cid, f);
 }
 
 void
@@ -711,8 +709,9 @@ nsComponentManagerImpl::ManifestComponent(ManifestProcessingContext& aCx,
   fl.GetURIString(hash);
 
   MutexLock lock(mLock);
-  nsFactoryEntry* f = mFactories.Get(cid);
-  if (f) {
+  auto entry = mFactories.LookupForAdd(cid);
+  if (entry) {
+    nsFactoryEntry* f = entry.Data();
     char idstr[NSID_LENGTH];
     cid.ToProvidedString(idstr);
 
@@ -750,8 +749,7 @@ nsComponentManagerImpl::ManifestComponent(ManifestProcessingContext& aCx,
   mozilla::Module::CIDEntry* e = new (place) mozilla::Module::CIDEntry();
   e->cid = permanentCID;
 
-  f = new nsFactoryEntry(e, km);
-  mFactories.Put(cid, f);
+  entry.OrInsert([e, km] () { return new nsFactoryEntry(e, km); });
 }
 
 void
@@ -1597,16 +1595,14 @@ nsComponentManagerImpl::RegisterFactory(const nsCID& aClass,
   nsAutoPtr<nsFactoryEntry> f(new nsFactoryEntry(aClass, aFactory));
 
   SafeMutexAutoLock lock(mLock);
-  nsFactoryEntry* oldf = mFactories.Get(aClass);
-  if (oldf) {
+  if (auto entry = mFactories.LookupForAdd(aClass)) {
     return NS_ERROR_FACTORY_EXISTS;
+  } else {
+    if (aContractID) {
+      mContractIDs.Put(nsDependentCString(aContractID), f);
   }
-
-  if (aContractID) {
-    mContractIDs.Put(nsDependentCString(aContractID), f);
+    entry.OrInsert([&f] () { return f.forget(); });
   }
-
-  mFactories.Put(aClass, f.forget());
 
   return NS_OK;
 }
@@ -1622,12 +1618,13 @@ nsComponentManagerImpl::UnregisterFactory(const nsCID& aClass,
 
   {
     SafeMutexAutoLock lock(mLock);
-    nsFactoryEntry* f = mFactories.Get(aClass);
+    auto entry = mFactories.Lookup(aClass);
+    nsFactoryEntry* f = entry ? entry.Data() : nullptr;
     if (!f || f->mFactory != aFactory) {
       return NS_ERROR_FACTORY_NOT_REGISTERED;
     }
 
-    mFactories.Remove(aClass);
+    entry.Remove();
 
     // This might leave a stale contractid -> factory mapping in
     // place, so null out the factory entry (see
