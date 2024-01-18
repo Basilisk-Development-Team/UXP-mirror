@@ -134,7 +134,7 @@ nsClassHashtable<KeyClass, T>::RemoveAndForget(KeyType aKey, nsAutoPtr<T>& aOut)
   // Transfer ownership from ent->mData into aOut.
   aOut = mozilla::Move(ent->mData);
 
-  this->Remove(aKey);
+  this->RemoveEntry(ent);
 }
 
 #endif // nsClassHashtable_h__
