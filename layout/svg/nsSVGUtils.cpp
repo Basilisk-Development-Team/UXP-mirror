@@ -804,9 +804,10 @@ nsSVGUtils::PaintFrameWithEffects(nsIFrame *aFrame,
       dirtyRegion = &tmpDirtyRegion;
     }
     SVGPaintCallback paintCallback;
-    nsFilterInstance::PaintFilteredFrame(aFrame, target->GetDrawTarget(),
-                                         aTransform, &paintCallback,
-                                         dirtyRegion);
+    result =
+      nsFilterInstance::PaintFilteredFrame(aFrame, target->GetDrawTarget(),
+                                           aTransform, &paintCallback,
+                                           dirtyRegion);
   } else {
     result = svgChildFrame->PaintSVG(*target, aTransform, aDirtyRect);
   }
@@ -951,7 +952,7 @@ nsSVGUtils::ConvertToSurfaceSize(const gfxSize& aSize,
   *aResultOverflows = surfaceSize.width != ceil(aSize.width) ||
     surfaceSize.height != ceil(aSize.height);
 
-  if (!Factory::CheckSurfaceSize(surfaceSize)) {
+  if (!Factory::AllowedSurfaceSize(surfaceSize)) {
     surfaceSize.width = std::min(NS_SVG_OFFSCREEN_MAX_DIMENSION,
                                surfaceSize.width);
     surfaceSize.height = std::min(NS_SVG_OFFSCREEN_MAX_DIMENSION,
