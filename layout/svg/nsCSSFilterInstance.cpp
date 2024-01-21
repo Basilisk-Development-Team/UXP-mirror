@@ -409,7 +409,7 @@ nsCSSFilterInstance::SetBounds(FilterPrimitiveDescription& aDescr,
   nsIntRect inputBounds = (inputIndex < 0) ?
     mTargetBoundsInFilterSpace : aPrimitiveDescrs[inputIndex].PrimitiveSubregion();
 
-  nsTArray<nsIntRegion> inputExtents;
+  AutoTArray<nsIntRegion, 8> inputExtents;
   inputExtents.AppendElement(inputBounds);
 
   nsIntRegion outputExtents =
