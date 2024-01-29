@@ -3647,10 +3647,19 @@ GCRuntime::beginMarkPhase(JS::gcreason::Reason reason, AutoLockForExclusiveAcces
     }
 
     /*
-     * keepAtoms() will only change on the main thread, which we are currently
-     * on. If the value of keepAtoms() changes between GC slices, then we'll
-     * cancel the incremental GC. See IsIncrementalGCSafe.
-	 * Otherwise, we always schedule a GC in the atoms zone so that atoms which
+     * If keepAtoms() is true then either an instance of AutoKeepAtoms is
+     * currently on the stack or parsing is currently happening on another
+     * thread. In either case we don't have information about which atoms are
+     * roots, so we must skip collecting atoms.
+     *
+     * Note that only affects the first slice of an incremental GC since root
+     * marking is completed before we return to the mutator.
+     *
+     * Off-main-thread parsing is inhibited after the start of GC which prevents
+     * races between creating atoms during parsing and sweeping atoms on the
+     * main thread.
+     *
+     * Otherwise, we always schedule a GC in the atoms zone so that atoms which
      * the other collected zones are using are marked, and we can update the
      * set of atoms in use by the other collected zones at the end of the GC.
      */
@@ -5565,9 +5574,6 @@ gc::AbortReason
 gc::IsIncrementalGCUnsafe(JSRuntime* rt)
 {
     MOZ_ASSERT(!rt->mainThread.suppressGC);
-	
-    if (rt->keepAtoms())
-        return gc::AbortReason::KeepAtomsSet;
 
     if (!rt->gc.isIncrementalGCAllowed())
         return gc::AbortReason::IncrementalDisabled;
@@ -5741,6 +5747,10 @@ GCRuntime::gcCycle(bool nonincrementalByAPI, SliceBudget& budget, JS::gcreason::
     }
 
     State prevState = incrementalState;
+
+    // We don't allow off-main-thread parsing to start while we're doing an
+    // incremental GC.
+    MOZ_ASSERT_IF(rt->activeGCInAtomsZone(), !rt->exclusiveThreadsPresent());
 
     if (nonincrementalByAPI) {
         // Reset any in progress incremental GC if this was triggered via the
