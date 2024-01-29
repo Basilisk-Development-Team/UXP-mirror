@@ -125,6 +125,7 @@ CreateEnvironmentShape(ExclusiveContext* cx, BindingIter& bi, const Class* cls,
         BindingLocation loc = bi.location();
         if (loc.kind() == BindingLocation::Kind::Environment) {
             name = bi.name();
+            cx->markAtom(name);
             shape = NextEnvironmentShape(cx, name, bi.kind(), loc.slot(), stackBase, shape);
             if (!shape)
                 return nullptr;
@@ -138,6 +139,16 @@ template <typename ConcreteScope>
 static UniquePtr<typename ConcreteScope::Data>
 CopyScopeData(ExclusiveContext* cx, Handle<typename ConcreteScope::Data*> data)
 {
+    // Make sure the binding names are marked in the context's zone, if we are
+    // copying data from another zone.
+    BindingName* names = nullptr;
+    uint32_t length = 0;
+    ConcreteScope::getDataNamesAndLength(data, &names, &length);
+    for (size_t i = 0; i < length; i++) {
+        if (JSAtom* name = names[i].name())
+            cx->markAtom(name);
+    }
+
     size_t dataSize = ConcreteScope::sizeOfData(data->length);
     size_t headerSize = sizeof(typename ConcreteScope::Data);
     MOZ_ASSERT(dataSize >= headerSize);

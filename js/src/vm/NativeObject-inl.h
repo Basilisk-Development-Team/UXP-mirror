@@ -17,6 +17,8 @@
 
 #include "jsobjinlines.h"
 
+#include "gc/Heap-inl.h"
+
 namespace js {
 
 inline uint8_t*
@@ -317,6 +319,14 @@ NativeObject::updateShapeAfterMovingGC()
     Shape* shape = shape_;
     if (IsForwarded(shape))
         shape_.unsafeSet(Forwarded(shape));
+}
+
+inline bool
+NativeObject::isInWholeCellBuffer() const
+{
+    const gc::TenuredCell* cell = &asTenured();
+    gc::ArenaCellSet* cells = cell->arena()->bufferedCells();
+    return cells && cells->hasCell(cell);
 }
 
 /* Make an object with pregenerated shape from a NEWOBJECT bytecode. */

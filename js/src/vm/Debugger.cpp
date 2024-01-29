@@ -2225,6 +2225,7 @@ Debugger::appendAllocationSite(JSContext* cx, HandleObject obj, HandleSavedFrame
         if (!JSObject::constructorDisplayAtom(cx, obj, &ctorName))
             return false;
     }
+    cx->markAtom(ctorName);
 
     auto className = obj->getClass()->name;
     auto size = JS::ubi::Node(obj.get()).size(cx->runtime()->debuggerMallocSizeOf);
@@ -7563,6 +7564,7 @@ DebuggerGenericEval(JSContext* cx, const mozilla::Range<const char16_t> chars,
         RootedId id(cx);
         for (size_t i = 0; i < keys.length(); i++) {
             id = keys[i];
+            cx->markId(id);
             MutableHandleValue val = values[i];
             if (!cx->compartment()->wrap(cx, val) ||
                 !NativeDefineProperty(cx, nenv, id, val, nullptr, nullptr, 0))
@@ -8435,7 +8437,7 @@ DebuggerObject::nameGetter(JSContext* cx, unsigned argc, Value* vp)
         return true;
     }
 
-    RootedString result(cx, object->name());
+    RootedString result(cx, object->name(cx));
     if (result)
         args.rval().setString(result);
     else
@@ -8453,7 +8455,7 @@ DebuggerObject::displayNameGetter(JSContext* cx, unsigned argc, Value* vp)
         return true;
     }
 
-    RootedString result(cx, object->displayName());
+    RootedString result(cx, object->displayName(cx));
     if (result)
         args.rval().setString(result);
     else
@@ -9495,19 +9497,23 @@ DebuggerObject::getGlobal(JSContext* cx, HandleDebuggerObject object,
 }
 
 JSAtom*
-DebuggerObject::name() const
+DebuggerObject::name(JSContext* cx) const
 {
     MOZ_ASSERT(isFunction());
 
-    return referent()->as<JSFunction>().explicitName();
+    JSAtom* atom = referent()->as<JSFunction>().explicitName();
+    cx->markAtom(atom);
+    return atom;
 }
 
 JSAtom*
-DebuggerObject::displayName() const
+DebuggerObject::displayName(JSContext* cx) const
 {
     MOZ_ASSERT(isFunction());
 
-    return referent()->as<JSFunction>().displayAtom();
+    JSAtom* atom = referent()->as<JSFunction>().displayAtom();
+    cx->markAtom(atom);
+    return atom;
 }
 
 JS::PromiseState
@@ -9551,7 +9557,9 @@ DebuggerObject::getParameterNames(JSContext* cx, HandleDebuggerObject object,
             PositionalFormalParameterIter fi(script);
             for (size_t i = 0; i < referent->nargs(); i++, fi++) {
                 MOZ_ASSERT(fi.argumentSlot() == i);
-                result[i].set(fi.name());
+                JSAtom* atom = fi.name();
+                cx->markAtom(atom);
+                result[i].set(atom);
             }
         }
     } else {
@@ -9837,6 +9845,9 @@ DebuggerObject::getOwnPropertyNames(JSContext* cx, HandleDebuggerObject object,
             return false;
     }
 
+    for (size_t i = 0; i < ids.length(); i++)
+        cx->markId(ids[i]);
+
     return result.append(ids.begin(), ids.end());
 }
 
@@ -9858,6 +9869,9 @@ DebuggerObject::getOwnPropertySymbols(JSContext* cx, HandleDebuggerObject object
             return false;
     }
 
+    for (size_t i = 0; i < ids.length(); i++)
+        cx->markId(ids[i]);
+
     return result.append(ids.begin(), ids.end());
 }
 
@@ -9872,6 +9886,7 @@ DebuggerObject::getOwnPropertyDescriptor(JSContext* cx, HandleDebuggerObject obj
     {
         Maybe<AutoCompartment> ac;
         ac.emplace(cx, referent);
+        cx->markId(id);
 
         ErrorCopier ec(ac);
         if (!GetOwnPropertyDescriptor(cx, referent, id, desc))
@@ -9955,6 +9970,7 @@ DebuggerObject::defineProperty(JSContext* cx, HandleDebuggerObject object, Handl
     ac.emplace(cx, referent);
     if (!cx->compartment()->wrap(cx, &desc))
         return false;
+    cx->markId(id);
 
     ErrorCopier ec(ac);
     if (!DefineProperty(cx, referent, id, desc))
@@ -9985,6 +10001,7 @@ DebuggerObject::defineProperties(JSContext* cx, HandleDebuggerObject object,
     for (size_t i = 0; i < descs.length(); i++) {
         if (!cx->compartment()->wrap(cx, descs[i]))
             return false;
+        cx->markId(ids[i]);
     }
 
     ErrorCopier ec(ac);
@@ -10004,6 +10021,8 @@ DebuggerObject::deleteProperty(JSContext* cx, HandleDebuggerObject object, Handl
 
     Maybe<AutoCompartment> ac;
     ac.emplace(cx, referent);
+
+    cx->markId(id);
 
     ErrorCopier ec(ac);
     return DeleteProperty(cx, referent, id, result);
@@ -10715,6 +10734,7 @@ DebuggerEnvironment::getNames(JSContext* cx, HandleDebuggerEnvironment environme
     for (size_t i = 0; i < ids.length(); ++i) {
         jsid id = ids[i];
         if (JSID_IS_ATOM(id) && IsIdentifier(JSID_TO_ATOM(id))) {
+            cx->markId(id);
             if (!result.append(id))
                 return false;
         }
@@ -10735,6 +10755,8 @@ DebuggerEnvironment::find(JSContext* cx, HandleDebuggerEnvironment environment, 
     {
         Maybe<AutoCompartment> ac;
         ac.emplace(cx, env);
+
+        cx->markId(id);
 
         /* This can trigger resolve hooks. */
         ErrorCopier ec(ac);
@@ -10767,6 +10789,8 @@ DebuggerEnvironment::getVariable(JSContext* cx, HandleDebuggerEnvironment enviro
     {
         Maybe<AutoCompartment> ac;
         ac.emplace(cx, referent);
+
+        cx->markId(id);
 
         /* This can trigger getters. */
         ErrorCopier ec(ac);
@@ -10824,6 +10848,7 @@ DebuggerEnvironment::setVariable(JSContext* cx, HandleDebuggerEnvironment enviro
         ac.emplace(cx, referent);
         if (!cx->compartment()->wrap(cx, &value))
             return false;
+        cx->markId(id);
 
         /* This can trigger setters. */
         ErrorCopier ec(ac);

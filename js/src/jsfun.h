@@ -333,9 +333,15 @@ class JSFunction : public js::NativeObject
         return hasGuessedAtom() ? nullptr : atom_.get();
     }
 
-    void initAtom(JSAtom* atom) { atom_.init(atom); }
+    void initAtom(JSAtom* atom) {
+        MOZ_ASSERT_IF(atom, js::AtomIsMarked(zone(), atom));
+        atom_.init(atom);
+    }
 
-    void setAtom(JSAtom* atom) { atom_ = atom; }
+    void setAtom(JSAtom* atom) {
+        MOZ_ASSERT_IF(atom, js::AtomIsMarked(zone(), atom));
+        atom_ = atom;
+    }
 
     JSAtom* displayAtom() const {
         return atom_;
@@ -346,6 +352,7 @@ class JSFunction : public js::NativeObject
         MOZ_ASSERT(atom);
         MOZ_ASSERT(!hasGuessedAtom());
         MOZ_ASSERT(!isClassConstructor());
+        MOZ_ASSERT(js::AtomIsMarked(zone(), atom));
         atom_ = atom;
         flags_ |= HAS_COMPILE_TIME_NAME;
     }
@@ -360,6 +367,7 @@ class JSFunction : public js::NativeObject
         MOZ_ASSERT(atom);
         MOZ_ASSERT(!hasCompileTimeName());
         MOZ_ASSERT(!hasGuessedAtom());
+        MOZ_ASSERT(js::AtomIsMarked(zone(), atom));
         MOZ_ASSERT(!isBoundFunction());
         atom_ = atom;
         flags_ |= HAS_GUESSED_ATOM;

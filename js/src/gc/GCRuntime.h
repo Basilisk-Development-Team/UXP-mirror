@@ -12,6 +12,7 @@
 #include "jsfriendapi.h"
 #include "jsgc.h"
 
+#include "gc/AtomMarking.h"
 #include "gc/Heap.h"
 #include "gc/Nursery.h"
 #include "gc/Statistics.h"
@@ -1020,6 +1021,10 @@ class GCRuntime
     GCSchedulingState schedulingState;
 
     MemProfiler mMemProfiler;
+
+    // State used for managing atom mark bitmaps in each zone. Protected by the
+    // exclusive access lock.
+    AtomMarkingRuntime atomMarking;
 
   private:
     // When empty, chunks reside in the emptyChunks pool and are re-used as

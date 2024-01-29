@@ -79,7 +79,7 @@ StoreBuffer::clear()
     bufferGeneric.clear();
 
     for (ArenaCellSet* set = bufferWholeCell; set; set = set->next)
-         set->arena->bufferedCells = nullptr;
+         set->arena->bufferedCells() = nullptr;
     bufferWholeCell = nullptr;
 }
 
@@ -142,7 +142,7 @@ js::gc::AllocateWholeCellSet(Arena* arena)
 
     auto cells = static_cast<ArenaCellSet*>(data);
     new (cells) ArenaCellSet(arena);
-    arena->bufferedCells = cells;
+    arena->bufferedCells() = cells;
     rt->gc.storeBuffer.addToWholeCellBuffer(cells);
     return cells;
 }

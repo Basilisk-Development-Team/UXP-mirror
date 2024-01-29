@@ -82,10 +82,28 @@ class CompartmentChecker
         check(handle.get());
     }
 
+    void checkAtom(gc::Cell* cell) {
+#ifdef DEBUG
+        // Atoms which move across zone boundaries need to be marked in the new
+        // zone, see JS_MarkCrossZoneId.
+        if (compartment) {
+            JSRuntime* rt = compartment->runtimeFromAnyThread();
+            MOZ_ASSERT(rt->gc.atomMarking.atomIsMarked(compartment->zone(), cell));
+        }
+#endif
+    }
+
     void check(JSString* str) {
         MOZ_ASSERT(!js::gc::detail::CellIsMarkedGray(str));
-        if (!str->isAtom())
+        if (str->isAtom()) {
+            checkAtom(str);
+        } else {
             checkZone(str->zone());
+         }
+    }
+
+    void check(JS::Symbol* symbol) {
+        checkAtom(symbol);
     }
 
     void check(const js::Value& v) {
@@ -93,6 +111,8 @@ class CompartmentChecker
             check(&v.toObject());
         else if (v.isString())
             check(v.toString());
+        else if (v.isSymbol())
+            check(v.toSymbol());
     }
 
     void check(const ValueArray& arr) {
@@ -115,7 +135,10 @@ class CompartmentChecker
             check(*p);
     }
 
-    void check(jsid id) {}
+    void check(jsid id) {
+        if (JSID_IS_GCTHING(id))
+            checkAtom(JSID_TO_GCTHING(id).asCell());
+    }
 
     void check(JSScript* script) {
         MOZ_ASSERT_IF(script, !JS::ScriptIsMarkedGray(script));

@@ -3378,6 +3378,8 @@ CloneInnerInterpretedFunction(JSContext* cx, HandleScope enclosingScope, HandleF
         flags |= JSFunction::Flags::EXTENDED;
     }
     RootedAtom atom(cx, srcFun->displayAtom());
+    if (atom)
+        cx->markAtom(atom);
     RootedFunction clone(cx, NewFunctionWithProto(cx, nullptr, srcFun->nargs(),
                                                   JSFunction::Flags(flags), nullptr, atom,
                                                   cloneProto, allocKind, TenuredObject));
@@ -3526,6 +3528,11 @@ js::detail::CopyScript(JSContext* cx, HandleScript src, HandleScript dst,
     MOZ_ASSERT(bool(dst->data) == bool(src->data));
     if (dst->data)
         memcpy(dst->data, src->data, size);
+
+    if (cx->zone() != src->zoneFromAnyThread()) {
+        for (size_t i = 0; i < src->scriptData()->natoms(); i++)
+            cx->markAtom(src->scriptData()->atoms()[i]);
+    }
 
     /* Script filenames, bytecodes and atoms are runtime-wide. */
     dst->setScriptData(src->scriptData());
