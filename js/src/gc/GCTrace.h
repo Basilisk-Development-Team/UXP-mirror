@@ -20,6 +20,7 @@ namespace gc {
 extern void FinishTrace();
 extern bool TraceEnabled();
 extern void TraceNurseryAlloc(Cell* thing, size_t size);
+extern void TraceNurseryAlloc(Cell* thing, AllocKind kind);
 extern void TraceTenuredAlloc(Cell* thing, AllocKind kind);
 extern void TraceCreateObject(JSObject* object);
 extern void TraceMinorGCStart();
@@ -36,6 +37,7 @@ extern void TraceTypeNewScript(js::ObjectGroup* group);
 inline void FinishTrace() {}
 inline bool TraceEnabled() { return false; }
 inline void TraceNurseryAlloc(Cell* thing, size_t size) {}
+inline void TraceNurseryAlloc(Cell* thing, AllocKind kind) {}
 inline void TraceTenuredAlloc(Cell* thing, AllocKind kind) {}
 inline void TraceCreateObject(JSObject* object) {}
 inline void TraceMinorGCStart() {}

@@ -204,9 +204,10 @@ JSString::dumpRepresentationHeader(FILE* fp, int indent, const char* subclass) c
     if (flags & FLAT_BIT)               fputs(" FLAT", fp);
     if (flags & HAS_BASE_BIT)           fputs(" HAS_BASE", fp);
     if (flags & INLINE_CHARS_BIT)       fputs(" INLINE_CHARS", fp);
-    if (flags & ATOM_BIT)               fputs(" ATOM", fp);
+    if (flags & NON_ATOM_BIT)           fputs(" NON_ATOM", fp);
     if (isPermanentAtom())              fputs(" PERMANENT", fp);
     if (flags & LATIN1_CHARS_BIT)       fputs(" LATIN1", fp);
+    if (!isTenured())                   fputs(" NURSERY", fp);
     fputc('\n', fp);
 }
 
@@ -1100,9 +1101,11 @@ JSExternalString::ensureFlat(JSContext* cx)
     // Release the external chars.
     finalize(cx->runtime()->defaultFreeOp());
 
-    // Transform the string into a non-external, flat string.
+    // Transform the string into a non-external, flat string. Note that the
+    // resulting string will still be in an AllocKind::EXTERNAL_STRING arena,
+    // but will no longer be an external string.
     setNonInlineChars<char16_t>(s);
-    d.u1.flags = FLAT_BIT;
+    d.u1.flags = INIT_FLAT_FLAGS;
 
     return &this->asFlat();
 }
