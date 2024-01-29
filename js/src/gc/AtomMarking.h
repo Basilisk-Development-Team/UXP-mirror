@@ -10,6 +10,7 @@
 #include "NamespaceImports.h"
 #include "ds/Bitmap.h"
 #include "gc/Heap.h"
+#include "vm/Symbol.h"
 
 namespace js {
 namespace gc {
@@ -20,6 +21,13 @@ class AtomMarkingRuntime
 {
     // Unused arena atom bitmap indexes. Protected by the GC lock.
     Vector<size_t, 0, SystemAllocPolicy> freeArenaIndexes;
+
+    void markChildren(ExclusiveContext* cx, JSAtom*) {}
+
+    void markChildren(ExclusiveContext* cx, JS::Symbol* symbol) {
+        if (JSAtom* description = symbol->description())
+            markAtom(cx, description);
+    }
 
 public:
     // The extent of all allocated and free words in atom mark bitmaps.
@@ -50,7 +58,12 @@ public:
     void updateChunkMarkBits(JSRuntime* runtime);
 
     // Mark an atom or id as being newly reachable by the context's zone.
-    void markAtom(ExclusiveContext* cx, TenuredCell* thing);
+    template <typename T> void markAtom(ExclusiveContext* cx, T* thing);
+
+    // Version of markAtom that's always inlined, for performance-sensitive
+    // callers.
+    template <typename T> MOZ_ALWAYS_INLINE void inlinedMarkAtom(ExclusiveContext* cx, T* thing);
+
     void markId(ExclusiveContext* cx, jsid id);
     void markAtomValue(ExclusiveContext* cx, const Value& value);
 
@@ -59,7 +72,7 @@ public:
 
 #ifdef DEBUG
     // Return whether |thing/id| is in the atom marking bitmap for |zone|.
-    bool atomIsMarked(Zone* zone, Cell* thing);
+    template <typename T> bool atomIsMarked(Zone* zone, T* thing);
     bool idIsMarked(Zone* zone, jsid id);
     bool valueIsMarked(Zone* zone, const Value& value);
 #endif

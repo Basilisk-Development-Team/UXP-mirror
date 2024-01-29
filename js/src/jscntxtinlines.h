@@ -82,13 +82,17 @@ class CompartmentChecker
         check(handle.get());
     }
 
-    void checkAtom(gc::Cell* cell) {
+    template <typename T>
+    void checkAtom(T* thing) {
+        static_assert(mozilla::IsSame<T, JSAtom>::value ||
+                      mozilla::IsSame<T, JS::Symbol>::value,
+                      "Should only be called with JSAtom* or JS::Symbol* argument");
 #ifdef DEBUG
         // Atoms which move across zone boundaries need to be marked in the new
         // zone, see JS_MarkCrossZoneId.
         if (compartment) {
             JSRuntime* rt = compartment->runtimeFromAnyThread();
-            MOZ_ASSERT(rt->gc.atomMarking.atomIsMarked(compartment->zone(), cell));
+            MOZ_ASSERT(rt->gc.atomMarking.atomIsMarked(compartment->zone(), thing));
         }
 #endif
     }
@@ -96,7 +100,7 @@ class CompartmentChecker
     void check(JSString* str) {
         MOZ_ASSERT(!js::gc::detail::CellIsMarkedGray(str));
         if (str->isAtom()) {
-            checkAtom(str);
+            checkAtom(&str->asAtom());
         } else {
             checkZone(str->zone());
          }
@@ -136,8 +140,12 @@ class CompartmentChecker
     }
 
     void check(jsid id) {
-        if (JSID_IS_GCTHING(id))
-            checkAtom(JSID_TO_GCTHING(id).asCell());
+        if (JSID_IS_ATOM(id))
+            checkAtom(JSID_TO_ATOM(id));
+        else if (JSID_IS_SYMBOL(id))
+            checkAtom(JSID_TO_SYMBOL(id));
+        else
+            MOZ_ASSERT(!JSID_IS_GCTHING(id));
     }
 
     void check(JSScript* script) {

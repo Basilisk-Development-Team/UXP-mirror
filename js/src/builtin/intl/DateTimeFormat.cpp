@@ -361,7 +361,7 @@ js::intl_IsValidTimeZoneName(JSContext* cx, unsigned argc, Value* vp)
     SharedIntlData& sharedIntlData = cx->sharedIntlData;
 
     RootedString timeZone(cx, args[0].toString());
-    RootedString validatedTimeZone(cx);
+    RootedAtom validatedTimeZone(cx);
     if (!sharedIntlData.validateTimeZoneName(cx, timeZone, &validatedTimeZone))
         return false;
 

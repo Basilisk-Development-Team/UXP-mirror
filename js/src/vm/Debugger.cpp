@@ -2225,7 +2225,8 @@ Debugger::appendAllocationSite(JSContext* cx, HandleObject obj, HandleSavedFrame
         if (!JSObject::constructorDisplayAtom(cx, obj, &ctorName))
             return false;
     }
-    cx->markAtom(ctorName);
+    if (ctorName)
+        cx->markAtom(ctorName);
 
     auto className = obj->getClass()->name;
     auto size = JS::ubi::Node(obj.get()).size(cx->runtime()->debuggerMallocSizeOf);
@@ -9502,7 +9503,8 @@ DebuggerObject::name(JSContext* cx) const
     MOZ_ASSERT(isFunction());
 
     JSAtom* atom = referent()->as<JSFunction>().explicitName();
-    cx->markAtom(atom);
+    if (atom)
+        cx->markAtom(atom);
     return atom;
 }
 
@@ -9512,7 +9514,8 @@ DebuggerObject::displayName(JSContext* cx) const
     MOZ_ASSERT(isFunction());
 
     JSAtom* atom = referent()->as<JSFunction>().displayAtom();
-    cx->markAtom(atom);
+    if (atom)
+        cx->markAtom(atom);
     return atom;
 }
 
@@ -9558,7 +9561,8 @@ DebuggerObject::getParameterNames(JSContext* cx, HandleDebuggerObject object,
             for (size_t i = 0; i < referent->nargs(); i++, fi++) {
                 MOZ_ASSERT(fi.argumentSlot() == i);
                 JSAtom* atom = fi.name();
-                cx->markAtom(atom);
+                if (atom)
+                    cx->markAtom(atom);
                 result[i].set(atom);
             }
         }

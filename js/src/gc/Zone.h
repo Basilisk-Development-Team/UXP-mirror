@@ -377,7 +377,10 @@ struct Zone : public JS::shadow::Zone,
 
     // Bitmap of atoms marked by this zone.
     js::SparseBitmap markedAtoms;
-	
+
+    // Set of atoms recently used by this Zone. Purged on GC.
+    js::AtomSet atomCache;
+
     // Track heap usage under this Zone.
     js::gc::HeapUsage usage;
 

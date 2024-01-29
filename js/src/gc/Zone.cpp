@@ -83,7 +83,8 @@ bool Zone::init(bool isSystemArg)
            gcZoneGroupEdges.init() &&
            gcWeakKeys.init() &&
 		   typeDescrObjects.init() &&
-           markedAtoms.init();
+           markedAtoms.init() &&
+           atomCache.init();
 }
 
 void

@@ -51,7 +51,8 @@ Symbol::new_(ExclusiveContext* cx, JS::SymbolCode code, JSString* description)
         AutoCompartment ac(cx, cx->atomsCompartment(lock), &lock);
         sym = newInternal(cx, code, cx->compartment()->randomHashCode(), atom, lock);
     }
-    cx->markAtom(sym);
+    if (sym)
+        cx->markAtom(sym);
     return sym;
 }
 

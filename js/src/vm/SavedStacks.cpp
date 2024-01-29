@@ -495,7 +495,8 @@ SavedFrame::initFromLookup(JSContext* cx, SavedFrame::HandleLookup lookup)
     // points where the context moves between compartments, but Lookups live on
     // the stack (where the atoms are kept alive regardless) and this is a
     // more convenient pinchpoint.
-    cx->markAtom(lookup->source);
+    if (lookup->source)
+        cx->markAtom(lookup->source);
     if (lookup->functionDisplayName)
         cx->markAtom(lookup->functionDisplayName);
     if (lookup->asyncCause)
@@ -749,7 +750,8 @@ GetSavedFrameSource(JSContext* cx, HandleObject savedFrame, MutableHandleString 
         }
         sourcep.set(frame->getSource());
     }
-    cx->markAtom(sourcep);
+    if (sourcep->isAtom())
+        cx->markAtom(&sourcep->asAtom());
     return SavedFrameResult::Ok;
 }
 
@@ -811,8 +813,8 @@ GetSavedFrameFunctionDisplayName(JSContext* cx, HandleObject savedFrame, Mutable
         }
         namep.set(frame->getFunctionDisplayName());
     }
-    if (namep)
-        cx->markAtom(namep);
+    if (namep && namep->isAtom())
+        cx->markAtom(&namep->asAtom());
     return SavedFrameResult::Ok;
 }
 
@@ -842,8 +844,8 @@ GetSavedFrameAsyncCause(JSContext* cx, HandleObject savedFrame, MutableHandleStr
         if (!asyncCausep && skippedAsync)
             asyncCausep.set(cx->names().Async);
     }
-    if (asyncCausep)
-        cx->markAtom(asyncCausep);
+    if (asyncCausep && asyncCausep->isAtom())
+        cx->markAtom(&asyncCausep->asAtom());
     return SavedFrameResult::Ok;
 }
 
