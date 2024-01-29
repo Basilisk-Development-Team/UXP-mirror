@@ -121,6 +121,7 @@ js::Nursery::Nursery(JSRuntime* rt)
   , previousPromotionRate_(0)
   , profileThreshold_(0)
   , enableProfiling_(false)
+  , canAllocateStrings_(false)
   , reportTenurings_(0)
   , minorGCTriggerReason_(JS::gcreason::NO_REASON)
   , minorGcCount_(0)
@@ -128,7 +129,11 @@ js::Nursery::Nursery(JSRuntime* rt)
 #ifdef JS_GC_ZEAL
   , lastCanary_(nullptr)
 #endif
-{}
+{
+    const char* env = getenv("MOZ_ENABLE_NURSERY_STRINGS");
+    if (env && *env)
+        canAllocateStrings_ = true;
+}
 
 bool
 js::Nursery::init(uint32_t maxNurseryBytes, AutoLockGCBgAlloc& lock)
@@ -231,6 +236,20 @@ js::Nursery::disable()
     currentEnd_ = 0;
 
     runtime()->gc.storeBuffer().disable();
+}
+
+void
+js::Nursery::enableStrings()
+{
+    MOZ_ASSERT(isEmpty());
+    canAllocateStrings_ = true;
+}
+
+void
+js::Nursery::disableStrings()
+{
+    MOZ_ASSERT(isEmpty());
+    canAllocateStrings_ = false;
 }
 
 bool
@@ -369,7 +388,7 @@ js::Nursery::allocateBuffer(Zone* zone, size_t nbytes)
     }
 
     void* buffer = zone->pod_malloc<uint8_t>(nbytes);
-    if (buffer && !mallocedBuffers.putNew(buffer)) {
+    if (buffer && !registerMallocedBuffer(buffer)) {
         js_free(buffer);
         return nullptr;
     }
@@ -492,8 +511,10 @@ js::TenuringTracer::TenuringTracer(JSRuntime* rt, Nursery* nursery)
   : JSTracer(rt, JSTracer::TracerKindTag::Tenuring, TraceWeakMapKeysValues)
   , nursery_(*nursery)
   , tenuredSize(0)
-  , head(nullptr)
-  , tail(&head)
+  , objHead(nullptr)
+  , objTail(&objHead)
+  , stringHead(nullptr)
+  , stringTail(&stringHead)
 {
 }
 
@@ -810,9 +831,9 @@ js::Nursery::doCollection(JS::gcreason::Reason reason,
     }
     endProfile(ProfileKey::MarkDebugger);
 
-    startProfile(ProfileKey::ClearNewObjectCache);
-    rt->caches().newObjectCache.clearNurseryObjects(rt);
-    endProfile(ProfileKey::ClearNewObjectCache);
+    maybeStartProfile(ProfileKey::SweepCaches);
+    rt->contextFromMainThread()->gc.purgeRuntimeForMinorGC();
+    maybeEndProfile(ProfileKey::SweepCaches);
 
     // Most of the work is done here. This loop iterates over objects that have
     // been moved to the major heap. If these objects have any outgoing pointers
@@ -883,6 +904,13 @@ js::Nursery::FreeMallocedBuffersTask::run()
     for (MallocedBuffersSet::Range r = buffers_.all(); !r.empty(); r.popFront())
         fop_->free_(r.front());
     buffers_.clear();
+}
+
+bool
+js::Nursery::registerMallocedBuffer(void* buffer)
+{
+    MOZ_ASSERT(buffer);
+    return mallocedBuffers.putNew(buffer);
 }
 
 void
@@ -1146,4 +1174,20 @@ js::Nursery::sweepDictionaryModeObjects()
             Forwarded(obj)->updateDictionaryListPointerAfterMinorGC(obj);
     }
     dictionaryModeObjects_.clear();
+}
+
+JS_PUBLIC_API(void)
+JS::EnableNurseryStrings(JSContext* cx)
+{
+    AutoEmptyNursery empty(cx);
+    ReleaseAllJITCode(cx->runtime()->defaultFreeOp());
+    cx->runtime()->gc.nursery().enableStrings();
+}
+
+JS_PUBLIC_API(void)
+JS::DisableNurseryStrings(JSContext* cx)
+{
+    AutoEmptyNursery empty(cx);
+    ReleaseAllJITCode(cx->runtime()->defaultFreeOp());
+    cx->runtime()->gc.nursery().disableStrings();
 }

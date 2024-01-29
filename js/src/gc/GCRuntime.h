@@ -804,6 +804,9 @@ class GCRuntime
     void traceRuntime(JSTracer* trc, AutoTraceSession& session);
     void traceRuntimeForMinorGC(JSTracer* trc, AutoTraceSession& session);
 
+    void purgeRuntimeForMinorGC();
+
+
     void notifyDidPaint();
     void shrinkBuffers();
     void onOutOfMallocMemory();
