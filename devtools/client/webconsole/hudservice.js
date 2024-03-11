@@ -675,18 +675,11 @@ BrowserConsole.prototype = extend(WebConsole.prototype, {
     // instance.
     let onClose = () => {
       window.removeEventListener("unload", onClose);
-      window.removeEventListener("focus", onFocus);
       this.destroy();
     };
     window.addEventListener("unload", onClose);
 
     this._telemetry.toolOpened("browserconsole");
-
-    // Create an onFocus handler just to display the dev edition promo.
-    // This is to prevent race conditions in some environments.
-    // Hook to display promotional Developer Edition doorhanger. Only displayed once.
-    let onFocus = () => showDoorhanger({ window, type: "deveditionpromo" });
-    window.addEventListener("focus", onFocus);
 
     this._bc_init = this.$init();
     return this._bc_init;
