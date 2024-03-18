@@ -3220,7 +3220,7 @@ BigInt* js::ParseBigIntLiteral(JSContext* cx,
   return res;
 }
 
-JSAtom* js::BigIntToAtom(JSContext* cx,, HandleBigInt bi) {
+JSAtom* js::BigIntToAtom(JSContext* cx, HandleBigInt bi) {
   JSString* str = BigInt::toString(cx, bi, 10);
   if (!str) {
     return nullptr;

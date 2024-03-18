@@ -180,8 +180,7 @@ IsMarkingTrace(JSTracer* trc)
     //      tracer might not be a marking tracer.
     //   2. When a write barrier executes, IsMarkingTracer is true, but
     //      CurrentThreadIsHeapBusy() will be false.
-    if (JS::CurrentThreadIsHeapCollecting() &&
-    return trc->runtime()->isHeapCollecting() && trc->isMarkingTracer();
+    return JS::CurrentThreadIsHeapCollecting() && trc->isMarkingTracer();
 }
 
 void

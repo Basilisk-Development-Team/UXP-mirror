@@ -162,7 +162,7 @@ js::LooselyEqual(JSContext* cx, JS::HandleValue lval, JS::HandleValue rval, bool
 JS_PUBLIC_API(bool)
 JS::LooselyEqual(JSContext* cx, Handle<Value> value1, Handle<Value> value2, bool* equal)
 {
-    js::AssertHeapIsIdle(cx);
+    js::AssertHeapIsIdle();
     CHECK_REQUEST(cx);
     js::assertSameCompartment(cx, value1, value2);
     MOZ_ASSERT(equal);
@@ -187,7 +187,7 @@ js::StrictlyEqual(JSContext* cx, JS::HandleValue lval, JS::HandleValue rval, boo
 JS_PUBLIC_API(bool)
 JS::StrictlyEqual(JSContext* cx, Handle<Value> value1, Handle<Value> value2, bool* equal)
 {
-    js::AssertHeapIsIdle(cx);
+    js::AssertHeapIsIdle();
     CHECK_REQUEST(cx);
     js::assertSameCompartment(cx, value1, value2);
     MOZ_ASSERT(equal);
@@ -227,7 +227,7 @@ js::SameValue(JSContext* cx, JS::HandleValue v1, JS::HandleValue v2, bool* same)
 JS_PUBLIC_API(bool)
 JS::SameValue(JSContext* cx, Handle<Value> value1, Handle<Value> value2, bool* same)
 {
-    js::AssertHeapIsIdle(cx);
+    js::AssertHeapIsIdle();
     CHECK_REQUEST(cx);
     js::assertSameCompartment(cx, value1, value2);
     MOZ_ASSERT(same);

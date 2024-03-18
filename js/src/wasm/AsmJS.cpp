@@ -1370,7 +1370,7 @@ class MOZ_STACK_CLASS ModuleValidator
     typedef HashMap<PropertyName*, AsmJSAtomicsBuiltinFunction> AtomicsNameMap;
     typedef Vector<ArrayView> ArrayViewVector;
 
-    ExclusiveContext*     cx_;
+    JSContext*            cx_;
     AsmJSParser&          parser_;
     FunctionNode*         moduleFunctionNode_;
     PropertyName*         moduleFunctionName_;

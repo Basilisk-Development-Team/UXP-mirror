@@ -110,7 +110,6 @@ JSRuntime::JSRuntime(JSRuntime* parentRuntime)
     destroyZoneCallback(nullptr),
     sweepZoneCallback(nullptr),
     compartmentNameCallback(nullptr),
-    externalStringSizeofCallback(nullptr),
     securityCallbacks(&NullSecurityCallbacks),
     DOMcallbacks(nullptr),
     destroyPrincipals(nullptr),
@@ -168,7 +167,7 @@ JSRuntime::JSRuntime(JSRuntime* parentRuntime)
     oomCallback(nullptr),
     debuggerMallocSizeOf(ReturnZeroSize),
     lastAnimationTime(0),
-    performanceMonitoring(thisFromCtor()),
+    performanceMonitoring_(thisFromCtor()),
     ionLazyLinkListSize_(0),
     stackFormat_(parentRuntime ?
                  js::StackFormat::Default :

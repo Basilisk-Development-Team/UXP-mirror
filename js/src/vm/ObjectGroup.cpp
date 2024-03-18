@@ -779,7 +779,7 @@ GetValueTypeForTable(const Value& v)
 }
 
 /* static */ JSObject*
-ObjectGroup::newArrayObject(JSContext* cx,,
+ObjectGroup::newArrayObject(JSContext* cx,
                             const Value* vp, size_t length,
                             NewObjectKind newKind, NewArrayKind arrayKind)
 {

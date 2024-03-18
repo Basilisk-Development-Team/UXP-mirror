@@ -1876,7 +1876,9 @@ js::GetPCCountScriptSummary(JSContext* cx, size_t index)
 {
     JSRuntime* rt = cx->runtime();
 
-    if (!rt->zoneGroupFromMainThread()->scriptAndCountsVector || index >= rt->scriptAndCountsVector->length()) {
+    if (!rt->zoneGroupFromMainThread()->scriptAndCountsVector ||
+        index >= rt->zoneGroupFromMainThread()->scriptAndCountsVector->length())
+    {
         JS_ReportErrorNumberASCII(cx, GetErrorMessage, nullptr, JSMSG_BUFFER_TOO_SMALL);
         return nullptr;
     }
