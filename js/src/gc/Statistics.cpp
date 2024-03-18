@@ -953,7 +953,7 @@ Statistics::beginNurseryCollection(JS::gcreason::Reason reason)
 {
     count(STAT_MINOR_GC);
     if (nurseryCollectionCallback) {
-        (*nurseryCollectionCallback)(runtime->contextFromMainThread(),
+        (*nurseryCollectionCallback)(TlsContext.get(),
                                      JS::GCNurseryProgress::GC_NURSERY_COLLECTION_START,
                                      reason);
     }
@@ -963,7 +963,7 @@ void
 Statistics::endNurseryCollection(JS::gcreason::Reason reason)
 {
     if (nurseryCollectionCallback) {
-        (*nurseryCollectionCallback)(runtime->contextFromMainThread(),
+        (*nurseryCollectionCallback)(TlsContext.get(),
                                      JS::GCNurseryProgress::GC_NURSERY_COLLECTION_END,
                                      reason);
     }
@@ -992,7 +992,7 @@ Statistics::beginSlice(const ZoneGCStats& zoneStats, JSGCInvocationKind gckind,
     if (gcDepth == 1) {
         bool wasFullGC = zoneStats.isCollectingAllZones();
         if (sliceCallback)
-            (*sliceCallback)(runtime->contextFromMainThread(),
+            (*sliceCallback)(TlsContext.get(),
                              first ? JS::GC_CYCLE_BEGIN : JS::GC_SLICE_BEGIN,
                              JS::GCDescription(!wasFullGC, gckind, reason));
     }
@@ -1021,7 +1021,7 @@ Statistics::endSlice()
     if (gcDepth == 1 && !aborted) {
         bool wasFullGC = zoneStats.isCollectingAllZones();
         if (sliceCallback)
-            (*sliceCallback)(runtime->contextFromMainThread(),
+            (*sliceCallback)(TlsContext.get(),
                              last ? JS::GC_CYCLE_END : JS::GC_SLICE_END,
                              JS::GCDescription(!wasFullGC, gckind, slices.back().reason));
     }

@@ -123,11 +123,11 @@ static inline unsigned DigitLeadingZeroes(BigInt::Digit x) {
                         : mozilla::CountLeadingZeroes64(x);
 }
 
-BigInt* BigInt::createUninitialized(ExclusiveContext* cx, size_t length,
+BigInt* BigInt::createUninitialized(JSContext* cx, size_t length,
                                     bool isNegative) {
   if (length > MaxDigitLength) {
-    if (cx->isJSContext()) {
-      JS_ReportErrorNumberASCII(cx->asJSContext(), GetErrorMessage, nullptr,
+    if (cx->helperThread()) {
+      JS_ReportErrorNumberASCII(cx, GetErrorMessage, nullptr,
                                     JSMSG_BIGINT_TOO_LARGE);
     }
     return nullptr;
@@ -181,11 +181,11 @@ size_t BigInt::sizeOfExcludingThis(mozilla::MallocSizeOf mallocSizeOf) const {
   return hasInlineDigits() ? 0 : mallocSizeOf(heapDigits_);
 }
 
-BigInt* BigInt::zero(ExclusiveContext* cx) {
+BigInt* BigInt::zero(JSContext* cx) {
   return createUninitialized(cx, 0, false);
 }
 
-BigInt* BigInt::createFromDigit(ExclusiveContext* cx, Digit d, bool isNegative) {
+BigInt* BigInt::createFromDigit(JSContext* cx, Digit d, bool isNegative) {
   MOZ_ASSERT(d != 0);
   BigInt* res = createUninitialized(cx, 1, isNegative);
   if (!res) {
@@ -196,13 +196,13 @@ BigInt* BigInt::createFromDigit(ExclusiveContext* cx, Digit d, bool isNegative) 
   return res;
 }
 
-BigInt* BigInt::one(ExclusiveContext* cx) { return createFromDigit(cx, 1, false); }
+BigInt* BigInt::one(JSContext* cx) { return createFromDigit(cx, 1, false); }
 
-BigInt* BigInt::negativeOne(ExclusiveContext* cx) {
+BigInt* BigInt::negativeOne(JSContext* cx) {
   return createFromDigit(cx, 1, true);
 }
 
-BigInt* BigInt::neg(ExclusiveContext* cx, HandleBigInt x) {
+BigInt* BigInt::neg(JSContext* cx, HandleBigInt x) {
   if (x->isZero()) {
     return x;
   }
@@ -467,7 +467,7 @@ inline int8_t BigInt::absoluteCompare(BigInt* x, BigInt* y) {
   return x->digit(i) > y->digit(i) ? 1 : -1;
 }
 
-BigInt* BigInt::absoluteAdd(ExclusiveContext* cx, HandleBigInt x, HandleBigInt y,
+BigInt* BigInt::absoluteAdd(JSContext* cx, HandleBigInt x, HandleBigInt y,
                             bool resultNegative) {
   bool swap = x->digitLength() < y->digitLength();
   // Ensure `left` has at least as many digits as `right`.
@@ -510,7 +510,7 @@ BigInt* BigInt::absoluteAdd(ExclusiveContext* cx, HandleBigInt x, HandleBigInt y
   return destructivelyTrimHighZeroDigits(cx, result);
 }
 
-BigInt* BigInt::absoluteSub(ExclusiveContext* cx, HandleBigInt x, HandleBigInt y,
+BigInt* BigInt::absoluteSub(JSContext* cx, HandleBigInt x, HandleBigInt y,
                             bool resultNegative) {
   MOZ_ASSERT(x->digitLength() >= y->digitLength());
 
@@ -567,7 +567,7 @@ BigInt* BigInt::absoluteSub(ExclusiveContext* cx, HandleBigInt x, HandleBigInt y
 //
 // This function returns false if `quotient` is an empty handle, but allocating
 // the quotient failed.  Otherwise it returns true, indicating success.
-bool BigInt::absoluteDivWithDigitDivisor(ExclusiveContext* cx, HandleBigInt x,
+bool BigInt::absoluteDivWithDigitDivisor(JSContext* cx, HandleBigInt x,
                                          Digit divisor,
                                          const Maybe<MutableHandleBigInt>& quotient,
                                          Digit* remainder,
@@ -687,7 +687,7 @@ void BigInt::inplaceRightShiftLowZeroBits(unsigned shift) {
 }
 
 // Always copies the input, even when `shift` == 0.
-BigInt* BigInt::absoluteLeftShiftAlwaysCopy(ExclusiveContext* cx, HandleBigInt x,
+BigInt* BigInt::absoluteLeftShiftAlwaysCopy(JSContext* cx, HandleBigInt x,
                                             unsigned shift,
                                             LeftShiftMode mode) {
   MOZ_ASSERT(shift < DigitBits);
@@ -738,7 +738,7 @@ BigInt* BigInt::absoluteLeftShiftAlwaysCopy(ExclusiveContext* cx, HandleBigInt x
 // interested in one of them.  See Knuth, Volume 2, section 4.3.1, Algorithm D.
 // Also see the overview of the algorithm by Jan Marthedal Rasmussen over at
 // https://janmr.com/blog/2014/04/basic-multiple-precision-long-division/.
-bool BigInt::absoluteDivWithBigIntDivisor(ExclusiveContext* cx, HandleBigInt dividend,
+bool BigInt::absoluteDivWithBigIntDivisor(JSContext* cx, HandleBigInt dividend,
                                           HandleBigInt divisor,
                                           const Maybe<MutableHandleBigInt>& quotient,
                                           const Maybe<MutableHandleBigInt>& remainder,
@@ -885,7 +885,7 @@ bool BigInt::absoluteDivWithBigIntDivisor(ExclusiveContext* cx, HandleBigInt div
 //                   v     v     v     v
 //  result: [  0 ][ x3 ][ r2 ][ r1 ][ r0 ]
 template <BigInt::BitwiseOpKind kind, typename BitwiseOp>
-inline BigInt* BigInt::absoluteBitwiseOp(ExclusiveContext* cx, HandleBigInt x,
+inline BigInt* BigInt::absoluteBitwiseOp(JSContext* cx, HandleBigInt x,
                                          HandleBigInt y, BitwiseOp&& op) {
   unsigned xLength = x->digitLength();
   unsigned yLength = y->digitLength();
@@ -925,28 +925,28 @@ inline BigInt* BigInt::absoluteBitwiseOp(ExclusiveContext* cx, HandleBigInt x,
   return destructivelyTrimHighZeroDigits(cx, result);
 }
 
-BigInt* BigInt::absoluteAnd(ExclusiveContext* cx, HandleBigInt x, HandleBigInt y) {
+BigInt* BigInt::absoluteAnd(JSContext* cx, HandleBigInt x, HandleBigInt y) {
   return absoluteBitwiseOp<BitwiseOpKind::SymmetricTrim>(cx, x, y,
                                                          std::bit_and<Digit>());
 }
 
-BigInt* BigInt::absoluteOr(ExclusiveContext* cx, HandleBigInt x, HandleBigInt y) {
+BigInt* BigInt::absoluteOr(JSContext* cx, HandleBigInt x, HandleBigInt y) {
   return absoluteBitwiseOp<BitwiseOpKind::SymmetricFill>(cx, x, y,
                                                          std::bit_or<Digit>());
 }
 
-BigInt* BigInt::absoluteAndNot(ExclusiveContext* cx, HandleBigInt x, HandleBigInt y) {
+BigInt* BigInt::absoluteAndNot(JSContext* cx, HandleBigInt x, HandleBigInt y) {
   auto digitOperation = [](Digit a, Digit b) { return a & ~b; };
   return absoluteBitwiseOp<BitwiseOpKind::AsymmetricFill>(cx, x, y,
                                                           digitOperation);
 }
 
-BigInt* BigInt::absoluteXor(ExclusiveContext* cx, HandleBigInt x, HandleBigInt y) {
+BigInt* BigInt::absoluteXor(JSContext* cx, HandleBigInt x, HandleBigInt y) {
   return absoluteBitwiseOp<BitwiseOpKind::SymmetricFill>(cx, x, y,
                                                          std::bit_xor<Digit>());
 }
 
-BigInt* BigInt::absoluteAddOne(ExclusiveContext* cx, HandleBigInt x,
+BigInt* BigInt::absoluteAddOne(JSContext* cx, HandleBigInt x,
                                bool resultNegative) {
   unsigned inputLength = x->digitLength();
   // The addition will overflow into a new digit if all existing digits are
@@ -982,7 +982,7 @@ BigInt* BigInt::absoluteAddOne(ExclusiveContext* cx, HandleBigInt x,
   return destructivelyTrimHighZeroDigits(cx, result);
 }
 
-BigInt* BigInt::absoluteSubOne(ExclusiveContext* cx, HandleBigInt x,
+BigInt* BigInt::absoluteSubOne(JSContext* cx, HandleBigInt x,
                                bool resultNegative) {
   MOZ_ASSERT(!x->isZero());
 
@@ -1013,7 +1013,7 @@ BigInt* BigInt::absoluteSubOne(ExclusiveContext* cx, HandleBigInt x,
   return destructivelyTrimHighZeroDigits(cx, result);
 }
 
-BigInt* BigInt::inc(ExclusiveContext* cx, HandleBigInt x) {
+BigInt* BigInt::inc(JSContext* cx, HandleBigInt x) {
   if (x->isZero()) {
     return one(cx);
   }
@@ -1026,7 +1026,7 @@ BigInt* BigInt::inc(ExclusiveContext* cx, HandleBigInt x) {
   return absoluteAddOne(cx, x, isNegative);
 }
 
-BigInt* BigInt::dec(ExclusiveContext* cx, HandleBigInt x) {
+BigInt* BigInt::dec(JSContext* cx, HandleBigInt x) {
   if (x->isZero()) {
     return negativeOne(cx);
   }
@@ -1107,7 +1107,7 @@ size_t BigInt::calculateMaximumCharactersRequired(HandleBigInt x,
   return AssertedCast<size_t>(maximumCharactersRequired);
 }
 
-JSLinearString* BigInt::toStringBasePowerOfTwo(ExclusiveContext* cx, HandleBigInt x,
+JSLinearString* BigInt::toStringBasePowerOfTwo(JSContext* cx, HandleBigInt x,
                                                unsigned radix) {
   MOZ_ASSERT(mozilla::IsPowerOfTwo(radix));
   MOZ_ASSERT(radix >= 2 && radix <= 32);
@@ -1226,7 +1226,7 @@ static constexpr const RadixInfo toStringInfo[37] = {
     RadixInfo(35), RadixInfo(36),
 };
 
-JSLinearString* BigInt::toStringGeneric(ExclusiveContext* cx, HandleBigInt x,
+JSLinearString* BigInt::toStringGeneric(JSContext* cx, HandleBigInt x,
                                         unsigned radix) {
   MOZ_ASSERT(radix >= 2 && radix <= 36);
   MOZ_ASSERT(!x->isZero());
@@ -1321,7 +1321,7 @@ JSLinearString* BigInt::toStringGeneric(ExclusiveContext* cx, HandleBigInt x,
                                maximumCharactersRequired - writePos);
 }
 
-BigInt* BigInt::trimHighZeroDigits(ExclusiveContext* cx, HandleBigInt x) {
+BigInt* BigInt::trimHighZeroDigits(JSContext* cx, HandleBigInt x) {
   if (x->isZero()) {
     MOZ_ASSERT(!x->isNegative());
     return x;
@@ -1353,7 +1353,7 @@ BigInt* BigInt::trimHighZeroDigits(ExclusiveContext* cx, HandleBigInt x) {
   return trimmedBigInt;
 }
 
-BigInt* BigInt::destructivelyTrimHighZeroDigits(ExclusiveContext* cx, HandleBigInt x) {
+BigInt* BigInt::destructivelyTrimHighZeroDigits(JSContext* cx, HandleBigInt x) {
   // TODO: Modify in place instead of allocating.
   return trimHighZeroDigits(cx, x);
 }
@@ -1373,7 +1373,7 @@ BigInt* BigInt::destructivelyTrimHighZeroDigits(ExclusiveContext* cx, HandleBigI
 //
 // Note that `N` is computed even more conservatively here because `bitsPerChar`
 // is rounded up.
-bool BigInt::calculateMaximumDigitsRequired(ExclusiveContext* cx, uint8_t radix,
+bool BigInt::calculateMaximumDigitsRequired(JSContext* cx, uint8_t radix,
                                             size_t charcount, size_t* result) {
   MOZ_ASSERT(2 <= radix && radix <= 36);
 
@@ -1393,7 +1393,7 @@ bool BigInt::calculateMaximumDigitsRequired(ExclusiveContext* cx, uint8_t radix,
 }
 
 template <typename CharT>
-BigInt* BigInt::parseLiteralDigits(ExclusiveContext* cx,
+BigInt* BigInt::parseLiteralDigits(JSContext* cx,
                                    const Range<const CharT> chars,
                                    unsigned radix, bool isNegative,
                                    bool* haveParseError) {
@@ -1452,7 +1452,7 @@ BigInt* BigInt::parseLiteralDigits(ExclusiveContext* cx,
 
 // BigInt proposal section 7.2
 template <typename CharT>
-BigInt* BigInt::parseLiteral(ExclusiveContext* cx, const Range<const CharT> chars,
+BigInt* BigInt::parseLiteral(JSContext* cx, const Range<const CharT> chars,
                              bool* haveParseError) {
   RangedPtr<const CharT> start = chars.begin();
   const RangedPtr<const CharT> end = chars.end();
@@ -1502,7 +1502,7 @@ static bool IsInteger(double d) {
   return true;
 }
 
-BigInt* BigInt::createFromDouble(ExclusiveContext* cx, double d) {
+BigInt* BigInt::createFromDouble(JSContext* cx, double d) {
   MOZ_ASSERT(::IsInteger(d),
              "Only integer-valued doubles can convert to BigInt");
 
@@ -1579,7 +1579,7 @@ BigInt* BigInt::createFromDouble(ExclusiveContext* cx, double d) {
   return result;
 }
 
-BigInt* BigInt::createFromUint64(ExclusiveContext* cx, uint64_t n) {
+BigInt* BigInt::createFromUint64(JSContext* cx, uint64_t n) {
   if (n == 0) {
     return zero(cx);
   }
@@ -1605,7 +1605,7 @@ BigInt* BigInt::createFromUint64(ExclusiveContext* cx, uint64_t n) {
   return createFromDigit(cx, n, isNegative);
 }
 
-BigInt* BigInt::createFromInt64(ExclusiveContext* cx, int64_t n) {
+BigInt* BigInt::createFromInt64(JSContext* cx, int64_t n) {
   BigInt* res = createFromUint64(cx, Abs(n));
   if (!res) {
     return nullptr;
@@ -1620,12 +1620,12 @@ BigInt* BigInt::createFromInt64(ExclusiveContext* cx, int64_t n) {
 }
 
 // BigInt proposal section 5.1.2
-BigInt* js::NumberToBigInt(ExclusiveContext* cx, double d) {
+BigInt* js::NumberToBigInt(JSContext* cx, double d) {
   // Step 1 is an assertion checked by the caller.
   // Step 2.
   if (!::IsInteger(d)) {
-    if (cx->isJSContext()) {
-      JS_ReportErrorNumberASCII(cx->asJSContext(), GetErrorMessage, nullptr,
+    if (cx->helperThread()) {
+      JS_ReportErrorNumberASCII(cx, GetErrorMessage, nullptr,
                                 JSMSG_NUMBER_TO_BIGINT);
     }
     return nullptr;
@@ -1635,7 +1635,7 @@ BigInt* js::NumberToBigInt(ExclusiveContext* cx, double d) {
   return BigInt::createFromDouble(cx, d);
 }
 
-BigInt* BigInt::copy(ExclusiveContext* cx, HandleBigInt x) {
+BigInt* BigInt::copy(JSContext* cx, HandleBigInt x) {
   if (x->isZero()) {
     return zero(cx);
   }
@@ -1651,7 +1651,7 @@ BigInt* BigInt::copy(ExclusiveContext* cx, HandleBigInt x) {
 }
 
 // BigInt proposal section 1.1.7
-BigInt* BigInt::add(ExclusiveContext* cx, HandleBigInt x, HandleBigInt y) {
+BigInt* BigInt::add(JSContext* cx, HandleBigInt x, HandleBigInt y) {
   bool xNegative = x->isNegative();
 
   // x + y == x + y
@@ -1670,7 +1670,7 @@ BigInt* BigInt::add(ExclusiveContext* cx, HandleBigInt x, HandleBigInt y) {
 }
 
 // BigInt proposal section 1.1.8
-BigInt* BigInt::sub(ExclusiveContext* cx, HandleBigInt x, HandleBigInt y) {
+BigInt* BigInt::sub(JSContext* cx, HandleBigInt x, HandleBigInt y) {
   bool xNegative = x->isNegative();
   if (xNegative != y->isNegative()) {
     // x - (-y) == x + y
@@ -1687,7 +1687,7 @@ BigInt* BigInt::sub(ExclusiveContext* cx, HandleBigInt x, HandleBigInt y) {
 }
 
 // BigInt proposal section 1.1.4
-BigInt* BigInt::mul(ExclusiveContext* cx, HandleBigInt x, HandleBigInt y) {
+BigInt* BigInt::mul(JSContext* cx, HandleBigInt x, HandleBigInt y) {
   if (x->isZero()) {
     return x;
   }
@@ -1712,11 +1712,11 @@ BigInt* BigInt::mul(ExclusiveContext* cx, HandleBigInt x, HandleBigInt y) {
 }
 
 // BigInt proposal section 1.1.5
-BigInt* BigInt::div(ExclusiveContext* cx, HandleBigInt x, HandleBigInt y) {
+BigInt* BigInt::div(JSContext* cx, HandleBigInt x, HandleBigInt y) {
   // 1. If y is 0n, throw a RangeError exception.
   if (y->isZero()) {
-      if (cx->isJSContext()) {
-        JS_ReportErrorNumberASCII(cx->asJSContext(), GetErrorMessage, nullptr,
+      if (cx->helperThread()) {
+        JS_ReportErrorNumberASCII(cx, GetErrorMessage, nullptr,
                                   JSMSG_BIGINT_DIVISION_BY_ZERO);
     }
     return nullptr;
@@ -1757,11 +1757,11 @@ BigInt* BigInt::div(ExclusiveContext* cx, HandleBigInt x, HandleBigInt y) {
 }
 
 // BigInt proposal section 1.1.6
-BigInt* BigInt::mod(ExclusiveContext* cx, HandleBigInt x, HandleBigInt y) {
+BigInt* BigInt::mod(JSContext* cx, HandleBigInt x, HandleBigInt y) {
   // 1. If y is 0n, throw a RangeError exception.
   if (y->isZero()) {
-    if (cx->isJSContext()) {
-      JS_ReportErrorNumberASCII(cx->asJSContext(), GetErrorMessage, nullptr,
+    if (cx->helperThread()) {
+      JS_ReportErrorNumberASCII(cx, GetErrorMessage, nullptr,
                                 JSMSG_BIGINT_DIVISION_BY_ZERO);
     }
     return nullptr;
@@ -1810,11 +1810,11 @@ BigInt* BigInt::mod(ExclusiveContext* cx, HandleBigInt x, HandleBigInt y) {
 }
 
 // BigInt proposal section 1.1.3
-BigInt* BigInt::pow(ExclusiveContext* cx, HandleBigInt x, HandleBigInt y) {
+BigInt* BigInt::pow(JSContext* cx, HandleBigInt x, HandleBigInt y) {
   // 1. If exponent is < 0, throw a RangeError exception.
   if (y->isNegative()) {
-    if (cx->isJSContext()) {
-      JS_ReportErrorNumberASCII(cx->asJSContext(), GetErrorMessage, nullptr,
+    if (cx->helperThread()) {
+      JS_ReportErrorNumberASCII(cx, GetErrorMessage, nullptr,
                                 JSMSG_BIGINT_NEGATIVE_EXPONENT);
     }
     return nullptr;
@@ -1845,8 +1845,8 @@ BigInt* BigInt::pow(ExclusiveContext* cx, HandleBigInt x, HandleBigInt y) {
   static_assert(MaxBitLength < std::numeric_limits<Digit>::max(),
                 "unexpectedly large MaxBitLength");
   if (y->digitLength() > 1) {
-    if (cx->isJSContext()) {
-      JS_ReportErrorNumberASCII(cx->asJSContext(), GetErrorMessage, nullptr,
+    if (cx->helperThread()) {
+      JS_ReportErrorNumberASCII(cx, GetErrorMessage, nullptr,
                                 JSMSG_BIGINT_TOO_LARGE);
     }
     return nullptr;
@@ -1856,8 +1856,8 @@ BigInt* BigInt::pow(ExclusiveContext* cx, HandleBigInt x, HandleBigInt y) {
     return x;
   }
   if (exponent >= MaxBitLength) {
-    if (cx->isJSContext()) {
-      JS_ReportErrorNumberASCII(cx->asJSContext(), GetErrorMessage, nullptr,
+    if (cx->helperThread()) {
+      JS_ReportErrorNumberASCII(cx, GetErrorMessage, nullptr,
                                 JSMSG_BIGINT_TOO_LARGE);
     }
     return nullptr;
@@ -1902,14 +1902,14 @@ BigInt* BigInt::pow(ExclusiveContext* cx, HandleBigInt x, HandleBigInt y) {
   return result;
 }
 
-BigInt* BigInt::lshByAbsolute(ExclusiveContext* cx, HandleBigInt x, HandleBigInt y) {
+BigInt* BigInt::lshByAbsolute(JSContext* cx, HandleBigInt x, HandleBigInt y) {
   if (x->isZero() || y->isZero()) {
     return x;
   }
 
   if (y->digitLength() > 1 || y->digit(0) > MaxBitLength) {
-    if (cx->isJSContext()) {
-      JS_ReportErrorNumberASCII(cx->asJSContext(), GetErrorMessage, nullptr,
+    if (cx->helperThread()) {
+      JS_ReportErrorNumberASCII(cx, GetErrorMessage, nullptr,
                                 JSMSG_BIGINT_TOO_LARGE);
     }
     return nullptr;
@@ -1951,11 +1951,11 @@ BigInt* BigInt::lshByAbsolute(ExclusiveContext* cx, HandleBigInt x, HandleBigInt
   return result;
 }
 
-BigInt* BigInt::rshByMaximum(ExclusiveContext* cx, bool isNegative) {
+BigInt* BigInt::rshByMaximum(JSContext* cx, bool isNegative) {
   return isNegative ? negativeOne(cx) : zero(cx);
 }
 
-BigInt* BigInt::rshByAbsolute(ExclusiveContext* cx, HandleBigInt x, HandleBigInt y) {
+BigInt* BigInt::rshByAbsolute(JSContext* cx, HandleBigInt x, HandleBigInt y) {
   if (x->isZero() || y->isZero()) {
     return x;
   }
@@ -2033,7 +2033,7 @@ BigInt* BigInt::rshByAbsolute(ExclusiveContext* cx, HandleBigInt x, HandleBigInt
 }
 
 // BigInt proposal section 1.1.9. BigInt::leftShift ( x, y )
-BigInt* BigInt::lsh(ExclusiveContext* cx, HandleBigInt x, HandleBigInt y) {
+BigInt* BigInt::lsh(JSContext* cx, HandleBigInt x, HandleBigInt y) {
   if (y->isNegative()) {
     return rshByAbsolute(cx, x, y);
   }
@@ -2041,7 +2041,7 @@ BigInt* BigInt::lsh(ExclusiveContext* cx, HandleBigInt x, HandleBigInt y) {
 }
 
 // BigInt proposal section 1.1.10. BigInt::signedRightShift ( x, y )
-BigInt* BigInt::rsh(ExclusiveContext* cx, HandleBigInt x, HandleBigInt y) {
+BigInt* BigInt::rsh(JSContext* cx, HandleBigInt x, HandleBigInt y) {
   if (y->isNegative()) {
     return lshByAbsolute(cx, x, y);
   }
@@ -2049,7 +2049,7 @@ BigInt* BigInt::rsh(ExclusiveContext* cx, HandleBigInt x, HandleBigInt y) {
 }
 
 // BigInt proposal section 1.1.17. BigInt::bitwiseAND ( x, y )
-BigInt* BigInt::bitAnd(ExclusiveContext* cx, HandleBigInt x, HandleBigInt y) {
+BigInt* BigInt::bitAnd(JSContext* cx, HandleBigInt x, HandleBigInt y) {
   if (x->isZero()) {
     return x;
   }
@@ -2095,7 +2095,7 @@ BigInt* BigInt::bitAnd(ExclusiveContext* cx, HandleBigInt x, HandleBigInt y) {
 }
 
 // BigInt proposal section 1.1.18. BigInt::bitwiseXOR ( x, y )
-BigInt* BigInt::bitXor(ExclusiveContext* cx, HandleBigInt x, HandleBigInt y) {
+BigInt* BigInt::bitXor(JSContext* cx, HandleBigInt x, HandleBigInt y) {
   if (x->isZero()) {
     return y;
   }
@@ -2139,7 +2139,7 @@ BigInt* BigInt::bitXor(ExclusiveContext* cx, HandleBigInt x, HandleBigInt y) {
 }
 
 // BigInt proposal section 1.1.19. BigInt::bitwiseOR ( x, y )
-BigInt* BigInt::bitOr(ExclusiveContext* cx, HandleBigInt x, HandleBigInt y) {
+BigInt* BigInt::bitOr(JSContext* cx, HandleBigInt x, HandleBigInt y) {
   if (x->isZero()) {
     return y;
   }
@@ -2189,7 +2189,7 @@ BigInt* BigInt::bitOr(ExclusiveContext* cx, HandleBigInt x, HandleBigInt y) {
 }
 
 // BigInt proposal section 1.1.2. BigInt::bitwiseNOT ( x )
-BigInt* BigInt::bitNot(ExclusiveContext* cx, HandleBigInt x) {
+BigInt* BigInt::bitNot(JSContext* cx, HandleBigInt x) {
   if (x->isNegative()) {
     // ~(-x) == ~(~(x-1)) == x-1
     return absoluteSubOne(cx, x);
@@ -2260,7 +2260,7 @@ bool BigInt::isInt64(BigInt* x, int64_t* result) {
 
 // Compute `2**bits - (x & (2**bits - 1))`.  Used when treating BigInt values as
 // arbitrary-precision two's complement signed integers.
-BigInt* BigInt::truncateAndSubFromPowerOfTwo(ExclusiveContext* cx, HandleBigInt x,
+BigInt* BigInt::truncateAndSubFromPowerOfTwo(JSContext* cx, HandleBigInt x,
                                              uint64_t bits,
                                              bool resultNegative) {
   MOZ_ASSERT(bits != 0);
@@ -2316,7 +2316,7 @@ BigInt* BigInt::truncateAndSubFromPowerOfTwo(ExclusiveContext* cx, HandleBigInt 
   return trimHighZeroDigits(cx, result);
 }
 
-BigInt* BigInt::asUintN(ExclusiveContext* cx, HandleBigInt x, uint64_t bits) {
+BigInt* BigInt::asUintN(JSContext* cx, HandleBigInt x, uint64_t bits) {
   if (x->isZero()) {
     return x;
   }
@@ -2369,7 +2369,7 @@ BigInt* BigInt::asUintN(ExclusiveContext* cx, HandleBigInt x, uint64_t bits) {
   return res;
 }
 
-BigInt* BigInt::asIntN(ExclusiveContext* cx, HandleBigInt x, uint64_t bits) {
+BigInt* BigInt::asIntN(JSContext* cx, HandleBigInt x, uint64_t bits) {
   if (x->isZero()) {
     return x;
   }
@@ -2421,13 +2421,13 @@ BigInt* BigInt::asIntN(ExclusiveContext* cx, HandleBigInt x, uint64_t bits) {
   return mod;
 }
 
-static bool ValidBigIntOperands(ExclusiveContext* cx, HandleValue lhs,
+static bool ValidBigIntOperands(JSContext* cx, HandleValue lhs,
                                 HandleValue rhs) {
   MOZ_ASSERT(lhs.isBigInt() || rhs.isBigInt());
 
   if (!lhs.isBigInt() || !rhs.isBigInt()) {
-    if (cx->isJSContext()) {
-      JS_ReportErrorNumberASCII(cx->asJSContext(), GetErrorMessage, nullptr,
+    if (cx->helperThread()) {
+      JS_ReportErrorNumberASCII(cx, GetErrorMessage, nullptr,
                                 JSMSG_BIGINT_TO_NUMBER);
     }
     return false;
@@ -2436,7 +2436,7 @@ static bool ValidBigIntOperands(ExclusiveContext* cx, HandleValue lhs,
   return true;
 }
 
-bool BigInt::add(ExclusiveContext* cx, HandleValue lhs, HandleValue rhs,
+bool BigInt::add(JSContext* cx, HandleValue lhs, HandleValue rhs,
                  MutableHandleValue res) {
   if (!ValidBigIntOperands(cx, lhs, rhs)) {
     return false;
@@ -2452,7 +2452,7 @@ bool BigInt::add(ExclusiveContext* cx, HandleValue lhs, HandleValue rhs,
   return true;
 }
 
-bool BigInt::sub(ExclusiveContext* cx, HandleValue lhs, HandleValue rhs,
+bool BigInt::sub(JSContext* cx, HandleValue lhs, HandleValue rhs,
                  MutableHandleValue res) {
   if (!ValidBigIntOperands(cx, lhs, rhs)) {
     return false;
@@ -2468,7 +2468,7 @@ bool BigInt::sub(ExclusiveContext* cx, HandleValue lhs, HandleValue rhs,
   return true;
 }
 
-bool BigInt::mul(ExclusiveContext* cx, HandleValue lhs, HandleValue rhs,
+bool BigInt::mul(JSContext* cx, HandleValue lhs, HandleValue rhs,
                  MutableHandleValue res) {
   if (!ValidBigIntOperands(cx, lhs, rhs)) {
     return false;
@@ -2484,7 +2484,7 @@ bool BigInt::mul(ExclusiveContext* cx, HandleValue lhs, HandleValue rhs,
   return true;
 }
 
-bool BigInt::div(ExclusiveContext* cx, HandleValue lhs, HandleValue rhs,
+bool BigInt::div(JSContext* cx, HandleValue lhs, HandleValue rhs,
                  MutableHandleValue res) {
   if (!ValidBigIntOperands(cx, lhs, rhs)) {
     return false;
@@ -2500,7 +2500,7 @@ bool BigInt::div(ExclusiveContext* cx, HandleValue lhs, HandleValue rhs,
   return true;
 }
 
-bool BigInt::mod(ExclusiveContext* cx, HandleValue lhs, HandleValue rhs,
+bool BigInt::mod(JSContext* cx, HandleValue lhs, HandleValue rhs,
                  MutableHandleValue res) {
   if (!ValidBigIntOperands(cx, lhs, rhs)) {
     return false;
@@ -2516,7 +2516,7 @@ bool BigInt::mod(ExclusiveContext* cx, HandleValue lhs, HandleValue rhs,
   return true;
 }
 
-bool BigInt::pow(ExclusiveContext* cx, HandleValue lhs, HandleValue rhs,
+bool BigInt::pow(JSContext* cx, HandleValue lhs, HandleValue rhs,
                  MutableHandleValue res) {
   if (!ValidBigIntOperands(cx, lhs, rhs)) {
     return false;
@@ -2532,7 +2532,7 @@ bool BigInt::pow(ExclusiveContext* cx, HandleValue lhs, HandleValue rhs,
   return true;
 }
 
-bool BigInt::neg(ExclusiveContext* cx, HandleValue operand, MutableHandleValue res) {
+bool BigInt::neg(JSContext* cx, HandleValue operand, MutableHandleValue res) {
   MOZ_ASSERT(operand.isBigInt());
 
   RootedBigInt operandBigInt(cx, operand.toBigInt());
@@ -2544,7 +2544,7 @@ bool BigInt::neg(ExclusiveContext* cx, HandleValue operand, MutableHandleValue r
   return true;
 }
 
-bool BigInt::inc(ExclusiveContext* cx, HandleValue operand, MutableHandleValue res) {
+bool BigInt::inc(JSContext* cx, HandleValue operand, MutableHandleValue res) {
   MOZ_ASSERT(operand.isBigInt());
 
   RootedBigInt operandBigInt(cx, operand.toBigInt());
@@ -2556,7 +2556,7 @@ bool BigInt::inc(ExclusiveContext* cx, HandleValue operand, MutableHandleValue r
   return true;
 }
 
-bool BigInt::dec(ExclusiveContext* cx, HandleValue operand, MutableHandleValue res) {
+bool BigInt::dec(JSContext* cx, HandleValue operand, MutableHandleValue res) {
   MOZ_ASSERT(operand.isBigInt());
 
   RootedBigInt operandBigInt(cx, operand.toBigInt());
@@ -2568,7 +2568,7 @@ bool BigInt::dec(ExclusiveContext* cx, HandleValue operand, MutableHandleValue r
   return true;
 }
 
-bool BigInt::lsh(ExclusiveContext* cx, HandleValue lhs, HandleValue rhs,
+bool BigInt::lsh(JSContext* cx, HandleValue lhs, HandleValue rhs,
                  MutableHandleValue res) {
   if (!ValidBigIntOperands(cx, lhs, rhs)) {
     return false;
@@ -2584,7 +2584,7 @@ bool BigInt::lsh(ExclusiveContext* cx, HandleValue lhs, HandleValue rhs,
   return true;
 }
 
-bool BigInt::rsh(ExclusiveContext* cx, HandleValue lhs, HandleValue rhs,
+bool BigInt::rsh(JSContext* cx, HandleValue lhs, HandleValue rhs,
                  MutableHandleValue res) {
   if (!ValidBigIntOperands(cx, lhs, rhs)) {
     return false;
@@ -2600,7 +2600,7 @@ bool BigInt::rsh(ExclusiveContext* cx, HandleValue lhs, HandleValue rhs,
   return true;
 }
 
-bool BigInt::bitAnd(ExclusiveContext* cx, HandleValue lhs, HandleValue rhs,
+bool BigInt::bitAnd(JSContext* cx, HandleValue lhs, HandleValue rhs,
                     MutableHandleValue res) {
   if (!ValidBigIntOperands(cx, lhs, rhs)) {
     return false;
@@ -2616,7 +2616,7 @@ bool BigInt::bitAnd(ExclusiveContext* cx, HandleValue lhs, HandleValue rhs,
   return true;
 }
 
-bool BigInt::bitXor(ExclusiveContext* cx, HandleValue lhs, HandleValue rhs,
+bool BigInt::bitXor(JSContext* cx, HandleValue lhs, HandleValue rhs,
                     MutableHandleValue res) {
   if (!ValidBigIntOperands(cx, lhs, rhs)) {
     return false;
@@ -2632,7 +2632,7 @@ bool BigInt::bitXor(ExclusiveContext* cx, HandleValue lhs, HandleValue rhs,
   return true;
 }
 
-bool BigInt::bitOr(ExclusiveContext* cx, HandleValue lhs, HandleValue rhs,
+bool BigInt::bitOr(JSContext* cx, HandleValue lhs, HandleValue rhs,
                    MutableHandleValue res) {
   if (!ValidBigIntOperands(cx, lhs, rhs)) {
     return false;
@@ -2648,7 +2648,7 @@ bool BigInt::bitOr(ExclusiveContext* cx, HandleValue lhs, HandleValue rhs,
   return true;
 }
 
-bool BigInt::bitNot(ExclusiveContext* cx, HandleValue operand,
+bool BigInt::bitNot(JSContext* cx, HandleValue operand,
                     MutableHandleValue res) {
   MOZ_ASSERT(operand.isBigInt());
 
@@ -2662,12 +2662,12 @@ bool BigInt::bitNot(ExclusiveContext* cx, HandleValue operand,
 }
 
 // BigInt proposal section 7.3
-BigInt* js::ToBigInt(ExclusiveContext* cx, HandleValue val) {
+BigInt* js::ToBigInt(JSContext* cx, HandleValue val) {
   RootedValue v(cx, val);
 
-  if(cx->isJSContext()) {
+  if(cx->helperThread()) {
     // Step 1.
-    if (!ToPrimitive(cx->asJSContext(), JSTYPE_NUMBER, &v)) {
+    if (!ToPrimitive(cx, JSTYPE_NUMBER, &v)) {
       return nullptr;
     }
 
@@ -2685,14 +2685,14 @@ BigInt* js::ToBigInt(ExclusiveContext* cx, HandleValue val) {
       RootedString str(cx, v.toString());
       JS_TRY_VAR_OR_RETURN_NULL(cx, bi, StringToBigInt(cx, str));
       if (!bi) {
-        JS_ReportErrorNumberASCII(cx->asJSContext(), GetErrorMessage, nullptr,
+        JS_ReportErrorNumberASCII(cx, GetErrorMessage, nullptr,
                                   JSMSG_BIGINT_INVALID_SYNTAX);
         return nullptr;
       }
       return bi;
     }
 
-    JS_ReportErrorNumberASCII(cx->asJSContext(), GetErrorMessage, nullptr, JSMSG_NOT_BIGINT);
+    JS_ReportErrorNumberASCII(cx, GetErrorMessage, nullptr, JSMSG_NOT_BIGINT);
   }
   return nullptr;
 }
@@ -3010,7 +3010,7 @@ bool BigInt::equal(BigInt* lhs, double rhs) {
 }
 
 // BigInt proposal section 3.2.5
-JS::Result<bool> BigInt::looselyEqual(ExclusiveContext* cx, HandleBigInt lhs,
+JS::Result<bool> BigInt::looselyEqual(JSContext* cx, HandleBigInt lhs,
                                       HandleValue rhs) {
   // Step 1.
   if (rhs.isBigInt()) {
@@ -3035,7 +3035,7 @@ JS::Result<bool> BigInt::looselyEqual(ExclusiveContext* cx, HandleBigInt lhs,
   // Steps 10-11.
   if (rhs.isObject()) {
     RootedValue rhsPrimitive(cx, rhs);
-    if (!cx->isJSContext() || !ToPrimitive(cx->asJSContext(), &rhsPrimitive)) {
+    if (!cx->helperThread() || !ToPrimitive(cx, &rhsPrimitive)) {
       return cx->alreadyReportedError();
     }
     return looselyEqual(cx, lhs, rhsPrimitive);
@@ -3067,7 +3067,7 @@ Maybe<bool> BigInt::lessThan(double lhs, BigInt* rhs) {
   return Some(-compare(rhs, lhs) < 0);
 }
 
-bool BigInt::lessThan(ExclusiveContext* cx, HandleBigInt lhs, HandleString rhs,
+bool BigInt::lessThan(JSContext* cx, HandleBigInt lhs, HandleString rhs,
                       Maybe<bool>& res) {
   RootedBigInt rhsBigInt(cx);
   JS_TRY_VAR_OR_RETURN_FALSE(cx, rhsBigInt, StringToBigInt(cx, rhs));
@@ -3079,7 +3079,7 @@ bool BigInt::lessThan(ExclusiveContext* cx, HandleBigInt lhs, HandleString rhs,
   return true;
 }
 
-bool BigInt::lessThan(ExclusiveContext* cx, HandleString lhs, HandleBigInt rhs,
+bool BigInt::lessThan(JSContext* cx, HandleString lhs, HandleBigInt rhs,
                       Maybe<bool>& res) {
   RootedBigInt lhsBigInt(cx);
   JS_TRY_VAR_OR_RETURN_FALSE(cx, lhsBigInt, StringToBigInt(cx, lhs));
@@ -3091,7 +3091,7 @@ bool BigInt::lessThan(ExclusiveContext* cx, HandleString lhs, HandleBigInt rhs,
   return true;
 }
 
-bool BigInt::lessThan(ExclusiveContext* cx, HandleValue lhs, HandleValue rhs,
+bool BigInt::lessThan(JSContext* cx, HandleValue lhs, HandleValue rhs,
                       Maybe<bool>& res) {
   if (lhs.isBigInt()) {
     if (rhs.isString()) {
@@ -3122,7 +3122,7 @@ bool BigInt::lessThan(ExclusiveContext* cx, HandleValue lhs, HandleValue rhs,
   return true;
 }
 
-JSLinearString* BigInt::toString(ExclusiveContext* cx, HandleBigInt x, uint8_t radix) {
+JSLinearString* BigInt::toString(JSContext* cx, HandleBigInt x, uint8_t radix) {
   MOZ_ASSERT(2 <= radix && radix <= 36);
 
   if (x->isZero()) {
@@ -3137,7 +3137,7 @@ JSLinearString* BigInt::toString(ExclusiveContext* cx, HandleBigInt x, uint8_t r
 }
 
 template <typename CharT>
-static inline BigInt* ParseStringBigIntLiteral(ExclusiveContext* cx,
+static inline BigInt* ParseStringBigIntLiteral(JSContext* cx,
                                                Range<const CharT> range,
                                                bool* haveParseError) {
   auto start = range.begin();
@@ -3177,7 +3177,7 @@ static inline BigInt* ParseStringBigIntLiteral(ExclusiveContext* cx,
 }
 
 // Called from BigInt constructor.
-JS::Result<BigInt*, JS::OOM&> js::StringToBigInt(ExclusiveContext* cx,
+JS::Result<BigInt*, JS::OOM&> js::StringToBigInt(JSContext* cx,
                                                  HandleString str) {
   JSLinearString* linear = str->ensureLinear(cx);
   if (!linear) {
@@ -3187,16 +3187,16 @@ JS::Result<BigInt*, JS::OOM&> js::StringToBigInt(ExclusiveContext* cx,
   BigInt* res = nullptr;
   bool parseError = false;
   
-  if(cx->isJSContext()) {
-    AutoStableStringChars chars(cx->asJSContext());
-    if (!chars.init(cx->asJSContext(), str)) {
+  if(cx->helperThread()) {
+    AutoStableStringChars chars(cx);
+    if (!chars.init(cx, str)) {
       return cx->alreadyReportedOOM();
     }
 
     if (chars.isLatin1()) {
-      res = ParseStringBigIntLiteral(cx->asJSContext(), chars.latin1Range(), &parseError);
+      res = ParseStringBigIntLiteral(cx, chars.latin1Range(), &parseError);
     } else {
-      res = ParseStringBigIntLiteral(cx->asJSContext(), chars.twoByteRange(), &parseError);
+      res = ParseStringBigIntLiteral(cx, chars.twoByteRange(), &parseError);
     }
   }
 
@@ -3209,7 +3209,7 @@ JS::Result<BigInt*, JS::OOM&> js::StringToBigInt(ExclusiveContext* cx,
 }
 
 // Called from parser with already trimmed and validated token.
-BigInt* js::ParseBigIntLiteral(ExclusiveContext* cx,
+BigInt* js::ParseBigIntLiteral(JSContext* cx,
                                const Range<const char16_t>& chars) {
   bool parseError = false;
   BigInt* res = BigInt::parseLiteral(cx, chars, &parseError);
@@ -3220,7 +3220,7 @@ BigInt* js::ParseBigIntLiteral(ExclusiveContext* cx,
   return res;
 }
 
-JSAtom* js::BigIntToAtom(ExclusiveContext* cx, HandleBigInt bi) {
+JSAtom* js::BigIntToAtom(JSContext* cx, HandleBigInt bi) {
   JSString* str = BigInt::toString(cx, bi, 10);
   if (!str) {
     return nullptr;
@@ -3239,7 +3239,7 @@ JS::ubi::Node::Size JS::ubi::Concrete<BigInt>::size(
 
 template <XDRMode mode>
 bool js::XDRBigInt(XDRState<mode>* xdr, MutableHandleBigInt bi) {
-  ExclusiveContext* cx = xdr->cx();
+  JSContext* cx = xdr->cx();
 
   uint8_t sign;
   uint32_t length;

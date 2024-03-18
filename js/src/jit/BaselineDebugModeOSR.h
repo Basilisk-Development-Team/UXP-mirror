@@ -93,7 +93,7 @@ class DebugModeOSRVolatileJitFrameIterator : public JitFrameIterator
     explicit DebugModeOSRVolatileJitFrameIterator(JSContext* cx)
       : JitFrameIterator(cx)
     {
-        stack = &cx->liveVolatileJitFrameIterators_;
+        stack = &cx->liveVolatileJitFrameIterators_.ref();
         prev = *stack;
         *stack = this;
     }

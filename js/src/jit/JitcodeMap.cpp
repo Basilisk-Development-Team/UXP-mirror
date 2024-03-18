@@ -509,7 +509,7 @@ JitcodeGlobalTable::addEntry(const JitcodeGlobalEntry& entry, JSRuntime* rt)
     newEntry->tower_ = newTower;
 
     // Suppress profiler sampling while skiplist is being mutated.
-    AutoSuppressProfilerSampling suppressSampling(rt);
+    AutoSuppressProfilerSampling suppressSampling(TlsContext.get());
 
     // Link up entry with forward entries taken from tower.
     for (int level = newTower->height() - 1; level >= 0; level--) {
@@ -536,7 +536,7 @@ void
 JitcodeGlobalTable::removeEntry(JitcodeGlobalEntry& entry, JitcodeGlobalEntry** prevTower,
                                 JSRuntime* rt)
 {
-    MOZ_ASSERT(!rt->isProfilerSamplingEnabled());
+    MOZ_ASSERT(!TlsContext.get()->isProfilerSamplingEnabled());
 
     // Unlink query entry.
     for (int level = entry.tower_->height() - 1; level >= 0; level--) {
@@ -715,7 +715,7 @@ JitcodeGlobalTable::verifySkiplist()
 void
 JitcodeGlobalTable::setAllEntriesAsExpired(JSRuntime* rt)
 {
-    AutoSuppressProfilerSampling suppressSampling(rt);
+    AutoSuppressProfilerSampling suppressSampling(TlsContext.get());
     for (Range r(*this); !r.empty(); r.popFront())
         r.front()->setAsExpired();
 }
@@ -732,9 +732,9 @@ JitcodeGlobalTable::markUnconditionally(JSTracer* trc)
     // Mark all entries unconditionally. This is done during minor collection
     // to account for tenuring.
 
-    MOZ_ASSERT(trc->runtime()->spsProfiler.enabled());
+    MOZ_ASSERT(trc->runtime()->spsProfiler().enabled());
 
-    AutoSuppressProfilerSampling suppressSampling(trc->runtime());
+    AutoSuppressProfilerSampling suppressSampling(TlsContext.get());
     for (Range r(*this); !r.empty(); r.popFront())
         r.front()->mark<Unconditionally>(trc);
 }
@@ -776,14 +776,14 @@ JitcodeGlobalTable::markIteratively(JSTracer* trc)
     // The approach above obviates the need for read barriers. The assumption
     // above is checked in JitcodeGlobalTable::lookupForSampler.
 
-    MOZ_ASSERT(!trc->runtime()->isHeapMinorCollecting());
+    MOZ_ASSERT(!JS::CurrentThreadIsHeapMinorCollecting());
 
-    AutoSuppressProfilerSampling suppressSampling(trc->runtime());
+    AutoSuppressProfilerSampling suppressSampling(TlsContext.get());
     uint32_t gen = trc->runtime()->profilerSampleBufferGen();
     uint32_t lapCount = trc->runtime()->profilerSampleBufferLapCount();
 
     // If the profiler is off, all entries are considered to be expired.
-    if (!trc->runtime()->spsProfiler.enabled())
+    if (!trc->runtime()->spsProfiler().enabled())
         gen = UINT32_MAX;
 
     bool markedAny = false;
@@ -817,7 +817,7 @@ JitcodeGlobalTable::markIteratively(JSTracer* trc)
 void
 JitcodeGlobalTable::sweep(JSRuntime* rt)
 {
-    AutoSuppressProfilerSampling suppressSampling(rt);
+    AutoSuppressProfilerSampling suppressSampling(TlsContext.get());
     for (Enum e(*this, rt); !e.empty(); e.popFront()) {
         JitcodeGlobalEntry* entry = e.front();
 
@@ -1647,15 +1647,15 @@ JS::ForEachProfiledFrameOp::FrameHandle::frameKind() const
 JS_PUBLIC_API(void)
 JS::ForEachProfiledFrame(JSContext* cx, void* addr, ForEachProfiledFrameOp& op)
 {
-    js::jit::JitcodeGlobalTable* table = cx->jitRuntime()->getJitcodeGlobalTable();
+    js::jit::JitcodeGlobalTable* table = cx->runtime()->jitRuntime()->getJitcodeGlobalTable();
     js::jit::JitcodeGlobalEntry& entry = table->lookupInfallible(addr);
 
     // Extract the stack for the entry.  Assume maximum inlining depth is <64
     const char* labels[64];
-    uint32_t depth = entry.callStackAtAddr(cx, addr, labels, 64);
+    uint32_t depth = entry.callStackAtAddr(cx->runtime(), addr, labels, 64);
     MOZ_ASSERT(depth < 64);
     for (uint32_t i = depth; i != 0; i--) {
-        JS::ForEachProfiledFrameOp::FrameHandle handle(cx, entry, addr, labels[i - 1], i - 1);
+        JS::ForEachProfiledFrameOp::FrameHandle handle(cx->runtime(), entry, addr, labels[i - 1], i - 1);
         op(handle);
     }
 }

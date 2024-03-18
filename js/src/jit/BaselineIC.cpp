@@ -102,7 +102,7 @@ PrepareOsrTempData(JSContext* cx, ICWarmUpCounter_Fallback* stub, BaselineFrame*
     size_t totalSpace = AlignBytes(frameSpace, sizeof(Value)) +
                         AlignBytes(ionOsrTempDataSpace, sizeof(Value));
 
-    IonOsrTempData* info = (IonOsrTempData*)cx->runtime()->getJitRuntime(cx)->allocateOsrTempData(totalSpace);
+    IonOsrTempData* info = (IonOsrTempData*)cx->allocateOsrTempData(totalSpace);
     if (!info)
         return nullptr;
 
@@ -151,7 +151,7 @@ DoWarmUpCounterFallbackOSR(JSContext* cx, BaselineFrame* frame, ICWarmUpCounter_
     }
 
     IonScript* ion = script->ionScript();
-    MOZ_ASSERT(cx->runtime()->spsProfiler.enabled() == ion->hasProfilingInstrumentation());
+    MOZ_ASSERT(cx->runtime()->spsProfiler().enabled() == ion->hasProfilingInstrumentation());
     MOZ_ASSERT(ion->osrPc() == pc);
 
     JitSpew(JitSpew_BaselineOSR, "  OSR possible!");
@@ -233,9 +233,9 @@ ICWarmUpCounter_Fallback::Compiler::generateStubCode(MacroAssembler& masm)
     // the frame currently being OSR-ed
     {
         Label checkOk;
-        AbsoluteAddress addressOfEnabled(cx->runtime()->spsProfiler.addressOfEnabled());
+        AbsoluteAddress addressOfEnabled(cx->runtime()->spsProfiler().addressOfEnabled());
         masm.branch32(Assembler::Equal, addressOfEnabled, Imm32(0), &checkOk);
-        masm.loadPtr(AbsoluteAddress((void*)&cx->runtime()->jitActivation), scratchReg);
+        masm.loadPtr(AbsoluteAddress((void*)&cx->jitActivation), scratchReg);
         masm.loadPtr(Address(scratchReg, JitActivation::offsetOfLastProfilingFrame()), scratchReg);
 
         // It may be the case that we entered the baseline frame with
@@ -292,7 +292,7 @@ DoTypeUpdateFallback(JSContext* cx, BaselineFrame* frame, ICUpdatedStub* stub, H
         MOZ_ASSERT(obj->isNative());
         jsbytecode* pc = stub->getChainFallback()->icEntry()->pc(script);
         if (*pc == JSOP_SETALIASEDVAR || *pc == JSOP_INITALIASEDLEXICAL)
-            id = NameToId(EnvironmentCoordinateName(cx->caches.envCoordinateNameCache, script, pc));
+            id = NameToId(EnvironmentCoordinateName(cx->caches().envCoordinateNameCache, script, pc));
         else
             id = NameToId(script->getName(pc));
         AddTypePropertyId(cx, obj, id, value);
@@ -4512,7 +4512,7 @@ DoSetPropFallback(JSContext* cx, BaselineFrame* frame, ICSetProp_Fallback* stub_
 
     RootedPropertyName name(cx);
     if (op == JSOP_SETALIASEDVAR || op == JSOP_INITALIASEDLEXICAL)
-        name = EnvironmentCoordinateName(cx->caches.envCoordinateNameCache, script, pc);
+        name = EnvironmentCoordinateName(cx->caches().envCoordinateNameCache, script, pc);
     else
         name = script->getName(pc);
     RootedId id(cx, NameToId(name));
@@ -4766,7 +4766,7 @@ ICSetProp_Native::Compiler::generateStubCode(MacroAssembler& masm)
     masm.storeValue(R1, BaseIndex(holderReg, scratch, TimesOne));
     if (holderReg != objReg)
         regs.add(holderReg);
-    if (cx->runtime()->gc.nursery.exists()) {
+    if (cx->nursery().exists()) {
         Register scr = regs.takeAny();
         LiveGeneralRegisterSet saveRegs;
         saveRegs.add(R1);
@@ -4925,7 +4925,7 @@ ICSetPropNativeAddCompiler::generateStubCode(MacroAssembler& masm)
     if (holderReg != objReg)
         regs.add(holderReg);
 
-    if (cx->runtime()->gc.nursery.exists()) {
+    if (cx->nursery().exists()) {
         Register scr = regs.takeAny();
         LiveGeneralRegisterSet saveRegs;
         saveRegs.add(R1);

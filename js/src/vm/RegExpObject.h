@@ -77,7 +77,7 @@ enum RegExpRunStatus
 };
 
 extern RegExpObject*
-RegExpAlloc(ExclusiveContext* cx, HandleObject proto = nullptr);
+RegExpAlloc(JSContext* cx, HandleObject proto = nullptr);
 
 // |regexp| is under-typed because this function's used in the JIT.
 extern JSObject*
@@ -391,11 +391,11 @@ class RegExpObject : public NativeObject
     static const size_t MaxPairCount = 14;
 
     static RegExpObject*
-    create(ExclusiveContext* cx, const char16_t* chars, size_t length, RegExpFlag flags,
+    create(JSContext* cx, const char16_t* chars, size_t length, RegExpFlag flags,
            frontend::TokenStream* ts, LifoAlloc& alloc);
 
     static RegExpObject*
-    create(ExclusiveContext* cx, HandleAtom atom, RegExpFlag flags,
+    create(JSContext* cx, HandleAtom atom, RegExpFlag flags,
            frontend::TokenStream* ts, LifoAlloc& alloc);
 
     /*
@@ -404,7 +404,7 @@ class RegExpObject : public NativeObject
      * changing |obj|'s last property to it.
      */
     static Shape*
-    assignInitialShape(ExclusiveContext* cx, Handle<RegExpObject*> obj);
+    assignInitialShape(JSContext* cx, Handle<RegExpObject*> obj);
 
     /* Accessors. */
 
@@ -425,7 +425,7 @@ class RegExpObject : public NativeObject
         setSlot(LAST_INDEX_SLOT, NumberValue(d));
     }
 
-    void zeroLastIndex(ExclusiveContext* cx) {
+    void zeroLastIndex(JSContext* cx) {
         MOZ_ASSERT(lookupPure(cx->names().lastIndex)->writable(),
                    "can't infallibly zero a non-writable lastIndex on a "
                    "RegExp that's been exposed to script");
@@ -480,7 +480,7 @@ class RegExpObject : public NativeObject
     // NOTE: This method is *only* safe to call on RegExps that haven't been
     //       exposed to script, because it requires that the "lastIndex"
     //       property be writable.
-    void initAndZeroLastIndex(HandleAtom source, RegExpFlag flags, ExclusiveContext* cx);
+    void initAndZeroLastIndex(HandleAtom source, RegExpFlag flags, JSContext* cx);
 
 #ifdef DEBUG
     [[nodiscard]] static bool dumpBytecode(JSContext* cx, Handle<RegExpObject*> regexp,

@@ -1350,7 +1350,7 @@ irregexp::CompilePattern(JSContext* cx, HandleRegExpShared shared, RegExpCompile
                      : NativeRegExpMacroAssembler::CHAR16;
 
         ctx.emplace(cx, (jit::TempAllocator*) nullptr);
-        native_assembler.emplace(&alloc, cx->runtime(), mode, (data->capture_count + 1) * 2, tables);
+        native_assembler.emplace(cx, &alloc, mode, (data->capture_count + 1) * 2, tables);
         assembler = native_assembler.ptr();
     } else {
         interpreted_assembler.emplace(&alloc, (data->capture_count + 1) * 2);

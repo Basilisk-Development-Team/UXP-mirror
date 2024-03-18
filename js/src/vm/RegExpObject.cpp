@@ -53,7 +53,7 @@ JS_STATIC_ASSERT(UnicodeFlag == JSREG_UNICODE);
 JS_STATIC_ASSERT(DotAllFlag == JSREG_DOTALL);
 
 RegExpObject*
-js::RegExpAlloc(ExclusiveContext* cx, HandleObject proto /* = nullptr */)
+js::RegExpAlloc(JSContext* cx, HandleObject proto /* = nullptr */)
 {
     // Note: RegExp objects are always allocated in the tenured heap. This is
     // not strictly required, but simplifies embedding them in jitcode.
@@ -176,12 +176,11 @@ IsMarkingTrace(JSTracer* trc)
     // Determine whether tracing is happening during normal marking.  We need to
     // test all the following conditions, since:
     //
-    //   1. During TraceRuntime, isHeapBusy() is true, but the tracer might not
-    //      be a marking tracer.
+    //   1. During TraceRuntime, CurrentThreadIsHeapBusy() is true, but the
+    //      tracer might not be a marking tracer.
     //   2. When a write barrier executes, IsMarkingTracer is true, but
-    //      isHeapBusy() will be false.
-
-    return trc->runtime()->isHeapCollecting() && trc->isMarkingTracer();
+    //      CurrentThreadIsHeapBusy() will be false.
+    return JS::CurrentThreadIsHeapCollecting() && trc->isMarkingTracer();
 }
 
 void
@@ -237,7 +236,7 @@ const Class RegExpObject::protoClass_ = {
 };
 
 RegExpObject*
-RegExpObject::create(ExclusiveContext* cx, const char16_t* chars, size_t length, RegExpFlag flags,
+RegExpObject::create(JSContext* cx, const char16_t* chars, size_t length, RegExpFlag flags,
                      TokenStream* tokenStream, LifoAlloc& alloc)
 {
     RootedAtom source(cx, AtomizeChars(cx, chars, length));
@@ -248,13 +247,13 @@ RegExpObject::create(ExclusiveContext* cx, const char16_t* chars, size_t length,
 }
 
 RegExpObject*
-RegExpObject::create(ExclusiveContext* cx, HandleAtom source, RegExpFlag flags,
+RegExpObject::create(JSContext* cx, HandleAtom source, RegExpFlag flags,
                      TokenStream* tokenStream, LifoAlloc& alloc)
 {
     Maybe<CompileOptions> dummyOptions;
     Maybe<TokenStream> dummyTokenStream;
     if (!tokenStream) {
-        dummyOptions.emplace(cx->asJSContext());
+        dummyOptions.emplace(cx);
         dummyTokenStream.emplace(cx, *dummyOptions,
                                    (const char16_t*) nullptr, 0,
                                    (frontend::StrictModeGetter*) nullptr);
@@ -287,7 +286,7 @@ RegExpObject::createShared(JSContext* cx, Handle<RegExpObject*> regexp,
 }
 
 Shape*
-RegExpObject::assignInitialShape(ExclusiveContext* cx, Handle<RegExpObject*> self)
+RegExpObject::assignInitialShape(JSContext* cx, Handle<RegExpObject*> self)
 {
     MOZ_ASSERT(self->empty());
 
@@ -309,7 +308,7 @@ RegExpObject::initIgnoringLastIndex(HandleAtom source, RegExpFlag flags)
 }
 
 void
-RegExpObject::initAndZeroLastIndex(HandleAtom source, RegExpFlag flags, ExclusiveContext* cx)
+RegExpObject::initAndZeroLastIndex(HandleAtom source, RegExpFlag flags, JSContext* cx)
 {
     initIgnoringLastIndex(source, flags);
     zeroLastIndex(cx);
@@ -1164,7 +1163,7 @@ RegExpShared::execute(JSContext* cx, MutableHandleRegExpShared re, HandleLinearS
     size_t length = input->length();
 
     // Reset the Irregexp backtrack stack if it grows during execution.
-    irregexp::RegExpStackScope stackScope(cx->runtime());
+    irregexp::RegExpStackScope stackScope(cx);
 
     if (re->canStringMatch) {
         MOZ_ASSERT(re->pairCount() == 1);

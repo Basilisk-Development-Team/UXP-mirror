@@ -73,7 +73,7 @@ bool StopExecution(JSScript* script);
 /*
  * Object has been created. |obj| must exist (its class and size are read)
  */
-bool CreateObject(ExclusiveContext* cx, JSObject* obj);
+bool CreateObject(JSContext* cx, JSObject* obj);
 
 /*
  * Object is about to be finalized. |obj| must still exist (its class is
@@ -108,7 +108,7 @@ static const char* ObjectClassname(JSObject* obj) {
 #endif
 
 inline bool
-probes::CreateObject(ExclusiveContext* cx, JSObject* obj)
+probes::CreateObject(JSContext* cx, JSObject* obj)
 {
     bool ok = true;
 

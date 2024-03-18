@@ -298,7 +298,7 @@ JitRuntime::generateEnterJIT(JSContext* cx, EnterJitType type)
         {
             Label skipProfilingInstrumentation;
             Register realFramePtr = numStackValues;
-            AbsoluteAddress addressOfEnabled(cx->runtime()->spsProfiler.addressOfEnabled());
+            AbsoluteAddress addressOfEnabled(cx->runtime()->spsProfiler().addressOfEnabled());
             masm.branch32(Assembler::Equal, addressOfEnabled, Imm32(0),
                           &skipProfilingInstrumentation);
             masm.ma_daddu(realFramePtr, framePtr, Imm32(sizeof(void*)));
@@ -964,7 +964,7 @@ JitRuntime::generateDebugTrapHandler(JSContext* cx)
     // is set to the correct caller frame.
     {
         Label skipProfilingInstrumentation;
-        AbsoluteAddress addressOfEnabled(cx->runtime()->spsProfiler.addressOfEnabled());
+        AbsoluteAddress addressOfEnabled(cx->runtime()->spsProfiler().addressOfEnabled());
         masm.branch32(Assembler::Equal, addressOfEnabled, Imm32(0), &skipProfilingInstrumentation);
         masm.profilerExitFrame();
         masm.bind(&skipProfilingInstrumentation);

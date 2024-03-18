@@ -97,9 +97,9 @@ BEGIN_TEST(testWeakMap_keyDelegates)
      */
     CHECK(newCCW(map, delegateRoot));
     js::SliceBudget budget(js::WorkBudget(1000000));
-    cx->gc.startDebugGC(GC_NORMAL, budget);
+    cx->runtime()->gc.startDebugGC(GC_NORMAL, budget);
     while (JS::IsIncrementalGCInProgress(cx))
-        cx->gc.debugGCSlice(budget);
+        cx->runtime()->gc.debugGCSlice(budget);
 #ifdef DEBUG
     CHECK(map->zone()->lastZoneGroupIndex() < delegateRoot->zone()->lastZoneGroupIndex());
 #endif
@@ -113,9 +113,9 @@ BEGIN_TEST(testWeakMap_keyDelegates)
     key = nullptr;
     CHECK(newCCW(map, delegateRoot));
     budget = js::SliceBudget(js::WorkBudget(100000));
-    cx->gc.startDebugGC(GC_NORMAL, budget);
+    cx->runtime()->gc.startDebugGC(GC_NORMAL, budget);
     while (JS::IsIncrementalGCInProgress(cx))
-        cx->gc.debugGCSlice(budget);
+        cx->runtime()->gc.debugGCSlice(budget);
     CHECK(checkSize(map, 1));
 
     /*
@@ -193,7 +193,7 @@ JSObject* newCCW(JS::HandleObject sourceZone, JS::HandleObject destZone)
 
     // In order to test the SCC algorithm, we need the wrapper/wrappee to be
     // tenured.
-    cx->gc.evictNursery();
+    cx->zone()->group()->evictNursery();
 
     return object;
 }

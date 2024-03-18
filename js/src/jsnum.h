@@ -60,17 +60,17 @@ namespace js {
  */
 template <AllowGC allowGC>
 extern JSString*
-NumberToString(ExclusiveContext* cx, double d);
+NumberToString(JSContext* cx, double d);
 
 extern JSAtom*
-NumberToAtom(ExclusiveContext* cx, double d);
+NumberToAtom(JSContext* cx, double d);
 
 template <AllowGC allowGC>
 extern JSFlatString*
-Int32ToString(ExclusiveContext* cx, int32_t i);
+Int32ToString(JSContext* cx, int32_t i);
 
 extern JSAtom*
-Int32ToAtom(ExclusiveContext* cx, int32_t si);
+Int32ToAtom(JSContext* cx, int32_t si);
 
 // ES6 15.7.3.12
 extern bool
@@ -160,7 +160,7 @@ enum class PrefixIntegerSeparatorHandling : bool {
  */
 template <typename CharT>
 [[nodiscard]] extern bool
-GetPrefixInteger(ExclusiveContext* cx, const CharT* start, const CharT* end, int base,
+GetPrefixInteger(JSContext* cx, const CharT* start, const CharT* end, int base,
                  PrefixIntegerSeparatorHandling separatorHandling, const CharT** endp,
                  double* dp);
 
@@ -170,7 +170,7 @@ GetPrefixInteger(ExclusiveContext* cx, const CharT* start, const CharT* end, int
  * characters are known to only contain digits and '_'.
  */
 [[nodiscard]] extern bool
-GetDecimalInteger(ExclusiveContext* cx, const char16_t* start, const char16_t* end, double* dp);
+GetDecimalInteger(JSContext* cx, const char16_t* start, const char16_t* end, double* dp);
 
 /*
  * This is like GetDecimalInteger, but also allows non-integer numbers. It
@@ -178,10 +178,10 @@ GetDecimalInteger(ExclusiveContext* cx, const char16_t* start, const char16_t* e
  * '.', 'e' or 'E', '+' or '-', and '_'.
  */
 [[nodiscard]] extern bool
-GetDecimalNonInteger(ExclusiveContext* cx, const char16_t* start, const char16_t* end, double* dp);
+GetDecimalNonInteger(JSContext* cx, const char16_t* start, const char16_t* end, double* dp);
 
 [[nodiscard]] extern bool
-StringToNumber(ExclusiveContext* cx, JSString* str, double* result);
+StringToNumber(JSContext* cx, JSString* str, double* result);
 
 /* ES5 9.3 ToNumber, overwriting *vp with the appropriate number value. */
 [[nodiscard]] MOZ_ALWAYS_INLINE bool
@@ -217,7 +217,7 @@ num_parseInt(JSContext* cx, unsigned argc, Value* vp);
  */
 template <typename CharT>
 [[nodiscard]] extern bool
-js_strtod(js::ExclusiveContext* cx, const CharT* begin, const CharT* end,
+js_strtod(JSContext* cx, const CharT* begin, const CharT* end,
           const CharT** dEnd, double* d);
 
 namespace js {
@@ -287,10 +287,10 @@ ToInteger(JSContext* cx, HandleValue v, double* dp)
  * return value is false then *overflow will be true iff the value was
  * not clampable to uint32_t range.
  *
- * For JSContext and ExclusiveContext.
+ * For JSContext
  */
-template<typename T>
-[[nodiscard]] bool ToLengthClamped(T* cx, HandleValue v, uint32_t* out, bool* overflow);
+ 
+[[nodiscard]] bool ToLengthClamped(JSContext* cx, HandleValue v, uint32_t* out, bool* overflow);
 
 /* Convert and range check an index value as for DataView, SIMD, and Atomics
  * operations, eg ES7 24.2.1.1, DataView's GetViewValue():
@@ -360,27 +360,12 @@ SafeMul(int32_t one, int32_t two, int32_t* res)
 #endif
 }
 
-[[nodiscard]] extern bool
-ToNumberSlow(ExclusiveContext* cx, HandleValue v, double* dp);
-
-// Variant of ToNumber which takes an ExclusiveContext instead of a JSContext.
-// ToNumber is part of the API and can't use ExclusiveContext directly.
-[[nodiscard]] MOZ_ALWAYS_INLINE bool
-ToNumber(ExclusiveContext* cx, HandleValue v, double* out)
-{
-    if (v.isNumber()) {
-        *out = v.toNumber();
-        return true;
-    }
-    return ToNumberSlow(cx, v, out);
-}
-
 bool
-ToNumericSlow(ExclusiveContext* cx, JS::MutableHandleValue vp);
+ToNumericSlow(JSContext* cx, JS::MutableHandleValue vp);
 
 // BigInt proposal section 3.1.6
 [[nodiscard]] MOZ_ALWAYS_INLINE bool
-ToNumeric(ExclusiveContext* cx, JS::MutableHandleValue vp)
+ToNumeric(JSContext* cx, JS::MutableHandleValue vp)
 {
     if (vp.isNumeric()) {
         return true;

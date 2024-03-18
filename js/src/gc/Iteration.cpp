@@ -33,9 +33,9 @@ IterateCompartmentsArenasCellsUnbarriered(JSContext* cx, Zone* zone, void* data,
 
         for (ArenaIter aiter(zone, thingKind); !aiter.done(); aiter.next()) {
             Arena* arena = aiter.get();
-            (*arenaCallback)(cx, data, arena, traceKind, thingSize);
+            (*arenaCallback)(cx->runtime(), data, arena, traceKind, thingSize);
             for (ArenaCellIterUnbarriered iter(arena); !iter.done(); iter.next())
-                (*cellCallback)(cx, data, iter.getCell(), traceKind, thingSize);
+                (*cellCallback)(cx->runtime(), data, iter.getCell(), traceKind, thingSize);
         }
     }
 }
@@ -49,8 +49,8 @@ js::IterateHeapUnbarriered(JSContext* cx, void* data,
 {
     AutoPrepareForTracing prop(cx, WithAtoms);
 
-    for (ZonesIter zone(cx, WithAtoms); !zone.done(); zone.next()) {
-        (*zoneCallback)(cx, data, zone);
+    for (ZonesIter zone(cx->runtime(), WithAtoms); !zone.done(); zone.next()) {
+        (*zoneCallback)(cx->runtime(), data, zone);
         IterateCompartmentsArenasCellsUnbarriered(cx, zone, data,
                                                   compartmentCallback, arenaCallback, cellCallback);
     }
@@ -65,7 +65,7 @@ js::IterateHeapUnbarrieredForZone(JSContext* cx, Zone* zone, void* data,
 {
     AutoPrepareForTracing prop(cx, WithAtoms);
 
-    (*zoneCallback)(cx, data, zone);
+    (*zoneCallback)(cx->runtime(), data, zone);
     IterateCompartmentsArenasCellsUnbarriered(cx, zone, data,
                                               compartmentCallback, arenaCallback, cellCallback);
 }
@@ -75,15 +75,15 @@ js::IterateChunks(JSContext* cx, void* data, IterateChunkCallback chunkCallback)
 {
     AutoPrepareForTracing prep(cx, SkipAtoms);
 
-    for (auto chunk = cx->gc.allNonEmptyChunks(); !chunk.done(); chunk.next())
-        chunkCallback(cx, data, chunk);
+    for (auto chunk = cx->runtime()->gc.allNonEmptyChunks(); !chunk.done(); chunk.next())
+        chunkCallback(cx->runtime(), data, chunk);
 }
 
 void
 js::IterateScripts(JSContext* cx, JSCompartment* compartment,
                    void* data, IterateScriptCallback scriptCallback)
 {
-    MOZ_ASSERT(!cx->mainThread().suppressGC);
+    MOZ_ASSERT(!cx->suppressGC);
     AutoEmptyNursery empty(cx);
     AutoPrepareForTracing prep(cx, SkipAtoms);
 
@@ -91,12 +91,12 @@ js::IterateScripts(JSContext* cx, JSCompartment* compartment,
         Zone* zone = compartment->zone();
         for (auto script = zone->cellIter<JSScript>(empty); !script.done(); script.next()) {
             if (script->compartment() == compartment)
-                scriptCallback(cx, data, script);
+                scriptCallback(cx->runtime(), data, script);
         }
     } else {
-        for (ZonesIter zone(cx, SkipAtoms); !zone.done(); zone.next()) {
+        for (ZonesIter zone(cx->runtime(), SkipAtoms); !zone.done(); zone.next()) {
             for (auto script = zone->cellIter<JSScript>(empty); !script.done(); script.next())
-                scriptCallback(cx, data, script);
+                scriptCallback(cx->runtime(), data, script);
         }
     }
 }
@@ -115,9 +115,8 @@ IterateGrayObjects(Zone* zone, GCThingCallback cellCallback, void* data)
 void
 js::IterateGrayObjects(Zone* zone, GCThingCallback cellCallback, void* data)
 {
-    JSRuntime* rt = zone->runtimeFromMainThread();
-    MOZ_ASSERT(!rt->isHeapBusy());
-    AutoPrepareForTracing prep(rt->contextFromMainThread(), SkipAtoms);
+    MOZ_ASSERT(!JS::CurrentThreadIsHeapBusy());
+    AutoPrepareForTracing prep(TlsContext.get(), SkipAtoms);
     ::IterateGrayObjects(zone, cellCallback, data);
 }
 
@@ -125,7 +124,7 @@ void
 js::IterateGrayObjectsUnderCC(Zone* zone, GCThingCallback cellCallback, void* data)
 {
     mozilla::DebugOnly<JSRuntime*> rt = zone->runtimeFromMainThread();
-    MOZ_ASSERT(rt->isCycleCollecting());
+    MOZ_ASSERT(JS::CurrentThreadIsHeapCycleCollecting());
     MOZ_ASSERT(!rt->gc.isIncrementalGCInProgress());
     ::IterateGrayObjects(zone, cellCallback, data);
 }
@@ -134,8 +133,8 @@ JS_PUBLIC_API(void)
 JS_IterateCompartments(JSContext* cx, void* data,
                        JSIterateCompartmentCallback compartmentCallback)
 {
-    AutoTraceSession session(cx);
+    AutoTraceSession session(cx->runtime());
 
-    for (CompartmentsIter c(cx, WithAtoms); !c.done(); c.next())
+    for (CompartmentsIter c(cx->runtime(), WithAtoms); !c.done(); c.next())
         (*compartmentCallback)(cx, data, c);
 }

@@ -83,6 +83,7 @@ using mozilla::Unused;
 
 typedef Vector<uint32_t, 0, SystemAllocPolicy> Uint32Vector;
 typedef Vector<uint8_t, 0, SystemAllocPolicy> Bytes;
+typedef Vector<char, 0, SystemAllocPolicy> UTF8Bytes;
 
 class Code;
 class CodeRange;
@@ -862,7 +863,7 @@ enum class SymbolicAddress
 };
 
 void*
-AddressOf(SymbolicAddress imm, ExclusiveContext* cx);
+AddressOf(SymbolicAddress imm, JSContext* cx);
 
 // Assumptions captures ambient state that must be the same when compiling and
 // deserializing a module for the compiled code to be valid. If it's not, then
@@ -878,7 +879,7 @@ struct Assumptions
     // If Assumptions is constructed without arguments, initBuildIdFromContext()
     // must be called to complete initialization.
     Assumptions();
-    bool initBuildIdFromContext(ExclusiveContext* cx);
+    bool initBuildIdFromContext(JSContext* cx);
 
     bool clone(const Assumptions& other);
 

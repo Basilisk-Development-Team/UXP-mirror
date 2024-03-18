@@ -134,9 +134,8 @@ class WeakMap : public HashMap<Key, Value, HashPolicy, RuntimeAllocPolicy>,
     bool init(uint32_t len = 16) {
         if (!Base::init(len))
             return false;
-        zone->gcWeakMapList.insertFront(this);
-        JSRuntime* rt = zone->runtimeFromMainThread();
-        marked = JS::IsIncrementalGCInProgress(rt->contextFromMainThread());
+        zone->gcWeakMapList().insertFront(this);
+        marked = JS::IsIncrementalGCInProgress(TlsContext.get());
         return true;
     }
 
@@ -231,7 +230,7 @@ class WeakMap : public HashMap<Key, Value, HashPolicy, RuntimeAllocPolicy>,
         GCMarker& marker = *static_cast<GCMarker*>(trc);
         Zone* zone = key.asCell()->asTenured().zone();
 
-        auto p = zone->gcWeakKeys.get(key);
+        auto p = zone->gcWeakKeys().get(key);
         if (p) {
             gc::WeakEntryVector& weakEntries = p->value;
             if (!weakEntries.append(Move(markable)))
@@ -239,7 +238,7 @@ class WeakMap : public HashMap<Key, Value, HashPolicy, RuntimeAllocPolicy>,
         } else {
             gc::WeakEntryVector weakEntries;
             MOZ_ALWAYS_TRUE(weakEntries.append(Move(markable)));
-            if (!zone->gcWeakKeys.put(JS::GCCellPtr(key), Move(weakEntries)))
+            if (!zone->gcWeakKeys().put(JS::GCCellPtr(key), Move(weakEntries)))
                 marker.abortLinearWeakMarking();
         }
     }

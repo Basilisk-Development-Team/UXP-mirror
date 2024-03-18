@@ -9,6 +9,7 @@
 #include "jsgc.h"
 #include "jsobj.h"
 
+#include "gc/Zone.h"
 #include "vm/Runtime.h"
 #include "vm/TypeInference.h"
 
@@ -102,7 +103,7 @@ class UnboxedLayout : public mozilla::LinkedListElement<UnboxedLayout>
 
   public:
     UnboxedLayout()
-      : nativeGroup_(nullptr), nativeShape_(nullptr),
+       : nativeGroup_(nullptr), nativeShape_(nullptr),
         allocationScript_(nullptr), allocationPc_(nullptr), replacementGroup_(nullptr),
         size_(0), newScript_(nullptr), traceList_(nullptr), constructorCode_(nullptr),
         elementType_(JSVAL_TYPE_MAGIC)
@@ -289,20 +290,20 @@ class UnboxedPlainObject : public JSObject
         return reinterpret_cast<JSObject**>(&expando_);
     }
 
-    bool containsUnboxedOrExpandoProperty(ExclusiveContext* cx, jsid id) const;
+    bool containsUnboxedOrExpandoProperty(JSContext* cx, jsid id) const;
 
     static UnboxedExpandoObject* ensureExpando(JSContext* cx, Handle<UnboxedPlainObject*> obj);
 
-    bool setValue(ExclusiveContext* cx, const UnboxedLayout::Property& property, const Value& v);
+    bool setValue(JSContext* cx, const UnboxedLayout::Property& property, const Value& v);
     Value getValue(const UnboxedLayout::Property& property, bool maybeUninitialized = false);
 
     static bool convertToNative(JSContext* cx, JSObject* obj);
-    static UnboxedPlainObject* create(ExclusiveContext* cx, HandleObjectGroup group,
+    static UnboxedPlainObject* create(JSContext* cx, HandleObjectGroup group,
                                       NewObjectKind newKind);
-    static JSObject* createWithProperties(ExclusiveContext* cx, HandleObjectGroup group,
+    static JSObject* createWithProperties(JSContext* cx, HandleObjectGroup group,
                                           NewObjectKind newKind, IdValuePair* properties);
 
-    void fillAfterConvert(ExclusiveContext* cx,
+    void fillAfterConvert(JSContext* cx,
                           Handle<GCVector<Value>> values, size_t* valueCursor);
 
     static void trace(JSTracer* trc, JSObject* object);
@@ -320,7 +321,7 @@ class UnboxedPlainObject : public JSObject
 // provided they all match the template shape. If successful, converts the
 // preliminary objects and their group to the new unboxed representation.
 bool
-TryConvertToUnboxedLayout(ExclusiveContext* cx, AutoEnterAnalysis& enter, Shape* templateShape,
+TryConvertToUnboxedLayout(JSContext* cx, AutoEnterAnalysis& enter, Shape* templateShape,
                           ObjectGroup* group, PreliminaryObjectArray* objects);
 
 inline gc::AllocKind
@@ -417,15 +418,15 @@ class UnboxedArrayObject : public JSObject
     }
 
     static bool convertToNative(JSContext* cx, JSObject* obj);
-    static UnboxedArrayObject* create(ExclusiveContext* cx, HandleObjectGroup group,
+    static UnboxedArrayObject* create(JSContext* cx, HandleObjectGroup group,
                                       uint32_t length, NewObjectKind newKind,
                                       uint32_t maxLength = MaximumCapacity);
 
-    static bool convertToNativeWithGroup(ExclusiveContext* cx, JSObject* obj,
+    static bool convertToNativeWithGroup(JSContext* cx, JSObject* obj,
                                          ObjectGroup* group, Shape* shape);
-    bool convertInt32ToDouble(ExclusiveContext* cx, ObjectGroup* group);
+    bool convertInt32ToDouble(JSContext* cx, ObjectGroup* group);
 
-    void fillAfterConvert(ExclusiveContext* cx,
+    void fillAfterConvert(JSContext* cx,
                           Handle<GCVector<Value>> values, size_t* valueCursor);
 
     static void trace(JSTracer* trc, JSObject* object);
@@ -459,24 +460,24 @@ class UnboxedArrayObject : public JSObject
         return computeCapacity(capacityIndex(), length());
     }
 
-    bool containsProperty(ExclusiveContext* cx, jsid id);
+    bool containsProperty(JSContext* cx, jsid id);
 
-    bool setElement(ExclusiveContext* cx, size_t index, const Value& v);
-    bool initElement(ExclusiveContext* cx, size_t index, const Value& v);
+    bool setElement(JSContext* cx, size_t index, const Value& v);
+    bool initElement(JSContext* cx, size_t index, const Value& v);
     void initElementNoTypeChange(size_t index, const Value& v);
     Value getElement(size_t index);
 
-    template <JSValueType Type> inline bool setElementSpecific(ExclusiveContext* cx, size_t index,
+    template <JSValueType Type> inline bool setElementSpecific(JSContext* cx, size_t index,
                                                                const Value& v);
     template <JSValueType Type> inline void setElementNoTypeChangeSpecific(size_t index, const Value& v);
-    template <JSValueType Type> inline bool initElementSpecific(ExclusiveContext* cx, size_t index,
+    template <JSValueType Type> inline bool initElementSpecific(JSContext* cx, size_t index,
                                                                 const Value& v);
     template <JSValueType Type> inline void initElementNoTypeChangeSpecific(size_t index, const Value& v);
     template <JSValueType Type> inline Value getElementSpecific(size_t index);
     template <JSValueType Type> inline void triggerPreBarrier(size_t index);
 
-    bool growElements(ExclusiveContext* cx, size_t cap);
-    void shrinkElements(ExclusiveContext* cx, size_t cap);
+    bool growElements(JSContext* cx, size_t cap);
+    void shrinkElements(JSContext* cx, size_t cap);
 
     static uint32_t offsetOfElements() {
         return offsetof(UnboxedArrayObject, elements_);
@@ -496,7 +497,7 @@ class UnboxedArrayObject : public JSObject
         length_ = length;
     }
 
-    inline void setLength(ExclusiveContext* cx, uint32_t len);
+    inline void setLength(JSContext* cx, uint32_t len);
     inline void setInitializedLength(uint32_t initlen);
 
     inline void setInitializedLengthNoBarrier(uint32_t initlen) {

@@ -23,7 +23,8 @@ namespace js {
 bool
 RuntimeFromMainThreadIsHeapMajorCollecting(JS::shadow::Zone* shadowZone)
 {
-    return shadowZone->runtimeFromMainThread()->isHeapMajorCollecting();
+    MOZ_ASSERT(CurrentThreadCanAccessRuntime(shadowZone->runtimeFromMainThread()));
+    return JS::CurrentThreadIsHeapMajorCollecting();
 }
 
 #ifdef DEBUG
@@ -63,19 +64,19 @@ HeapSlot::preconditionForWriteBarrierPost(NativeObject* obj, Kind kind, uint32_t
 bool
 CurrentThreadIsIonCompiling()
 {
-    return TlsPerThreadData.get()->ionCompiling;
+    return TlsContext.get()->ionCompiling;
 }
 
 bool
 CurrentThreadIsIonCompilingSafeForMinorGC()
 {
-    return TlsPerThreadData.get()->ionCompilingSafeForMinorGC;
+    return TlsContext.get()->ionCompilingSafeForMinorGC;
 }
 
 bool
 CurrentThreadIsGCSweeping()
 {
-    return TlsPerThreadData.get()->gcSweeping;
+    return TlsContext.get()->gcSweeping;
 }
 
 #endif // DEBUG

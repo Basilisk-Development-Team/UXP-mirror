@@ -42,7 +42,7 @@ class RegExpStatics
 
   public:
     RegExpStatics() { clear(); }
-    static RegExpStaticsObject* create(ExclusiveContext* cx, Handle<GlobalObject*> parent);
+    static RegExpStaticsObject* create(JSContext* cx, Handle<GlobalObject*> parent);
 
   private:
     bool executeLazy(JSContext* cx);
@@ -157,7 +157,7 @@ inline bool
 RegExpStatics::createPendingInput(JSContext* cx, MutableHandleValue out)
 {
     /* Lazy evaluation need not be resolved to return the input. */
-    out.setString(pendingInput ? pendingInput.get() : cx->runtime()->emptyString);
+    out.setString(pendingInput ? pendingInput.get() : cx->runtime()->emptyString.ref());
     return true;
 }
 

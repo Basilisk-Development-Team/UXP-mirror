@@ -47,7 +47,7 @@ int32_t atomics_xor_asm_callout(wasm::Instance* i, int32_t vt, int32_t offset, i
 int32_t atomics_cmpxchg_asm_callout(wasm::Instance* i, int32_t vt, int32_t offset, int32_t oldval, int32_t newval);
 int32_t atomics_xchg_asm_callout(wasm::Instance* i, int32_t vt, int32_t offset, int32_t value);
 
-class FutexRuntime
+class FutexThread
 {
     friend class AutoLockFutexAPI;
 
@@ -58,7 +58,7 @@ public:
     static void lock();
     static void unlock();
 
-    FutexRuntime();
+    FutexThread();
     [[nodiscard]] bool initInstance();
     void destroyInstance();
 
@@ -86,7 +86,7 @@ public:
     [[nodiscard]] bool wait(JSContext* cx, js::UniqueLock<js::Mutex>& locked,
                             mozilla::Maybe<mozilla::TimeDuration>& timeout, WaitResult* result);
 
-    // Notify the thread represented by this Runtime.
+    // Notify the thread this is associated with.
     //
     // The futex lock must be held around this call.  (The sleeping
     // thread will not wake up until the caller of Atomics.notify()
@@ -107,7 +107,7 @@ public:
     bool isWaiting();
 
     // If canWait() returns false (the default) then wait() is disabled
-    // on the runtime to which the FutexRuntime belongs.
+    // on the thread to which the FutexThread belongs.
     bool canWait() {
         return canWait_;
     }
@@ -142,7 +142,7 @@ public:
     static mozilla::Atomic<js::Mutex*> lock_;
 
     // A flag that controls whether waiting is allowed.
-    bool canWait_;
+    ThreadLocalData<bool> canWait_;
 };
 
 JSObject*

@@ -21,6 +21,7 @@
 #include "jit/JitSpewer.h"
 #include "jit/Linker.h"
 #include "jit/SharedICHelpers.h"
+#include "jscntxtinlines.h"
 #ifdef JS_ION_PERF
 # include "jit/PerfSpewer.h"
 #endif

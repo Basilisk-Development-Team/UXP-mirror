@@ -186,7 +186,7 @@ class TypedArrayObject : public NativeObject
 #endif
 
     template <AllowGC allowGC>
-    bool getElement(ExclusiveContext* cx, uint32_t index,
+    bool getElement(JSContext* cx, uint32_t index,
                     typename MaybeRooted<Value, allowGC>::MutableHandleType val);
     bool getElementPure(uint32_t index, Value* vp);
 

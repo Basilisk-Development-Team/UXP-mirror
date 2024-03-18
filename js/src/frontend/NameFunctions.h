@@ -12,14 +12,12 @@
 
 namespace js {
 
-class ExclusiveContext;
-
 namespace frontend {
 
 class ParseNode;
 
 [[nodiscard]] bool
-NameFunctions(ExclusiveContext* cx, ParseNode* pn);
+NameFunctions(JSContext* cx, ParseNode* pn);
 
 } /* namespace frontend */
 } /* namespace js */

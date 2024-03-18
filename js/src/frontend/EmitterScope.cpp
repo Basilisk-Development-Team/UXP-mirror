@@ -485,7 +485,7 @@ EmitterScope::enterLexical(BytecodeEmitter* bce, ScopeKind kind,
     updateFrameFixedSlots(bce, bi);
 
     // Create and intern the VM scope.
-    auto createScope = [kind, bindings, firstFrameSlot](ExclusiveContext* cx,
+    auto createScope = [kind, bindings, firstFrameSlot](JSContext* cx,
                                                         HandleScope enclosing)
     {
         return LexicalScope::create(cx, kind, bindings, firstFrameSlot, enclosing);
@@ -538,7 +538,7 @@ EmitterScope::enterNamedLambda(BytecodeEmitter* bce, FunctionBox* funbox)
     bi++;
     MOZ_ASSERT(!bi, "There should be exactly one binding in a NamedLambda scope");
 
-    auto createScope = [funbox](ExclusiveContext* cx, HandleScope enclosing) {
+    auto createScope = [funbox](JSContext* cx, HandleScope enclosing) {
         ScopeKind scopeKind =
             funbox->strict() ? ScopeKind::StrictNamedLambda : ScopeKind::NamedLambda;
         return LexicalScope::create(cx, scopeKind, funbox->namedLambdaBindings(),
@@ -658,7 +658,7 @@ EmitterScope::enterFunction(BytecodeEmitter* bce, FunctionBox* funbox)
     }
 
     // Create and intern the VM scope.
-    auto createScope = [funbox](ExclusiveContext* cx, HandleScope enclosing) {
+    auto createScope = [funbox](JSContext* cx, HandleScope enclosing) {
         RootedFunction fun(cx, funbox->function());
         return FunctionScope::create(cx, funbox->functionScopeBindings(),
                                      funbox->hasParameterExprs,
@@ -712,7 +712,7 @@ EmitterScope::enterFunctionExtraBodyVar(BytecodeEmitter* bce, FunctionBox* funbo
         fallbackFreeNameLocation_ = Some(NameLocation::Dynamic());
 
     // Create and intern the VM scope.
-    auto createScope = [funbox, firstFrameSlot](ExclusiveContext* cx, HandleScope enclosing) {
+    auto createScope = [funbox, firstFrameSlot](JSContext* cx, HandleScope enclosing) {
         return VarScope::create(cx, ScopeKind::FunctionBodyVar,
                                 funbox->extraVarScopeBindings(), firstFrameSlot,
                                 funbox->needsExtraBodyVarEnvironmentRegardlessOfBindings(),
@@ -747,7 +747,7 @@ EmitterScope::enterParameterExpressionVar(BytecodeEmitter* bce)
 
     // Create and intern the VM scope.
     uint32_t firstFrameSlot = frameSlotStart();
-    auto createScope = [firstFrameSlot](ExclusiveContext* cx, HandleScope enclosing) {
+    auto createScope = [firstFrameSlot](JSContext* cx, HandleScope enclosing) {
         return VarScope::create(cx, ScopeKind::ParameterExpressionVar,
                                 /* data = */ nullptr, firstFrameSlot,
                                 /* needsEnvironment = */ true, enclosing);
@@ -813,7 +813,7 @@ EmitterScope::enterGlobal(BytecodeEmitter* bce, GlobalSharedContext* globalsc)
         // lazily upon first access.
         fallbackFreeNameLocation_ = Some(NameLocation::Intrinsic());
 
-        auto createScope = [](ExclusiveContext* cx, HandleScope enclosing) {
+        auto createScope = [](JSContext* cx, HandleScope enclosing) {
             MOZ_ASSERT(!enclosing);
             return &cx->global()->emptyGlobalScope();
         };
@@ -846,7 +846,7 @@ EmitterScope::enterGlobal(BytecodeEmitter* bce, GlobalSharedContext* globalsc)
     else
         fallbackFreeNameLocation_ = Some(NameLocation::Dynamic());
 
-    auto createScope = [globalsc](ExclusiveContext* cx, HandleScope enclosing) {
+    auto createScope = [globalsc](JSContext* cx, HandleScope enclosing) {
         MOZ_ASSERT(!enclosing);
         return GlobalScope::create(cx, globalsc->scopeKind(), globalsc->bindings);
     };
@@ -868,7 +868,7 @@ EmitterScope::enterEval(BytecodeEmitter* bce, EvalSharedContext* evalsc)
 
     // Create the `var` scope. Note that there is also a lexical scope, created
     // separately in emitScript().
-    auto createScope = [evalsc](ExclusiveContext* cx, HandleScope enclosing) {
+    auto createScope = [evalsc](JSContext* cx, HandleScope enclosing) {
         ScopeKind scopeKind = evalsc->strict() ? ScopeKind::StrictEval : ScopeKind::Eval;
         return EvalScope::create(cx, scopeKind, evalsc->bindings, enclosing);
     };
@@ -956,7 +956,7 @@ EmitterScope::enterModule(BytecodeEmitter* bce, ModuleSharedContext* modulesc)
     }
 
     // Create and intern the VM scope.
-    auto createScope = [modulesc](ExclusiveContext* cx, HandleScope enclosing) {
+    auto createScope = [modulesc](JSContext* cx, HandleScope enclosing) {
         return ModuleScope::create(cx, modulesc->bindings, modulesc->module(), enclosing);
     };
     if (!internBodyScope(bce, createScope))
@@ -976,7 +976,7 @@ EmitterScope::enterWith(BytecodeEmitter* bce)
     // 'with' make all accesses dynamic and unanalyzable.
     fallbackFreeNameLocation_ = Some(NameLocation::Dynamic());
 
-    auto createScope = [](ExclusiveContext* cx, HandleScope enclosing) {
+    auto createScope = [](JSContext* cx, HandleScope enclosing) {
         return WithScope::create(cx, enclosing);
     };
     if (!internScope(bce, createScope))

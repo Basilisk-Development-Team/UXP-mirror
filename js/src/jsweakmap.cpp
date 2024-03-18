@@ -37,7 +37,7 @@ WeakMapBase::~WeakMapBase()
 void
 WeakMapBase::unmarkZone(JS::Zone* zone)
 {
-    for (WeakMapBase* m : zone->gcWeakMapList)
+    for (WeakMapBase* m : zone->gcWeakMapList())
         m->marked = false;
 }
 
@@ -45,7 +45,7 @@ void
 WeakMapBase::markAll(JS::Zone* zone, JSTracer* tracer)
 {
     MOZ_ASSERT(tracer->weakMapAction() != DoNotTraceWeakMaps);
-    for (WeakMapBase* m : zone->gcWeakMapList) {
+    for (WeakMapBase* m : zone->gcWeakMapList()) {
         m->trace(tracer);
         TraceNullableEdge(tracer, &m->memberOf, "memberOf");
     }
@@ -55,7 +55,7 @@ bool
 WeakMapBase::markZoneIteratively(JS::Zone* zone, JSTracer* tracer)
 {
     bool markedAny = false;
-    for (WeakMapBase* m : zone->gcWeakMapList) {
+    for (WeakMapBase* m : zone->gcWeakMapList()) {
         if (m->marked && m->traceEntries(tracer))
             markedAny = true;
     }
@@ -65,7 +65,7 @@ WeakMapBase::markZoneIteratively(JS::Zone* zone, JSTracer* tracer)
 bool
 WeakMapBase::findInterZoneEdges(JS::Zone* zone)
 {
-    for (WeakMapBase* m : zone->gcWeakMapList) {
+    for (WeakMapBase* m : zone->gcWeakMapList()) {
         if (!m->findZoneEdges())
             return false;
     }
@@ -75,20 +75,20 @@ WeakMapBase::findInterZoneEdges(JS::Zone* zone)
 void
 WeakMapBase::sweepZone(JS::Zone* zone)
 {
-    for (WeakMapBase* m = zone->gcWeakMapList.getFirst(); m; ) {
+    for (WeakMapBase* m = zone->gcWeakMapList().getFirst(); m; ) {
         WeakMapBase* next = m->getNext();
         if (m->marked) {
             m->sweep();
         } else {
             /* Destroy the hash map now to catch any use after this point. */
             m->finish();
-            m->removeFrom(zone->gcWeakMapList);
+            m->removeFrom(zone->gcWeakMapList());
         }
         m = next;
     }
 
 #ifdef DEBUG
-    for (WeakMapBase* m : zone->gcWeakMapList)
+    for (WeakMapBase* m : zone->gcWeakMapList())
         MOZ_ASSERT(m->isInList() && m->marked);
 #endif
 }
@@ -96,9 +96,9 @@ WeakMapBase::sweepZone(JS::Zone* zone)
 void
 WeakMapBase::traceAllMappings(WeakMapTracer* tracer)
 {
-    JSRuntime* rt = tracer->context;
+    JSRuntime* rt = tracer->context->runtime();
     for (ZonesIter zone(rt, SkipAtoms); !zone.done(); zone.next()) {
-        for (WeakMapBase* m : zone->gcWeakMapList) {
+        for (WeakMapBase* m : zone->gcWeakMapList()) {
             // The WeakMapTracer callback is not allowed to GC.
             JS::AutoSuppressGCAnalysis nogc;
             m->traceMappings(tracer);
@@ -109,7 +109,7 @@ WeakMapBase::traceAllMappings(WeakMapTracer* tracer)
 bool
 WeakMapBase::saveZoneMarkedWeakMaps(JS::Zone* zone, WeakMapSet& markedWeakMaps)
 {
-    for (WeakMapBase* m : zone->gcWeakMapList) {
+    for (WeakMapBase* m : zone->gcWeakMapList()) {
         if (m->marked && !markedWeakMaps.put(m))
             return false;
     }
@@ -146,7 +146,7 @@ ObjectValueMap::findZoneEdges()
         Zone* delegateZone = delegate->zone();
         if (delegateZone == zone || !delegateZone->shouldMarkInZone())
             continue;
-        if (!delegateZone->gcZoneGroupEdges.put(key->zone()))
+        if (!delegateZone->gcZoneGroupEdges().put(key->zone()))
             return false;
     }
     return true;

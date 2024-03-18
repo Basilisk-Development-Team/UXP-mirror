@@ -36,7 +36,7 @@ ThingIsPermanent(JS::Symbol* symbol)
 
 template <typename T>
 MOZ_ALWAYS_INLINE void
-AtomMarkingRuntime::inlinedMarkAtom(ExclusiveContext* cx, T* thing)
+AtomMarkingRuntime::inlinedMarkAtom(JSContext* cx, T* thing)
 {
     static_assert(mozilla::IsSame<T, JSAtom>::value ||
                   mozilla::IsSame<T, JS::Symbol>::value,
@@ -56,9 +56,9 @@ AtomMarkingRuntime::inlinedMarkAtom(ExclusiveContext* cx, T* thing)
     size_t bit = GetAtomBit(thing);
     MOZ_ASSERT(bit / JS_BITS_PER_WORD < allocatedWords);
 
-    cx->zone()->markedAtoms.setBit(bit);
+    cx->zone()->markedAtoms().setBit(bit);
 
-    if (cx->isJSContext()) {
+    if (!cx->helperThread()) {
         // Trigger a read barrier on the atom, in case there is an incremental
         // GC in progress. This is necessary if the atom is being marked
         // because a reference to it was obtained from another zone which is

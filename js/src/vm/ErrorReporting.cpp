@@ -57,7 +57,7 @@ ReportCompileWarning(JSContext* cx, ErrorMetadata&& metadata, UniquePtr<JSErrorN
     // it later.
     CompileError tempErr;
     CompileError* err = &tempErr;
-    if (!cx->isJSContext() && !cx->addPendingCompileError(&err)) {
+    if (!cx->helperThread() && !cx->addPendingCompileError(&err)) {
         return false;
     }
 
@@ -79,8 +79,8 @@ ReportCompileWarning(JSContext* cx, ErrorMetadata&& metadata, UniquePtr<JSErrorN
         return false;
     }
 
-    if (cx->isJSContext()) {
-        err->throwError(cx->asJSContext());
+    if (cx->helperThread()) {
+        err->throwError(cx);
     }
 
     return true;
@@ -95,7 +95,7 @@ ReportCompileError(JSContext* cx, ErrorMetadata&& metadata, UniquePtr<JSErrorNot
     // it later.
     CompileError tempErr;
     CompileError* err = &tempErr;
-    if (!cx->isJSContext() && !cx->addPendingCompileError(&err)) {
+    if (!cx->helperThread() && !cx->addPendingCompileError(&err)) {
         return;
     }
 
@@ -117,7 +117,7 @@ ReportCompileError(JSContext* cx, ErrorMetadata&& metadata, UniquePtr<JSErrorNot
         return;
     }
 
-    if (cx->isJSContext()) {
-        err->throwError(cx->asJSContext());
+    if (cx->helperThread()) {
+        err->throwError(cx);
     }
 }

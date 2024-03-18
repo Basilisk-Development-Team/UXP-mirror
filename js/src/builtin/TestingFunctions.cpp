@@ -319,7 +319,7 @@ MinorGC(JSContext* cx, unsigned argc, Value* vp)
 {
     CallArgs args = CallArgsFromVp(argc, vp);
     if (args.get(0) == BooleanValue(true))
-        cx->runtime()->gc.storeBuffer.setAboutToOverflow();
+        cx->zone()->group()->storeBuffer().setAboutToOverflow();
 
     cx->minorGC(JS::gcreason::API);
     args.rval().setUndefined();
@@ -1244,15 +1244,14 @@ OOMTest(JSContext* cx, unsigned argc, Value* vp)
         threadEnd = threadOption + 1;
     }
 
-    JSRuntime* rt = cx->runtime();
-    if (rt->runningOOMTest) {
+    if (cx->runningOOMTest) {
         JS_ReportErrorASCII(cx, "Nested call to oomTest() is not allowed.");
         return false;
     }
-    rt->runningOOMTest = true;
+    cx->runningOOMTest = true;
 
     MOZ_ASSERT(!cx->isExceptionPending());
-    rt->hadOutOfMemory = false;
+    cx->runtime()->hadOutOfMemory = false;
 
     for (unsigned thread = threadStart; thread < threadEnd; thread++) {
         if (verbose)
@@ -1317,7 +1316,7 @@ OOMTest(JSContext* cx, unsigned argc, Value* vp)
         }
     }
 
-    rt->runningOOMTest = false;
+    cx->runningOOMTest = false;
     args.rval().setUndefined();
     return true;
 }
@@ -1586,7 +1585,7 @@ ReadSPSProfilingStack(JSContext* cx, unsigned argc, Value* vp)
     args.rval().setUndefined();
 
     // Return boolean 'false' if profiler is not enabled.
-    if (!cx->runtime()->spsProfiler.enabled()) {
+    if (!cx->runtime()->spsProfiler().enabled()) {
         args.rval().setBoolean(false);
         return true;
     }
@@ -1598,7 +1597,7 @@ ReadSPSProfilingStack(JSContext* cx, unsigned argc, Value* vp)
 
     // If profiler sampling has been suppressed, return an empty
     // stack.
-    if (!cx->runtime()->isProfilerSamplingEnabled()) {
+    if (!cx->isProfilerSamplingEnabled()) {
       args.rval().setObject(*stack);
       return true;
     }
@@ -1723,7 +1722,7 @@ DisplayName(JSContext* cx, unsigned argc, Value* vp)
 
     JSFunction* fun = &args[0].toObject().as<JSFunction>();
     JSString* str = fun->displayAtom();
-    args.rval().setString(str ? str : cx->runtime()->emptyString);
+    args.rval().setString(str ? str : cx->runtime()->emptyString.ref());
     return true;
 }
 
@@ -1829,7 +1828,7 @@ testingFunc_bailAfter(JSContext* cx, unsigned argc, Value* vp)
     }
 
 #ifdef DEBUG
-    cx->runtime()->setIonBailAfter(args[0].toInt32());
+    cx->zone()->group()->setIonBailAfter(args[0].toInt32());
 #endif
 
     args.rval().setUndefined();
@@ -3337,7 +3336,8 @@ minorGC(JSContext* cx, JSGCStatus status, void* data)
 
     if (info->active) {
         info->active = false;
-        cx->gc.evictNursery(JS::gcreason::DEBUG_GC);
+        if (cx->zone() && !cx->zone()->isAtomsZone())
+            cx->zone()->group()->evictNursery(JS::gcreason::DEBUG_GC);
         info->active = true;
     }
 }

@@ -1649,18 +1649,17 @@ BytecodeEmitter::maybeSetSourceMap()
 }
 
 void
-BytecodeEmitter::tellDebuggerAboutCompiledScript(ExclusiveContext* cx)
+BytecodeEmitter::tellDebuggerAboutCompiledScript(JSContext* cx)
 {
     // Note: when parsing off thread the resulting scripts need to be handed to
     // the debugger after rejoining to the main thread.
-    if (!cx->isJSContext())
+    if (cx->helperThread())
         return;
 
     // Lazy scripts are never top level (despite always being invoked with a
     // nullptr parent), and so the hook should never be fired.
-    if (emitterMode != LazyFunction && !parent) {
-        Debugger::onNewScript(cx->asJSContext(), script);
-    }
+    if (emitterMode != LazyFunction && !parent)
+        Debugger::onNewScript(cx, script);
 }
 
 inline TokenStream&
@@ -4220,7 +4219,7 @@ BytecodeEmitter::emitShortCircuitAssignment(ParseNodeKind kind, JSOp op,
 }
 
 bool
-ParseNode::getConstantValue(ExclusiveContext* cx, AllowConstantObjects allowObjects,
+ParseNode::getConstantValue(JSContext* cx, AllowConstantObjects allowObjects,
                             MutableHandleValue vp, Value* compare, size_t ncompare,
                             NewObjectKind newKind)
 {
@@ -7130,7 +7129,7 @@ BytecodeEmitter::emitDeleteElementInOptChain(
 }
 
 static const char *
-SelfHostedCallFunctionName(JSAtom* name, ExclusiveContext* cx)
+SelfHostedCallFunctionName(JSAtom* name, JSContext* cx)
 {
     if (name == cx->names().callFunction)
         return "callFunction";
@@ -9960,7 +9959,7 @@ BytecodeEmitter::emitOptionalElemExpression(
 }
 
 static bool
-AllocSrcNote(ExclusiveContext* cx, SrcNotesVector& notes, unsigned* index)
+AllocSrcNote(JSContext* cx, SrcNotesVector& notes, unsigned* index)
 {
     size_t oldLength = notes.length();
 

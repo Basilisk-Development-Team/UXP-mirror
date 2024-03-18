@@ -576,7 +576,7 @@ void
 js::intl::SharedIntlData::trace(JSTracer* trc)
 {
     // Atoms are always tenured.
-    if (!trc->runtime()->isHeapMinorCollecting()) {
+    if (!JS::CurrentThreadIsHeapMinorCollecting()) {
         availableTimeZones.trace(trc);
         ianaZonesTreatedAsLinksByICU.trace(trc);
         ianaLinksCanonicalizedDifferentlyByICU.trace(trc);

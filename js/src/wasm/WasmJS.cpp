@@ -45,7 +45,7 @@ using mozilla::IsSame;
 using mozilla::Nothing;
 
 bool
-wasm::HasCompilerSupport(ExclusiveContext* cx)
+wasm::HasCompilerSupport(JSContext* cx)
 {
     if (gc::SystemPageSize() > wasm::PageSize)
         return false;
@@ -74,7 +74,7 @@ wasm::HasCompilerSupport(ExclusiveContext* cx)
 }
 
 bool
-wasm::HasSupport(ExclusiveContext* cx)
+wasm::HasSupport(JSContext* cx)
 {
     return cx->options().wasm() && HasCompilerSupport(cx);
 }
@@ -689,7 +689,7 @@ WasmModuleObject::exports(JSContext* cx, unsigned argc, Value* vp)
 }
 
 /* static */ WasmModuleObject*
-WasmModuleObject::create(ExclusiveContext* cx, Module& module, HandleObject proto)
+WasmModuleObject::create(JSContext* cx, Module& module, HandleObject proto)
 {
     AutoSetNewObjectMetadata metadata(cx);
     auto* obj = NewObjectWithGivenProto<WasmModuleObject>(cx, proto);
@@ -1105,7 +1105,7 @@ WasmMemoryObject::finalize(FreeOp* fop, JSObject* obj)
 }
 
 /* static */ WasmMemoryObject*
-WasmMemoryObject::create(ExclusiveContext* cx, HandleArrayBufferObjectMaybeShared buffer,
+WasmMemoryObject::create(JSContext* cx, HandleArrayBufferObjectMaybeShared buffer,
                          HandleObject proto)
 {
     AutoSetNewObjectMetadata metadata(cx);
@@ -1764,7 +1764,7 @@ GetBufferSource(JSContext* cx, CallArgs callArgs, const char* name, MutableBytes
 static bool
 WebAssembly_compile(JSContext* cx, unsigned argc, Value* vp)
 {
-    if (!cx->startAsyncTaskCallback || !cx->finishAsyncTaskCallback) {
+    if (!cx->runtime()->startAsyncTaskCallback || !cx->runtime()->finishAsyncTaskCallback) {
         JS_ReportErrorASCII(cx, "WebAssembly.compile not supported in this runtime.");
         return false;
     }
@@ -1867,7 +1867,7 @@ GetInstantiateArgs(JSContext* cx, CallArgs callArgs, MutableHandleObject firstAr
 static bool
 WebAssembly_instantiate(JSContext* cx, unsigned argc, Value* vp)
 {
-    if (!cx->startAsyncTaskCallback || !cx->finishAsyncTaskCallback) {
+    if (!cx->runtime()->startAsyncTaskCallback || !cx->runtime()->finishAsyncTaskCallback) {
         JS_ReportErrorASCII(cx, "WebAssembly.instantiate not supported in this runtime.");
         return false;
     }

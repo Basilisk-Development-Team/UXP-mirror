@@ -22,14 +22,14 @@ using mozilla::PodEqual;
 template<XDRMode mode>
 LifoAlloc&
 XDRState<mode>::lifoAlloc() const {
-    return buf.cx()->asJSContext()->tempLifoAlloc();
+    return buf.cx()->tempLifoAlloc();
 }
 
 template<XDRMode mode>
 void
-XDRState<mode>::postProcessContextErrors(ExclusiveContext* cx)
+XDRState<mode>::postProcessContextErrors(JSContext* cx)
 {
-    if (cx->isJSContext() && cx->asJSContext()->isExceptionPending()) {
+    if (!cx->helperThread() && cx->isExceptionPending()) {
         MOZ_ASSERT(resultCode_ == JS::TranscodeResult_Ok);
         resultCode_ = JS::TranscodeResult_Throw;
     }

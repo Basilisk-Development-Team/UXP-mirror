@@ -113,7 +113,7 @@ TypedArrayObject::notifyBufferDetached(JSContext* cx, void* newData)
 
     // If the object is in the nursery, the buffer will be freed by the next
     // nursery GC. Free the data slot pointer if the object has no inline data.
-    Nursery& nursery = cx->runtime()->gc.nursery;
+    Nursery& nursery = cx->nursery();
     if (isTenured() && !hasBuffer() && !hasInlineElements() &&
         !nursery.isInside(elements()))
     {
@@ -147,7 +147,7 @@ TypedArrayObject::ensureHasBuffer(JSContext* cx, Handle<TypedArrayObject*> tarra
 
     // If the object is in the nursery, the buffer will be freed by the next
     // nursery GC. Free the data slot pointer if the object has no inline data.
-    Nursery& nursery = cx->runtime()->gc.nursery;
+    Nursery& nursery = cx->nursery();
     if (tarray->isTenured() && !tarray->hasInlineElements() &&
         !nursery.isInside(tarray->elements()))
     {
@@ -232,7 +232,7 @@ TypedArrayObject::objectMovedDuringMinorGC(JSTracer* trc, JSObject* obj, const J
     if (oldObj->hasBuffer())
         return 0;
 
-    Nursery& nursery = trc->runtime()->gc.nursery;
+    Nursery& nursery = obj->zone()->group()->nursery();
     void* buf = oldObj->elements();
 
     if (!nursery.isInside(buf)) {
@@ -522,7 +522,7 @@ class TypedArrayObjectTemplate : public TypedArrayObject
             // may be in the nursery, so include a barrier to make sure this
             // object is updated if that typed object moves.
             auto ptr = buffer->dataPointerEither();
-            if (!IsInsideNursery(obj) && cx->runtime()->gc.nursery.isInside(ptr)) {
+            if (!IsInsideNursery(obj) && cx->nursery().isInside(ptr)) {
                 // Shared buffer data should never be nursery-allocated, so we
                 // need to fail here if isSharedMemory.  However, mmap() can
                 // place a SharedArrayRawBuffer up against the bottom end of a
@@ -532,7 +532,7 @@ class TypedArrayObjectTemplate : public TypedArrayObject
                     MOZ_ASSERT(buffer->byteLength() == 0 &&
                                (uintptr_t(ptr.unwrapValue()) & gc::ChunkMask) == 0);
                 } else {
-                    cx->runtime()->gc.storeBuffer.putWholeCell(obj);
+                    cx->zone()->group()->storeBuffer().putWholeCell(obj);
                 }
             }
         } else {
@@ -652,7 +652,7 @@ class TypedArrayObjectTemplate : public TypedArrayObject
     {
         if (buf) {
 #ifdef DEBUG
-            Nursery& nursery = cx->runtime()->gc.nursery;
+            Nursery& nursery = cx->nursery();
             MOZ_ASSERT_IF(!nursery.isInside(buf) && !tarray->hasInlineElements(),
                           tarray->isTenured());
 #endif
@@ -1005,7 +1005,7 @@ class TypedArrayObjectTemplate : public TypedArrayObject
         jit::AtomicOperations::storeSafeWhenRacy(tarray.viewDataEither().cast<NativeType*>() + index, val);
     }
 
-    static bool getElement(ExclusiveContext* cx, TypedArrayObject* tarray, uint32_t index, MutableHandleValue val);
+    static bool getElement(JSContext* cx, TypedArrayObject* tarray, uint32_t index, MutableHandleValue val);
     static bool getElementPure(TypedArrayObject* tarray, uint32_t index, Value* vp);
 
     static bool setElement(JSContext* cx, Handle<TypedArrayObject*> obj, uint64_t index, HandleValue v, 
@@ -1804,7 +1804,7 @@ TypedArrayObjectTemplate<uint64_t>::getElementPure(TypedArrayObject* tarray, uin
 namespace {
 
 template <typename NativeType>
-bool TypedArrayObjectTemplate<NativeType>::getElement(ExclusiveContext* cx, TypedArrayObject* tarray, uint32_t index,
+bool TypedArrayObjectTemplate<NativeType>::getElement(JSContext* cx, TypedArrayObject* tarray, uint32_t index,
                                                       MutableHandleValue val)
 {
     MOZ_ALWAYS_TRUE(getElementPure(tarray, index, val.address()));
@@ -1812,7 +1812,7 @@ bool TypedArrayObjectTemplate<NativeType>::getElement(ExclusiveContext* cx, Type
 }
  
 template <>
-bool TypedArrayObjectTemplate<int64_t>::getElement(ExclusiveContext* cx, TypedArrayObject* tarray, uint32_t index,
+bool TypedArrayObjectTemplate<int64_t>::getElement(JSContext* cx, TypedArrayObject* tarray, uint32_t index,
                                                    MutableHandleValue val)
 {
     int64_t n = getIndex(tarray, index);
@@ -1825,7 +1825,7 @@ bool TypedArrayObjectTemplate<int64_t>::getElement(ExclusiveContext* cx, TypedAr
 }
 
 template <>
-bool TypedArrayObjectTemplate<uint64_t>::getElement(ExclusiveContext* cx, TypedArrayObject* tarray, uint32_t index,
+bool TypedArrayObjectTemplate<uint64_t>::getElement(JSContext* cx, TypedArrayObject* tarray, uint32_t index,
                                                     MutableHandleValue val)
 {
     uint64_t n = getIndex(tarray, index);
@@ -1900,8 +1900,8 @@ DataViewObject::create(JSContext* cx, uint32_t byteOffset, uint32_t byteLength,
 
     // Include a barrier if the data view's data pointer is in the nursery, as
     // is done for typed arrays.
-    if (!IsInsideNursery(obj) && cx->runtime()->gc.nursery.isInside(arrayBuffer->dataPointer()))
-        cx->runtime()->gc.storeBuffer.putWholeCell(obj);
+    if (!IsInsideNursery(obj) && cx->nursery().isInside(arrayBuffer->dataPointer()))
+		cx->zone()->group()->storeBuffer().putWholeCell(obj);
 
     // Verify that the private slot is at the expected place
     MOZ_ASSERT(dvobj.numFixedSlots() == TypedArrayObject::DATA_SLOT);
@@ -2732,7 +2732,7 @@ DataViewObject::fun_setFloat64(JSContext* cx, unsigned argc, Value* vp)
 namespace js {
 
 template <>
-bool TypedArrayObject::getElement<CanGC>(ExclusiveContext* cx, uint32_t index, MutableHandleValue val)
+bool TypedArrayObject::getElement<CanGC>(JSContext* cx, uint32_t index, MutableHandleValue val)
 {
     switch (type()) {
 #define GET_ELEMENT(T, N) \
@@ -2750,7 +2750,7 @@ bool TypedArrayObject::getElement<CanGC>(ExclusiveContext* cx, uint32_t index, M
 
 template <>
 bool TypedArrayObject::getElement<NoGC>(
-    ExclusiveContext* cx, uint32_t index,
+    JSContext* cx, uint32_t index,
     typename MaybeRooted<Value, NoGC>::MutableHandleType vp) {
   return getElementPure(index, vp.address());
 }

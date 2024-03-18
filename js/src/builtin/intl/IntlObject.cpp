@@ -430,7 +430,7 @@ BestAvailableLocale(JSContext* cx, SupportedLocaleKind kind, HandleLinearString 
     // additional checks to also test whether the current prefix is a prefix of
     // the default locale.
 
-    intl::SharedIntlData& sharedIntlData = cx->sharedIntlData;
+    intl::SharedIntlData& sharedIntlData = cx->runtime()->sharedIntlData.ref();
 
     auto findLast = [](const auto* chars, size_t length) {
         auto rbegin = std::make_reverse_iterator(chars + length);

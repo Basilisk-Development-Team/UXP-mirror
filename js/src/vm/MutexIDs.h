@@ -25,7 +25,7 @@
   _(GCLock,                      400) \
                                       \
   _(SharedImmutableStringsCache, 500) \
-  _(FutexRuntime,                500) \
+  _(FutexThread,                 500) \
   _(PromiseTaskPtrVector,        500) \
   _(SPSProfilerStrings,          500) \
   _(ProtectedRegionTree,         500) \

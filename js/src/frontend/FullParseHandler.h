@@ -109,7 +109,7 @@ FOR_EACH_PARSENODE_SUBCLASS(DECLARE_TYPE)
                isParenthesizedDestructuringPattern(node);
     }
 
-    FullParseHandler(ExclusiveContext* cx, LifoAlloc& alloc,
+    FullParseHandler(JSContext* cx, LifoAlloc& alloc,
                      TokenStream& tokenStream, Parser<SyntaxParseHandler>* syntaxParser,
                      LazyScript* lazyOuterFunction)
       : allocator(cx, alloc),
@@ -133,7 +133,7 @@ FOR_EACH_PARSENODE_SUBCLASS(DECLARE_AS)
     void prepareNodeForMutation(Node pn) { return allocator.prepareNodeForMutation(pn); }
     const Token& currentToken() { return tokenStream.currentToken(); }
 
-    NameNodeType newName(PropertyName* name, const TokenPos& pos, ExclusiveContext* cx)
+    NameNodeType newName(PropertyName* name, const TokenPos& pos, JSContext* cx)
     {
         return new_<NameNode>(PNK_NAME, JSOP_GETNAME, name, pos);
     }
@@ -969,15 +969,15 @@ FOR_EACH_PARSENODE_SUBCLASS(DECLARE_AS)
         return node->isKind(PNK_NAME) && node->as<NameNode>().isPrivateName();
     }
 
-    bool isArgumentsAnyParentheses(Node node, ExclusiveContext* cx) {
+    bool isArgumentsAnyParentheses(Node node, JSContext* cx) {
         return node->isKind(PNK_NAME) && node->as<NameNode>().atom() == cx->names().arguments;
     }
 
-    bool isEvalAnyParentheses(Node node, ExclusiveContext* cx) {
+    bool isEvalAnyParentheses(Node node, JSContext* cx) {
         return node->isKind(PNK_NAME) && node->as<NameNode>().atom() == cx->names().eval;
     }
 
-    const char* nameIsArgumentsEvalAnyParentheses(Node node, ExclusiveContext* cx) {
+    const char* nameIsArgumentsEvalAnyParentheses(Node node, JSContext* cx) {
         MOZ_ASSERT(isNameAnyParentheses(node),
                    "must only call this function on known names");
 
@@ -988,7 +988,7 @@ FOR_EACH_PARSENODE_SUBCLASS(DECLARE_AS)
         return nullptr;
     }
 
-    bool isAsyncKeyword(Node node, ExclusiveContext* cx) {
+    bool isAsyncKeyword(Node node, JSContext* cx) {
         return node->isKind(PNK_NAME) &&
                node->pn_pos.begin + strlen("async") == node->pn_pos.end &&
                node->as<NameNode>().atom() == cx->names().async;

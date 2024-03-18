@@ -322,7 +322,8 @@ ExecutableAllocator::reprotectAll(ProtectionSetting protection)
 ExecutableAllocator::reprotectPool(JSRuntime* rt, ExecutablePool* pool, ProtectionSetting protection)
 {
     // Don't race with reprotectAll called from the signal handler.
-    MOZ_ASSERT(rt->jitRuntime()->preventBackedgePatching() || rt->handlingJitInterrupt());
+    MOZ_ASSERT(rt->jitRuntime()->preventBackedgePatching() ||
+               rt->unsafeContextFromAnyThread()->handlingJitInterrupt());
 
     char* start = pool->m_allocation.pages;
     if (!ReprotectRegion(start, pool->m_freePtr - start, protection))

@@ -29,7 +29,7 @@ MemProfiler::GetGCHeapProfiler(JSRuntime* runtime)
 JS_FRIEND_API(MemProfiler*)
 MemProfiler::GetMemProfiler(JSContext* context)
 {
-    return &context->gc.mMemProfiler;
+    return &context->runtime()->gc.mMemProfiler;
 }
 
 JS_FRIEND_API(void)

@@ -152,7 +152,7 @@ class ArenaCellIterImpl
         firstThingOffset = Arena::firstThingOffset(kind);
         thingSize = Arena::thingSize(kind);
         traceKind = MapAllocToTraceKind(kind);
-        needsBarrier = mayNeedBarrier && !arena->zone->runtimeFromMainThread()->isHeapCollecting();
+        needsBarrier = mayNeedBarrier && !JS::CurrentThreadIsHeapCollecting();
         reset(arena);
     }
 
@@ -210,7 +210,7 @@ class ArenaCellIter : public ArenaCellIterImpl
     explicit ArenaCellIter(Arena* arena)
       : ArenaCellIterImpl(arena, CellIterMayNeedBarrier)
     {
-        MOZ_ASSERT(arena->zone->runtimeFromMainThread()->isHeapTracing());
+        MOZ_ASSERT(JS::CurrentThreadIsHeapTracing());
     }
 };
 
@@ -257,7 +257,7 @@ class ZoneCellIter<TenuredCell> {
 
     void init(JS::Zone* zone, AllocKind kind) {
         MOZ_ASSERT_IF(IsNurseryAllocable(kind),
-                      zone->runtimeFromAnyThread()->gc.nursery.isEmpty());
+                      zone->isAtomsZone() || zone->group()->nursery().isEmpty());
         initForTenuredIteration(zone, kind);
     }
 
@@ -266,9 +266,9 @@ class ZoneCellIter<TenuredCell> {
 
         // If called from outside a GC, ensure that the heap is in a state
         // that allows us to iterate.
-        if (!rt->isHeapBusy()) {
+        if (!JS::CurrentThreadIsHeapBusy()) {
             // Assert that no GCs can occur while a ZoneCellIter is live.
-            nogc.emplace(rt);
+            nogc.emplace();
         }
 
         // We have a single-threaded runtime, so there's no need to protect
@@ -286,10 +286,8 @@ class ZoneCellIter<TenuredCell> {
     ZoneCellIter(JS::Zone* zone, AllocKind kind) {
         // If we are iterating a nursery-allocated kind then we need to
         // evict first so that we can see all things.
-        if (IsNurseryAllocable(kind)) {
-            JSRuntime* rt = zone->runtimeFromMainThread();
-            rt->gc.evictNursery();
-        }
+        if (IsNurseryAllocable(kind))
+            zone->group()->evictNursery();
 
         init(zone, kind);
     }
@@ -415,8 +413,7 @@ class GCZonesIter
 
   public:
     explicit GCZonesIter(JSRuntime* rt, ZoneSelector selector = WithAtoms) : zone(rt, selector) {
-        MOZ_ASSERT((CurrentThreadCanAccessRuntime(rt) && rt->isHeapBusy()) ||
-                   CurrentThreadIsPerformingGC());
+        MOZ_ASSERT(JS::CurrentThreadIsHeapBusy());
         if (!zone->isCollectingFromAnyThread())
             next();
     }
