@@ -1879,7 +1879,7 @@ ScriptSource::setSource(SharedImmutableTwoByteString&& string)
 }
 
 [[nodiscard]] bool
-ScriptSource::setCompressedSource(JSContext* cx
+ScriptSource::setCompressedSource(JSContext* cx,
                                   mozilla::UniquePtr<char[], JS::FreePolicy>&& raw,
                                   size_t rawLength,
                                   size_t sourceLength)
@@ -3115,7 +3115,7 @@ JSScript::finalize(FreeOp* fop)
     if (scriptData_)
         scriptData_->decRefCount();
 
-    fop->runtime()->caches().lazyScriptCache.remove(this);
+    zone()->group()->caches().lazyScriptCache.remove(this);
 
     // In most cases, our LazyScript's script pointer will reference this
     // script, and thus be nulled out by normal weakref processing. However, if

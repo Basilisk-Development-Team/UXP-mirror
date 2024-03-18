@@ -2807,7 +2807,7 @@ GCRuntime::requestMinorGC(JS::gcreason::Reason reason)
     if (minorGCRequested())
         return;
 
-    minorGCTriggerReason_ = reason;
+    minorGCTriggerReason = reason;
 
     // See comment in requestMajorGC.
     TlsContext.get()->requestInterrupt(JSContext::RequestInterruptCanWait);
@@ -4395,14 +4395,14 @@ GCRuntime::endMarkingZoneGroup()
     marker.setMarkColorBlack();
 }
 
-class GCSweepTask : public GCParallelTaskHelper
+class GCSweepTask : public GCParallelTask
 {
     GCSweepTask(const GCSweepTask&) = delete;
 
   public:
-    explicit GCSweepTask(JSRuntime* rt) : GCParallelTaskHelper(rt) {}
+    explicit GCSweepTask(JSRuntime* rt) : GCParallelTask(rt) {}
     GCSweepTask(GCSweepTask&& other)
-      : GCParallelTaskHelper(mozilla::Move(other))
+      : GCParallelTask(mozilla::Move(other))
     {}
 };
 
@@ -5661,8 +5661,8 @@ class AutoScheduleZonesForGC
             {
                 zone->scheduleGC();
             }
-          if (zone->isGCScheduled() && !zone->isAtomsZone())
-                aazg.access(zone->group());
+              if (zone->isGCScheduled() && !zone->isAtomsZone())
+                  aazg.access(zone->group());
         }
     }
 
@@ -6185,7 +6185,7 @@ AutoPrepareForTracing::AutoPrepareForTracing(JSContext* cx, ZoneSelector selecto
 }
 
 JSCompartment*
-js::NewCompartment(JSContext* cx, JSPrincipals* principals,
+js::NewCompartment(JSContext* cx, Zone* zone, JSPrincipals* principals,
                    const JS::CompartmentOptions& options)
 {
     JSRuntime* rt = cx->runtime();
@@ -6225,10 +6225,6 @@ js::NewCompartment(JSContext* cx, JSPrincipals* principals,
     if (zoneHolder && zoneHolder->group() && !zoneHolder->group()->zones().append(zone)) {
         ReportOutOfMemory(cx);
         return nullptr;
-
-    if (zoneHolder && zoneHolder->group() && !zoneHolder->group()->zones().append(zone)) {
-        ReportOutOfMemory(cx);
-        return nullptr;
     }
 
     zoneHolder.forget();
@@ -6246,7 +6242,7 @@ gc::MergeCompartments(JSCompartment* source, JSCompartment* target)
     MOZ_ASSERT(source->creationOptions().addonIdOrNull() ==
                target->creationOptions().addonIdOrNull());
 
-    JSContext* cx = source->contextFromMainThread());
+    JSContext* cx = source->contextFromMainThread();
 
     AutoPrepareForTracing prepare(cx, SkipAtoms);
 

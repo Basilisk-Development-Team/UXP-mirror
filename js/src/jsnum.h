@@ -289,7 +289,7 @@ ToInteger(JSContext* cx, HandleValue v, double* dp)
  *
  * For JSContext
  */
-template<typename T>
+ 
 [[nodiscard]] bool ToLengthClamped(JSContext* cx, HandleValue v, uint32_t* out, bool* overflow);
 
 /* Convert and range check an index value as for DataView, SIMD, and Atomics
