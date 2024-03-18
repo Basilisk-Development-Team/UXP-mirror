@@ -408,7 +408,7 @@ struct JSRuntime : public js::MallocProvider<JSRuntime>
     /* SPS profiling metadata */
 	js::UnprotectedData<js::SPSProfiler> spsProfiler_;
    public:
-    js::SPSProfiler& spsProfiler() { return spsProfiler.ref(); }
+    js::SPSProfiler& spsProfiler() { return spsProfiler_.ref(); }
 
     // Heap GC roots for PersistentRooted pointers.
     js::UnprotectedData<mozilla::EnumeratedArray<JS::RootKind, JS::RootKind::Limit,

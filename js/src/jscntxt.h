@@ -657,6 +657,7 @@ struct JSContext : public JS::RootingContext,
 
     void updateJITEnabled();
 
+  private:
     /*
      * Youngest frame of a saved stack that will be picked up as an async stack
      * by any new Activation, and is nullptr when no async stack should be used.
@@ -767,7 +768,7 @@ struct JSContext : public JS::RootingContext,
      * a boolean flag to minimize the amount of code in its inlined callers.
      */
     JS_FRIEND_API(void) checkMallocGCPressure(void* p);
-public:
+  public:
     using InterruptCallbackVector = js::Vector<JSInterruptCallback, 2, js::SystemAllocPolicy>;
 
   private:
@@ -816,7 +817,7 @@ public:
     // InterruptRunningJitCode.
     mozilla::Atomic<bool> handlingJitInterrupt_;
 
-public:
+  public:
     bool startHandlingJitInterrupt() {
         // Return true if we changed handlingJitInterrupt_ from
         // false to true.
@@ -1245,7 +1246,7 @@ struct MOZ_RAII AutoSetThreadIsPerformingGC
         cx->performingGC = false;
     }
 
-private:
+  private:
     JSContext* cx;
 #else
     AutoSetThreadIsPerformingGC() {}

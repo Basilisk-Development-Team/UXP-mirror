@@ -2136,7 +2136,7 @@ struct UpdatePointersTask : public GCParallelTask
 #endif
 
     UpdatePointersTask(JSRuntime* rt, ArenasToUpdate* source, AutoLockHelperThreadState& lock)
-      : GCParallelTask(rt), source_(source)
+      : GCParallelTaskHelper(rt), source_(source)
     {
         arenas_.begin = nullptr;
         arenas_.end = nullptr;

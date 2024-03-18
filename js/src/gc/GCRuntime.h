@@ -99,7 +99,7 @@ class BackgroundDecommitTask : public GCParallelTaskHelper<BackgroundDecommitTas
   public:
     using ChunkVector = mozilla::Vector<Chunk*>;
 
-    explicit BackgroundDecommitTask(JSRuntime *rt) : GCParallelTask(rt) {}
+    explicit BackgroundDecommitTask(JSRuntime *rt) : GCParallelTaskHelper(rt) {}
     void setChunksToScan(ChunkVector &chunks);
 
     void run();
