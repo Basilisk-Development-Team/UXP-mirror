@@ -1660,7 +1660,6 @@ BytecodeEmitter::tellDebuggerAboutCompiledScript(JSContext* cx)
     // nullptr parent), and so the hook should never be fired.
     if (emitterMode != LazyFunction && !parent)
         Debugger::onNewScript(cx, script);
-    }
 }
 
 inline TokenStream&

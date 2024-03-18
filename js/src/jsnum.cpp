@@ -1530,7 +1530,7 @@ js::ToNumericSlow(JSContext* cx, MutableHandleValue vp)
 
     // Step 1.
     if (!vp.isPrimitive()) {
-        if (!cx->helperThread())
+        if (cx->helperThread())
             return false;
         if (!ToPrimitive(cx, JSTYPE_NUMBER, vp))
             return false;
