@@ -1138,10 +1138,9 @@ class GCRuntime
      */
     UnprotectedData<JS::Zone*> zoneGroups;
     UnprotectedData<JS::Zone*> currentZoneGroup;
-    UnprotectedData<bool> sweepingTypes;
-    UnprotectedData<unsigned> finalizePhase;
+    UnprotectedData<size_t> sweepPhaseIndex;
     UnprotectedData<JS::Zone*> sweepZone;
-    UnprotectedData<AllocKind> sweepKind;
+    UnprotectedData<size_t> sweepActionIndex;
     UnprotectedData<bool> abortSweepAfterCurrentGroup;
 
     /*
