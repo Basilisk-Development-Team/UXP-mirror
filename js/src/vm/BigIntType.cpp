@@ -127,7 +127,7 @@ BigInt* BigInt::createUninitialized(JSContext* cx, size_t length,
                                     bool isNegative) {
   if (length > MaxDigitLength) {
     if (cx->isJSContext()) {
-      JS_ReportErrorNumberASCII(cx->asJSContext(), GetErrorMessage, nullptr,
+      JS_ReportErrorNumberASCII(cx, GetErrorMessage, nullptr,
                                     JSMSG_BIGINT_TOO_LARGE);
     }
     return nullptr;
@@ -1625,7 +1625,7 @@ BigInt* js::NumberToBigInt(JSContext* cx, double d) {
   // Step 2.
   if (!::IsInteger(d)) {
     if (cx->isJSContext()) {
-      JS_ReportErrorNumberASCII(cx->asJSContext(), GetErrorMessage, nullptr,
+      JS_ReportErrorNumberASCII(cx, GetErrorMessage, nullptr,
                                 JSMSG_NUMBER_TO_BIGINT);
     }
     return nullptr;
@@ -1716,7 +1716,7 @@ BigInt* BigInt::div(JSContext* cx, HandleBigInt x, HandleBigInt y) {
   // 1. If y is 0n, throw a RangeError exception.
   if (y->isZero()) {
       if (cx->isJSContext()) {
-        JS_ReportErrorNumberASCII(cx->asJSContext(), GetErrorMessage, nullptr,
+        JS_ReportErrorNumberASCII(cx, GetErrorMessage, nullptr,
                                   JSMSG_BIGINT_DIVISION_BY_ZERO);
     }
     return nullptr;
@@ -1761,7 +1761,7 @@ BigInt* BigInt::mod(JSContext* cx, HandleBigInt x, HandleBigInt y) {
   // 1. If y is 0n, throw a RangeError exception.
   if (y->isZero()) {
     if (cx->isJSContext()) {
-      JS_ReportErrorNumberASCII(cx->asJSContext(), GetErrorMessage, nullptr,
+      JS_ReportErrorNumberASCII(cx, GetErrorMessage, nullptr,
                                 JSMSG_BIGINT_DIVISION_BY_ZERO);
     }
     return nullptr;
@@ -1814,7 +1814,7 @@ BigInt* BigInt::pow(JSContext* cx, HandleBigInt x, HandleBigInt y) {
   // 1. If exponent is < 0, throw a RangeError exception.
   if (y->isNegative()) {
     if (cx->isJSContext()) {
-      JS_ReportErrorNumberASCII(cx->asJSContext(), GetErrorMessage, nullptr,
+      JS_ReportErrorNumberASCII(cx, GetErrorMessage, nullptr,
                                 JSMSG_BIGINT_NEGATIVE_EXPONENT);
     }
     return nullptr;
@@ -1846,7 +1846,7 @@ BigInt* BigInt::pow(JSContext* cx, HandleBigInt x, HandleBigInt y) {
                 "unexpectedly large MaxBitLength");
   if (y->digitLength() > 1) {
     if (cx->isJSContext()) {
-      JS_ReportErrorNumberASCII(cx->asJSContext(), GetErrorMessage, nullptr,
+      JS_ReportErrorNumberASCII(cx, GetErrorMessage, nullptr,
                                 JSMSG_BIGINT_TOO_LARGE);
     }
     return nullptr;
@@ -1857,7 +1857,7 @@ BigInt* BigInt::pow(JSContext* cx, HandleBigInt x, HandleBigInt y) {
   }
   if (exponent >= MaxBitLength) {
     if (cx->isJSContext()) {
-      JS_ReportErrorNumberASCII(cx->asJSContext(), GetErrorMessage, nullptr,
+      JS_ReportErrorNumberASCII(cx, GetErrorMessage, nullptr,
                                 JSMSG_BIGINT_TOO_LARGE);
     }
     return nullptr;
@@ -1909,7 +1909,7 @@ BigInt* BigInt::lshByAbsolute(JSContext* cx, HandleBigInt x, HandleBigInt y) {
 
   if (y->digitLength() > 1 || y->digit(0) > MaxBitLength) {
     if (cx->isJSContext()) {
-      JS_ReportErrorNumberASCII(cx->asJSContext(), GetErrorMessage, nullptr,
+      JS_ReportErrorNumberASCII(cx, GetErrorMessage, nullptr,
                                 JSMSG_BIGINT_TOO_LARGE);
     }
     return nullptr;
@@ -2427,7 +2427,7 @@ static bool ValidBigIntOperands(JSContext* cx, HandleValue lhs,
 
   if (!lhs.isBigInt() || !rhs.isBigInt()) {
     if (cx->isJSContext()) {
-      JS_ReportErrorNumberASCII(cx->asJSContext(), GetErrorMessage, nullptr,
+      JS_ReportErrorNumberASCII(cx, GetErrorMessage, nullptr,
                                 JSMSG_BIGINT_TO_NUMBER);
     }
     return false;
@@ -2665,9 +2665,9 @@ bool BigInt::bitNot(JSContext* cx, HandleValue operand,
 BigInt* js::ToBigInt(JSContext* cx, HandleValue val) {
   RootedValue v(cx, val);
 
-  if(cx->isJSContext()) {
+  if(cx) {
     // Step 1.
-    if (!ToPrimitive(cx->asJSContext(), JSTYPE_NUMBER, &v)) {
+    if (!ToPrimitive(cx, JSTYPE_NUMBER, &v)) {
       return nullptr;
     }
 
@@ -2685,14 +2685,14 @@ BigInt* js::ToBigInt(JSContext* cx, HandleValue val) {
       RootedString str(cx, v.toString());
       JS_TRY_VAR_OR_RETURN_NULL(cx, bi, StringToBigInt(cx, str));
       if (!bi) {
-        JS_ReportErrorNumberASCII(cx->asJSContext(), GetErrorMessage, nullptr,
+        JS_ReportErrorNumberASCII(cx, GetErrorMessage, nullptr,
                                   JSMSG_BIGINT_INVALID_SYNTAX);
         return nullptr;
       }
       return bi;
     }
 
-    JS_ReportErrorNumberASCII(cx->asJSContext(), GetErrorMessage, nullptr, JSMSG_NOT_BIGINT);
+    JS_ReportErrorNumberASCII(cx, GetErrorMessage, nullptr, JSMSG_NOT_BIGINT);
   }
   return nullptr;
 }
@@ -3035,7 +3035,7 @@ JS::Result<bool> BigInt::looselyEqual(JSContext* cx, HandleBigInt lhs,
   // Steps 10-11.
   if (rhs.isObject()) {
     RootedValue rhsPrimitive(cx, rhs);
-    if (!cx->isJSContext() || !ToPrimitive(cx->asJSContext(), &rhsPrimitive)) {
+    if (!cx->isJSContext() || !ToPrimitive(cx, &rhsPrimitive)) {
       return cx->alreadyReportedError();
     }
     return looselyEqual(cx, lhs, rhsPrimitive);
@@ -3187,16 +3187,16 @@ JS::Result<BigInt*, JS::OOM&> js::StringToBigInt(JSContext* cx,
   BigInt* res = nullptr;
   bool parseError = false;
   
-  if(cx->isJSContext()) {
-    AutoStableStringChars chars(cx->asJSContext());
-    if (!chars.init(cx->asJSContext(), str)) {
+  if(cx) {
+    AutoStableStringChars chars(cx);
+    if (!chars.init(cx, str)) {
       return cx->alreadyReportedOOM();
     }
 
     if (chars.isLatin1()) {
-      res = ParseStringBigIntLiteral(cx->asJSContext(), chars.latin1Range(), &parseError);
+      res = ParseStringBigIntLiteral(cx, chars.latin1Range(), &parseError);
     } else {
-      res = ParseStringBigIntLiteral(cx->asJSContext(), chars.twoByteRange(), &parseError);
+      res = ParseStringBigIntLiteral(cx, chars.twoByteRange(), &parseError);
     }
   }
 
