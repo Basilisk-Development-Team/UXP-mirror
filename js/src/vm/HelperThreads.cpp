@@ -874,6 +874,16 @@ GlobalHelperThreadState::checkTaskThreadLimit(size_t maxThreads) const
     return true;
 }
 
+struct MOZ_RAII AutoSetContextRuntime
+{
+    explicit AutoSetContextRuntime(JSRuntime* rt) {
+        TlsContext.get()->setRuntime(rt);
+    }
+    ~AutoSetContextRuntime() {
+        TlsContext.get()->setRuntime(nullptr);
+    }
+};
+
 static inline bool
 IsHelperThreadSimulatingOOM(js::oom::ThreadType threadType)
 {
@@ -1185,15 +1195,15 @@ js::GCParallelTask::runFromMainThread(JSRuntime* rt)
 void
 js::GCParallelTask::runFromHelperThread(AutoLockHelperThreadState& locked)
 {
-    JSContext cx(runtime(), JS::ContextOptions());
+    AutoSetContextRuntime ascr(runtime());
 
     {
         AutoUnlockHelperThreadState parallelSection(locked);
         gc::AutoSetThreadIsPerformingGC performingGC;
         uint64_t timeStart = PRMJ_Now();
-        cx.heapState = JS::HeapState::MajorCollecting;
+        TlsContext.get()->heapState = JS::HeapState::MajorCollecting;
         run();
-        cx.heapState = JS::HeapState::Idle;
+        TlsContext.get()->heapState = JS::HeapState::Idle;
         duration_ = PRMJ_Now() - timeStart;
     }
 
@@ -1493,7 +1503,6 @@ HelperThread::handlePromiseTaskWorkload(AutoLockHelperThreadState& locked)
 
     {
         AutoUnlockHelperThreadState unlock(locked);
-        JSContext cx(nullptr, JS::ContextOptions());
 
         task->execute();
 
@@ -1547,7 +1556,7 @@ HelperThread::handleIonWorkload(AutoLockHelperThreadState& locked)
         AutoTraceLog logScript(logger, event);
         AutoTraceLog logCompile(logger, TraceLogger_IonCompilation);
 
-        JSContext cx(rt, JS::ContextOptions());
+        AutoSetContextRuntime ascr(rt);
         jit::JitContext jctx(jit::CompileRuntime::get(rt),
                              jit::CompileCompartment::get(builder->script()->compartment()),
                              &builder->alloc());
@@ -1664,13 +1673,13 @@ HelperThread::handleParseWorkload(AutoLockHelperThreadState& locked, uintptr_t s
     for (size_t i = 0; i < ArrayLength(task->cx->nativeStackLimit); i++)
         task->cx->nativeStackLimit[i] = stackLimit;
 
-    MOZ_ASSERT(!TlsContext.get());
+    JSContext* oldcx = TlsContext.get();
     TlsContext.set(task->cx);
     {
         AutoUnlockHelperThreadState unlock(locked);
         task->parse();
     }
-    TlsContext.set(nullptr);
+    TlsContext.set(oldcx);
 
     // The callback is invoked while we are still off the main thread.
     task->callback(task, task->callbackData);
@@ -1862,7 +1871,7 @@ HelperThread::handleGCHelperWorkload(AutoLockHelperThreadState& locked)
     currentTask.emplace(HelperThreadState().gcHelperWorklist(locked).popCopy());
     GCHelperState* task = gcHelperTask();
 
-    JSContext cx(task->runtime(), JS::ContextOptions());
+    AutoSetContextRuntime ascr(task->runtime());
 
     {
         AutoUnlockHelperThreadState unlock(locked);
@@ -1880,6 +1889,8 @@ HelperThread::threadLoop()
 
     JS::AutoSuppressGCAnalysis nogc;
     AutoLockHelperThreadState lock;
+
+    JSContext cx(nullptr, JS::ContextOptions());
 
     // Compute the thread's stack limit, for over-recursed checks.
     uintptr_t stackLimit = GetNativeStackBase();
