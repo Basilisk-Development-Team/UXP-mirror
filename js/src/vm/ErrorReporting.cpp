@@ -80,7 +80,7 @@ ReportCompileWarning(JSContext* cx, ErrorMetadata&& metadata, UniquePtr<JSErrorN
     }
 
     if (cx->isJSContext()) {
-        err->throwError(cx->asJSContext());
+        err->throwError(cx);
     }
 
     return true;
@@ -118,6 +118,6 @@ ReportCompileError(JSContext* cx, ErrorMetadata&& metadata, UniquePtr<JSErrorNot
     }
 
     if (cx->isJSContext()) {
-        err->throwError(cx->asJSContext());
+        err->throwError(cx);
     }
 }
