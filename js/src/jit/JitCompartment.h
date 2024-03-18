@@ -506,7 +506,6 @@ class JitCompartment
     // Initialize code stubs only used by Ion, not Baseline.
     [[nodiscard]] bool ensureIonStubsExist(JSContext* cx);
 
-    void mark(JSTracer* trc, JSCompartment* compartment);
     void sweep(FreeOp* fop, JSCompartment* compartment);
 
     JitCode* stringConcatStubNoBarrier() const {

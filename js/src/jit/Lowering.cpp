@@ -182,7 +182,7 @@ LIRGenerator::visitTableSwitch(MTableSwitch* tableswitch)
 void
 LIRGenerator::visitCheckOverRecursed(MCheckOverRecursed* ins)
 {
-    LCheckOverRecursed* lir = new(alloc()) LCheckOverRecursed();
+    LCheckOverRecursed* lir = new(alloc()) LCheckOverRecursed(temp());
     add(lir, ins);
     assignSafepoint(lir, ins);
 }
@@ -2587,7 +2587,7 @@ LIRGenerator::visitFunctionEnvironment(MFunctionEnvironment* ins)
 void
 LIRGenerator::visitInterruptCheck(MInterruptCheck* ins)
 {
-    LInstruction* lir = new(alloc()) LInterruptCheck();
+    LInstruction* lir = new(alloc()) LInterruptCheck(temp());
     add(lir, ins);
     assignSafepoint(lir, ins);
 }

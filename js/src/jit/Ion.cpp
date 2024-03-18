@@ -567,9 +567,10 @@ jit::LinkIonScript(JSContext* cx, HandleScript calleeScript)
 }
 
 uint8_t*
-jit::LazyLinkTopActivation(JSContext* cx)
+jit::LazyLinkTopActivation()
 {
     // First frame should be an exit frame.
+    JSContext* cx = TlsContext.get();
     JitFrameIterator it(cx);
     LazyLinkExitFrameLayout* ll = it.exitFrame()->as<LazyLinkExitFrameLayout>();
     RootedScript calleeScript(cx, ScriptFromCalleeToken(ll->jsFrame()->calleeToken()));
@@ -626,13 +627,6 @@ JitRuntime::SweepJitcodeGlobalTable(JSRuntime* rt)
 {
     if (rt->hasJitRuntime() && rt->jitRuntime()->hasJitcodeGlobalTable())
         rt->jitRuntime()->getJitcodeGlobalTable()->sweep(rt);
-}
-
-void
-JitCompartment::mark(JSTracer* trc, JSCompartment* compartment)
-{
-    // Free temporary OSR buffer.
-    trc->runtime()->contextFromMainThread()->freeOsrTempData();
 }
 
 void
@@ -1224,7 +1218,7 @@ IonScript::Destroy(FreeOp* fop, IonScript* script)
      *
      * Defer freeing any allocated blocks until after the next minor GC.
      */
-    script->fallbackStubSpace_.freeAllAfterMinorGC(fop->runtime());
+    script->fallbackStubSpace_.freeAllAfterMinorGC(script->method()->zone());
 
     fop->delete_(script);
 }
