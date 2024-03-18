@@ -1212,7 +1212,7 @@ JSContext::getPendingException(MutableHandleValue rval)
     rval.set(unwrappedException());
     if (IsAtomsCompartment(compartment()))
         return true;
-    RootedSavedFrame stack(this, unwrappedExceptionStack_);
+    RootedSavedFrame stack(this, unwrappedExceptionStack());
     bool wasOverRecursed = overRecursed_;
     clearPendingException();
     if (!compartment()->wrap(this, rval))
@@ -1226,7 +1226,7 @@ JSContext::getPendingException(MutableHandleValue rval)
 SavedFrame*
 JSContext::getPendingExceptionStack()
 {
-    return unwrappedExceptionStack_;
+    return unwrappedExceptionStack();
 }
 
 bool
