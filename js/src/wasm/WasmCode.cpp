@@ -89,7 +89,7 @@ AllocateCodeSegment(JSContext* cx, uint32_t totalLength)
 }
 
 static void
-StaticallyLink(CodeSegment& cs, const LinkData& linkData, ExclusiveContext* cx)
+StaticallyLink(CodeSegment& cs, const LinkData& linkData, JSContext* cx)
 {
     for (LinkData::InternalLink link : linkData.internalLinks) {
         uint8_t* patchAt = cs.base() + link.patchAtOffset;

@@ -1347,15 +1347,15 @@ bool
 }
 
 ActivationEntryMonitor::ActivationEntryMonitor(JSContext* cx)
-  : cx_(cx), entryMonitor_(cx->runtime()->entryMonitor)
+  : cx_(cx), entryMonitor_(cx->entryMonitor)
 {
-    cx->runtime()->entryMonitor = nullptr;
+    cx->entryMonitor = nullptr;
 }
 
 Value
 ActivationEntryMonitor::asyncStack(JSContext* cx)
 {
-    RootedValue stack(cx, ObjectOrNullValue(cx->asyncStackForNewActivations));
+    RootedValue stack(cx, ObjectOrNullValue(cx->asyncStackForNewActivations()));
     if (!cx->compartment()->wrap(cx, &stack)) {
         cx->clearPendingException();
         return UndefinedValue();
@@ -1399,8 +1399,8 @@ ActivationEntryMonitor::ActivationEntryMonitor(JSContext* cx, jit::CalleeToken e
 
 jit::JitActivation::JitActivation(JSContext* cx, bool active)
   : Activation(cx, Jit),
-    prevJitTop_(cx->runtime()->jitTop),
-    prevJitActivation_(cx->runtime()->jitActivation),
+    prevJitTop_(cx->jitTop),
+    prevJitActivation_(cx->jitActivation),
     active_(active),
     rematerializedFrames_(nullptr),
     ionRecovery_(cx),
@@ -1409,7 +1409,7 @@ jit::JitActivation::JitActivation(JSContext* cx, bool active)
     lastProfilingCallSite_(nullptr)
 {
     if (active) {
-        cx->runtime()->jitActivation = this;
+        cx->jitActivation = this;
         registerProfiling();
     }
 }
@@ -1420,11 +1420,11 @@ jit::JitActivation::~JitActivation()
         if (isProfiling())
             unregisterProfiling();
 
-        cx_->runtime()->jitTop = prevJitTop_;
-        cx_->runtime()->jitActivation = prevJitActivation_;
+        cx_->jitTop = prevJitTop_;
+        cx_->jitActivation = prevJitActivation_;
     } else {
-        MOZ_ASSERT(cx_->runtime()->jitTop == prevJitTop_);
-        MOZ_ASSERT(cx_->runtime()->jitActivation == prevJitActivation_);
+        MOZ_ASSERT(cx_->jitTop == prevJitTop_);
+        MOZ_ASSERT(cx_->jitActivation == prevJitActivation_);
     }
 
     // All reocvered value are taken from activation during the bailout.
@@ -1467,22 +1467,23 @@ jit::JitActivation::setActive(JSContext* cx, bool active)
 {
     // Only allowed to deactivate/activate if activation is top.
     // (Not tested and will probably fail in other situations.)
-    MOZ_ASSERT(cx->runtime()->activation_ == this);
+    MOZ_ASSERT(cx->activation_ == this);
     MOZ_ASSERT(active != active_);
 
     if (active) {
         *((volatile bool*) active_) = true;
-        MOZ_ASSERT(prevJitTop_ == cx->runtime()->jitTop);
-        MOZ_ASSERT(prevJitActivation_ == cx->runtime()->jitActivation);
-        cx->runtime()->jitActivation = this;
+        MOZ_ASSERT(prevJitTop_ == cx->jitTop);
+        MOZ_ASSERT(prevJitActivation_ == cx->jitActivation);
+        cx->jitActivation = this;
 
         registerProfiling();
 
     } else {
         unregisterProfiling();
 
-        cx->runtime()->jitTop = prevJitTop_;
-        cx->runtime()->jitActivation = prevJitActivation_;
+        cx->jitTop = prevJitTop_;
+        cx->jitActivation = prevJitActivation_;
+ 
 
         *((volatile bool*) active_) = false;
     }
@@ -1646,8 +1647,8 @@ WasmActivation::WasmActivation(JSContext* cx)
 {
     (void) entrySP_;  // silence "unused private member" warning
 
-    prevWasm_ = cx->runtime()->wasmActivationStack_;
-    cx->runtime()->wasmActivationStack_ = this;
+    prevWasm_ = cx->wasmActivationStack_;
+    cx->wasmActivationStack_ = this;
 
     cx->compartment()->wasm.activationCount_++;
 
@@ -1663,8 +1664,8 @@ WasmActivation::~WasmActivation()
 
     MOZ_ASSERT(fp_ == nullptr);
 
-    MOZ_ASSERT(cx_->runtime()->wasmActivationStack_ == this);
-    cx_->runtime()->wasmActivationStack_ = prevWasm_;
+    MOZ_ASSERT(cx_->wasmActivationStack_ == this);
+    cx_->wasmActivationStack_ = prevWasm_;
 
     MOZ_ASSERT(cx_->compartment()->wasm.activationCount_ > 0);
     cx_->compartment()->wasm.activationCount_--;
@@ -1690,27 +1691,28 @@ void
 Activation::registerProfiling()
 {
     MOZ_ASSERT(isProfiling());
-    cx_->runtime()->profilingActivation_ = this;
+    cx_->profilingActivation_ = this;
 }
 
 void
 Activation::unregisterProfiling()
 {
     MOZ_ASSERT(isProfiling());
-    MOZ_ASSERT(cx_->runtime()->profilingActivation_ == this);
+    MOZ_ASSERT(cx_->profilingActivation_ == this);
 
     // There may be a non-active jit activation in the linked list.  Skip past it.
     Activation* prevProfiling = prevProfiling_;
     while (prevProfiling && prevProfiling->isJit() && !prevProfiling->asJit()->isActive())
         prevProfiling = prevProfiling->prevProfiling_;
 
-    cx_->runtime()->profilingActivation_ = prevProfiling;
+    cx_->profilingActivation_ = prevProfiling;
 }
 
 ActivationIterator::ActivationIterator(JSRuntime* rt)
-  : jitTop_(rt->jitTop),
-    activation_(rt->activation_)
+  : jitTop_(TlsContext.get()->jitTop),
+    activation_(TlsContext.get()->activation_)
 {
+
     settle();
 }
 
@@ -1736,13 +1738,13 @@ ActivationIterator::settle()
 
 JS::ProfilingFrameIterator::ProfilingFrameIterator(JSContext* cx, const RegisterState& state,
                                                    uint32_t sampleBufferGen)
-  : rt_(cx),
+  : rt_(cx->runtime()),
     sampleBufferGen_(sampleBufferGen),
     activation_(nullptr),
     savedPrevJitTop_(nullptr),
     nogc_(cx)
 {
-    if (!cx->spsProfiler.enabled())
+    if (!cx->runtime()->spsProfiler().enabled())
         MOZ_CRASH("ProfilingFrameIterator called when spsProfiler not enabled for runtime.");
 
     if (!cx->profilingActivation())
@@ -1817,7 +1819,7 @@ JS::ProfilingFrameIterator::iteratorConstruct(const RegisterState& state)
     if (activation_->isWasm()) {
         new (storage()) wasm::ProfilingFrameIterator(*activation_->asWasm(), state);
         // Set savedPrevJitTop_ to the actual jitTop_ from the runtime.
-        savedPrevJitTop_ = activation_->cx()->runtime()->jitTop;
+        savedPrevJitTop_ = activation_->cx()->jitTop;
         return;
     }
 
@@ -1942,7 +1944,8 @@ JS::ProfilingFrameIterator::extractStack(Frame* frames, uint32_t offset, uint32_
 
     // Extract the stack for the entry.  Assume maximum inlining depth is <64
     const char* labels[64];
-    uint32_t depth = entry.callStackAtAddr(rt_, jitIter().returnAddressToFp(), labels, 64);
+    uint32_t depth = entry.callStackAtAddr(rt_, jitIter().returnAddressToFp(),
+                                           labels, 64);
     MOZ_ASSERT(depth < 64);
     for (uint32_t i = 0; i < depth; i++) {
         if (offset + i >= end)

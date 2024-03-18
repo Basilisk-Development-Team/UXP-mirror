@@ -266,11 +266,11 @@ class Scope : public js::gc::TenuredCell
         data_(0)
     { }
 
-    static Scope* create(ExclusiveContext* cx, ScopeKind kind, HandleScope enclosing,
+    static Scope* create(JSContext* cx, ScopeKind kind, HandleScope enclosing,
                          HandleShape envShape);
 
     template <typename T, typename D>
-    static Scope* create(ExclusiveContext* cx, ScopeKind kind, HandleScope enclosing,
+    static Scope* create(JSContext* cx, ScopeKind kind, HandleScope enclosing,
                          HandleShape envShape, mozilla::UniquePtr<T, D> data);
 
     template <typename ConcreteScope, XDRMode mode>
@@ -420,7 +420,7 @@ class LexicalScope : public Scope
         *length = data->length;
     }
 
-    static LexicalScope* create(ExclusiveContext* cx, ScopeKind kind, Handle<Data*> data,
+    static LexicalScope* create(JSContext* cx, ScopeKind kind, Handle<Data*> data,
                                 uint32_t firstFrameSlot, HandleScope enclosing);
 
     template <XDRMode mode>
@@ -428,7 +428,7 @@ class LexicalScope : public Scope
                     MutableHandleScope scope);
 
   private:
-    static LexicalScope* createWithData(ExclusiveContext* cx, ScopeKind kind,
+    static LexicalScope* createWithData(JSContext* cx, ScopeKind kind,
                                         MutableHandle<UniquePtr<Data>> data,
                                         uint32_t firstFrameSlot, HandleScope enclosing);
 
@@ -451,7 +451,7 @@ class LexicalScope : public Scope
 
     // Returns an empty shape for extensible global and non-syntactic lexical
     // scopes.
-    static Shape* getEmptyExtensibleEnvironmentShape(ExclusiveContext* cx);
+    static Shape* getEmptyExtensibleEnvironmentShape(JSContext* cx);
 };
 
 template <>
@@ -545,7 +545,7 @@ class FunctionScope : public Scope
         *length = data->length;
     }
 
-    static FunctionScope* create(ExclusiveContext* cx, Handle<Data*> data,
+    static FunctionScope* create(JSContext* cx, Handle<Data*> data,
                                  bool hasParameterExprs, bool needsEnvironment,
                                  HandleFunction fun, HandleScope enclosing);
 
@@ -557,7 +557,7 @@ class FunctionScope : public Scope
                     MutableHandleScope scope);
 
   private:
-    static FunctionScope* createWithData(ExclusiveContext* cx, MutableHandle<UniquePtr<Data>> data,
+    static FunctionScope* createWithData(JSContext* cx, MutableHandle<UniquePtr<Data>> data,
                                          bool hasParameterExprs,
                                          bool needsEnvironment, HandleFunction fun,
                                          HandleScope enclosing);
@@ -589,9 +589,9 @@ class FunctionScope : public Scope
         return data().nonPositionalFormalStart;
     }
 
-    static bool isSpecialName(ExclusiveContext* cx, JSAtom* name);
+    static bool isSpecialName(JSContext* cx, JSAtom* name);
 
-    static Shape* getEmptyEnvironmentShape(ExclusiveContext* cx, bool hasParameterExprs);
+    static Shape* getEmptyEnvironmentShape(JSContext* cx, bool hasParameterExprs);
 };
 
 //
@@ -650,7 +650,7 @@ class VarScope : public Scope
         *length = data->length;
     }
 
-    static VarScope* create(ExclusiveContext* cx, ScopeKind kind, Handle<Data*> data,
+    static VarScope* create(JSContext* cx, ScopeKind kind, Handle<Data*> data,
                             uint32_t firstFrameSlot, bool needsEnvironment,
                             HandleScope enclosing);
 
@@ -659,7 +659,7 @@ class VarScope : public Scope
                     MutableHandleScope scope);
 
   private:
-    static VarScope* createWithData(ExclusiveContext* cx, ScopeKind kind, MutableHandle<UniquePtr<Data>> data,
+    static VarScope* createWithData(JSContext* cx, ScopeKind kind, MutableHandle<UniquePtr<Data>> data,
                                     uint32_t firstFrameSlot, bool needsEnvironment,
                                     HandleScope enclosing);
 
@@ -678,7 +678,7 @@ class VarScope : public Scope
         return data().nextFrameSlot;
     }
 
-    static Shape* getEmptyEnvironmentShape(ExclusiveContext* cx);
+    static Shape* getEmptyEnvironmentShape(JSContext* cx);
 };
 
 template <>
@@ -747,9 +747,9 @@ class GlobalScope : public Scope
         *length = data->length;
     }
 
-    static GlobalScope* create(ExclusiveContext* cx, ScopeKind kind, Handle<Data*> data);
+    static GlobalScope* create(JSContext* cx, ScopeKind kind, Handle<Data*> data);
 
-    static GlobalScope* createEmpty(ExclusiveContext* cx, ScopeKind kind) {
+    static GlobalScope* createEmpty(JSContext* cx, ScopeKind kind) {
         return create(cx, kind, nullptr);
     }
 
@@ -759,7 +759,7 @@ class GlobalScope : public Scope
     static bool XDR(XDRState<mode>* xdr, ScopeKind kind, MutableHandleScope scope);
 
   private:
-    static GlobalScope* createWithData(ExclusiveContext* cx, ScopeKind kind,
+    static GlobalScope* createWithData(JSContext* cx, ScopeKind kind,
                                        MutableHandle<UniquePtr<Data>> data);
 
     Data& data() {
@@ -797,7 +797,7 @@ class WithScope : public Scope
     static const ScopeKind classScopeKind_ = ScopeKind::With;
 
   public:
-    static WithScope* create(ExclusiveContext* cx, HandleScope enclosing);
+    static WithScope* create(JSContext* cx, HandleScope enclosing);
 };
 
 //
@@ -855,7 +855,7 @@ class EvalScope : public Scope
         *length = data->length;
     }
 
-    static EvalScope* create(ExclusiveContext* cx, ScopeKind kind, Handle<Data*> data,
+    static EvalScope* create(JSContext* cx, ScopeKind kind, Handle<Data*> data,
                              HandleScope enclosing);
 
     template <XDRMode mode>
@@ -863,7 +863,7 @@ class EvalScope : public Scope
                     MutableHandleScope scope);
 
   private:
-    static EvalScope* createWithData(ExclusiveContext* cx, ScopeKind kind, MutableHandle<UniquePtr<Data>> data,
+    static EvalScope* createWithData(JSContext* cx, ScopeKind kind, MutableHandle<UniquePtr<Data>> data,
                                      HandleScope enclosing);
 
     Data& data() {
@@ -897,7 +897,7 @@ class EvalScope : public Scope
         return !nearestVarScopeForDirectEval(enclosing())->is<GlobalScope>();
     }
 
-    static Shape* getEmptyEnvironmentShape(ExclusiveContext* cx);
+    static Shape* getEmptyEnvironmentShape(JSContext* cx);
 };
 
 template <>
@@ -964,11 +964,11 @@ class ModuleScope : public Scope
         *length = data->length;
     }
 
-    static ModuleScope* create(ExclusiveContext* cx, Handle<Data*> data,
+    static ModuleScope* create(JSContext* cx, Handle<Data*> data,
                                Handle<ModuleObject*> module, HandleScope enclosing);
 
   private:
-    static ModuleScope* createWithData(ExclusiveContext* cx, MutableHandle<UniquePtr<Data>> data,
+    static ModuleScope* createWithData(JSContext* cx, MutableHandle<UniquePtr<Data>> data,
                                        Handle<ModuleObject*> module, HandleScope enclosing);
 
     Data& data() {
@@ -990,7 +990,7 @@ class ModuleScope : public Scope
 
     JSScript* script() const;
 
-    static Shape* getEmptyEnvironmentShape(ExclusiveContext* cx);
+    static Shape* getEmptyEnvironmentShape(JSContext* cx);
 };
 
 //

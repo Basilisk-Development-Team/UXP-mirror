@@ -358,7 +358,7 @@ js::intl_IsValidTimeZoneName(JSContext* cx, unsigned argc, Value* vp)
     MOZ_ASSERT(args.length() == 1);
     MOZ_ASSERT(args[0].isString());
 
-    SharedIntlData& sharedIntlData = cx->sharedIntlData;
+    SharedIntlData& sharedIntlData = cx->runtime()->sharedIntlData.ref();
 
     RootedString timeZone(cx, args[0].toString());
     RootedAtom validatedTimeZone(cx);
@@ -382,7 +382,7 @@ js::intl_canonicalizeTimeZone(JSContext* cx, unsigned argc, Value* vp)
     MOZ_ASSERT(args.length() == 1);
     MOZ_ASSERT(args[0].isString());
 
-    SharedIntlData& sharedIntlData = cx->sharedIntlData;
+    SharedIntlData& sharedIntlData = cx->runtime()->sharedIntlData.ref();
 
     // Some time zone names are canonicalized differently by ICU -- handle
     // those first:

@@ -10,6 +10,8 @@
 
 #include "jscntxt.h"
 
+#include "gc/Zone.h"
+
 namespace js {
 
 /*
@@ -37,8 +39,8 @@ probes::EnterScript(JSContext* cx, JSScript* script, JSFunction* maybeFun,
 #endif
 
     JSRuntime* rt = cx->runtime();
-    if (rt->spsProfiler.enabled()) {
-        if (!rt->spsProfiler.enter(cx, script, maybeFun))
+    if (rt->spsProfiler().enabled()) {
+        if (!rt->spsProfiler().enter(cx, script, maybeFun))
             return false;
         MOZ_ASSERT_IF(!fp->script()->isStarGenerator() &&
                       !fp->script()->isLegacyGenerator() &&
@@ -59,7 +61,7 @@ probes::ExitScript(JSContext* cx, JSScript* script, JSFunction* maybeFun, bool p
 #endif
 
     if (popSPSFrame)
-        cx->runtime()->spsProfiler.exit(script, maybeFun);
+        cx->runtime()->spsProfiler().exit(script, maybeFun);
 }
 
 inline bool

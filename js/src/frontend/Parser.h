@@ -651,7 +651,7 @@ class UsedNameTracker
         void resetToScope(uint32_t scriptId, uint32_t scopeId);
 
       public:
-        explicit UsedNameInfo(ExclusiveContext* cx)
+        explicit UsedNameInfo(JSContext* cx)
           : uses_(cx)
         { }
 
@@ -697,7 +697,7 @@ class UsedNameTracker
     uint32_t scopeCounter_;
 
   public:
-    explicit UsedNameTracker(ExclusiveContext* cx)
+    explicit UsedNameTracker(JSContext* cx)
       : map_(cx),
         scriptCounter_(0),
         scopeCounter_(0)
@@ -722,10 +722,10 @@ class UsedNameTracker
         return map_.lookup(name);
     }
 
-    [[nodiscard]] bool noteUse(ExclusiveContext* cx, JSAtom* name,
+    [[nodiscard]] bool noteUse(JSContext* cx, JSAtom* name,
                               uint32_t scriptId, uint32_t scopeId);
 
-    [[nodiscard]] bool markAsAlwaysClosedOver(ExclusiveContext* cx, JSAtom* name,
+    [[nodiscard]] bool markAsAlwaysClosedOver(JSContext* cx, JSAtom* name,
                                              uint32_t scriptId, uint32_t scopeId) {
         // This marks a variable as always closed over:
         // UsedNameInfo::noteBoundInScope only checks if scriptId and scopeId are
@@ -772,7 +772,7 @@ class ParserBase : public StrictModeGetter
     ParserBase* thisForCtor() { return this; }
 
   public:
-    ExclusiveContext* const context;
+    JSContext* const context;
 
     LifoAlloc& alloc;
 
@@ -829,7 +829,7 @@ class ParserBase : public StrictModeGetter
         return pc->sc()->hasModuleGoal() ? ParseGoal::Module : ParseGoal::Script;
     }
 
-    ParserBase(ExclusiveContext* cx, LifoAlloc& alloc, const ReadOnlyCompileOptions& options,
+    ParserBase(JSContext* cx, LifoAlloc& alloc, const ReadOnlyCompileOptions& options,
                const char16_t* chars, size_t length, bool foldConstants,
                UsedNameTracker& usedNames, Parser<SyntaxParseHandler>* syntaxParser,
                LazyScript* lazyOuterFunction);
@@ -1075,7 +1075,7 @@ FOR_EACH_PARSENODE_SUBCLASS(DECLARE_TYPE)
     void freeTree(Node node) { handler.freeTree(node); }
 
   public:
-    Parser(ExclusiveContext* cx, LifoAlloc& alloc, const ReadOnlyCompileOptions& options,
+    Parser(JSContext* cx, LifoAlloc& alloc, const ReadOnlyCompileOptions& options,
            const char16_t* chars, size_t length, bool foldConstants, UsedNameTracker& usedNames,
            Parser<SyntaxParseHandler>* syntaxParser, LazyScript* lazyOuterFunction);
     ~Parser();

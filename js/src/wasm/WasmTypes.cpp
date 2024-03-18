@@ -71,13 +71,13 @@ __aeabi_uidivmod(int, int);
 static void
 WasmReportOverRecursed()
 {
-    ReportOverRecursed(JSRuntime::innermostWasmActivation()->cx());
+    ReportOverRecursed(JSContext::innermostWasmActivation()->cx());
 }
 
 static bool
 WasmHandleExecutionInterrupt()
 {
-    WasmActivation* activation = JSRuntime::innermostWasmActivation();
+    WasmActivation* activation = JSContext::innermostWasmActivation();
     bool success = CheckForInterrupt(activation->cx());
 
     // Preserve the invariant that having a non-null resumePC means that we are
@@ -92,7 +92,7 @@ WasmHandleExecutionInterrupt()
 static void
 WasmReportTrap(int32_t trapIndex)
 {
-    JSContext* cx = JSRuntime::innermostWasmActivation()->cx();
+    JSContext* cx = JSContext::innermostWasmActivation()->cx();
 
     MOZ_ASSERT(trapIndex < int32_t(Trap::Limit) && trapIndex >= 0);
     Trap trap = Trap(trapIndex);
@@ -133,21 +133,21 @@ WasmReportTrap(int32_t trapIndex)
 static void
 WasmReportOutOfBounds()
 {
-    JSContext* cx = JSRuntime::innermostWasmActivation()->cx();
+    JSContext* cx = JSContext::innermostWasmActivation()->cx();
     JS_ReportErrorNumberASCII(cx, GetErrorMessage, nullptr, JSMSG_WASM_OUT_OF_BOUNDS);
 }
 
 static void
 WasmReportUnalignedAccess()
 {
-    JSContext* cx = JSRuntime::innermostWasmActivation()->cx();
+    JSContext* cx = JSContext::innermostWasmActivation()->cx();
     JS_ReportErrorNumberASCII(cx, GetErrorMessage, nullptr, JSMSG_WASM_UNALIGNED_ACCESS);
 }
 
 static int32_t
 CoerceInPlace_ToInt32(MutableHandleValue val)
 {
-    JSContext* cx = JSRuntime::innermostWasmActivation()->cx();
+    JSContext* cx = JSContext::innermostWasmActivation()->cx();
 
     int32_t i32;
     if (!ToInt32(cx, val, &i32))
@@ -160,7 +160,7 @@ CoerceInPlace_ToInt32(MutableHandleValue val)
 static int32_t
 CoerceInPlace_ToNumber(MutableHandleValue val)
 {
-    JSContext* cx = JSRuntime::innermostWasmActivation()->cx();
+    JSContext* cx = JSContext::innermostWasmActivation()->cx();
 
     double dbl;
     if (!ToNumber(cx, val, &dbl))
@@ -254,13 +254,13 @@ FuncCast(F* pf, ABIFunctionType type)
 }
 
 void*
-wasm::AddressOf(SymbolicAddress imm, ExclusiveContext* cx)
+wasm::AddressOf(SymbolicAddress imm, JSContext* cx)
 {
     switch (imm) {
       case SymbolicAddress::Context:
-        return cx->contextAddressForJit();
+        return cx->runtime()->unsafeContextFromAnyThread();
       case SymbolicAddress::InterruptUint32:
-        return cx->runtimeAddressOfInterruptUint32();
+        return &cx->runtime()->unsafeContextFromAnyThread()->interrupt_;
       case SymbolicAddress::ReportOverRecursed:
         return FuncCast(WasmReportOverRecursed, Args_General0);
       case SymbolicAddress::HandleExecutionInterrupt:
@@ -575,7 +575,7 @@ Assumptions::Assumptions()
 {}
 
 bool
-Assumptions::initBuildIdFromContext(ExclusiveContext* cx)
+Assumptions::initBuildIdFromContext(JSContext* cx)
 {
     if (!cx->buildIdOp() || !cx->buildIdOp()(&buildId)) {
         ReportOutOfMemory(cx);

@@ -61,7 +61,7 @@ class CollectionPool
 
     // Fallibly aquire one of the supported collection types from the pool.
     template <typename Collection>
-    Collection* acquire(ExclusiveContext* cx) {
+    Collection* acquire(JSContext* cx) {
         ConcreteCollectionPool::template assertInvariants<Collection>();
 
         RepresentativeCollection* collection;
@@ -214,7 +214,7 @@ class NameCollectionPool
     }
 
     template <typename Map>
-    Map* acquireMap(ExclusiveContext* cx) {
+    Map* acquireMap(JSContext* cx) {
         MOZ_ASSERT(hasActiveCompilation());
         return mapPool_.acquire<Map>(cx);
     }
@@ -228,7 +228,7 @@ class NameCollectionPool
     }
 
     template <typename Vector>
-    Vector* acquireVector(ExclusiveContext* cx) {
+    Vector* acquireVector(JSContext* cx) {
         MOZ_ASSERT(hasActiveCompilation());
         return vectorPool_.acquire<Vector>(cx);
     }
@@ -273,7 +273,7 @@ class NameCollectionPool
         pool_.release##T(&collection_);                           \
     }                                                             \
                                                                   \
-    bool acquire(ExclusiveContext* cx) {                          \
+    bool acquire(JSContext* cx) {                                 \
         MOZ_ASSERT(!collection_);                                 \
         collection_ = pool_.acquire##T<T>(cx);                    \
         return !!collection_;                                     \

@@ -341,7 +341,7 @@ class StoreBuffer
 
     template <typename Buffer, typename Edge>
     void unput(Buffer& buffer, const Edge& edge) {
-        MOZ_ASSERT(!JS::shadow::Runtime::asShadowRuntime(runtime_)->isHeapBusy());
+        MOZ_ASSERT(!JS::CurrentThreadIsHeapBusy());
         MOZ_ASSERT(CurrentThreadCanAccessRuntime(runtime_));
         if (!isEnabled())
             return;
@@ -351,7 +351,7 @@ class StoreBuffer
 
     template <typename Buffer, typename Edge>
     void put(Buffer& buffer, const Edge& edge) {
-        MOZ_ASSERT(!JS::shadow::Runtime::asShadowRuntime(runtime_)->isHeapBusy());
+        MOZ_ASSERT(!JS::CurrentThreadIsHeapBusy());
         MOZ_ASSERT(CurrentThreadCanAccessRuntime(runtime_));
         if (!isEnabled())
             return;

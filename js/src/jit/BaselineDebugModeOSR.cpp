@@ -442,7 +442,7 @@ PatchBaselineFramesForDebugMode(JSContext* cx, const Debugger::ExecutionObservab
                 MOZ_ASSERT(iter.baselineFrame()->isHandlingException());
                 MOZ_ASSERT(iter.baselineFrame()->overridePc() == pc);
                 uint8_t* retAddr;
-                if (cx->runtime()->spsProfiler.enabled())
+                if (cx->runtime()->spsProfiler().enabled())
                     retAddr = bl->nativeCodeForPC(script, pc);
                 else
                     retAddr = nullptr;
@@ -861,7 +861,7 @@ jit::RecompileOnStackBaselineScriptsForDebugMode(JSContext* cx,
 
     // When the profiler is enabled, we need to have suppressed sampling,
     // since the basline jit scripts are in a state of flux.
-    MOZ_ASSERT(!cx->runtime()->isProfilerSamplingEnabled());
+    MOZ_ASSERT(!cx->isProfilerSamplingEnabled());
 
     // Invalidate all scripts we are recompiling.
     if (Zone* zone = obs.singleZone()) {
@@ -1055,7 +1055,7 @@ JitRuntime::getBaselineDebugModeOSRHandlerAddress(JSContext* cx, bool popFrameRe
         return nullptr;
     return popFrameReg
            ? baselineDebugModeOSRHandler_->raw()
-           : baselineDebugModeOSRHandlerNoFrameRegPopAddr_;
+           : baselineDebugModeOSRHandlerNoFrameRegPopAddr_.ref();
 }
 
 static void

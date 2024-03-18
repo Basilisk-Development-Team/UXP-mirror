@@ -17,10 +17,10 @@
 #include "vm/String.h"
 
 inline JSAtom*
-js::AtomStateEntry::asPtr(js::ExclusiveContext* cx) const
+js::AtomStateEntry::asPtr(JSContext* cx) const
 {
     JSAtom* atom = asPtrUnbarriered();
-    if (cx->isJSContext())
+    if (!cx->helperThread())
         JSString::readBarrier(atom);
     return atom;
 }
@@ -69,7 +69,7 @@ ValueToIdPure(const Value& v, jsid* id)
 
 template <AllowGC allowGC>
 inline bool
-ValueToId(ExclusiveContext* cx, typename MaybeRooted<Value, allowGC>::HandleType v,
+ValueToId(JSContext* cx, typename MaybeRooted<Value, allowGC>::HandleType v,
           typename MaybeRooted<jsid, allowGC>::MutableHandleType idp)
 {
     int32_t i;
@@ -121,10 +121,10 @@ BackfillIndexInCharBuffer(uint32_t index, mozilla::RangedPtr<T> end)
 }
 
 bool
-IndexToIdSlow(ExclusiveContext* cx, uint32_t index, MutableHandleId idp);
+IndexToIdSlow(JSContext* cx, uint32_t index, MutableHandleId idp);
 
 inline bool
-IndexToId(ExclusiveContext* cx, uint32_t index, MutableHandleId idp)
+IndexToId(JSContext* cx, uint32_t index, MutableHandleId idp)
 {
     if (index <= JSID_INT_MAX) {
         idp.set(INT_TO_JSID(index));
@@ -210,7 +210,7 @@ ClassName(JSProtoKey key, JSAtomState& atomState)
 }
 
 inline Handle<PropertyName*>
-ClassName(JSProtoKey key, ExclusiveContext* cx)
+ClassName(JSProtoKey key, JSContext* cx)
 {
     return ClassName(key, cx->names());
 }

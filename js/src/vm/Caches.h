@@ -10,6 +10,7 @@
 
 #include "jsatom.h"
 #include "jsbytecode.h"
+#include "jsmath.h"
 #include "jsobj.h"
 #include "jsscript.h"
 
@@ -208,7 +209,7 @@ class NewObjectCache
     }
 
     /* Remove any cached items keyed on moved objects. */
-    void clearNurseryObjects(JSRuntime* rt);
+    void clearNurseryObjects(ZoneGroup* group);
 
     /*
      * Get the entry index for the given lookup, return whether there was a hit
@@ -281,9 +282,7 @@ class NewObjectCache
     }
 };
 
-class MathCache;
-
-class ContextCaches
+class ZoneGroupCaches
 {
     UniquePtr<js::MathCache> mathCache_;
 
@@ -296,7 +295,7 @@ class ContextCaches
     js::NativeIterCache nativeIterCache;
     js::UncompressedSourceCache uncompressedSourceCache;
     js::EvalCache evalCache;
-    js::LazyScriptCache lazyScriptCache;
+    LazyScriptCache lazyScriptCache;
 
     bool init();
 

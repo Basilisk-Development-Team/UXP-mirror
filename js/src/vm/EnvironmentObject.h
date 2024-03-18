@@ -392,7 +392,7 @@ class ModuleEnvironmentObject : public EnvironmentObject
 
     static const uint32_t RESERVED_SLOTS = 2;
 
-    static ModuleEnvironmentObject* create(ExclusiveContext* cx, HandleModuleObject module);
+    static ModuleEnvironmentObject* create(JSContext* cx, HandleModuleObject module);
     ModuleObject& module();
     IndirectBindingMap& importBindings();
 

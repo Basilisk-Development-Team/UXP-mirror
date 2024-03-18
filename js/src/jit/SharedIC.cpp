@@ -21,6 +21,7 @@
 #include "jit/JitSpewer.h"
 #include "jit/Linker.h"
 #include "jit/SharedICHelpers.h"
+#include "jscntxtinlines.h"
 #ifdef JS_ION_PERF
 # include "jit/PerfSpewer.h"
 #endif
@@ -752,7 +753,7 @@ ICStubCompiler::callVM(const VMFunction& fun, MacroAssembler& masm)
 {
     MOZ_ASSERT(inStubFrame_);
 
-    JitCode* code = cx->runtime()->jitRuntime()->getVMWrapper(fun);
+    JitCode* code = cx_->runtime()->jitRuntime()->getVMWrapper(fun);
     if (!code)
         return false;
 

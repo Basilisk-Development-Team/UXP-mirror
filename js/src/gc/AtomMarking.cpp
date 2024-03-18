@@ -55,8 +55,8 @@ AtomMarkingRuntime::registerArena(Arena* arena)
     // We need to find a range of bits from the atoms bitmap for this arena.
 
     // Look for a free range of bits compatible with this arena.
-    if (freeArenaIndexes.length()) {
-        arena->atomBitmapStart() = freeArenaIndexes.popCopy();
+    if (freeArenaIndexes.ref().length()) {
+        arena->atomBitmapStart() = freeArenaIndexes.ref().popCopy();
         return;
     }
 
@@ -71,7 +71,7 @@ AtomMarkingRuntime::unregisterArena(Arena* arena)
     MOZ_ASSERT(arena->zone->isAtomsZone());
 
     // Leak these atom bits if we run out of memory.
-    mozilla::Unused << freeArenaIndexes.emplaceBack(arena->atomBitmapStart());
+    mozilla::Unused << freeArenaIndexes.ref().emplaceBack(arena->atomBitmapStart());
 }
 
 bool
@@ -103,7 +103,7 @@ AtomMarkingRuntime::updateZoneBitmap(Zone* zone, const DenseBitmap& bitmap)
     // Take the bitwise and between the two mark bitmaps to get the best new
     // overapproximation we can. |bitmap| might include bits that are not in
     // the zone's mark bitmap, if additional zones were collected by the GC.
-    zone->markedAtoms.bitwiseAndWith(bitmap);
+    zone->markedAtoms().bitwiseAndWith(bitmap);
 }
 
 // Set any bits in the chunk mark bitmaps for atoms which are marked in bitmap.
@@ -142,29 +142,29 @@ AtomMarkingRuntime::updateChunkMarkBits(JSRuntime* runtime)
             // not collected in the current GC. Atoms which are referenced by
             // collected zones have already been marked.
             if (!zone->isCollectingFromAnyThread())
-                zone->markedAtoms.bitwiseOrInto(markedUnion);
+                zone->markedAtoms().bitwiseOrInto(markedUnion);
         }
         AddBitmapToChunkMarkBits(runtime, markedUnion);
     } else {
         for (ZonesIter zone(runtime, SkipAtoms); !zone.done(); zone.next()) {
             if (!zone->isCollectingFromAnyThread())
-                AddBitmapToChunkMarkBits(runtime, zone->markedAtoms);
+                AddBitmapToChunkMarkBits(runtime, zone->markedAtoms());
         }
     }
 }
 
 template <typename T>
 void
-AtomMarkingRuntime::markAtom(ExclusiveContext* cx, T* thing)
+AtomMarkingRuntime::markAtom(JSContext* cx, T* thing)
 {
     return inlinedMarkAtom(cx, thing);
 }
 
-template void AtomMarkingRuntime::markAtom(ExclusiveContext* cx, JSAtom* thing);
-template void AtomMarkingRuntime::markAtom(ExclusiveContext* cx, JS::Symbol* thing);
+template void AtomMarkingRuntime::markAtom(JSContext* cx, JSAtom* thing);
+template void AtomMarkingRuntime::markAtom(JSContext* cx, JS::Symbol* thing);
 
 void
-AtomMarkingRuntime::markId(ExclusiveContext* cx, jsid id)
+AtomMarkingRuntime::markId(JSContext* cx, jsid id)
 {
     if (JSID_IS_ATOM(id)) {
         markAtom(cx, JSID_TO_ATOM(id));
@@ -178,7 +178,7 @@ AtomMarkingRuntime::markId(ExclusiveContext* cx, jsid id)
 }
 
 void
-AtomMarkingRuntime::markAtomValue(ExclusiveContext* cx, const Value& value)
+AtomMarkingRuntime::markAtomValue(JSContext* cx, const Value& value)
 {
     if (value.isString()) {
         if (value.toString()->isAtom())
@@ -197,7 +197,7 @@ AtomMarkingRuntime::adoptMarkedAtoms(Zone* target, Zone* source)
 {
     MOZ_ASSERT(target->runtimeFromAnyThread()->currentThreadHasExclusiveAccess());
 
-    target->markedAtoms.bitwiseOrWith(source->markedAtoms);
+    target->markedAtoms().bitwiseOrWith(source->markedAtoms());
 }
 
 #ifdef DEBUG

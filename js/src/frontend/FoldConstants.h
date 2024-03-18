@@ -25,10 +25,10 @@ namespace frontend {
 //    if (!FoldConstants(cx, &pn, parser))
 //        return false;
 [[nodiscard]] bool
-FoldConstants(ExclusiveContext* cx, ParseNode** pnp, Parser<FullParseHandler>* parser);
+FoldConstants(JSContext* cx, ParseNode** pnp, Parser<FullParseHandler>* parser);
 
 [[nodiscard]] inline bool
-FoldConstants(ExclusiveContext* cx, SyntaxParseHandler::Node* pnp,
+FoldConstants(JSContext* cx, SyntaxParseHandler::Node* pnp,
               Parser<SyntaxParseHandler>* parser)
 {
     return true;

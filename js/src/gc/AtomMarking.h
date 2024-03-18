@@ -10,6 +10,7 @@
 #include "NamespaceImports.h"
 #include "ds/Bitmap.h"
 #include "gc/Heap.h"
+#include "threading/ProtectedData.h"
 #include "vm/Symbol.h"
 
 namespace js {
@@ -20,11 +21,11 @@ namespace gc {
 class AtomMarkingRuntime
 {
     // Unused arena atom bitmap indexes. Protected by the GC lock.
-    Vector<size_t, 0, SystemAllocPolicy> freeArenaIndexes;
+    js::ExclusiveAccessLockOrGCTaskData<Vector<size_t, 0, SystemAllocPolicy>> freeArenaIndexes;
 
-    void markChildren(ExclusiveContext* cx, JSAtom*) {}
+    void markChildren(JSContext* cx, JSAtom*) {}
 
-    void markChildren(ExclusiveContext* cx, JS::Symbol* symbol) {
+    void markChildren(JSContext* cx, JS::Symbol* symbol) {
         if (JSAtom* description = symbol->description())
             markAtom(cx, description);
     }
@@ -58,14 +59,14 @@ public:
     void updateChunkMarkBits(JSRuntime* runtime);
 
     // Mark an atom or id as being newly reachable by the context's zone.
-    template <typename T> void markAtom(ExclusiveContext* cx, T* thing);
+    template <typename T> void markAtom(JSContext* cx, T* thing);
 
     // Version of markAtom that's always inlined, for performance-sensitive
     // callers.
-    template <typename T> MOZ_ALWAYS_INLINE void inlinedMarkAtom(ExclusiveContext* cx, T* thing);
+    template <typename T> MOZ_ALWAYS_INLINE void inlinedMarkAtom(JSContext* cx, T* thing);
 
-    void markId(ExclusiveContext* cx, jsid id);
-    void markAtomValue(ExclusiveContext* cx, const Value& value);
+    void markId(JSContext* cx, jsid id);
+    void markAtomValue(JSContext* cx, const Value& value);
 
     // Mark all atoms in |source| as being reachable within |target|.
     void adoptMarkedAtoms(Zone* target, Zone* source);

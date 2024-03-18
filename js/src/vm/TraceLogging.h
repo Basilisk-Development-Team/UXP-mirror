@@ -26,7 +26,6 @@ namespace JS {
 } // namespace JS
 
 namespace js {
-class PerThreadData;
 
 namespace jit {
     class CompileRuntime;
@@ -368,7 +367,7 @@ class TraceLoggerThreadState
     }
 
   private:
-    TraceLoggerThread* forMainThread(PerThreadData* mainThread);
+    TraceLoggerThread* forMainThread(JSContext* cx);
 #endif
 };
 
