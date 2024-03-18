@@ -1373,13 +1373,13 @@ JS_PUBLIC_API(bool)
 JS_AddWeakPointerZoneGroupCallback(JSContext* cx, JSWeakPointerZoneGroupCallback cb, void* data)
 {
     AssertHeapIsIdle();
-    return cx->gc.addWeakPointerZoneGroupCallback(cb, data);
+    return cx->runtime()->gc.addWeakPointerZoneGroupCallback(cb, data);
 }
 
 JS_PUBLIC_API(void)
 JS_RemoveWeakPointerZoneGroupCallback(JSContext* cx, JSWeakPointerZoneGroupCallback cb)
 {
-    cx->gc.removeWeakPointerZoneGroupCallback(cb);
+    cx->runtime()->gc.removeWeakPointerZoneGroupCallback(cb);
 }
 
 JS_PUBLIC_API(bool)
@@ -1422,10 +1422,10 @@ JS_PUBLIC_API(void)
 JS_SetGGCMode(JSContext* cx, bool enabled)
 {
   // Control GGC
-  if (enabled && !cx->gc.isGenerationalGCEnabled()) {
-    cx->gc.enableGenerationalGC();
-  } else if (!enabled && cx->gc.isGenerationalGCEnabled()) {
-    cx->gc.disableGenerationalGC();
+  if (enabled && !cx->runtime()->gc.isGenerationalGCEnabled()) {
+    cx->runtime()->gc.enableGenerationalGC();
+  } else if (!enabled && cx->runtime()->gc.isGenerationalGCEnabled()) {
+    cx->runtime()->gc.disableGenerationalGC();
   }
 }
 
@@ -3400,9 +3400,9 @@ JS_SetTrustedPrincipals(JSContext* cx, JSPrincipals* prin)
 extern JS_PUBLIC_API(void)
 JS_InitDestroyPrincipalsCallback(JSContext* cx, JSDestroyPrincipalsOp destroyPrincipals)
 {
+    MOZ_ASSERT(destroyPrincipals);
     MOZ_ASSERT(!cx->runtime()->destroyPrincipals);
     cx->runtime()->destroyPrincipals = destroyPrincipals;
-    cx->destroyPrincipals = destroyPrincipals;
 }
 
 extern JS_PUBLIC_API(void)

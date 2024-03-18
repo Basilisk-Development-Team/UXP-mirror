@@ -905,7 +905,7 @@ GCRuntime::GCRuntime(JSRuntime* rt) :
     lock(mutexid::GCLock),
     allocTask(rt, emptyChunks_.ref()),
     decommitTask(rt),
-    helperState(rt),
+    helperState(rt)
 {
     setGCMode(JSGC_MODE_GLOBAL);
 }
@@ -2126,7 +2126,7 @@ ArenasToUpdate::getArenasToUpdate(AutoLockHelperThreadState& lock, unsigned maxL
     return { begin, last->next };
 }
 
-struct UpdatePointersTask : public GCParallelTask
+struct UpdatePointersTask : public GCParallelTaskHelper<UpdatePointersTask>
 {
     // Maximum number of arenas to update in one block.
 #ifdef DEBUG
@@ -2799,7 +2799,7 @@ GCRuntime::requestMajorGC(JS::gcreason::Reason reason)
 }
 
 void
-Nursery::requestMinorGC(JS::gcreason::Reason reason) const
+GCRuntime::requestMinorGC(JS::gcreason::Reason reason)
 {
     MOZ_ASSERT(CurrentThreadCanAccessRuntime(rt));
     MOZ_ASSERT(!CurrentThreadIsPerformingGC());
@@ -4395,14 +4395,14 @@ GCRuntime::endMarkingZoneGroup()
     marker.setMarkColorBlack();
 }
 
-class GCSweepTask : public GCParallelTask
+class GCSweepTask : public GCParallelTaskHelper
 {
     GCSweepTask(const GCSweepTask&) = delete;
 
   public:
-    explicit GCSweepTask(JSRuntime* rt) : GCParallelTask(rt) {}
+    explicit GCSweepTask(JSRuntime* rt) : GCParallelTaskHelper(rt) {}
     GCSweepTask(GCSweepTask&& other)
-      : GCParallelTask(mozilla::Move(other))
+      : GCParallelTaskHelper(mozilla::Move(other))
     {}
 };
 

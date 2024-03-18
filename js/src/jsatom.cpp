@@ -317,7 +317,7 @@ AtomizeAndCopyChars(JSContext* cx, const CharT* tbchars, size_t length, PinningB
     Zone* zone = cx->zone();
    Maybe<AtomSet::AddPtr> zonePtr;
     if (MOZ_LIKELY(zone && pin == DoNotPinAtom)) {
-        zonePtr.emplace(zone->atomCache.lookupForAdd(lookup));
+        zonePtr.emplace(zone->atomCache().lookupForAdd(lookup));
         if (zonePtr.ref()) {
             // The cache is purged on GC so if we're in the middle of an
             // incremental GC we should have barriered the atom when we put
@@ -338,7 +338,7 @@ AtomizeAndCopyChars(JSContext* cx, const CharT* tbchars, size_t length, PinningB
         if (pp) {
             JSAtom* atom = pp->asPtr(cx);
             if (zonePtr)
-                mozilla::Unused << zone->atomCache.add(*zonePtr, AtomStateEntry(atom, false));
+                mozilla::Unused << zone->atomCache().add(*zonePtr, AtomStateEntry(atom, false));
             return atom;
         }
     }
@@ -352,7 +352,7 @@ AtomizeAndCopyChars(JSContext* cx, const CharT* tbchars, size_t length, PinningB
         p->setPinned(bool(pin));
         cx->atomMarking().inlinedMarkAtom(cx, atom);
         if (zonePtr)
-            mozilla::Unused << zone->atomCache.add(*zonePtr, AtomStateEntry(atom, false));
+            mozilla::Unused << zone->atomCache().add(*zonePtr, AtomStateEntry(atom, false));
         return atom;
     }
 
@@ -386,7 +386,7 @@ AtomizeAndCopyChars(JSContext* cx, const CharT* tbchars, size_t length, PinningB
 
     cx->atomMarking().inlinedMarkAtom(cx, atom);
     if (zonePtr)
-        mozilla::Unused << zone->atomCache.add(*zonePtr, AtomStateEntry(atom, false));
+        mozilla::Unused << zone->atomCache().add(*zonePtr, AtomStateEntry(atom, false));
     return atom;
 }
 

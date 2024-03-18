@@ -278,7 +278,7 @@ struct JSRuntime : public js::MallocProvider<JSRuntime>
     {
         JSRuntime* parent_;
 
-    public:
+      public:
         explicit AutoUpdateChildRuntimeCount(JSRuntime* parent)
           : parent_(parent)
         {
@@ -289,7 +289,7 @@ struct JSRuntime : public js::MallocProvider<JSRuntime>
         ~AutoUpdateChildRuntimeCount() {
             if (parent_)
                 parent_->childRuntimeCount--;
-       }
+         }
     };
 
     AutoUpdateChildRuntimeCount updateChildRuntimeCount;
@@ -352,7 +352,6 @@ struct JSRuntime : public js::MallocProvider<JSRuntime>
     }
 
   public:
-    public:
     js::UnprotectedData<JSGetIncumbentGlobalCallback> getIncumbentGlobalCallback;
     js::UnprotectedData<JSEnqueuePromiseJobCallback> enqueuePromiseJobCallback;
     js::UnprotectedData<void*> enqueuePromiseJobCallbackData;
@@ -510,6 +509,7 @@ struct JSRuntime : public js::MallocProvider<JSRuntime>
     /* Default locale for Internationalization API */
     js::UnprotectedData<char*> defaultLocale;
 
+    /* Default JSVersion. */
     js::UnprotectedData<JSVersion> defaultVersion_;
 
   private:

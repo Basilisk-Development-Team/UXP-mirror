@@ -292,7 +292,7 @@ DoTypeUpdateFallback(JSContext* cx, BaselineFrame* frame, ICUpdatedStub* stub, H
         MOZ_ASSERT(obj->isNative());
         jsbytecode* pc = stub->getChainFallback()->icEntry()->pc(script);
         if (*pc == JSOP_SETALIASEDVAR || *pc == JSOP_INITALIASEDLEXICAL)
-            id = NameToId(EnvironmentCoordinateName(cx->caches.envCoordinateNameCache, script, pc));
+            id = NameToId(EnvironmentCoordinateName(cx->caches().envCoordinateNameCache, script, pc));
         else
             id = NameToId(script->getName(pc));
         AddTypePropertyId(cx, obj, id, value);
@@ -4766,7 +4766,7 @@ ICSetProp_Native::Compiler::generateStubCode(MacroAssembler& masm)
     masm.storeValue(R1, BaseIndex(holderReg, scratch, TimesOne));
     if (holderReg != objReg)
         regs.add(holderReg);
-    if (cx->runtime()->gc.nursery.exists()) {
+    if (cx->nursery().exists()) {
         Register scr = regs.takeAny();
         LiveGeneralRegisterSet saveRegs;
         saveRegs.add(R1);
@@ -4925,7 +4925,7 @@ ICSetPropNativeAddCompiler::generateStubCode(MacroAssembler& masm)
     if (holderReg != objReg)
         regs.add(holderReg);
 
-    if (cx->runtime()->gc.nursery.exists()) {
+    if (cx->nursery().exists()) {
         Register scr = regs.takeAny();
         LiveGeneralRegisterSet saveRegs;
         saveRegs.add(R1);

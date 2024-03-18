@@ -181,7 +181,7 @@ size_t BigInt::sizeOfExcludingThis(mozilla::MallocSizeOf mallocSizeOf) const {
   return hasInlineDigits() ? 0 : mallocSizeOf(heapDigits_);
 }
 
-BigInt* BigInt::zero(JSContext* cx,) {
+BigInt* BigInt::zero(JSContext* cx) {
   return createUninitialized(cx, 0, false);
 }
 
@@ -196,9 +196,9 @@ BigInt* BigInt::createFromDigit(JSContext* cx, Digit d, bool isNegative) {
   return res;
 }
 
-BigInt* BigInt::one(JSContext* cx,) { return createFromDigit(cx, 1, false); }
+BigInt* BigInt::one(JSContext* cx) { return createFromDigit(cx, 1, false); }
 
-BigInt* BigInt::negativeOne(JSContext* cx,) {
+BigInt* BigInt::negativeOne(JSContext* cx) {
   return createFromDigit(cx, 1, true);
 }
 
