@@ -97,7 +97,7 @@ struct JSContext : public JS::RootingContext,
     // System handle for the thread this context is associated with.
     size_t threadNative_;
 
-  // The thread on which this context is running, if this is performing a parse task.
+    // The thread on which this context is running, if this is performing a parse task.
     js::ThreadLocalData<js::HelperThread*> helperThread_;
 
     js::ThreadLocalData<JS::ContextOptions> options_;
@@ -328,7 +328,7 @@ struct JSContext : public JS::RootingContext,
      */
     js::Activation* volatile profilingActivation_;
 
-    public:
+  public:
     /* See WasmActivation comment. */
     js::WasmActivation* volatile wasmActivationStack_;
 
@@ -349,7 +349,7 @@ struct JSContext : public JS::RootingContext,
         return (void*) &profilingActivation_;
     }
 
-    private:
+  private:
     /* Space for interpreter frames. */
     js::ThreadLocalData<js::InterpreterStack> interpreterStack_;
 
@@ -578,7 +578,7 @@ struct JSContext : public JS::RootingContext,
     /* Exception state -- the exception member is a GC root by definition. */
     js::ThreadLocalData<bool> throwing;            /* is there a pending exception? */
     js::ThreadLocalData<JS::PersistentRooted<JS::Value>> unwrappedException_; /* most-recently-thrown exception */
-	js::ThreadLocalData<JS::PersistentRooted<JS::Value>> unwrappedExceptionStack_;; /* most-recently-thrown exception */
+	js::ThreadLocalData<JS::PersistentRooted<js::SavedFrame*>> unwrappedExceptionStack_;; /* most-recently-thrown exception */
 
     JS::Value& unwrappedException() {
         if (!unwrappedException_.ref().initialized())
@@ -586,11 +586,12 @@ struct JSContext : public JS::RootingContext,
         return unwrappedException_.ref().get();
     }
 
-    JS::Value& unwrappedExceptionStack() {
-        if (!unwrappedExceptionStack_.ref().initialized())
-            unwrappedExceptionStack_.ref().init(this);
-        return unwrappedExceptionStack_.ref().get();
+    js::SavedFrame*& unwrappedExceptionStack() {
+    if (!unwrappedExceptionStack_.ref().initialized()) {
+      unwrappedExceptionStack_.ref().init(this);
     }
+    return unwrappedExceptionStack_.ref().get();
+  }
 
     // True if the exception currently being thrown is by result of
     // ReportOverRecursed. See Debugger::slowPathOnExceptionUnwind.

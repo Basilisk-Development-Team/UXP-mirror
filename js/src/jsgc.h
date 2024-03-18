@@ -960,7 +960,7 @@ class GCHelperState
 // happens there.
 class GCParallelTask
 {
-    public:
+  public:
     using TaskFunc = void (*)(GCParallelTask*);
 
     JSRuntime* const runtime_;
@@ -984,17 +984,15 @@ class GCParallelTask
     // A flag to signal a request for early completion of the off-thread task.
     mozilla::Atomic<bool> cancel_;
 
-    public:
+  public:
     explicit GCParallelTask(JSRuntime* runtime, TaskFunc func)
       : runtime_(runtime),
         func_(func),
         state(NotStarted),
-        duration_(nullptr),
+        duration_(0),
         cancel_(false)
     {}
 
-  public:
-    explicit GCParallelTask(JSRuntime* runtime) : runtime_(runtime), state(NotStarted), duration_(0) {}
     GCParallelTask(GCParallelTask&& other)
       : runtime_(other.runtime_),
         func_(other.func_),
