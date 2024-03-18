@@ -8,12 +8,9 @@
 #ifndef jsgc_h
 #define jsgc_h
 
-#include "mozilla/Move.h"
-
 #include "mozilla/Atomics.h"
 #include "mozilla/EnumeratedArray.h"
 #include "mozilla/MemoryReporting.h"
-#include "mozilla/Move.h"
 #include "mozilla/TypeTraits.h"
 
 #include "js/GCAPI.h"
@@ -961,10 +958,8 @@ class GCHelperState
 class GCParallelTask
 {
   public:
-    using TaskFunc = void (*)(GCParallelTask*);
 
     JSRuntime* const runtime_;
-    TaskFunc func_;
 
     // The state of the parallel computation.
     enum TaskState {
@@ -984,18 +979,12 @@ class GCParallelTask
     // A flag to signal a request for early completion of the off-thread task.
     mozilla::Atomic<bool> cancel_;
 
-  public:
-    explicit GCParallelTask(JSRuntime* runtime, TaskFunc func)
-      : runtime_(runtime),
-        func_(func),
-        state(NotStarted),
-        duration_(0),
-        cancel_(false)
-    {}
+    virtual void run() = 0;
 
+  public:
+    explicit GCParallelTask(JSRuntime* runtime) : runtime_(runtime), state(NotStarted), duration_(0) {}
     GCParallelTask(GCParallelTask&& other)
       : runtime_(other.runtime_),
-        func_(other.func_),
         state(other.state),
         duration_(0),
         cancel_(false)
@@ -1003,7 +992,7 @@ class GCParallelTask
 
     // Derived classes must override this to ensure that join() gets called
     // before members get destructed.
-    ~GCParallelTask();
+    virtual ~GCParallelTask();
 
     JSRuntime* runtime() { return runtime_; }
 
@@ -1034,32 +1023,10 @@ class GCParallelTask
     bool isRunningWithLockHeld(const AutoLockHelperThreadState& locked) const;
     bool isRunning() const;
 
-    void runTask() {
-        func_(this);
-    }
-
     // This should be friended to HelperThread, but cannot be because it
     // would introduce several circular dependencies.
   public:
     void runFromHelperThread(AutoLockHelperThreadState& locked);
-};
-
-// CRTP template to handle cast to derived type when calling run().
-template <typename Derived>
-class GCParallelTaskHelper : public GCParallelTask
-{
-  public:
-    explicit GCParallelTaskHelper(JSRuntime* runtime)
-      : GCParallelTask(runtime, &runTaskTyped)
-    {}
-    GCParallelTaskHelper(GCParallelTaskHelper&& other)
-      : GCParallelTask(mozilla::Move(other))
-    {}
-
-  private:
-    static void runTaskTyped(GCParallelTask* task) {
-        static_cast<Derived*>(task)->run();
-    }
 };
 
 typedef void (*IterateChunkCallback)(JSRuntime* rt, void* data, gc::Chunk* chunk);

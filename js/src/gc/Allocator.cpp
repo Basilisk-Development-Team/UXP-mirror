@@ -550,7 +550,7 @@ GCRuntime::pickChunk(const AutoLockGC& lock,
 }
 
 BackgroundAllocTask::BackgroundAllocTask(JSRuntime* rt, ChunkPool& pool)
-  : GCParallelTaskHelper(rt),
+  : GCParallelTask(rt),
     chunkPool_(pool),
     enabled_(CanUseExtraThreads() && GetCPUCount() >= 2)
 {

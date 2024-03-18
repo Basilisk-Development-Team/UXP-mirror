@@ -2126,7 +2126,7 @@ ArenasToUpdate::getArenasToUpdate(AutoLockHelperThreadState& lock, unsigned maxL
     return { begin, last->next };
 }
 
-struct UpdatePointersTask : public GCParallelTaskHelper<UpdatePointersTask>
+struct UpdatePointersTask : public GCParallelTask
 {
     // Maximum number of arenas to update in one block.
 #ifdef DEBUG
@@ -2136,18 +2136,19 @@ struct UpdatePointersTask : public GCParallelTaskHelper<UpdatePointersTask>
 #endif
 
     UpdatePointersTask(JSRuntime* rt, ArenasToUpdate* source, AutoLockHelperThreadState& lock)
-      : GCParallelTaskHelper(rt), source_(source)
+      : GCParallelTask(rt), source_(source)
     {
         arenas_.begin = nullptr;
         arenas_.end = nullptr;
     }
 
-    void run();
+    ~UpdatePointersTask() override { join(); }
 
   private:
     ArenasToUpdate* source_;
     ArenaListSegment arenas_;
 
+    virtual void run() override;
     bool getArenasToUpdate();
     void updateArenas();
 };
@@ -4419,15 +4420,15 @@ class SweepWeakCacheTask : public GCSweepTask
       : GCSweepTask(mozilla::Move(other)), cache(other.cache)
     {}
 
-    void run() {
+    void run() override {
         cache.sweep();
     }
 };
 
 #define MAKE_GC_SWEEP_TASK(name)                                              \
     class name : public GCSweepTask {                                         \
+        void run() override;                                                  \
       public:                                                                 \
-        void run();                                                           \
         explicit name (JSRuntime* rt) : GCSweepTask(rt) {}                    \
     }
 MAKE_GC_SWEEP_TASK(SweepAtomsTask);
@@ -4491,8 +4492,7 @@ SweepMiscTask::run()
 }
 
 void
-GCRuntime::startTask(GCParallelTask& task, gcstats::Phase phase,
-                     AutoLockHelperThreadState& locked)
+GCRuntime::startTask(GCParallelTask& task, gcstats::Phase phase, AutoLockHelperThreadState& locked)
 {
     if (!task.startWithLockHeld(locked)) {
         AutoUnlockHelperThreadState unlock(locked);
@@ -4502,8 +4502,7 @@ GCRuntime::startTask(GCParallelTask& task, gcstats::Phase phase,
 }
 
 void
-GCRuntime::joinTask(GCParallelTask& task, gcstats::Phase phase,
-                    AutoLockHelperThreadState& locked)
+GCRuntime::joinTask(GCParallelTask& task, gcstats::Phase phase, AutoLockHelperThreadState& locked)
 {
     gcstats::AutoPhase ap(stats(), task, phase);
     task.joinWithLockHeld(locked);
@@ -4887,10 +4886,10 @@ GCRuntime::sweepTypeInformation(GCRuntime* gc, FreeOp* fop, Zone* zone, SliceBud
 
     AutoClearTypeInferenceStateOnOOM oom(zone);
 
-    if (!SweepArenaList<JSScript>(&al.gcScriptArenasToUpdate, budget, &oom))
+    if (!SweepArenaList<JSScript>(&al.gcScriptArenasToUpdate.ref(), budget, &oom))
         return NotFinished;
 
-    if (!SweepArenaList<ObjectGroup>(&al.gcObjectGroupArenasToUpdate, budget, &oom))
+    if (!SweepArenaList<ObjectGroup>(&al.gcObjectGroupArenasToUpdate.ref(), budget, &oom))
         return NotFinished;
 
     // Finish sweeping type information in the zone.
@@ -4921,7 +4920,7 @@ GCRuntime::finalizeAllocKind(GCRuntime* gc, FreeOp* fop, Zone* zone, SliceBudget
 {
     // Set the number of things per arena for this AllocKind.
     size_t thingsPerArena = Arena::thingsPerArena(kind);
-    auto& sweepList = gc->incrementalSweepList;
+    auto& sweepList = gc->incrementalSweepList.ref();
     sweepList.setThingsPerArena(thingsPerArena);
 
     if (!zone->arenas.foregroundFinalize(fop, kind, budget, sweepList))
@@ -4945,10 +4944,10 @@ GCRuntime::sweepShapeTree(GCRuntime* gc, FreeOp* fop, Zone* zone, SliceBudget& b
 
     ArenaLists& al = zone->arenas;
 
-    if (!SweepArenaList<Shape>(&al.gcShapeArenasToUpdate, budget))
+    if (!SweepArenaList<Shape>(&al.gcShapeArenasToUpdate.ref(), budget))
         return NotFinished;
 
-    if (!SweepArenaList<AccessorShape>(&al.gcAccessorShapeArenasToUpdate, budget))
+    if (!SweepArenaList<AccessorShape>(&al.gcAccessorShapeArenasToUpdate.ref(), budget))
         return NotFinished;
 
     return Finished;
@@ -5536,7 +5535,7 @@ GCRuntime::incrementalCollectSlice(SliceBudget& budget, JS::gcreason::Reason rea
             gcstats::AutoPhase ap2(stats(), gcstats::PHASE_DESTROY);
             AutoSetThreadIsSweeping threadIsSweeping;
             FreeOp fop(rt);
-            sweepZoneGroups(&fop, destroyingRuntime);
+            sweepZones(&fop, destroyingRuntime);
         }
 
         MOZ_ASSERT(!startedCompacting);
