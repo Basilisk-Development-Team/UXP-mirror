@@ -686,7 +686,7 @@ SetExnType(JSErrorNotes::Note* notep, int16_t exnType)
  */
 template <typename T>
 bool
-ExpandErrorArgumentsHelper(ExclusiveContext* cx, JSErrorCallback callback,
+ExpandErrorArgumentsHelper(JSContext* cx, JSErrorCallback callback,
                            void* userRef, const unsigned errorNumber,
                            const char16_t** messageArgs,
                            ErrorArgumentsType argumentsType,
@@ -835,7 +835,7 @@ js::ReportErrorNumberVA(JSContext* cx, unsigned flags, JSErrorCallback callback,
 }
 
 static bool
-ExpandErrorArguments(ExclusiveContext* cx, JSErrorCallback callback,
+ExpandErrorArguments(JSContext* cx, JSErrorCallback callback,
                      void* userRef, const unsigned errorNumber,
                      const char16_t** messageArgs,
                      ErrorArgumentsType argumentsType,

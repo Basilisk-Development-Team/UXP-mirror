@@ -657,7 +657,7 @@ class JSFunction : public js::NativeObject
     inline const js::Value& getExtendedSlot(size_t which) const;
 
     /* Constructs a new type for the function if necessary. */
-    static bool setTypeForScriptedFunction(js::ExclusiveContext* cx, js::HandleFunction fun,
+    static bool setTypeForScriptedFunction(JSContext* cx, js::HandleFunction fun,
                                            bool singleton = false);
 
     /* GC support. */
@@ -697,14 +697,14 @@ AsyncGeneratorConstructor(JSContext* cx, unsigned argc, Value* vp);
 // Allocate a new function backed by a JSNative.  Note that by default this
 // creates a singleton object.
 extern JSFunction*
-NewNativeFunction(ExclusiveContext* cx, JSNative native, unsigned nargs, HandleAtom atom,
+NewNativeFunction(JSContext* cx, JSNative native, unsigned nargs, HandleAtom atom,
                   gc::AllocKind allocKind = gc::AllocKind::FUNCTION,
                   NewObjectKind newKind = SingletonObject);
 
 // Allocate a new constructor backed by a JSNative.  Note that by default this
 // creates a singleton object.
 extern JSFunction*
-NewNativeConstructor(ExclusiveContext* cx, JSNative native, unsigned nargs, HandleAtom atom,
+NewNativeConstructor(JSContext* cx, JSNative native, unsigned nargs, HandleAtom atom,
                      gc::AllocKind allocKind = gc::AllocKind::FUNCTION,
                      NewObjectKind newKind = SingletonObject,
                      JSFunction::Flags flags = JSFunction::NATIVE_CTOR);
@@ -713,7 +713,7 @@ NewNativeConstructor(ExclusiveContext* cx, JSNative native, unsigned nargs, Hand
 // global will be used.  In all cases the parent of the resulting object will be
 // the global.
 extern JSFunction*
-NewScriptedFunction(ExclusiveContext* cx, unsigned nargs, JSFunction::Flags flags,
+NewScriptedFunction(JSContext* cx, unsigned nargs, JSFunction::Flags flags,
                     HandleAtom atom, HandleObject proto = nullptr,
                     gc::AllocKind allocKind = gc::AllocKind::FUNCTION,
                     NewObjectKind newKind = GenericObject,
@@ -731,7 +731,7 @@ enum NewFunctionProtoHandling {
     NewFunctionGivenProto
 };
 extern JSFunction*
-NewFunctionWithProto(ExclusiveContext* cx, JSNative native, unsigned nargs,
+NewFunctionWithProto(JSContext* cx, JSNative native, unsigned nargs,
                      JSFunction::Flags flags, HandleObject enclosingEnv, HandleAtom atom,
                      HandleObject proto, gc::AllocKind allocKind = gc::AllocKind::FUNCTION,
                      NewObjectKind newKind = GenericObject,
@@ -742,7 +742,7 @@ IdToFunctionName(JSContext* cx, HandleId id,
                  FunctionPrefixKind prefixKind = FunctionPrefixKind::None);
 
 extern JSAtom*
-NameToFunctionName(ExclusiveContext* cx, HandleAtom name,
+NameToFunctionName(JSContext* cx, HandleAtom name,
                    FunctionPrefixKind prefixKind = FunctionPrefixKind::None);
 
 extern bool

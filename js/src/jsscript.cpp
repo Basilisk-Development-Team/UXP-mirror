@@ -72,7 +72,7 @@ template<XDRMode mode>
 bool
 js::XDRScriptConst(XDRState<mode>* xdr, MutableHandleValue vp)
 {
-    ExclusiveContext* cx = xdr->cx();
+    JSContext* cx = xdr->cx();
 
     enum ConstTag {
         SCRIPT_INT,
@@ -212,7 +212,7 @@ template<XDRMode mode>
 static bool
 XDRLazyClosedOverBindings(XDRState<mode>* xdr, MutableHandle<LazyScript*> lazy)
 {
-    ExclusiveContext* cx = xdr->cx();
+    JSContext* cx = xdr->cx();
     RootedAtom atom(cx);
     for (size_t i = 0; i < lazy->numClosedOverBindings(); i++) {
         uint8_t endOfScopeSentinel;
@@ -245,7 +245,7 @@ XDRRelazificationInfo(XDRState<mode>* xdr, HandleFunction fun, HandleScript scri
     MOZ_ASSERT_IF(mode == XDR_ENCODE, script->isRelazifiable() && script->maybeLazyScript());
     MOZ_ASSERT_IF(mode == XDR_ENCODE, !lazy->numInnerFunctions());
 
-    ExclusiveContext* cx = xdr->cx();
+    JSContext* cx = xdr->cx();
 
     uint64_t packedFields;
     {
@@ -379,7 +379,7 @@ js::XDRScript(XDRState<mode>* xdr, HandleScope scriptEnclosingScope,
     uint32_t scriptBits = 0;
     uint32_t bodyScopeIndex = 0;
 
-    ExclusiveContext* cx = xdr->cx();
+    JSContext* cx = xdr->cx();
     RootedScript script(cx);
     natoms = nsrcnotes = 0;
     nconsts = nobjects = nscopes = nregexps = ntrynotes = nscopenotes = nyieldoffsets = 0;
@@ -2047,7 +2047,7 @@ ScriptSource::addSizeOfIncludingThis(mozilla::MallocSizeOf mallocSizeOf,
 }
 
 bool
-ScriptSource::xdrEncodeTopLevel(ExclusiveContext* cx, HandleScript script)
+ScriptSource::xdrEncodeTopLevel(JSContext* cx, HandleScript script)
 {
     xdrEncoder_ = js::MakeUnique<XDRIncrementalEncoder>(cx);
     if (!xdrEncoder_) {
@@ -2074,7 +2074,7 @@ ScriptSource::xdrEncodeTopLevel(ExclusiveContext* cx, HandleScript script)
 }
 
 bool
-ScriptSource::xdrEncodeFunction(ExclusiveContext* cx, HandleFunction fun, HandleScriptSource sourceObject)
+ScriptSource::xdrEncodeFunction(JSContext* cx, HandleFunction fun, HandleScriptSource sourceObject)
 {
     MOZ_ASSERT(sourceObject->source() == this);
     MOZ_ASSERT(hasEncoder());

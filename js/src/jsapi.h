@@ -5563,15 +5563,15 @@ class JS_PUBLIC_API(JSErrorNotes)
     ~JSErrorNotes();
 
     // Add an note to the given position.
-    bool addNoteASCII(js::ExclusiveContext* cx,
+    bool addNoteASCII(JSContext* cx
                       const char* filename, unsigned lineno, unsigned column,
                       JSErrorCallback errorCallback, void* userRef,
                       const unsigned errorNumber, ...);
-    bool addNoteLatin1(js::ExclusiveContext* cx,
+    bool addNoteLatin1(JSContext* cx
                        const char* filename, unsigned lineno, unsigned column,
                        JSErrorCallback errorCallback, void* userRef,
                        const unsigned errorNumber, ...);
-    bool addNoteUTF8(js::ExclusiveContext* cx,
+    bool addNoteUTF8(JSContext* cx
                      const char* filename, unsigned lineno, unsigned column,
                      JSErrorCallback errorCallback, void* userRef,
                      const unsigned errorNumber, ...);

@@ -92,33 +92,33 @@ class BigInt final : public js::gc::TenuredCell {
   js::HashNumber hash();
   size_t sizeOfExcludingThis(mozilla::MallocSizeOf mallocSizeOf) const;
 
-  static BigInt* createUninitialized(js::ExclusiveContext* cx, size_t length,
+  static BigInt* createUninitialized(JSContext* cx, size_t length,
                                      bool isNegative);
-  static BigInt* createFromDouble(js::ExclusiveContext* cx, double d);
-  static BigInt* createFromUint64(js::ExclusiveContext* cx, uint64_t n);
-  static BigInt* createFromInt64(js::ExclusiveContext* cx, int64_t n);
-  static BigInt* createFromDigit(js::ExclusiveContext* cx, Digit d, bool isNegative);
+  static BigInt* createFromDouble(JSContext* cx, double d);
+  static BigInt* createFromUint64(JSContext* cx, uint64_t n);
+  static BigInt* createFromInt64(JSContext* cx, int64_t n);
+  static BigInt* createFromDigit(JSContext* cx, Digit d, bool isNegative);
   // FIXME: Cache these values.
-  static BigInt* zero(js::ExclusiveContext* cx);
-  static BigInt* one(js::ExclusiveContext* cx);
-  static BigInt* negativeOne(js::ExclusiveContext* cx);
+  static BigInt* zero(JSContext* cx);
+  static BigInt* one(JSContext* cx);
+  static BigInt* negativeOne(JSContext* cx);
 
-  static BigInt* copy(js::ExclusiveContext* cx, Handle<BigInt*> x);
-  static BigInt* add(js::ExclusiveContext* cx, Handle<BigInt*> x, Handle<BigInt*> y);
-  static BigInt* sub(js::ExclusiveContext* cx, Handle<BigInt*> x, Handle<BigInt*> y);
-  static BigInt* mul(js::ExclusiveContext* cx, Handle<BigInt*> x, Handle<BigInt*> y);
-  static BigInt* div(js::ExclusiveContext* cx, Handle<BigInt*> x, Handle<BigInt*> y);
-  static BigInt* mod(js::ExclusiveContext* cx, Handle<BigInt*> x, Handle<BigInt*> y);
-  static BigInt* pow(js::ExclusiveContext* cx, Handle<BigInt*> x, Handle<BigInt*> y);
-  static BigInt* neg(js::ExclusiveContext* cx, Handle<BigInt*> x);
-  static BigInt* inc(js::ExclusiveContext* cx, Handle<BigInt*> x);
-  static BigInt* dec(js::ExclusiveContext* cx, Handle<BigInt*> x);
-  static BigInt* lsh(js::ExclusiveContext* cx, Handle<BigInt*> x, Handle<BigInt*> y);
-  static BigInt* rsh(js::ExclusiveContext* cx, Handle<BigInt*> x, Handle<BigInt*> y);
-  static BigInt* bitAnd(js::ExclusiveContext* cx, Handle<BigInt*> x, Handle<BigInt*> y);
-  static BigInt* bitXor(js::ExclusiveContext* cx, Handle<BigInt*> x, Handle<BigInt*> y);
-  static BigInt* bitOr(js::ExclusiveContext* cx, Handle<BigInt*> x, Handle<BigInt*> y);
-  static BigInt* bitNot(js::ExclusiveContext* cx, Handle<BigInt*> x);
+  static BigInt* copy(JSContext* cx, Handle<BigInt*> x);
+  static BigInt* add(JSContext* cx, Handle<BigInt*> x, Handle<BigInt*> y);
+  static BigInt* sub(JSContext* cx, Handle<BigInt*> x, Handle<BigInt*> y);
+  static BigInt* mul(JSContext* cx, Handle<BigInt*> x, Handle<BigInt*> y);
+  static BigInt* div(JSContext* cx, Handle<BigInt*> x, Handle<BigInt*> y);
+  static BigInt* mod(JSContext* cx, Handle<BigInt*> x, Handle<BigInt*> y);
+  static BigInt* pow(JSContext* cx, Handle<BigInt*> x, Handle<BigInt*> y);
+  static BigInt* neg(JSContext* cx, Handle<BigInt*> x);
+  static BigInt* inc(JSContext* cx, Handle<BigInt*> x);
+  static BigInt* dec(JSContext* cx, Handle<BigInt*> x);
+  static BigInt* lsh(JSContext* cx, Handle<BigInt*> x, Handle<BigInt*> y);
+  static BigInt* rsh(JSContext* cx, Handle<BigInt*> x, Handle<BigInt*> y);
+  static BigInt* bitAnd(JSContext* cx, Handle<BigInt*> x, Handle<BigInt*> y);
+  static BigInt* bitXor(JSContext* cx, Handle<BigInt*> x, Handle<BigInt*> y);
+  static BigInt* bitOr(JSContext* cx, Handle<BigInt*> x, Handle<BigInt*> y);
+  static BigInt* bitNot(JSContext* cx, Handle<BigInt*> x);
 
   static int64_t toInt64(BigInt* x);
   static uint64_t toUint64(BigInt* x);
@@ -128,61 +128,61 @@ class BigInt final : public js::gc::TenuredCell {
   // leave the value of the output parameter unspecified.
   static bool isInt64(BigInt* x, int64_t* result);
 
-  static BigInt* asIntN(js::ExclusiveContext* cx, Handle<BigInt*> x, uint64_t bits);
-  static BigInt* asUintN(js::ExclusiveContext* cx, Handle<BigInt*> x, uint64_t bits);
+  static BigInt* asIntN(JSContext* cx, Handle<BigInt*> x, uint64_t bits);
+  static BigInt* asUintN(JSContext* cx, Handle<BigInt*> x, uint64_t bits);
 
   // Type-checking versions of arithmetic operations. These methods
   // must be called with at least one BigInt operand. Binary
   // operations will throw a TypeError if one of the operands is not a
   // BigInt value.
-  static bool add(js::ExclusiveContext* cx, Handle<Value> lhs, Handle<Value> rhs,
+  static bool add(JSContext* cx, Handle<Value> lhs, Handle<Value> rhs,
                   MutableHandle<Value> res);
-  static bool sub(js::ExclusiveContext* cx, Handle<Value> lhs, Handle<Value> rhs,
+  static bool sub(JSContext* cx, Handle<Value> lhs, Handle<Value> rhs,
                   MutableHandle<Value> res);
-  static bool mul(js::ExclusiveContext* cx, Handle<Value> lhs, Handle<Value> rhs,
+  static bool mul(JSContext* cx, Handle<Value> lhs, Handle<Value> rhs,
                   MutableHandle<Value> res);
-  static bool div(js::ExclusiveContext* cx, Handle<Value> lhs, Handle<Value> rhs,
+  static bool div(JSContext* cx, Handle<Value> lhs, Handle<Value> rhs,
                   MutableHandle<Value> res);
-  static bool mod(js::ExclusiveContext* cx, Handle<Value> lhs, Handle<Value> rhs,
+  static bool mod(JSContext* cx, Handle<Value> lhs, Handle<Value> rhs,
                   MutableHandle<Value> res);
-  static bool pow(js::ExclusiveContext* cx, Handle<Value> lhs, Handle<Value> rhs,
+  static bool pow(JSContext* cx, Handle<Value> lhs, Handle<Value> rhs,
                   MutableHandle<Value> res);
-  static bool neg(js::ExclusiveContext* cx, Handle<Value> operand,
+  static bool neg(JSContext* cx, Handle<Value> operand,
                   MutableHandle<Value> res);
-  static bool inc(js::ExclusiveContext* cx, Handle<Value> operand,
+  static bool inc(JSContext* cx, Handle<Value> operand,
                   MutableHandle<Value> res);
-  static bool dec(js::ExclusiveContext* cx, Handle<Value> operand,
+  static bool dec(JSContext* cx, Handle<Value> operand,
                   MutableHandle<Value> res);
-  static bool lsh(js::ExclusiveContext* cx, Handle<Value> lhs, Handle<Value> rhs,
+  static bool lsh(JSContext* cx, Handle<Value> lhs, Handle<Value> rhs,
                   MutableHandle<Value> res);
-  static bool rsh(js::ExclusiveContext* cx, Handle<Value> lhs, Handle<Value> rhs,
+  static bool rsh(JSContext* cx, Handle<Value> lhs, Handle<Value> rhs,
                   MutableHandle<Value> res);
-  static bool bitAnd(js::ExclusiveContext* cx, Handle<Value> lhs, Handle<Value> rhs,
+  static bool bitAnd(JSContext* cx, Handle<Value> lhs, Handle<Value> rhs,
                      MutableHandle<Value> res);
-  static bool bitXor(js::ExclusiveContext* cx, Handle<Value> lhs, Handle<Value> rhs,
+  static bool bitXor(JSContext* cx, Handle<Value> lhs, Handle<Value> rhs,
                      MutableHandle<Value> res);
-  static bool bitOr(js::ExclusiveContext* cx, Handle<Value> lhs, Handle<Value> rhs,
+  static bool bitOr(JSContext* cx, Handle<Value> lhs, Handle<Value> rhs,
                     MutableHandle<Value> res);
-  static bool bitNot(js::ExclusiveContext* cx, Handle<Value> operand,
+  static bool bitNot(JSContext* cx, Handle<Value> operand,
                      MutableHandle<Value> res);
 
   static double numberValue(BigInt* x);
 
-  static JSLinearString* toString(js::ExclusiveContext* cx, Handle<BigInt*> x,
+  static JSLinearString* toString(JSContext* cx, Handle<BigInt*> x,
                                   uint8_t radix);
   template <typename CharT>
-  static BigInt* parseLiteral(js::ExclusiveContext* cx,
+  static BigInt* parseLiteral(JSContext* cx,
                               const mozilla::Range<const CharT> chars,
                               bool* haveParseError);
   template <typename CharT>
-  static BigInt* parseLiteralDigits(js::ExclusiveContext* cx,
+  static BigInt* parseLiteralDigits(JSContext* cx,
                                     const mozilla::Range<const CharT> chars,
                                     unsigned radix, bool isNegative,
                                     bool* haveParseError);
 
   static int8_t compare(BigInt* lhs, BigInt* rhs);
   static bool equal(BigInt* lhs, BigInt* rhs);
-  static JS::Result<bool> looselyEqual(js::ExclusiveContext* cx, Handle<BigInt*> lhs,
+  static JS::Result<bool> looselyEqual(JSContext* cx, Handle<BigInt*> lhs,
                                        HandleValue rhs);
 
   static bool lessThan(BigInt* x, BigInt* y);
@@ -190,11 +190,11 @@ class BigInt final : public js::gc::TenuredCell {
   // or a string that can't be interpreted as a BigInt.
   static mozilla::Maybe<bool> lessThan(BigInt* lhs, double rhs);
   static mozilla::Maybe<bool> lessThan(double lhs, BigInt* rhs);
-  static bool lessThan(js::ExclusiveContext* cx, Handle<BigInt*> lhs, HandleString rhs,
+  static bool lessThan(JSContext* cx, Handle<BigInt*> lhs, HandleString rhs,
                        mozilla::Maybe<bool>& res);
-  static bool lessThan(js::ExclusiveContext* cx, HandleString lhs, Handle<BigInt*> rhs,
+  static bool lessThan(JSContext* cx, HandleString lhs, Handle<BigInt*> rhs,
                        mozilla::Maybe<bool>& res);
-  static bool lessThan(js::ExclusiveContext* cx, HandleValue lhs, HandleValue rhs,
+  static bool lessThan(JSContext* cx, HandleValue lhs, HandleValue rhs,
                        mozilla::Maybe<bool>& res);
 
  private:
@@ -223,13 +223,13 @@ class BigInt final : public js::gc::TenuredCell {
 
   static size_t calculateMaximumCharactersRequired(HandleBigInt x,
                                                    unsigned radix);
-  [[nodiscard]] static bool calculateMaximumDigitsRequired(js::ExclusiveContext* cx,
+  [[nodiscard]] static bool calculateMaximumDigitsRequired(JSContext* cx,
                                                            uint8_t radix,
                                                            size_t charCount,
                                                            size_t* result);
 
   static bool absoluteDivWithDigitDivisor(
-      js::ExclusiveContext* cx, Handle<BigInt*> x, Digit divisor,
+      JSContext* cx, Handle<BigInt*> x, Digit divisor,
       const mozilla::Maybe<MutableHandle<BigInt*>>& quotient, Digit* remainder,
       bool quotientNegative);
   static void internalMultiplyAdd(BigInt* source, Digit factor, Digit summand,
@@ -238,21 +238,21 @@ class BigInt final : public js::gc::TenuredCell {
                                  BigInt* accumulator,
                                  unsigned accumulatorIndex);
   static bool absoluteDivWithBigIntDivisor(
-      js::ExclusiveContext* cx, Handle<BigInt*> dividend, Handle<BigInt*> divisor,
+      JSContext* cx, Handle<BigInt*> dividend, Handle<BigInt*> divisor,
       const mozilla::Maybe<MutableHandle<BigInt*>>& quotient,
       const mozilla::Maybe<MutableHandle<BigInt*>>& remainder,
       bool quotientNegative);
 
   enum class LeftShiftMode { SameSizeResult, AlwaysAddOneDigit };
 
-  static BigInt* absoluteLeftShiftAlwaysCopy(js::ExclusiveContext* cx, Handle<BigInt*> x,
+  static BigInt* absoluteLeftShiftAlwaysCopy(JSContext* cx, Handle<BigInt*> x,
                                              unsigned shift, LeftShiftMode);
   static bool productGreaterThan(Digit factor1, Digit factor2, Digit high,
                                  Digit low);
-  static BigInt* lshByAbsolute(js::ExclusiveContext* cx, HandleBigInt x, HandleBigInt y);
-  static BigInt* rshByAbsolute(js::ExclusiveContext* cx, HandleBigInt x, HandleBigInt y);
-  static BigInt* rshByMaximum(js::ExclusiveContext* cx, bool isNegative);
-  static BigInt* truncateAndSubFromPowerOfTwo(js::ExclusiveContext* cx, HandleBigInt x,
+  static BigInt* lshByAbsolute(JSContext* cx, HandleBigInt x, HandleBigInt y);
+  static BigInt* rshByAbsolute(JSContext* cx, HandleBigInt x, HandleBigInt y);
+  static BigInt* rshByMaximum(JSContext* cx, bool isNegative);
+  static BigInt* truncateAndSubFromPowerOfTwo(JSContext* cx, HandleBigInt x,
                                               uint64_t bits,
                                               bool resultNegative);
 
@@ -270,32 +270,32 @@ class BigInt final : public js::gc::TenuredCell {
   enum class BitwiseOpKind { SymmetricTrim, SymmetricFill, AsymmetricFill };
 
   template <BitwiseOpKind kind, typename BitwiseOp>
-  static BigInt* absoluteBitwiseOp(js::ExclusiveContext* cx, Handle<BigInt*> x,
+  static BigInt* absoluteBitwiseOp(JSContext* cx, Handle<BigInt*> x,
                                    Handle<BigInt*> y, BitwiseOp&& op);
 
   // Return `|x| & |y|`.
-  static BigInt* absoluteAnd(js::ExclusiveContext* cx, Handle<BigInt*> x,
+  static BigInt* absoluteAnd(JSContext* cx, Handle<BigInt*> x,
                              Handle<BigInt*> y);
 
   // Return `|x| | |y|`.
-  static BigInt* absoluteOr(js::ExclusiveContext* cx, Handle<BigInt*> x,
+  static BigInt* absoluteOr(JSContext* cx, Handle<BigInt*> x,
                             Handle<BigInt*> y);
 
   // Return `|x| & ~|y|`.
-  static BigInt* absoluteAndNot(js::ExclusiveContext* cx, Handle<BigInt*> x,
+  static BigInt* absoluteAndNot(JSContext* cx, Handle<BigInt*> x,
                                 Handle<BigInt*> y);
 
   // Return `|x| ^ |y|`.
-  static BigInt* absoluteXor(js::ExclusiveContext* cx, Handle<BigInt*> x,
+  static BigInt* absoluteXor(JSContext* cx, Handle<BigInt*> x,
                              Handle<BigInt*> y);
 
   // Return `(|x| + 1) * (resultNegative ? -1 : +1)`.
-  static BigInt* absoluteAddOne(js::ExclusiveContext* cx, Handle<BigInt*> x,
+  static BigInt* absoluteAddOne(JSContext* cx, Handle<BigInt*> x,
                                 bool resultNegative);
 
   // Return `(|x| - 1) * (resultNegative ? -1 : +1)`, with the precondition that
   // |x| != 0.
-  static BigInt* absoluteSubOne(js::ExclusiveContext* cx, Handle<BigInt*> x,
+  static BigInt* absoluteSubOne(JSContext* cx, Handle<BigInt*> x,
                                 bool resultNegative = false);
 
   // Return `a + b`, incrementing `*carry` if the addition overflows.
@@ -322,12 +322,12 @@ class BigInt final : public js::gc::TenuredCell {
   static Digit digitDiv(Digit high, Digit low, Digit divisor, Digit* remainder);
 
   // Return `(|x| + |y|) * (resultNegative ? -1 : +1)`.
-  static BigInt* absoluteAdd(js::ExclusiveContext* cx, Handle<BigInt*> x,
+  static BigInt* absoluteAdd(JSContext* cx, Handle<BigInt*> x,
                              Handle<BigInt*> y, bool resultNegative);
 
   // Return `(|x| - |y|) * (resultNegative ? -1 : +1)`, with the precondition
   // that |x| >= |y|.
-  static BigInt* absoluteSub(js::ExclusiveContext* cx, Handle<BigInt*> x,
+  static BigInt* absoluteSub(JSContext* cx, Handle<BigInt*> x,
                              Handle<BigInt*> y, bool resultNegative);
 
   // If `|x| < |y|` return -1; if `|x| == |y|` return 0; otherwise return 1.
@@ -337,13 +337,13 @@ class BigInt final : public js::gc::TenuredCell {
 
   static bool equal(BigInt* lhs, double rhs);
 
-  static JSLinearString* toStringBasePowerOfTwo(js::ExclusiveContext* cx, Handle<BigInt*>,
+  static JSLinearString* toStringBasePowerOfTwo(JSContext* cx, Handle<BigInt*>,
                                                 unsigned radix);
-  static JSLinearString* toStringGeneric(js::ExclusiveContext* cx, Handle<BigInt*>,
+  static JSLinearString* toStringGeneric(JSContext* cx, Handle<BigInt*>,
                                          unsigned radix);
 
-  static BigInt* trimHighZeroDigits(js::ExclusiveContext* cx, Handle<BigInt*> x);
-  static BigInt* destructivelyTrimHighZeroDigits(js::ExclusiveContext* cx,
+  static BigInt* trimHighZeroDigits(JSContext* cx, Handle<BigInt*> x);
+  static BigInt* destructivelyTrimHighZeroDigits(JSContext* cx,
                                                  Handle<BigInt*> x);
 
   friend struct JSStructuredCloneReader;
@@ -368,23 +368,23 @@ static_assert(
 
 namespace js {
 
-extern JSAtom* BigIntToAtom(js::ExclusiveContext* cx, JS::HandleBigInt bi);
+extern JSAtom* BigIntToAtom(JSContext* cx, JS::HandleBigInt bi);
 
-extern JS::BigInt* NumberToBigInt(js::ExclusiveContext* cx, double d);
+extern JS::BigInt* NumberToBigInt(JSContext* cx, double d);
 extern JS::Result<int64_t> ToBigInt64(JSContext* cx, JS::Handle<JS::Value> v);
 extern JS::Result<uint64_t> ToBigUint64(JSContext* cx, JS::Handle<JS::Value> v);
 
 // Parse a BigInt from a string, using the method specified for StringToBigInt.
 // Used by the BigInt constructor among other places.
 extern JS::Result<JS::BigInt*, JS::OOM&> StringToBigInt(
-    js::ExclusiveContext* cx, JS::Handle<JSString*> str);
+    JSContext* cx, JS::Handle<JSString*> str);
 
 // Parse a BigInt from an already-validated numeric literal.  Used by the
 // parser.  Can only fail in out-of-memory situations.
 extern JS::BigInt* ParseBigIntLiteral(
-    js::ExclusiveContext* cx, const mozilla::Range<const char16_t>& chars);
+    JSContext* cx, const mozilla::Range<const char16_t>& chars);
 
-extern JS::BigInt* ToBigInt(js::ExclusiveContext* cx, JS::Handle<JS::Value> v);
+extern JS::BigInt* ToBigInt(JSContext* cx, JS::Handle<JS::Value> v);
 
 }  // namespace js
 

@@ -1005,7 +1005,7 @@ class TypedArrayObjectTemplate : public TypedArrayObject
         jit::AtomicOperations::storeSafeWhenRacy(tarray.viewDataEither().cast<NativeType*>() + index, val);
     }
 
-    static bool getElement(ExclusiveContext* cx, TypedArrayObject* tarray, uint32_t index, MutableHandleValue val);
+    static bool getElement(JSContext* cx, TypedArrayObject* tarray, uint32_t index, MutableHandleValue val);
     static bool getElementPure(TypedArrayObject* tarray, uint32_t index, Value* vp);
 
     static bool setElement(JSContext* cx, Handle<TypedArrayObject*> obj, uint64_t index, HandleValue v, 
@@ -1804,7 +1804,7 @@ TypedArrayObjectTemplate<uint64_t>::getElementPure(TypedArrayObject* tarray, uin
 namespace {
 
 template <typename NativeType>
-bool TypedArrayObjectTemplate<NativeType>::getElement(ExclusiveContext* cx, TypedArrayObject* tarray, uint32_t index,
+bool TypedArrayObjectTemplate<NativeType>::getElement(JSContext* cx, TypedArrayObject* tarray, uint32_t index,
                                                       MutableHandleValue val)
 {
     MOZ_ALWAYS_TRUE(getElementPure(tarray, index, val.address()));
@@ -1812,7 +1812,7 @@ bool TypedArrayObjectTemplate<NativeType>::getElement(ExclusiveContext* cx, Type
 }
  
 template <>
-bool TypedArrayObjectTemplate<int64_t>::getElement(ExclusiveContext* cx, TypedArrayObject* tarray, uint32_t index,
+bool TypedArrayObjectTemplate<int64_t>::getElement(JSContext* cx, TypedArrayObject* tarray, uint32_t index,
                                                    MutableHandleValue val)
 {
     int64_t n = getIndex(tarray, index);
@@ -1825,7 +1825,7 @@ bool TypedArrayObjectTemplate<int64_t>::getElement(ExclusiveContext* cx, TypedAr
 }
 
 template <>
-bool TypedArrayObjectTemplate<uint64_t>::getElement(ExclusiveContext* cx, TypedArrayObject* tarray, uint32_t index,
+bool TypedArrayObjectTemplate<uint64_t>::getElement(JSContext* cx, TypedArrayObject* tarray, uint32_t index,
                                                     MutableHandleValue val)
 {
     uint64_t n = getIndex(tarray, index);
@@ -2732,7 +2732,7 @@ DataViewObject::fun_setFloat64(JSContext* cx, unsigned argc, Value* vp)
 namespace js {
 
 template <>
-bool TypedArrayObject::getElement<CanGC>(ExclusiveContext* cx, uint32_t index, MutableHandleValue val)
+bool TypedArrayObject::getElement<CanGC>(JSContext* cx, uint32_t index, MutableHandleValue val)
 {
     switch (type()) {
 #define GET_ELEMENT(T, N) \
@@ -2750,7 +2750,7 @@ bool TypedArrayObject::getElement<CanGC>(ExclusiveContext* cx, uint32_t index, M
 
 template <>
 bool TypedArrayObject::getElement<NoGC>(
-    ExclusiveContext* cx, uint32_t index,
+    JSContext* cx, uint32_t index,
     typename MaybeRooted<Value, NoGC>::MutableHandleType vp) {
   return getElementPure(index, vp.address());
 }

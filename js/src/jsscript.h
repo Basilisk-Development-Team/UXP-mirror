@@ -588,7 +588,7 @@ class ScriptSource
     // of the encoding would be available in the |buffer| provided as argument,
     // as soon as |xdrFinalize| is called and all xdr function calls returned
     // successfully.
-    bool xdrEncodeTopLevel(ExclusiveContext* cx, HandleScript script);
+    bool xdrEncodeTopLevel(JSContext* cx, HandleScript script);
 
     // Encode a delazified JSFunction.  In case of errors, the XDR encoder is
     // freed and the |buffer| provided as argument to |xdrEncodeTopLevel| is
@@ -596,7 +596,7 @@ class ScriptSource
     //
     // The |sourceObject| argument is the object holding the current
     // ScriptSource.
-    bool xdrEncodeFunction(ExclusiveContext* cx, HandleFunction fun,
+    bool xdrEncodeFunction(JSContext* cx, HandleFunction fun,
                            HandleScriptSource sourceObject);
 
     // Linearize the encoded content in the |buffer| provided as argument to
@@ -637,7 +637,7 @@ class ScriptSourceObject : public NativeObject
 {
     static const ClassOps classOps_;
 
-    static ScriptSourceObject* createInternal(ExclusiveContext* cx, ScriptSource* source,
+    static ScriptSourceObject* createInternal(JSContext* cx, ScriptSource* source,
                                               HandleObject canonical);
 
     bool isCanonical() const {

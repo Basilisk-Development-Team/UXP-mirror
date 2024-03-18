@@ -1135,7 +1135,7 @@ js::CloneObject(JSContext* cx, HandleObject obj, Handle<js::TaggedProto> proto)
 }
 
 static bool
-GetScriptArrayObjectElements(ExclusiveContext* cx, HandleObject obj, MutableHandle<GCVector<Value>> values)
+GetScriptArrayObjectElements(JSContext* cx, HandleObject obj, MutableHandle<GCVector<Value>> values)
 {
     MOZ_ASSERT(!obj->isSingleton());
     MOZ_ASSERT(obj->is<ArrayObject>() || obj->is<UnboxedArrayObject>());
@@ -1153,7 +1153,7 @@ GetScriptArrayObjectElements(ExclusiveContext* cx, HandleObject obj, MutableHand
 }
 
 static bool
-GetScriptPlainObjectProperties(ExclusiveContext* cx, HandleObject obj,
+GetScriptPlainObjectProperties(JSContext* cx, HandleObject obj,
                                MutableHandle<IdValueVector> properties)
 {
     if (obj->is<PlainObject>()) {
@@ -1331,7 +1331,7 @@ js::XDRObjectLiteral(XDRState<mode>* xdr, MutableHandleObject obj)
 {
     /* NB: Keep this in sync with DeepCloneObjectLiteral. */
 
-    ExclusiveContext* cx = xdr->cx();
+    JSContext* cx = xdr->cx();
     assertSameCompartment(cx, obj);
 
     // Distinguish between objects and array classes.
@@ -2345,7 +2345,7 @@ js::LookupOwnPropertyPure(JSContext* cx, JSObject* obj, jsid id, PropertyResult*
 
 static inline bool
 NativeGetPureInline(NativeObject* pobj, jsid id, PropertyResult prop, Value* vp,
-                    ExclusiveContext* cx)
+                    JSContext* cx)
 {
     if (prop.isDenseOrTypedArrayElement()) {
         // For simplicity we ignore the TypedArray with string index case.

@@ -341,7 +341,7 @@ NativeObject::ensureDenseElements(JSContext* cx, uint32_t index, uint32_t extra)
 
 template <AllowGC allowGC>
 inline bool
-NativeObject::getDenseOrTypedArrayElement(ExclusiveContext* cx, uint32_t idx,
+NativeObject::getDenseOrTypedArrayElement(JSContext* cx, uint32_t idx,
                                           typename MaybeRooted<Value, allowGC>::MutableHandleType val)
 {
     if (is<TypedArrayObject>())

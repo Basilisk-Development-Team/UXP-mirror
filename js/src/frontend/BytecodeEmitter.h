@@ -62,7 +62,7 @@ struct CGObjectList {
 struct MOZ_STACK_CLASS CGScopeList {
     Rooted<GCVector<Scope*>> vector;
 
-    explicit CGScopeList(ExclusiveContext* cx)
+    explicit CGScopeList(JSContext* cx)
       : vector(cx, GCVector<Scope*>(cx))
     { }
 

@@ -6866,7 +6866,7 @@ JSErrorNotes::~JSErrorNotes()
 }
 
 static UniquePtr<JSErrorNotes::Note>
-CreateErrorNoteVA(ExclusiveContext* cx,
+CreateErrorNoteVA(JSContext* cx,
                   const char* filename, unsigned lineno, unsigned column,
                   JSErrorCallback errorCallback, void* userRef,
                   const unsigned errorNumber,
@@ -6890,7 +6890,7 @@ CreateErrorNoteVA(ExclusiveContext* cx,
 }
 
 bool
-JSErrorNotes::addNoteASCII(ExclusiveContext* cx,
+JSErrorNotes::addNoteASCII(JSContext* cx
                            const char* filename, unsigned lineno, unsigned column,
                            JSErrorCallback errorCallback, void* userRef,
                            const unsigned errorNumber, ...)
@@ -6909,7 +6909,7 @@ JSErrorNotes::addNoteASCII(ExclusiveContext* cx,
 }
 
 bool
-JSErrorNotes::addNoteLatin1(ExclusiveContext* cx,
+JSErrorNotes::addNoteLatin1(JSContext* cx
                             const char* filename, unsigned lineno, unsigned column,
                             JSErrorCallback errorCallback, void* userRef,
                             const unsigned errorNumber, ...)
@@ -6928,7 +6928,7 @@ JSErrorNotes::addNoteLatin1(ExclusiveContext* cx,
 }
 
 bool
-JSErrorNotes::addNoteUTF8(ExclusiveContext* cx,
+JSErrorNotes::addNoteUTF8(JSContext* cx
                           const char* filename, unsigned lineno, unsigned column,
                           JSErrorCallback errorCallback, void* userRef,
                           const unsigned errorNumber, ...)

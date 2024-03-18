@@ -1524,7 +1524,7 @@ js::ToInt8Slow(JSContext *cx, const HandleValue v, int8_t *out)
 
 // BigInt proposal section 3.1.6
 bool
-js::ToNumericSlow(ExclusiveContext* cx, MutableHandleValue vp)
+js::ToNumericSlow(JSContext* cx, MutableHandleValue vp)
 {
     MOZ_ASSERT(!vp.isNumeric());
 
