@@ -255,7 +255,7 @@ struct JSContext : public JS::RootingContext,
     void markId(jsid id) {
         atomMarking().markId(this, id);
     }
-    void markAtomValue(const Value& value) {
+    void markAtomValue(const js::Value& value) {
         atomMarking().markAtomValue(this, value);
     }
 
@@ -739,7 +739,7 @@ struct JSContext : public JS::RootingContext,
         throwing = false;
         overRecursed_ = false;
         unwrappedException().setUndefined();
-        unwrappedExceptionStack() = nullptr;
+        unwrappedExceptionStack_ = nullptr;
     }
 
     bool isThrowingOverRecursed() const { return throwing && overRecursed_; }

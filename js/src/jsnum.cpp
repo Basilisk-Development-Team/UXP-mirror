@@ -1494,11 +1494,11 @@ js::ToNumberSlow(JSContext* cx, HandleValue v_, double* out)
     }
 
     MOZ_ASSERT(v.isSymbol() || v.isBigInt());
-    if (cx->isJSContext()) {
+    if (cx->helperThread()) {
         unsigned errnum = JSMSG_SYMBOL_TO_NUMBER;
         if (v.isBigInt())
             errnum = JSMSG_BIGINT_TO_NUMBER;
-        JS_ReportErrorNumberASCII(cx->asJSContext(), GetErrorMessage, nullptr, errnum);
+        JS_ReportErrorNumberASCII(cx, GetErrorMessage, nullptr, errnum);
     }
     return false;
 }
@@ -1530,9 +1530,9 @@ js::ToNumericSlow(JSContext* cx, MutableHandleValue vp)
 
     // Step 1.
     if (!vp.isPrimitive()) {
-        if (!cx->isJSContext())
+        if (!cx->helperThread())
             return false;
-        if (!ToPrimitive(cx->asJSContext(), JSTYPE_NUMBER, vp))
+        if (!ToPrimitive(cx, JSTYPE_NUMBER, vp))
             return false;
     }
 
@@ -1542,7 +1542,7 @@ js::ToNumericSlow(JSContext* cx, MutableHandleValue vp)
     }
 
     // Step 3.
-    return ToNumber(cx->asJSContext(), vp);
+    return ToNumber(cx, vp);
 }
 
 /*

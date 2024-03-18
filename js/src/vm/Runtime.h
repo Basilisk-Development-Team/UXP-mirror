@@ -394,9 +394,6 @@ struct JSRuntime : public js::MallocProvider<JSRuntime>
     /* Call this to get the name of a compartment. */
     js::UnprotectedData<JSCompartmentNameCallback> compartmentNameCallback;
 
-    /* Callback for doing memory reporting on external strings. */
-    js::UnprotectedData<JSExternalStringSizeofCallback> externalStringSizeofCallback;
-
     js::UnprotectedData<mozilla::UniquePtr<js::SourceHook>> sourceHook;
 
      js::UnprotectedData<const JSSecurityCallbacks*> securityCallbacks;
@@ -407,11 +404,11 @@ struct JSRuntime : public js::MallocProvider<JSRuntime>
     /* Optional warning reporter. */
     js::UnprotectedData<JS::WarningReporter> warningReporter;
 
-  private:
-    /* Gecko profiling metadata */
-    js::UnprotectedData<js::GeckoProfiler> geckoProfiler_;
-  public:
-    js::GeckoProfiler& geckoProfiler() { return geckoProfiler_.ref(); }
+   private:
+    /* SPS profiling metadata */
+	js::UnprotectedData<js::SPSProfiler> spsProfiler_;
+   public:
+    js::SPSProfiler& spsProfiler() { return spsProfiler.ref(); }
 
     // Heap GC roots for PersistentRooted pointers.
     js::UnprotectedData<mozilla::EnumeratedArray<JS::RootKind, JS::RootKind::Limit,

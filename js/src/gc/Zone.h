@@ -417,7 +417,7 @@ struct Zone : public JS::shadow::Zone,
     // Bitmap of atoms marked by this zone.
     js::ZoneGroupOrGCTaskData<js::SparseBitmap> markedAtoms_;
   public:
-    js::SparseBitmap markedAtoms& markedAtoms() { return markedAtoms_.ref(); }
+    js::SparseBitmap& markedAtoms() { return markedAtoms_.ref(); }
 
     // Set of atoms recently used by this Zone. Purged on GC.
     js::AtomSet atomCache;

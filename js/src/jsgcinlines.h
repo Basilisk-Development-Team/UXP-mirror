@@ -152,7 +152,7 @@ class ArenaCellIterImpl
         firstThingOffset = Arena::firstThingOffset(kind);
         thingSize = Arena::thingSize(kind);
         traceKind = MapAllocToTraceKind(kind);
-        needsBarrier = mayNeedBarrier && !arena->zone->runtimeFromMainThread()->isHeapCollecting();
+        needsBarrier = mayNeedBarrier && !JS::CurrentThreadIsHeapCollecting();
         reset(arena);
     }
 
