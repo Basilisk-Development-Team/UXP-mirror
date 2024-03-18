@@ -360,21 +360,6 @@ SafeMul(int32_t one, int32_t two, int32_t* res)
 #endif
 }
 
-[[nodiscard]] extern bool
-ToNumberSlow(JSContext* cx, HandleValue v, double* dp);
-
-// Variant of ToNumber which takes an ExclusiveContext instead of a JSContext.
-// ToNumber is part of the API and can't use ExclusiveContext directly.
-[[nodiscard]] MOZ_ALWAYS_INLINE bool
-ToNumber(JSContext* cx, HandleValue v, double* out)
-{
-    if (v.isNumber()) {
-        *out = v.toNumber();
-        return true;
-    }
-    return ToNumberSlow(cx, v, out);
-}
-
 bool
 ToNumericSlow(JSContext* cx, JS::MutableHandleValue vp);
 
