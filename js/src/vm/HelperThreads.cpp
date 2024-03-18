@@ -1196,10 +1196,10 @@ void
 js::GCParallelTask::runFromHelperThread(AutoLockHelperThreadState& locked)
 {
     AutoSetContextRuntime ascr(runtime());
+    gc::AutoSetThreadIsPerformingGC performingGC;
 
     {
         AutoUnlockHelperThreadState parallelSection(locked);
-        gc::AutoSetThreadIsPerformingGC performingGC;
         uint64_t timeStart = PRMJ_Now();
         TlsContext.get()->heapState = JS::HeapState::MajorCollecting;
         run();

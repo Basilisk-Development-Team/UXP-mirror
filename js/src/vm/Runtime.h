@@ -295,6 +295,11 @@ struct JSRuntime : public js::MallocProvider<JSRuntime>
     AutoUpdateChildRuntimeCount updateChildRuntimeCount;
 #endif
 
+    // The context for the thread which currently has exclusive access to most
+    // contents of the runtime. When execution on the runtime is cooperatively
+    // scheduled, this is the thread which is currently running.
+    mozilla::Atomic<JSContext*, mozilla::ReleaseAcquire> activeContext;
+
     /*
      * The profiler sampler generation after the latest sample.
      *
@@ -352,14 +357,14 @@ struct JSRuntime : public js::MallocProvider<JSRuntime>
     }
 
   public:
-    js::UnprotectedData<JSGetIncumbentGlobalCallback> getIncumbentGlobalCallback;
-    js::UnprotectedData<JSEnqueuePromiseJobCallback> enqueuePromiseJobCallback;
-    js::UnprotectedData<void*> enqueuePromiseJobCallbackData;
+    js::ActiveThreadData<JSGetIncumbentGlobalCallback> getIncumbentGlobalCallback;
+    js::ActiveThreadData<JSEnqueuePromiseJobCallback> enqueuePromiseJobCallback;
+    js::ActiveThreadData<void*> enqueuePromiseJobCallbackData;
 
-    js::UnprotectedData<JSPromiseRejectionTrackerCallback> promiseRejectionTrackerCallback;
-    js::UnprotectedData<void*> promiseRejectionTrackerCallbackData;
+    js::ActiveThreadData<JSPromiseRejectionTrackerCallback> promiseRejectionTrackerCallback;
+    js::ActiveThreadData<void*> promiseRejectionTrackerCallbackData;
 
-    js::UnprotectedData<JS::StartAsyncTaskCallback> startAsyncTaskCallback;
+    js::ActiveThreadData<JS::StartAsyncTaskCallback> startAsyncTaskCallback;
     js::UnprotectedData<JS::FinishAsyncTaskCallback> finishAsyncTaskCallback;
     js::ExclusiveData<js::PromiseTaskPtrVector> promiseTasksToDestroy;
 
@@ -376,32 +381,32 @@ struct JSRuntime : public js::MallocProvider<JSRuntime>
      * Allow relazifying functions in compartments that are active. This is
      * only used by the relazifyFunctions() testing function.
      */
-    js::UnprotectedData<bool> allowRelazificationForTesting;
+    js::ActiveThreadData<bool> allowRelazificationForTesting;
 
     /* Compartment destroy callback. */
-    js::UnprotectedData<JSDestroyCompartmentCallback> destroyCompartmentCallback;
+    js::ActiveThreadData<JSDestroyCompartmentCallback> destroyCompartmentCallback;
 
     /* Compartment memory reporting callback. */
-    js::UnprotectedData<JSSizeOfIncludingThisCompartmentCallback> sizeOfIncludingThisCompartmentCallback;
+    js::ActiveThreadData<JSSizeOfIncludingThisCompartmentCallback> sizeOfIncludingThisCompartmentCallback;
 
     /* Zone destroy callback. */
-    js::UnprotectedData<JSZoneCallback> destroyZoneCallback;
+    js::ActiveThreadData<JSZoneCallback> destroyZoneCallback;
 
     /* Zone sweep callback. */
-    js::UnprotectedData<JSZoneCallback> sweepZoneCallback;
+    js::ActiveThreadData<JSZoneCallback> sweepZoneCallback;
 
     /* Call this to get the name of a compartment. */
-    js::UnprotectedData<JSCompartmentNameCallback> compartmentNameCallback;
+    js::ActiveThreadData<JSCompartmentNameCallback> compartmentNameCallback;
 
-    js::UnprotectedData<mozilla::UniquePtr<js::SourceHook>> sourceHook;
+    js::ActiveThreadData<mozilla::UniquePtr<js::SourceHook>> sourceHook;
 
-     js::UnprotectedData<const JSSecurityCallbacks*> securityCallbacks;
-    js::UnprotectedData<const js::DOMCallbacks*> DOMcallbacks;
-    js::UnprotectedData<JSDestroyPrincipalsOp> destroyPrincipals;
-    js::UnprotectedData<JSReadPrincipalsOp> readPrincipals;
+    js::ActiveThreadData<const JSSecurityCallbacks*> securityCallbacks;
+    js::ActiveThreadData<const js::DOMCallbacks*> DOMcallbacks;
+    js::ActiveThreadData<JSDestroyPrincipalsOp> destroyPrincipals;
+    js::ActiveThreadData<JSReadPrincipalsOp> readPrincipals;
 
     /* Optional warning reporter. */
-    js::UnprotectedData<JS::WarningReporter> warningReporter;
+    js::ActiveThreadData<JS::WarningReporter> warningReporter;
 
    private:
     /* SPS profiling metadata */
@@ -410,7 +415,7 @@ struct JSRuntime : public js::MallocProvider<JSRuntime>
     js::SPSProfiler& spsProfiler() { return spsProfiler_.ref(); }
 
     // Heap GC roots for PersistentRooted pointers.
-    js::UnprotectedData<mozilla::EnumeratedArray<JS::RootKind, JS::RootKind::Limit,
+    js::ActiveThreadData<mozilla::EnumeratedArray<JS::RootKind, JS::RootKind::Limit,
                                                  mozilla::LinkedList<JS::PersistentRooted<void*>>>> heapRoots;
 
     void tracePersistentRoots(JSTracer* trc);
@@ -430,15 +435,15 @@ struct JSRuntime : public js::MallocProvider<JSRuntime>
     void setTrustedPrincipals(const JSPrincipals* p) { trustedPrincipals_ = p; }
     const JSPrincipals* trustedPrincipals() const { return trustedPrincipals_; }
 
-    js::UnprotectedData<const JSWrapObjectCallbacks*> wrapObjectCallbacks;
-    js::UnprotectedData<js::PreserveWrapperCallback> preserveWrapperCallback;
+    js::ActiveThreadData<const JSWrapObjectCallbacks*> wrapObjectCallbacks;
+    js::ActiveThreadData<js::PreserveWrapperCallback> preserveWrapperCallback;
 
-    js::UnprotectedData<js::ScriptEnvironmentPreparer*> scriptEnvironmentPreparer;
+    js::ActiveThreadData<js::ScriptEnvironmentPreparer*> scriptEnvironmentPreparer;
 
-    js::UnprotectedData<js::CTypesActivityCallback> ctypesActivityCallback;
+    js::ActiveThreadData<js::CTypesActivityCallback> ctypesActivityCallback;
 
   private:
-    js::UnprotectedData<const js::Class*> windowProxyClass_;
+    js::ActiveThreadData<const js::Class*> windowProxyClass_;
 
   public:
     const js::Class* maybeWindowProxyClass() const {
@@ -453,7 +458,7 @@ struct JSRuntime : public js::MallocProvider<JSRuntime>
      * Head of circular list of all enabled Debuggers that have
      * onNewGlobalObject handler methods established.
      */
-    js::UnprotectedData<JSCList> onNewGlobalObjectWatchers_;
+    js::ActiveThreadData<JSCList> onNewGlobalObjectWatchers_;
 
   public:
     JSCList& onNewGlobalObjectWatchers() { return onNewGlobalObjectWatchers_.ref(); }
@@ -501,16 +506,16 @@ struct JSRuntime : public js::MallocProvider<JSRuntime>
     // How many compartments there are across all zones. This number includes
     // off main thread context compartments, so it isn't necessarily equal to the
     // number of compartments visited by CompartmentsIter.
-    js::UnprotectedData<size_t> numCompartments;
+    js::ActiveThreadData<size_t> numCompartments;
 
     /* Locale-specific callbacks for string conversion. */
-    js::UnprotectedData<const JSLocaleCallbacks*> localeCallbacks;
+    js::ActiveThreadData<const JSLocaleCallbacks*> localeCallbacks;
 
     /* Default locale for Internationalization API */
-    js::UnprotectedData<char*> defaultLocale;
+    js::ActiveThreadData<char*> defaultLocale;
 
     /* Default JSVersion. */
-    js::UnprotectedData<JSVersion> defaultVersion_;
+    js::ActiveThreadData<JSVersion> defaultVersion_;
 
   private:
     /* Code coverage output. */
@@ -757,7 +762,7 @@ struct JSRuntime : public js::MallocProvider<JSRuntime>
     js::WriteOnceData<js::WellKnownSymbols*> wellKnownSymbols;
 
     /* Shared Intl data for this runtime. */
-    js::UnprotectedData<js::intl::SharedIntlData> sharedIntlData;
+    js::ActiveThreadData<js::intl::SharedIntlData> sharedIntlData;
 
     void traceSharedIntlData(JSTracer* trc);
 
@@ -828,7 +833,7 @@ struct JSRuntime : public js::MallocProvider<JSRuntime>
     mozilla::Atomic<bool> offthreadIonCompilationEnabled_;
     mozilla::Atomic<bool> parallelParsingEnabled_;
 
-    js::UnprotectedData<bool> autoWritableJitCodeActive_;
+    js::ActiveThreadData<bool> autoWritableJitCodeActive_;
 
   public:
 
@@ -853,12 +858,12 @@ struct JSRuntime : public js::MallocProvider<JSRuntime>
     }
 
     /* See comment for JS::SetLargeAllocationFailureCallback in jsapi.h. */
-    js::UnprotectedData<JS::LargeAllocationFailureCallback> largeAllocationFailureCallback;
-    js::UnprotectedData<void*> largeAllocationFailureCallbackData;
+    js::ActiveThreadData<JS::LargeAllocationFailureCallback> largeAllocationFailureCallback;
+    js::ActiveThreadData<void*> largeAllocationFailureCallbackData;
 
     /* See comment for JS::SetOutOfMemoryCallback in jsapi.h. */
-    js::UnprotectedData<JS::OutOfMemoryCallback> oomCallback;
-    js::UnprotectedData<void*> oomCallbackData;
+    js::ActiveThreadData<JS::OutOfMemoryCallback> oomCallback;
+    js::ActiveThreadData<void*> oomCallbackData;
 
     /*
      * These variations of malloc/calloc/realloc will call the
@@ -897,13 +902,13 @@ struct JSRuntime : public js::MallocProvider<JSRuntime>
      * Debugger.Memory functions like takeCensus use this embedding-provided
      * function to assess the size of malloc'd blocks of memory.
      */
-    js::UnprotectedData<mozilla::MallocSizeOf> debuggerMallocSizeOf;
+    js::ActiveThreadData<mozilla::MallocSizeOf> debuggerMallocSizeOf;
 
     /* Last time at which an animation was played for this runtime. */
     mozilla::Atomic<int64_t> lastAnimationTime;
  
   private:
-    js::UnprotectedData<js::PerformanceMonitoring> performanceMonitoring_;
+    js::ActiveThreadData<js::PerformanceMonitoring> performanceMonitoring_;
 
   public:
     js::PerformanceMonitoring& performanceMonitoring() { return performanceMonitoring_.ref(); }
