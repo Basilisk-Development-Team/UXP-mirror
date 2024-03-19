@@ -373,10 +373,15 @@ JSRuntime::addSizeOfIncludingThis(mozilla::MallocSizeOf mallocSizeOf, JS::Runtim
         rtSizes->interpreterStack += cx->interpreterStack().sizeOfExcludingThis(mallocSizeOf);
     }
 
-    ZoneGroupCaches& caches = zoneGroupFromAnyThread()->caches();
+    for (ZoneGroupsIter group(this); !group.done(); group.next()) {
+        ZoneGroupCaches& caches = group->caches();
 
-    if (MathCache* cache = caches.maybeGetMathCache())
-        rtSizes->mathCache += cache->sizeOfIncludingThis(mallocSizeOf);
+        if (MathCache* cache = caches.maybeGetMathCache())
+           rtSizes->mathCache += cache->sizeOfIncludingThis(mallocSizeOf);
+
+        rtSizes->gc.nurseryCommitted += group->nursery().sizeOfHeapCommitted();
+        rtSizes->gc.nurseryMallocedBuffers += group->nursery().sizeOfMallocedBuffers(mallocSizeOf);
+        group->storeBuffer().addSizeOfExcludingThis(mallocSizeOf, &rtSizes->gc);
 
     if (sharedImmutableStrings_) {
         rtSizes->sharedImmutableStringsCache +=
@@ -384,9 +389,6 @@ JSRuntime::addSizeOfIncludingThis(mozilla::MallocSizeOf mallocSizeOf, JS::Runtim
     }
 
     rtSizes->sharedIntlData += sharedIntlData.ref().sizeOfExcludingThis(mallocSizeOf);
-
-    rtSizes->uncompressedSourceCache +=
-        caches.uncompressedSourceCache.sizeOfExcludingThis(mallocSizeOf);
 
 
     rtSizes->scriptData += scriptDataTable(lock).sizeOfExcludingThis(mallocSizeOf);
@@ -399,9 +401,6 @@ JSRuntime::addSizeOfIncludingThis(mozilla::MallocSizeOf mallocSizeOf, JS::Runtim
     }
 
     rtSizes->gc.marker += gc.marker.sizeOfExcludingThis(mallocSizeOf);
-    rtSizes->gc.nurseryCommitted += zoneGroupFromAnyThread()->nursery().sizeOfHeapCommitted();
-    rtSizes->gc.nurseryMallocedBuffers += zoneGroupFromAnyThread()->nursery().sizeOfMallocedBuffers(mallocSizeOf);
-    zoneGroupFromAnyThread()->storeBuffer().addSizeOfExcludingThis(mallocSizeOf, &rtSizes->gc);
 }
 
 static bool

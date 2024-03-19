@@ -609,6 +609,12 @@ FunctionScopeEnvShapeFlags(bool hasParameterExprs)
     return BaseShape::QUALIFIED_VAROBJ | BaseShape::DELEGATE;
 }
 
+Zone*
+FunctionScope::Data::zone() const
+{
+    return canonicalFunction ? canonicalFunction->zone() : nullptr;
+}
+
 /* static */ FunctionScope*
 FunctionScope::create(JSContext* cx, Handle<Data*> dataArg,
                       bool hasParameterExprs, bool needsEnvironment,
@@ -1131,6 +1137,12 @@ EvalScope::XDR(XDRState<XDR_DECODE>* xdr, ScopeKind kind, HandleScope enclosing,
 
 static const uint32_t ModuleScopeEnvShapeFlags =
     BaseShape::NOT_EXTENSIBLE | BaseShape::QUALIFIED_VAROBJ | BaseShape::DELEGATE;
+
+Zone*
+ModuleScope::Data::zone() const
+{
+    return module ? module->zone() : nullptr;
+}
 
 /* static */ ModuleScope*
 ModuleScope::create(JSContext *cx, Handle<Data*> dataArg,
