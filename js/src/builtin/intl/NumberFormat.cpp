@@ -146,7 +146,7 @@ js::intl_NumberFormat(JSContext* cx, unsigned argc, Value* vp)
 void
 js::NumberFormatObject::finalize(FreeOp* fop, JSObject* obj)
 {
-    MOZ_ASSERT(fop->onMainThread());
+    MOZ_ASSERT(fop->onActiveCooperatingThread());
 
     const Value& slot = obj->as<NumberFormatObject>().getReservedSlot(NumberFormatObject::UNUMBER_FORMAT_SLOT);
     if (UNumberFormat* nf = static_cast<UNumberFormat*>(slot.toPrivate()))

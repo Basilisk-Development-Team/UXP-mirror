@@ -160,7 +160,7 @@ js::intl_DateTimeFormat(JSContext* cx, unsigned argc, Value* vp)
 void
 js::DateTimeFormatObject::finalize(FreeOp* fop, JSObject* obj)
 {
-    MOZ_ASSERT(fop->onMainThread());
+    MOZ_ASSERT(fop->onActiveCooperatingThread());
 
     const Value& slot = obj->as<DateTimeFormatObject>().getReservedSlot(DateTimeFormatObject::UDATE_FORMAT_SLOT);
     if (UDateFormat* df = static_cast<UDateFormat*>(slot.toPrivate()))

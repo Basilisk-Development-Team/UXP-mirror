@@ -4,7 +4,7 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 /*
- * Definitions for managing off-main-thread work using a process wide list
+ * Definitions for managing off-thread work using a process wide list
  * of worklist items and pool of threads. Worklist items are engine internal,
  * and are distinct from e.g. web workers.
  */
@@ -223,7 +223,7 @@ class GlobalHelperThreadState
         return n;
     }
     void noteWasmFailure(const AutoLockHelperThreadState&) {
-        // Be mindful to signal the main thread after calling this function.
+        // Be mindful to signal the active thread after calling this function.
         numWasmFailedJobs++;
     }
     bool wasmFailed(const AutoLockHelperThreadState&) {
@@ -242,7 +242,7 @@ class GlobalHelperThreadState
   private:
     /*
      * Number of wasm jobs that encountered failure for the active module.
-     * Their parent is logically the main thread, and this number serves for harvesting.
+     * Their parent is logically the active thread, and this number serves for harvesting.
      */
     uint32_t numWasmFailedJobs;
 
@@ -567,7 +567,7 @@ struct ParseTask
     // Rooted pointer to the global object used by 'cx'.
     JSObject* exclusiveContextGlobal;
 
-    // Callback invoked off the main thread when the parse finishes.
+    // Callback invoked off thread when the parse finishes.
     JS::OffThreadCompileCallback callback;
     void* callbackData;
 

@@ -3185,7 +3185,7 @@ Debugger::findZoneEdges(Zone* zone, js::gc::ZoneComponentFinder& finder)
 /* static */ void
 Debugger::finalize(FreeOp* fop, JSObject* obj)
 {
-    MOZ_ASSERT(fop->onMainThread());
+    MOZ_ASSERT(fop->onActiveCooperatingThread());
 
     Debugger* dbg = fromJSObject(obj);
     if (!dbg)
@@ -7724,7 +7724,7 @@ DebuggerFrame_maybeDecrementFrameScriptStepModeCount(FreeOp* fop, AbstractFrameP
 static void
 DebuggerFrame_finalize(FreeOp* fop, JSObject* obj)
 {
-    MOZ_ASSERT(fop->maybeOffMainThread());
+    MOZ_ASSERT(fop->maybeOnHelperThread());
     DebuggerFrame_freeScriptFrameIterData(fop, obj);
 }
 

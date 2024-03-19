@@ -232,7 +232,7 @@ WeakMap_mark(JSTracer* trc, JSObject* obj)
 static void
 WeakMap_finalize(FreeOp* fop, JSObject* obj)
 {
-    MOZ_ASSERT(fop->maybeOffMainThread());
+    MOZ_ASSERT(fop->maybeOnHelperThread());
     if (ObjectValueMap* map = obj->as<WeakMapObject>().getMap()) {
 #ifdef DEBUG
         map->~ObjectValueMap();
