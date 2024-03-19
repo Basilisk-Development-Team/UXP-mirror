@@ -33,6 +33,7 @@ class CompileRuntime
 
     bool jitSupportsFloatingPoint();
     bool hadOutOfMemory();
+    bool profilingScripts();
 
     const JSAtomState& names();
     const PropertyName* emptyString();
@@ -74,8 +75,6 @@ class CompileZone
 
     bool nurseryExists();
     void setMinorGCShouldCancelIonCompilations();
-
-    bool profilingScripts();
 };
 
 class JitCompartment;
