@@ -54,6 +54,12 @@ CompileRuntime::hadOutOfMemory()
     return runtime()->hadOutOfMemory;
 }
 
+bool
+CompileRuntime::profilingScripts()
+{
+    return runtime()->profilingScripts;
+}
+
 const JSAtomState&
 CompileRuntime::names()
 {
@@ -190,12 +196,6 @@ CompileZone::setMinorGCShouldCancelIonCompilations()
 {
     MOZ_ASSERT(CurrentThreadCanAccessZone(zone()));
     zone()->group()->storeBuffer().setShouldCancelIonCompilations();
-}
-
-bool
-CompileZone::profilingScripts()
-{
-    return zone()->group()->profilingScripts;
 }
 
 JSCompartment*

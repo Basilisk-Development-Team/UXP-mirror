@@ -29,8 +29,6 @@ ZoneGroup::ZoneGroup(JSRuntime* runtime)
     debuggerList_(this),
     numFinishedBuilders(0),
     ionLazyLinkListSize_(0),
-    profilingScripts(this, false),
-    scriptAndCountsVector(this, nullptr)
 {}
 
 bool
