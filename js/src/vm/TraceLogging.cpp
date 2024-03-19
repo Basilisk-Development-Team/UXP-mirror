@@ -215,7 +215,7 @@ TraceLoggerThread::enable(JSContext* cx)
 
     if (enabled_ == 1) {
         // Get the top Activation to log the top script/pc (No inlined frames).
-        ActivationIterator iter(cx->runtime());
+        ActivationIterator iter(cx);
         Activation* act = iter.activation();
 
         if (!act)
