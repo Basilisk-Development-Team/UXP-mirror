@@ -967,7 +967,7 @@ class GCRuntime
 
     /* List of compartments and zones (protected by the GC lock). */
     // List of all zone groups (protected by the GC lock).
-    ActiveThreadData<ZoneGroupVector> groups;
+    ActiveThreadOrGCTaskData<ZoneGroupVector> groups;
 
     // The unique atoms zone, which has no zone group.
     WriteOnceData<Zone*> atomsZone;
