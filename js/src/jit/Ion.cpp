@@ -505,8 +505,8 @@ static bool
 LinkCodeGen(JSContext* cx, IonBuilder* builder, CodeGenerator *codegen)
 {
     RootedScript script(cx, builder->script());
-    TraceLoggerThread* logger = TraceLoggerForMainThread(cx->runtime());
-    TraceLoggerEvent event(logger, TraceLogger_AnnotateScripts, script);
+    TraceLoggerThread* logger = TraceLoggerForCurrentThread(cx);
+    TraceLoggerEvent event(TraceLogger_AnnotateScripts, script);
     AutoTraceLog logScript(logger, event);
     AutoTraceLog logLink(logger, TraceLogger_IonLinking);
 
@@ -1466,11 +1466,7 @@ OptimizeMIR(MIRGenerator* mir)
 {
     MIRGraph& graph = mir->graph();
     GraphSpewer& gs = mir->graphSpewer();
-    TraceLoggerThread* logger;
-    if (GetJitContext()->onMainThread())
-        logger = TraceLoggerForMainThread(GetJitContext()->runtime);
-    else
-        logger = TraceLoggerForCurrentThread();
+    TraceLoggerThread* logger = TraceLoggerForCurrentThread();
 
     if (mir->shouldCancel("Start"))
         return false;
@@ -1872,11 +1868,7 @@ GenerateLIR(MIRGenerator* mir)
     MIRGraph& graph = mir->graph();
     GraphSpewer& gs = mir->graphSpewer();
 
-    TraceLoggerThread* logger;
-    if (GetJitContext()->onMainThread())
-        logger = TraceLoggerForMainThread(GetJitContext()->runtime);
-    else
-        logger = TraceLoggerForCurrentThread();
+    TraceLoggerThread* logger = TraceLoggerForCurrentThread();
 
     LIRGraph* lir = mir->alloc().lifoAlloc()->new_<LIRGraph>(&graph);
     if (!lir || !lir->init())
@@ -1951,11 +1943,7 @@ GenerateLIR(MIRGenerator* mir)
 CodeGenerator*
 GenerateCode(MIRGenerator* mir, LIRGraph* lir)
 {
-    TraceLoggerThread* logger;
-    if (GetJitContext()->onMainThread())
-        logger = TraceLoggerForMainThread(GetJitContext()->runtime);
-    else
-        logger = TraceLoggerForCurrentThread();
+    TraceLoggerThread* logger = TraceLoggerForCurrentThread();
     AutoTraceLog log(logger, TraceLogger_GenerateCode);
 
     CodeGenerator* codegen = js_new<CodeGenerator>(mir, lir);
@@ -2105,8 +2093,8 @@ IonCompile(JSContext* cx, JSScript* script,
            BaselineFrame* baselineFrame, jsbytecode* osrPc,
            bool recompile, OptimizationLevel optimizationLevel)
 {
-    TraceLoggerThread* logger = TraceLoggerForMainThread(cx->runtime());
-    TraceLoggerEvent event(logger, TraceLogger_AnnotateScripts, script);
+    TraceLoggerThread* logger = TraceLoggerForCurrentThread(cx);
+    TraceLoggerEvent event(TraceLogger_AnnotateScripts, script);
     AutoTraceLog logScript(logger, event);
     AutoTraceLog logCompile(logger, TraceLogger_IonCompilation);
 
