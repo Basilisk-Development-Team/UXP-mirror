@@ -144,7 +144,7 @@ js::intl_PluralRules(JSContext* cx, unsigned argc, Value* vp)
 void
 js::PluralRulesObject::finalize(FreeOp* fop, JSObject* obj)
 {
-    MOZ_ASSERT(fop->onMainThread());
+    MOZ_ASSERT(fop->onActiveCooperatingThread());
 
     const Value& slot = obj->as<PluralRulesObject>().getReservedSlot(PluralRulesObject::UPLURAL_RULES_SLOT);
     if (UPluralRules* pr = static_cast<UPluralRules*>(slot.toPrivate()))

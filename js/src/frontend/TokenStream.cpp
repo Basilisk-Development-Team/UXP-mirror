@@ -786,8 +786,9 @@ TokenStream::reportCompileErrorNumberVA(UniquePtr<JSErrorNotes> notes, uint32_t 
         warning = false;
     }
 
-    // On the main thread, report the error immediately. When compiling off
-    // thread, save the error so that the main thread can report it later.
+    // On the active thread, report the error immediately. When compiling off
+    // thread, save the error so that the thread finishing the parse can report
+    // it later.
     CompileError tempErr;
     CompileError* tempErrPtr = &tempErr;
     if (cx->helperThread() && !cx->addPendingCompileError(&tempErrPtr))

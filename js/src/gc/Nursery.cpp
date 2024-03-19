@@ -724,7 +724,7 @@ js::Nursery::freeMallocedBuffers()
     }
 
     if (!started)
-        freeMallocedBuffersTask->runFromMainThread(zoneGroup()->runtime);
+        freeMallocedBuffersTask->runFromActiveCooperatingThread(zoneGroup()->runtime);
 
     MOZ_ASSERT(mallocedBuffers.empty());
 }

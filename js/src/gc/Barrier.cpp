@@ -21,9 +21,9 @@
 namespace js {
 
 bool
-RuntimeFromMainThreadIsHeapMajorCollecting(JS::shadow::Zone* shadowZone)
+RuntimeFromActiveCooperatingThreadIsHeapMajorCollecting(JS::shadow::Zone* shadowZone)
 {
-    MOZ_ASSERT(CurrentThreadCanAccessRuntime(shadowZone->runtimeFromMainThread()));
+    MOZ_ASSERT(CurrentThreadCanAccessRuntime(shadowZone->runtimeFromActiveCooperatingThread()));
     return JS::CurrentThreadIsHeapMajorCollecting();
 }
 
@@ -143,9 +143,9 @@ MovableCellHasher<T>::hash(const Lookup& l)
         return 0;
 
     // We have to access the zone from-any-thread here: a worker thread may be
-    // cloning a self-hosted object from the main-thread-runtime-owned self-
-    // hosting zone into the off-main-thread runtime. The zone's uid lock will
-    // protect against multiple workers doing this simultaneously.
+    // cloning a self-hosted object from the main runtime's self- hosting zone
+    // into another runtime. The zone's uid lock will protect against multiple
+    // workers doing this simultaneously.
     MOZ_ASSERT(CurrentThreadCanAccessZone(l->zoneFromAnyThread()) ||
                l->zoneFromAnyThread()->isSelfHostingZone());
 

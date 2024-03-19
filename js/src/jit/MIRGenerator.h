@@ -101,7 +101,7 @@ class MIRGenerator
         safeForMinorGC_ = false;
     }
 
-    // Whether the main thread is trying to cancel this build.
+    // Whether the active thread is trying to cancel this build.
     bool shouldCancel(const char* why) {
         maybePause();
         return cancelBuild_;

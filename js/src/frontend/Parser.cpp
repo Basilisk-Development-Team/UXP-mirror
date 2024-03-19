@@ -3395,7 +3395,7 @@ Parser<ParseHandler>::functionDefinition(uint32_t toStringStart, FunctionNodeTyp
 
     RootedObject proto(context);
     if (generatorKind == StarGenerator || asyncKind == AsyncFunction) {
-        // If we are off the main thread, the generator meta-objects have
+        // If we are off thread, the generator meta-objects have
         // already been created by js::StartOffThreadParseScript, so cx will not
         // be necessary.
         JSContext* cx = context->helperThread() ? nullptr : context;
@@ -9666,7 +9666,7 @@ Parser<ParseHandler>::generatorComprehensionLambda(unsigned begin)
 
     ParseContext* outerpc = pc;
 
-    // If we are off the main thread, the generator meta-objects have
+    // If we are off thread, the generator meta-objects have
     // already been created by js::StartOffThreadParseTask, so cx will not
     // be necessary.
     RootedObject proto(context);

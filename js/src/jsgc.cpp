@@ -549,12 +549,12 @@ FinalizeTypedArenas(FreeOp* fop,
 {
     // When operating in the foreground, take the lock at the top.
     Maybe<AutoLockGC> maybeLock;
-    if (fop->onMainThread())
+    if (fop->onActiveCooperatingThread())
         maybeLock.emplace(fop->runtime());
 
     // During background sweeping free arenas are released later on in
     // sweepBackgroundThings().
-    MOZ_ASSERT_IF(!fop->onMainThread(), keepArenas == ArenaLists::KEEP_ARENAS);
+    MOZ_ASSERT_IF(!fop->onActiveCooperatingThread(), keepArenas == ArenaLists::KEEP_ARENAS);
 
     size_t thingSize = Arena::thingSize(thingKind);
     size_t thingsPerArena = Arena::thingsPerArena(thingKind);
@@ -1887,7 +1887,7 @@ bool
 ArenaLists::relocateArenas(Zone* zone, Arena*& relocatedListOut, JS::gcreason::Reason reason,
                            SliceBudget& sliceBudget, gcstats::Statistics& stats)
 {
-    // This is only called from the main thread while we are doing a GC, so
+    // This is only called from the active thread while we are doing a GC, so
     // there is no need to lock.
     MOZ_ASSERT(CurrentThreadCanAccessRuntime(runtime_));
     MOZ_ASSERT(runtime_->gc.isHeapCompacting());
@@ -1979,7 +1979,7 @@ void MovingTracer::onRegExpSharedEdge(RegExpShared** sharedp) { updateEdge(share
 void
 Zone::prepareForCompacting()
 {
-    FreeOp* fop = runtimeFromMainThread()->defaultFreeOp();
+    FreeOp* fop = runtimeFromActiveCooperatingThread()->defaultFreeOp();
     discardJitCode(fop);
 }
 
@@ -2261,7 +2261,7 @@ GCRuntime::updateCellPointers(MovingTracer* trc, Zone* zone, AllocKinds kinds, s
         }
     }
 
-    fgTask->runFromMainThread(rt);
+    fgTask->runFromActiveCooperatingThread(rt);
 
     {
         AutoLockHelperThreadState lock;
@@ -2827,7 +2827,7 @@ bool
 GCRuntime::triggerGC(JS::gcreason::Reason reason)
 {
     /*
-     * Don't trigger GCs if this is being called off the main thread from
+     * Don't trigger GCs if this is being called off the active thread from
      * onTooMuchMalloc().
      */
     if (!CurrentThreadCanAccessRuntime(rt))
@@ -2953,7 +2953,7 @@ GCRuntime::startDecommit()
             MOZ_ASSERT(!chunk->info.numArenasFreeCommitted);
 
         // Since we release the GC lock while doing the decommit syscall below,
-        // it is dangerous to iterate the available list directly, as the main
+        // it is dangerous to iterate the available list directly, as the active
         // thread could modify it concurrently. Instead, we build and pass an
         // explicit Vector containing the Chunks we want to visit.
         MOZ_ASSERT(availableChunks(lock).verify());
@@ -2969,7 +2969,7 @@ GCRuntime::startDecommit()
     if (sweepOnBackgroundThread && decommitTask.start())
         return;
 
-    decommitTask.runFromMainThread(rt);
+    decommitTask.runFromActiveCooperatingThread(rt);
 }
 
 void
@@ -3033,7 +3033,7 @@ GCRuntime::sweepBackgroundThings(ZoneList& zones, LifoAlloc& freeBlocks)
     AutoLockGC lock(rt);
 
     // Release swept arenas, dropping and reaquiring the lock every so often to
-    // avoid blocking the main thread from allocating chunks.
+    // avoid blocking the active thread from allocating chunks.
     static const size_t LockReleasePeriod = 32;
     size_t releaseCount = 0;
     Arena* next;
@@ -3221,7 +3221,7 @@ GCHelperState::waitBackgroundSweepEnd()
 void
 GCHelperState::doSweep(AutoLockGC& lock)
 {
-    // The main thread may call queueZonesForBackgroundSweep() while this is
+    // The active thread may call queueZonesForBackgroundSweep() while this is
     // running so we must check there is no more work to do before exiting.
 
     do {
@@ -3299,7 +3299,7 @@ JS::Zone::sweepUniqueIds(js::FreeOp* fop)
 void
 Zone::sweepCompartments(FreeOp* fop, bool keepAtleastOne, bool destroyingRuntime)
 {
-    JSRuntime* rt = runtimeFromMainThread();
+    JSRuntime* rt = runtimeFromActiveCooperatingThread();
     JSDestroyCompartmentCallback callback = rt->destroyCompartmentCallback;
 
     JSCompartment** read = compartments().begin();
@@ -3604,7 +3604,7 @@ RelazifyFunctions(Zone* zone, AllocKind kind)
 
     AutoAssertEmptyNursery empty(TlsContext.get());
 
-    JSRuntime* rt = zone->runtimeFromMainThread();
+    JSRuntime* rt = zone->runtimeFromActiveCooperatingThread();
     for (auto i = zone->cellIter<JSObject>(kind, empty); !i.done(); i.next()) {
         JSFunction* fun = &i->as<JSFunction>();
         if (fun->hasScript())
@@ -3690,9 +3690,9 @@ GCRuntime::beginMarkPhase(JS::gcreason::Reason reason, AutoLockForExclusiveAcces
      * Note that only affects the first slice of an incremental GC since root
      * marking is completed before we return to the mutator.
      *
-     * Off-main-thread parsing is inhibited after the start of GC which prevents
+     * Off-thread parsing is inhibited after the start of GC which prevents
      * races between creating atoms during parsing and sweeping atoms on the
-     * main thread.
+     * active thread.
      *
      * Otherwise, we always schedule a GC in the atoms zone so that atoms which
      * the other collected zones are using are marked, and we can update the
@@ -4033,7 +4033,7 @@ Zone::findOutgoingEdges(ZoneComponentFinder& finder)
      * Any compartment may have a pointer to an atom in the atoms
      * compartment, and these aren't in the cross compartment map.
      */
-    JSRuntime* rt = runtimeFromMainThread();
+    JSRuntime* rt = runtimeFromActiveCooperatingThread();
     Zone* atomsZone = rt->atomsCompartment(finder.lock)->zone();
     if (atomsZone->shouldMarkInZone())
         finder.addEdgeTo(atomsZone);
@@ -4529,7 +4529,7 @@ GCRuntime::startTask(GCParallelTask& task, gcstats::Phase phase, AutoLockHelperT
     if (!task.startWithLockHeld(locked)) {
         AutoUnlockHelperThreadState unlock(locked);
         gcstats::AutoPhase ap(stats(), phase);
-        task.runFromMainThread(rt);
+        task.runFromActiveCooperatingThread(rt);
     }
 }
 
@@ -4543,12 +4543,12 @@ GCRuntime::joinTask(GCParallelTask& task, gcstats::Phase phase, AutoLockHelperTh
 using WeakCacheTaskVector = mozilla::Vector<SweepWeakCacheTask, 0, SystemAllocPolicy>;
 
 static void
-SweepWeakCachesFromMainThread(JSRuntime* rt)
+SweepWeakCachesFromActiveCooperatingThread(JSRuntime* rt)
 {
     for (GCZoneGroupIter zone(rt); !zone.done(); zone.next()) {
         for (JS::WeakCache<void*>* cache : zone->weakCaches()) {
             SweepWeakCacheTask task(rt, *cache);
-            task.runFromMainThread(rt);
+            task.runFromActiveCooperatingThread(rt);
         }
     }
 }
@@ -4560,7 +4560,7 @@ PrepareWeakCacheTasks(JSRuntime* rt)
     for (GCZoneGroupIter zone(rt); !zone.done(); zone.next()) {
         for (JS::WeakCache<void*>* cache : zone->weakCaches()) {
             if (!out.append(SweepWeakCacheTask(rt, *cache))) {
-                SweepWeakCachesFromMainThread(rt);
+                SweepWeakCachesFromActiveCooperatingThread(rt);
                 return WeakCacheTaskVector();
             }
         }
@@ -4654,7 +4654,7 @@ GCRuntime::beginSweepingZoneGroup(AutoLockForExclusiveAccess& lock)
                 startTask(task, gcstats::PHASE_SWEEP_MISC, helperLock);
         }
 
-        // The remainder of the of the tasks run in parallel on the main
+        // The remainder of the of the tasks run in parallel on the active
         // thread until we join, below.
         {
             gcstats::AutoPhase ap(stats(), gcstats::PHASE_SWEEP_MISC);
@@ -4709,7 +4709,7 @@ GCRuntime::beginSweepingZoneGroup(AutoLockForExclusiveAccess& lock)
         }
     }
 
-    // Rejoin our off-main-thread tasks.
+    // Rejoin our off-thread tasks.
     if (sweepingAtoms) {
         AutoLockHelperThreadState helperLock;
         joinTask(sweepAtomsTask, gcstats::PHASE_SWEEP_ATOMS, helperLock);
@@ -5783,7 +5783,7 @@ GCRuntime::gcCycle(bool nonincrementalByAPI, SliceBudget& budget, JS::gcreason::
     if (!isIncrementalGCInProgress())
         incMajorGcNumber();
 
-    // It's ok if threads other than the main thread have suppressGC set, as
+    // It's ok if threads other than the active thread have suppressGC set, as
     // they are operating on zones which will not be collected from here.
     MOZ_ASSERT(!TlsContext.get()->suppressGC);
 
@@ -5809,7 +5809,7 @@ GCRuntime::gcCycle(bool nonincrementalByAPI, SliceBudget& budget, JS::gcreason::
 
     State prevState = incrementalState;
 
-    // We don't allow off-main-thread parsing to start while we're doing an
+    // We don't allow off-thread parsing to start while we're doing an
     // incremental GC.
     MOZ_ASSERT_IF(rt->activeGCInAtomsZone(), !rt->exclusiveThreadsPresent());
 
@@ -6365,7 +6365,7 @@ gc::MergeCompartments(JSCompartment* source, JSCompartment* target)
     MOZ_ASSERT(source->creationOptions().addonIdOrNull() ==
                target->creationOptions().addonIdOrNull());
 
-    JSContext* cx = source->runtimeFromMainThread()->activeContextFromOwnThread();
+    JSContext* cx = source->runtimeFromActiveCooperatingThread()->activeContextFromOwnThread();
 
     AutoPrepareForTracing prepare(cx, SkipAtoms);
 
@@ -7251,7 +7251,7 @@ js::gc::detail::CellIsMarkedGrayIfKnown(const Cell* cell)
     // by a barrier will eventually be marked black in the next GC slice.
     auto tc = &cell->asTenured();
 
-    auto rt = tc->runtimeFromMainThread();
+    auto rt = tc->runtimeFromActiveCooperatingThread();
     if (!rt->gc.areGrayBitsValid() ||
         (rt->gc.isIncrementalGCInProgress() && !tc->zone()->wasGCStarted()))
     {
