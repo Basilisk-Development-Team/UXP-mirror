@@ -50,6 +50,7 @@
 #endif
 #include "vm/HelperThreads.h"
 #include "vm/Shape.h"
+#include "wasm/WasmSignalHandlers.h"
 
 #include "jsobjinlines.h"
 #include "jsscriptinlines.h"
@@ -124,6 +125,9 @@ JSContext::init()
     if (!simulator_)
         return false;
 #endif
+
+if (!wasm::EnsureSignalHandlers(this))
+        return false;
 
     return true;
 }

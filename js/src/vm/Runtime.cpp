@@ -252,9 +252,6 @@ JSRuntime::init(JSContext* cx, uint32_t maxbytes, uint32_t maxNurseryBytes)
     jitSupportsUnalignedAccesses = js::jit::JitSupportsUnalignedAccesses();
     jitSupportsSimd = js::jit::JitSupportsSimd();
 
-    if (!wasm::EnsureSignalHandlers(this))
-        return false;
-
     if (!spsProfiler().init())
         return false;
 
@@ -491,7 +488,7 @@ JSContext::requestInterrupt(InterruptMode mode)
         if (fx.isWaiting())
             fx.notify(FutexThread::NotifyForJSInterrupt);
         fx.unlock();
-        InterruptRunningJitCode(runtime());
+        InterruptRunningJitCode(this);
     }
 }
 
