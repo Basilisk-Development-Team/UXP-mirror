@@ -547,7 +547,7 @@ mozJSComponentLoader::PrepareObjectForLocation(JSContext* aCx,
         CompartmentOptions options;
 
         options.creationOptions()
-               .setZone(SystemZone)
+               .setSystemZone()
                .setAddonId(aReuseLoaderGlobal ? nullptr : MapURIToAddonID(aURI));
 
         options.behaviors().setVersion(JSVERSION_LATEST);
