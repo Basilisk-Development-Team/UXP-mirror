@@ -346,7 +346,8 @@ SpewPatchStubFrame(ICStub* oldStub, ICStub* newStub)
 }
 
 static void
-PatchBaselineFramesForDebugMode(JSContext* cx, const Debugger::ExecutionObservableSet& obs,
+PatchBaselineFramesForDebugMode(JSContext* cx, const CooperatingContext& target,
+                                const Debugger::ExecutionObservableSet& obs,
                                 const ActivationIterator& activation,
                                 DebugModeOSREntryVector& entries, size_t* start)
 {
@@ -420,7 +421,7 @@ PatchBaselineFramesForDebugMode(JSContext* cx, const Debugger::ExecutionObservab
                 uint8_t* retAddr = bl->returnAddressForIC(bl->icEntryFromPCOffset(pcOffset));
                 SpewPatchBaselineFrame(prev->returnAddress(), retAddr, script, kind, pc);
                 DebugModeOSRVolatileJitFrameIterator::forwardLiveIterators(
-                    cx, prev->returnAddress(), retAddr);
+                    target, prev->returnAddress(), retAddr);
                 prev->setReturnAddress(retAddr);
                 entryIndex++;
                 break;
@@ -449,7 +450,7 @@ PatchBaselineFramesForDebugMode(JSContext* cx, const Debugger::ExecutionObservab
                 SpewPatchBaselineFrameFromExceptionHandler(prev->returnAddress(), retAddr,
                                                            script, pc);
                 DebugModeOSRVolatileJitFrameIterator::forwardLiveIterators(
-                    cx, prev->returnAddress(), retAddr);
+                    target, prev->returnAddress(), retAddr);
                 prev->setReturnAddress(retAddr);
                 entryIndex++;
                 break;
@@ -846,13 +847,15 @@ jit::RecompileOnStackBaselineScriptsForDebugMode(JSContext* cx,
     // frames.
     Vector<DebugModeOSREntry> entries(cx);
 
-    for (ActivationIterator iter(cx->runtime()); !iter.done(); ++iter) {
-        if (iter->isJit()) {
-            if (!CollectJitStackScripts(cx, obs, iter, entries))
-                return false;
-        } else if (iter->isInterpreter()) {
-            if (!CollectInterpreterStackScripts(cx, obs, iter, entries))
-                return false;
+    for (const CooperatingContext& target : cx->runtime()->cooperatingContexts()) {
+        for (ActivationIterator iter(cx, target); !iter.done(); ++iter) {
+            if (iter->isJit()) {
+                if (!CollectJitStackScripts(cx, obs, iter, entries))
+                    return false;
+            } else if (iter->isInterpreter()) {
+                if (!CollectInterpreterStackScripts(cx, obs, iter, entries))
+                    return false;
+            }
         }
     }
 
@@ -901,11 +904,13 @@ jit::RecompileOnStackBaselineScriptsForDebugMode(JSContext* cx,
     }
 
     size_t processed = 0;
-    for (ActivationIterator iter(cx->runtime()); !iter.done(); ++iter) {
-        if (iter->isJit())
-            PatchBaselineFramesForDebugMode(cx, obs, iter, entries, &processed);
-        else if (iter->isInterpreter())
-            SkipInterpreterFrameEntries(obs, iter, entries, &processed);
+    for (const CooperatingContext& target : cx->runtime()->cooperatingContexts()) {
+        for (ActivationIterator iter(cx, target); !iter.done(); ++iter) {
+            if (iter->isJit())
+                PatchBaselineFramesForDebugMode(cx, target, obs, iter, entries, &processed);
+            else if (iter->isInterpreter())
+                SkipInterpreterFrameEntries(obs, iter, entries, &processed);
+        }
     }
     MOZ_ASSERT(processed == entries.length());
 
@@ -1172,11 +1177,11 @@ JitRuntime::generateBaselineDebugModeOSRHandler(JSContext* cx, uint32_t* noFrame
 }
 
 /* static */ void
-DebugModeOSRVolatileJitFrameIterator::forwardLiveIterators(JSContext* cx,
+DebugModeOSRVolatileJitFrameIterator::forwardLiveIterators(const CooperatingContext& cx,
                                                            uint8_t* oldAddr, uint8_t* newAddr)
 {
     DebugModeOSRVolatileJitFrameIterator* iter;
-    for (iter = cx->liveVolatileJitFrameIterators_; iter; iter = iter->prev) {
+    for (iter = cx.context()->liveVolatileJitFrameIterators_; iter; iter = iter->prev) {
         if (iter->returnAddressToFp_ == oldAddr)
             iter->returnAddressToFp_ = newAddr;
     }

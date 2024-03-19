@@ -925,7 +925,23 @@ class InterpreterStack
     }
 };
 
-void MarkInterpreterActivations(JSRuntime* rt, JSTracer* trc);
+// CooperatingContext is a wrapper for a JSContext that is participating in
+// cooperative scheduling and may be different from the current thread. It is
+// in place to make it clearer when we might be operating on another thread,
+// and harder to accidentally pass in another thread's context to an API that
+// expects the current thread's context.
+class CooperatingContext
+{
+    JSContext* cx;
+
+  public:
+    explicit CooperatingContext(JSContext* cx) : cx(cx) {}
+    JSContext* context() const { return cx; }
+
+    // For &cx. The address should not be taken for other CooperatingContexts.
+    friend class ZoneGroup;
+};
+void MarkInterpreterActivations(JSContext* cx, const CooperatingContext& target, JSTracer* trc);
 
 /*****************************************************************************/
 
@@ -1409,8 +1425,7 @@ class InterpreterActivation : public Activation
     }
 };
 
-// Iterates over a thread's activation list. If given a runtime, iterate over
-// the runtime's main thread's activation list.
+// Iterates over a thread's activation list.
 class ActivationIterator
 {
     uint8_t* jitTop_;
@@ -1422,7 +1437,12 @@ class ActivationIterator
     void settle();
 
   public:
-    explicit ActivationIterator(JSRuntime* rt);
+    explicit ActivationIterator(JSContext* cx);
+
+    // ActivationIterator can be used to iterate over a different thread's
+    // activations, for use by the GC, invalidation, and other operations that
+    // don't have a user-visible effect on the target thread's JS behavior.
+    ActivationIterator(JSContext* cx, const CooperatingContext& target);
 
     ActivationIterator& operator++();
 
@@ -1614,8 +1634,14 @@ class JitActivationIterator : public ActivationIterator
     }
 
   public:
-    explicit JitActivationIterator(JSRuntime* rt)
-      : ActivationIterator(rt)
+    explicit JitActivationIterator(JSContext* cx)
+      : ActivationIterator(cx)
+    {
+        settle();
+    }
+
+    JitActivationIterator(JSContext* cx, const CooperatingContext& target)
+      : ActivationIterator(cx, target)
     {
         settle();
     }
@@ -1719,7 +1745,7 @@ class WasmActivation : public Activation
     void* resumePC() const { return resumePC_; }
 };
 
-// A FrameIter walks over the runtime's stack of JS script activations,
+// A FrameIter walks over a context's stack of JS script activations,
 // abstracting over whether the JS scripts were running in the interpreter or
 // different modes of compiled code.
 //
