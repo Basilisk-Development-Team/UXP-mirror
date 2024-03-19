@@ -131,6 +131,23 @@ class ZoneGroup
   public:
     mozilla::LinkedList<js::Debugger>& debuggerList() { return debuggerList_.ref(); }
 
+    private:
+    /* List of Ion compilation waiting to get linked. */
+    typedef mozilla::LinkedList<js::jit::IonBuilder> IonBuilderList;
+
+    js::HelperThreadLockData<IonBuilderList> ionLazyLinkList_;
+    js::HelperThreadLockData<size_t> ionLazyLinkListSize_;
+
+  public:
+    IonBuilderList& ionLazyLinkList();
+
+    size_t ionLazyLinkListSize() {
+        return ionLazyLinkListSize_;
+    }
+
+    void ionLazyLinkListRemove(js::jit::IonBuilder* builder);
+    void ionLazyLinkListAdd(js::jit::IonBuilder* builder);
+
     /* If true, new scripts must be created with PC counter information. */
     ZoneGroupOrIonCompileData<bool> profilingScripts;
 

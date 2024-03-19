@@ -8,6 +8,7 @@
 
 #include "jscntxt.h"
 
+#include "jit/IonBuilder.h"
 #include "jit/JitCompartment.h"
 
 namespace js {
@@ -26,6 +27,7 @@ ZoneGroup::ZoneGroup(JSRuntime* runtime)
 #endif
     jitZoneGroup(this, nullptr),
     debuggerList_(this),
+    ionLazyLinkListSize_(0),
     profilingScripts(this, false),
     scriptAndCountsVector(this, nullptr)
 {}
@@ -49,6 +51,13 @@ ZoneGroup::init(size_t maxNurseryBytes)
 
 ZoneGroup::~ZoneGroup()
 {
+#ifdef DEBUG
+    {
+        AutoLockHelperThreadState lock;
+        MOZ_ASSERT(ionLazyLinkListSize_ == 0);
+        MOZ_ASSERT(ionLazyLinkList().isEmpty());
+    }
+#endif
     js_delete(jitZoneGroup.ref());
 }
 
@@ -59,7 +68,7 @@ ZoneGroup::enter()
     if (ownerContext().context() == cx) {
         MOZ_ASSERT(enterCount);
     } else {
-        MOZ_ASSERT(ownerContext().context() == nullptr);
+        MOZ_RELEASE_ASSERT(ownerContext().context() == nullptr);
         MOZ_ASSERT(enterCount == 0);
         ownerContext_ = CooperatingContext(cx);
     }
@@ -80,6 +89,36 @@ ZoneGroup::ownedByCurrentThread()
 {
     MOZ_ASSERT(TlsContext.get());
     return ownerContext().context() == TlsContext.get();
+}
+
+ZoneGroup::IonBuilderList&
+ZoneGroup::ionLazyLinkList()
+{
+    MOZ_ASSERT(CurrentThreadCanAccessRuntime(runtime),
+               "Should only be mutated by the active thread.");
+    return ionLazyLinkList_.ref();
+}
+
+void
+ZoneGroup::ionLazyLinkListRemove(jit::IonBuilder* builder)
+{
+    MOZ_ASSERT(CurrentThreadCanAccessRuntime(runtime),
+               "Should only be mutated by the active thread.");
+    MOZ_ASSERT(ionLazyLinkListSize_ > 0);
+
+    builder->removeFrom(ionLazyLinkList());
+    ionLazyLinkListSize_--;
+
+    MOZ_ASSERT(ionLazyLinkList().isEmpty() == (ionLazyLinkListSize_ == 0));
+}
+
+void
+ZoneGroup::ionLazyLinkListAdd(jit::IonBuilder* builder)
+{
+    MOZ_ASSERT(CurrentThreadCanAccessRuntime(runtime),
+               "Should only be mutated by the active thread.");
+    ionLazyLinkList().insertFront(builder);
+    ionLazyLinkListSize_++;
 }
 
 } // namespace js
