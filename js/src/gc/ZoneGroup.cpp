@@ -27,6 +27,7 @@ ZoneGroup::ZoneGroup(JSRuntime* runtime)
 #endif
     jitZoneGroup(this, nullptr),
     debuggerList_(this),
+    numFinishedBuilders(0),
     ionLazyLinkListSize_(0),
     profilingScripts(this, false),
     scriptAndCountsVector(this, nullptr)
@@ -71,6 +72,11 @@ ZoneGroup::enter()
         MOZ_RELEASE_ASSERT(ownerContext().context() == nullptr);
         MOZ_ASSERT(enterCount == 0);
         ownerContext_ = CooperatingContext(cx);
+
+        // Finish any Ion compilations in this zone group, in case compilation
+        // finished for some script in this group while no thread was in this
+        // group.
+        jit::AttachFinishedCompilations(this, nullptr);
     }
     enterCount++;
 }
@@ -104,6 +110,7 @@ ZoneGroup::ionLazyLinkListRemove(jit::IonBuilder* builder)
 {
     MOZ_ASSERT(CurrentThreadCanAccessRuntime(runtime),
                "Should only be mutated by the active thread.");
+    MOZ_ASSERT(this == builder->script()->zone()->group());
     MOZ_ASSERT(ionLazyLinkListSize_ > 0);
 
     builder->removeFrom(ionLazyLinkList());
@@ -117,6 +124,7 @@ ZoneGroup::ionLazyLinkListAdd(jit::IonBuilder* builder)
 {
     MOZ_ASSERT(CurrentThreadCanAccessRuntime(runtime),
                "Should only be mutated by the active thread.");
+    MOZ_ASSERT(this == builder->script()->zone()->group());
     ionLazyLinkList().insertFront(builder);
     ionLazyLinkListSize_++;
 }
