@@ -58,6 +58,9 @@ ZoneGroup::~ZoneGroup()
     }
 #endif
     js_delete(jitZoneGroup.ref());
+
+    if (this == runtime->gc.systemZoneGroup)
+        runtime->gc.systemZoneGroup = nullptr;
 }
 
 void
@@ -70,6 +73,8 @@ ZoneGroup::enter()
         MOZ_RELEASE_ASSERT(ownerContext().context() == nullptr);
         MOZ_ASSERT(enterCount == 0);
         ownerContext_ = CooperatingContext(cx);
+        if (cx->generationalDisabled)
+            nursery().disable();
 
         // Finish any Ion compilations in this zone group, in case compilation
         // finished for some script in this group while no thread was in this
