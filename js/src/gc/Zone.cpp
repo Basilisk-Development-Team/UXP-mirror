@@ -351,12 +351,6 @@ Zone::notifyObservingDebuggers()
 }
 
 bool
-js::ZonesIter::atAtomsZone(JSRuntime* rt)
-{
-    return rt->isAtomsZone(*it);
-}
-
-bool
 Zone::isOnList() const
 {
     return listNext_ != NotOnList;
