@@ -577,6 +577,7 @@ class Debugger : private mozilla::LinkedListElement<Debugger>
 
     static void traceObject(JSTracer* trc, JSObject* obj);
     void trace(JSTracer* trc);
+    void markForMovingGC(JSTracer* trc);
     static void finalize(FreeOp* fop, JSObject* obj);
     void markCrossCompartmentEdges(JSTracer* tracer);
 
@@ -793,6 +794,8 @@ class Debugger : private mozilla::LinkedListElement<Debugger>
     static inline Debugger* fromJSObject(const JSObject* obj);
     static Debugger* fromChildJSObject(JSObject* obj);
 
+    Zone* zone() const { return toJSObject()->zone(); }
+
     bool hasMemory() const;
     DebuggerMemory& memory() const;
 
@@ -817,7 +820,7 @@ class Debugger : private mozilla::LinkedListElement<Debugger>
      */
     static void markIncomingCrossCompartmentEdges(JSTracer* tracer);
     [[nodiscard]] static bool markAllIteratively(GCMarker* trc);
-    static void markAll(JSTracer* trc);
+    static void markAllForMovingGC(JSTracer* trc);
     static void sweepAll(FreeOp* fop);
     static void detachAllDebuggersFromGlobal(FreeOp* fop, GlobalObject* global);
     static void findZoneEdges(JS::Zone* v, gc::ZoneComponentFinder& finder);

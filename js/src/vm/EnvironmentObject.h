@@ -887,6 +887,8 @@ class DebugEnvironmentProxy : public ProxyObject
 /* Maintains per-compartment debug environment bookkeeping information. */
 class DebugEnvironments
 {
+    Zone* zone_;
+
     /* The map from (non-debug) environments to debug environments. */
     ObjectWeakMap proxiedEnvs;
 
@@ -915,8 +917,10 @@ class DebugEnvironments
     LiveEnvironmentMap liveEnvs;
 
   public:
-    explicit DebugEnvironments(JSContext* cx);
+    DebugEnvironments(JSContext* cx, Zone* zone);
     ~DebugEnvironments();
+
+    Zone* zone() const { return zone_; }
 
   private:
     bool init();

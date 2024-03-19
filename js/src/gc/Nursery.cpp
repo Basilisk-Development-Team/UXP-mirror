@@ -74,16 +74,16 @@ struct js::Nursery::SweepAction
 };
 
 inline void
-js::Nursery::NurseryChunk::poisonAndInit(JSRuntime* rt, uint8_t poison)
+js::Nursery::NurseryChunk::poisonAndInit(ZoneGroup* group, uint8_t poison)
 {
     JS_POISON(this, poison, ChunkSize);
-    init(rt);
+    init(group);
 }
 
 inline void
-js::Nursery::NurseryChunk::init(JSRuntime* rt)
+js::Nursery::NurseryChunk::init(ZoneGroup* group)
 {
-    new (&trailer) gc::ChunkTrailer(rt, &rt->zoneGroupFromMainThread()->storeBuffer());
+    new (&trailer) gc::ChunkTrailer(group->runtime, &group->storeBuffer());
 }
 
 /* static */ inline js::Nursery::NurseryChunk*
@@ -112,6 +112,7 @@ js::Nursery::Nursery(ZoneGroup* group)
   , profileThreshold_(0)
   , enableProfiling_(false)
   , reportTenurings_(0)
+  , minorGCTriggerReason_(JS::gcreason::NO_REASON)
   , minorGcCount_(0)
   , freeMallocedBuffersTask(nullptr)
   , sweepActions_(nullptr)
@@ -637,7 +638,7 @@ js::Nursery::doCollection(JS::gcreason::Reason reason,
     maybeStartProfile(ProfileKey::MarkDebugger);
     {
         gcstats::AutoPhase ap(rt->gc.stats(), gcstats::PHASE_MARK_ROOTS);
-        Debugger::markAll(&mover);
+        Debugger::markAllForMovingGC(&mover);
     }
     maybeEndProfile(ProfileKey::MarkDebugger);
 
@@ -759,7 +760,7 @@ js::Nursery::sweep()
     {
 #ifdef JS_CRASH_DIAGNOSTICS
         for (unsigned i = 0; i < numChunks(); ++i)
-            chunk(i).poisonAndInit(zoneGroup()->runtime, JS_SWEPT_NURSERY_PATTERN);
+            chunk(i).poisonAndInit(zoneGroup(), JS_SWEPT_NURSERY_PATTERN);
 #endif
         setCurrentChunk(0);
     }
@@ -793,7 +794,7 @@ js::Nursery::setCurrentChunk(unsigned chunkno)
     currentChunk_ = chunkno;
     position_ = chunk(chunkno).start();
     currentEnd_ = chunk(chunkno).end();
-    chunk(chunkno).poisonAndInit(zoneGroup()->runtime, JS_FRESH_NURSERY_PATTERN);
+    chunk(chunkno).poisonAndInit(zoneGroup(), JS_FRESH_NURSERY_PATTERN);
 }
 
 MOZ_ALWAYS_INLINE void
@@ -885,7 +886,7 @@ js::Nursery::updateNumChunksLocked(unsigned newCount,
         }
 
         chunks_[i] = NurseryChunk::fromChunk(newChunk);
-        chunk(i).poisonAndInit(zoneGroup()->runtime, JS_FRESH_NURSERY_PATTERN);
+        chunk(i).poisonAndInit(zoneGroup(), JS_FRESH_NURSERY_PATTERN);
     }
 }
 
