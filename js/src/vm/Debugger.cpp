@@ -43,6 +43,7 @@
 #include "jsopcodeinlines.h"
 #include "jsscriptinlines.h"
 
+#include "vm/SPSProfiler-inl.h"
 #include "vm/NativeObject-inl.h"
 #include "vm/Stack-inl.h"
 

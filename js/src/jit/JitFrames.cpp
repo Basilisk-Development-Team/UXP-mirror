@@ -2845,11 +2845,10 @@ JitFrameIterator::verifyReturnAddressUsingNativeToBytecodeMap()
 #endif // DEBUG
 
 JitProfilingFrameIterator::JitProfilingFrameIterator(
-        JSRuntime* rt, const JS::ProfilingFrameIterator::RegisterState& state)
+        JSContext* cx, const JS::ProfilingFrameIterator::RegisterState& state)
 {
     // If no profilingActivation is live, initialize directly to
     // end-of-iteration state.
-    JSContext* cx = rt->unsafeContextFromAnyThread();
     if (!cx->profilingActivation()) {
         type_ = JitFrame_Entry;
         fp_ = nullptr;
@@ -2875,7 +2874,7 @@ JitProfilingFrameIterator::JitProfilingFrameIterator(
     fp_ = (uint8_t*) act->lastProfilingFrame();
     void* lastCallSite = act->lastProfilingCallSite();
 
-    JitcodeGlobalTable* table = rt->jitRuntime()->getJitcodeGlobalTable();
+    JitcodeGlobalTable* table = cx->runtime()->jitRuntime()->getJitcodeGlobalTable();
 
     // Profiler sampling must NOT be suppressed if we are here.
     MOZ_ASSERT(cx->isProfilerSamplingEnabled());
@@ -2885,7 +2884,7 @@ JitProfilingFrameIterator::JitProfilingFrameIterator(
         return;
 
     // Try initializing with sampler pc using native=>bytecode table.
-    if (tryInitWithTable(table, state.pc, rt, /* forLastCallSite = */ false))
+    if (tryInitWithTable(table, state.pc, cx->runtime(), /* forLastCallSite = */ false))
         return;
 
     // Try initializing with lastProfilingCallSite pc
@@ -2894,7 +2893,7 @@ JitProfilingFrameIterator::JitProfilingFrameIterator(
             return;
 
         // Try initializing with lastProfilingCallSite pc using native=>bytecode table.
-        if (tryInitWithTable(table, lastCallSite, rt, /* forLastCallSite = */ true))
+        if (tryInitWithTable(table, lastCallSite, cx->runtime(), /* forLastCallSite = */ true))
             return;
     }
 
