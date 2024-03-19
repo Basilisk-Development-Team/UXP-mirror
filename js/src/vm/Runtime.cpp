@@ -93,7 +93,8 @@ JSRuntime::JSRuntime(JSRuntime* parentRuntime)
 #ifdef DEBUG
     updateChildRuntimeCount(parentRuntime),
 #endif
-    activeContext(nullptr),
+    activeContext_(nullptr),
+    activeContextChangeProhibited_(0),
     profilerSampleBufferGen_(0),
     profilerSampleBufferLapCount_(1),
     getIncumbentGlobalCallback(nullptr),
@@ -195,7 +196,9 @@ JSRuntime::init(JSContext* cx, uint32_t maxbytes, uint32_t maxNurseryBytes)
     if (CanUseExtraThreads() && !EnsureHelperThreadsInitialized())
         return false;
 
-    activeContext = cx;
+    activeContext_ = cx;
+    if (!cooperatingContexts().append(cx))
+        return false;
 
     singletonContext = cx;
 
@@ -344,6 +347,15 @@ JSRuntime::destroyRuntime()
 #endif
 
     js_delete(zoneGroupFromMainThread());
+}
+
+void
+JSRuntime::setActiveContext(JSContext* cx)
+{
+    MOZ_ASSERT_IF(cx, isCooperatingContext(cx));
+    MOZ_RELEASE_ASSERT(!activeContextChangeProhibited());
+
+    activeContext_ = cx;
 }
 
 void
