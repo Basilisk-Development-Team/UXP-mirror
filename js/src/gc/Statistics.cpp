@@ -571,29 +571,29 @@ Statistics::formatDetailedSliceDescription(unsigned i, const SliceData& slice)
 }
 
 UniqueChars
-Statistics::formatDetailedPhaseTimes(const PhaseTimeTable phaseTimes)
+Statistics::formatDetailedPhaseTimes(const PhaseTimeTable& phaseTimes)
 {
     static const char* LevelToIndent[] = { "", "  ", "    ", "      " };
-    static const int64_t MaxUnaccountedChildTimeUS = 50;
+    static const TimeDuration MaxUnaccountedChildTime = TimeDuration::FromMicroseconds(50);
 
     FragmentVector fragments;
     char buffer[128];
-    for (AllPhaseIterator iter(phaseTimes); !iter.done(); iter.advance()) {
+    for (AllPhaseIterator iter; !iter.done(); iter.advance()) {
         Phase phase;
         size_t dagSlot;
         size_t level;
         iter.get(&phase, &dagSlot, &level);
         MOZ_ASSERT(level < 4);
 
-        int64_t ownTime = phaseTimes[dagSlot][phase];
-        int64_t childTime = SumChildTimes(dagSlot, phase, phaseTimes);
-        if (ownTime > 0) {
+        TimeDuration ownTime = phaseTimes[dagSlot][phase];
+        TimeDuration childTime = SumChildTimes(dagSlot, phase, phaseTimes);
+        if (!ownTime.IsZero()) {
             SprintfLiteral(buffer, "      %s%s: %.3fms\n",
                            LevelToIndent[level], phases[phase].name, t(ownTime));
             if (!fragments.append(DuplicateString(buffer)))
                 return UniqueChars(nullptr);
 
-            if (childTime && (ownTime - childTime) > MaxUnaccountedChildTimeUS) {
+            if (childTime && (ownTime - childTime) > MaxUnaccountedChildTime) {
                 MOZ_ASSERT(level < 3);
                 SprintfLiteral(buffer, "      %s%s: %.3fms\n",
                                LevelToIndent[level + 1], "Other", t(ownTime - childTime));
