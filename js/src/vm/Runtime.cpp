@@ -108,8 +108,6 @@ JSRuntime::JSRuntime(JSRuntime* parentRuntime)
     allowRelazificationForTesting(false),
     destroyCompartmentCallback(nullptr),
     sizeOfIncludingThisCompartmentCallback(nullptr),
-    destroyZoneCallback(nullptr),
-    sweepZoneCallback(nullptr),
     compartmentNameCallback(nullptr),
     securityCallbacks(&NullSecurityCallbacks),
     DOMcallbacks(nullptr),
