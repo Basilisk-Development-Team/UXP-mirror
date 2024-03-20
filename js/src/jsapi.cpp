@@ -4595,7 +4595,7 @@ Evaluate(JSContext* cx, ScopeKind scopeKind, HandleObject env,
 
     options.setIsRunOnce(true);
     RootedScript script(cx, frontend::CompileGlobalScript(cx, cx->tempLifoAlloc(),
-                                                          scopeKind, options, srcBuf, &sct));
+                                                          scopeKind, options, srcBuf));
     if (!script)
         return false;
 
