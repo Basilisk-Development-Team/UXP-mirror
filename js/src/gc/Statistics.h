@@ -7,6 +7,7 @@
 #define gc_Statistics_h
 
 #include "mozilla/Array.h"
+#include "mozilla/Atomics.h"
 #include "mozilla/EnumeratedArray.h"
 #include "mozilla/IntegerRange.h"
 #include "mozilla/Maybe.h"
@@ -256,10 +257,12 @@ struct Statistics
     }
 
     void count(Stat s) {
-        MOZ_ASSERT(s < STAT_LIMIT);
         counts[s]++;
     }
 
+    uint32_t getCount(Stat s) {
+        return uint32_t(counts[s]);
+    }
     void beginNurseryCollection(JS::gcreason::Reason reason);
     void endNurseryCollection(JS::gcreason::Reason reason);
 
@@ -349,7 +352,9 @@ struct Statistics
     PhaseTimeTable phaseTotals;
 
     /* Number of events of this type for this GC. */
-    EnumeratedArray<Stat, STAT_LIMIT, unsigned int> counts;
+    EnumeratedArray<Stat,
+                    STAT_LIMIT,
+                    mozilla::Atomic<uint32_t, mozilla::ReleaseAcquire>> counts;
 
     /* Allocated space before the GC started. */
     size_t preBytes;
