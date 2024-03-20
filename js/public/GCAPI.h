@@ -68,6 +68,7 @@ namespace JS {
     D(UNUSED1)                                  \
     D(INCREMENTAL_TOO_SLOW)                     \
     D(ABORT_GC)                                 \
+    D(DELAYED_ATOMS_GC) /* Different to 56+! */ \
                                                 \
     /* These are reserved for future use. */    \
     D(RESERVED0)                                \
@@ -85,7 +86,6 @@ namespace JS {
     D(RESERVED12)                               \
     D(RESERVED13)                               \
     D(RESERVED14)                               \
-    D(RESERVED15)                               \
                                                 \
     /* Reasons from Firefox */                  \
     D(DOM_WINDOW_UTILS)                         \

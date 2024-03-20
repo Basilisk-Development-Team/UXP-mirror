@@ -283,6 +283,7 @@ struct JSContext : public JS::RootingContext,
     void addPendingOutOfMemory();
 
     JSRuntime* runtime() { return runtime_; }
+    const JSRuntime* runtime() const { return runtime_; }
 
     static size_t offsetOfActivation() {
         return offsetof(JSContext, activation_);
@@ -536,6 +537,10 @@ struct JSContext : public JS::RootingContext,
     // compartment. Therefore, we avoid collecting the atoms compartment when
     // exclusive threads are running.
     js::ThreadLocalData<unsigned> keepAtoms;
+
+    bool canCollectAtoms() const {
+        return !keepAtoms && !runtime()->hasHelperThreadZones();
+    }
 
   private:
     // Pools used for recycling name maps and vectors when parsing and
@@ -1227,8 +1232,8 @@ class MOZ_RAII AutoKeepAtoms
 
         JSRuntime* rt = cx->runtime();
         if (!cx->helperThread()) {
-            if (rt->gc.fullGCForAtomsRequested() && !cx->keepAtoms)
-                rt->gc.triggerFullGCForAtoms();
+            if (rt->gc.fullGCForAtomsRequested() && cx->canCollectAtoms())
+                rt->gc.triggerFullGCForAtoms(cx);
         }
     }
 };
