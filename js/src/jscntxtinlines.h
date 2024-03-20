@@ -384,13 +384,13 @@ JSContext::typeLifoAlloc()
 inline js::Nursery&
 JSContext::nursery()
 {
-    return zone()->group()->nursery();
+    return runtime()->gc.nursery();
 }
 
 inline void
 JSContext::minorGC(JS::gcreason::Reason reason)
 {
-    zone()->group()->minorGC(reason);
+    runtime()->gc.minorGC(reason);
 }
 
 inline void
@@ -538,10 +538,10 @@ JSContext::currentScript(jsbytecode** ppc,
     return script;
 }
 
-inline js::ZoneGroupCaches&
+inline js::RuntimeCaches&
 JSContext::caches()
 {
-    return zone()->group()->caches();
+    return runtime()->caches();
 }
 
 #endif /* jscntxtinlines_h */
