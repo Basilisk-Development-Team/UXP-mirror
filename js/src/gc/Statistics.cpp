@@ -121,10 +121,10 @@ struct DagChildEdge {
 };
 
 /*
- * Note that PHASE_MUTATOR, PHASE_GC_BEGIN, and PHASE_GC_END never have any
- * child phases. If beginPhase is called while one of these is active, they
- * will automatically be suspended and resumed when the phase stack is next
- * empty. Timings for these phases are thus exclusive of any other phase.
+ * Note that PHASE_MUTATOR never has any child phases. If beginPhase is called
+ * while PHASE_MUTATOR is active, it will automatically be suspended and
+ * resumed when the phase stack is next empty. Timings for these phases are
+ * thus exclusive of any other phase.
  */
 
 static const PhaseInfo phases[] = {
@@ -776,7 +776,6 @@ Statistics::formatJsonPhaseTimes(const PhaseTimeTable phaseTimes)
 Statistics::Statistics(JSRuntime* rt)
   : runtime(rt),
     fp(nullptr),
-    gcDepth(0),
     nonincrementalReason_(gc::AbortReason::None),
     preBytes(0),
     maxPauseInInterval(0),
@@ -948,9 +947,8 @@ Statistics::endGC()
     if (fp)
         printStats();
 
-    // Clear the OOM flag but only if we are not in a nested GC.
-    if (gcDepth == 1)
-        aborted = false;
+    // Clear the OOM flag.
+    aborted = false;
 }
 
 void
@@ -978,7 +976,6 @@ void
 Statistics::beginSlice(const ZoneGCStats& zoneStats, JSGCInvocationKind gckind,
                        SliceBudget budget, JS::gcreason::Reason reason)
 {
-    gcDepth++;
     this->zoneStats = zoneStats;
 
     bool first = !runtime->gc.isIncrementalGCInProgress();
@@ -993,13 +990,11 @@ Statistics::beginSlice(const ZoneGCStats& zoneStats, JSGCInvocationKind gckind,
     }
 
     // Slice callbacks should only fire for the outermost level.
-    if (gcDepth == 1) {
-        bool wasFullGC = zoneStats.isCollectingAllZones();
-        if (sliceCallback)
-            (*sliceCallback)(TlsContext.get(),
-                             first ? JS::GC_CYCLE_BEGIN : JS::GC_SLICE_BEGIN,
-                             JS::GCDescription(!wasFullGC, gckind, reason));
-    }
+	bool wasFullGC = zoneStats.isCollectingAllZones();
+    if (sliceCallback)
+        (*sliceCallback)(TlsContext.get(),
+                         first ? JS::GC_CYCLE_BEGIN : JS::GC_SLICE_BEGIN,
+                         JS::GCDescription(!wasFullGC, gckind, reason));
 }
 
 void
@@ -1021,7 +1016,7 @@ Statistics::endSlice()
         printSliceProfile();
 
     // Slice callbacks should only fire for the outermost level.
-    if (gcDepth == 1 && !aborted) {
+    if (!aborted) {
         bool wasFullGC = zoneStats.isCollectingAllZones();
         if (sliceCallback)
             (*sliceCallback)(TlsContext.get(),
@@ -1029,7 +1024,7 @@ Statistics::endSlice()
                              JS::GCDescription(!wasFullGC, gckind, slices.back().reason));
     }
 
-    /* Do this after the slice callback since it uses these values. */
+    // Do this after the slice callback since it uses these values.
     if (last) {
         PodArrayZero(counts);
 
@@ -1039,9 +1034,6 @@ Statistics::endSlice()
         for (size_t d = PHASE_DAG_NONE; d < NumTimingArrays; d++)
             PodZero(&phaseTimes[d][PHASE_GC_BEGIN], PHASE_LIMIT - PHASE_GC_BEGIN);
     }
-
-    gcDepth--;
-    MOZ_ASSERT(gcDepth >= 0);
 }
 
 bool
@@ -1111,14 +1103,13 @@ Statistics::resumePhases()
 void
 Statistics::beginPhase(Phase phase)
 {
+    // No longer timing these phases. We should never see these.
+    MOZ_ASSERT(phase != PHASE_GC_BEGIN && phase != PHASE_GC_END);
+
     Phase parent = phaseNestingDepth ? phaseNesting[phaseNestingDepth - 1] : PHASE_NO_PARENT;
 
-    // Re-entry is allowed during callbacks, so pause callback phases while
-    // other phases are in progress, auto-resuming after they end. As a result,
-    // nested GC time will not be accounted against the callback phases.
-    //
-    // Reuse this mechanism for managing PHASE_MUTATOR.
-    if (parent == PHASE_GC_BEGIN || parent == PHASE_GC_END || parent == PHASE_MUTATOR) {
+    // PHASE_MUTATOR is suspended while performing GC.
+    if (parent == PHASE_MUTATOR) {
         suspendPhases(PHASE_IMPLICIT_SUSPENSION);
         parent = phaseNestingDepth ? phaseNesting[phaseNestingDepth - 1] : PHASE_NO_PARENT;
     }
@@ -1164,8 +1155,8 @@ Statistics::endPhase(Phase phase)
     if (phases[phase].parent == PHASE_MULTI_PARENTS)
         activeDagSlot = PHASE_DAG_NONE;
 
-    // When emptying the stack, we may need to resume a callback phase
-    // (PHASE_GC_BEGIN/END) or return to timing the mutator (PHASE_MUTATOR).
+    // When emptying the stack, we may need to return to timing the mutator
+    // (PHASE_MUTATOR).
     if (phaseNestingDepth == 0 && suspended > 0 && suspendedPhases[suspended - 1] == PHASE_IMPLICIT_SUSPENSION)
         resumePhases();
 }
