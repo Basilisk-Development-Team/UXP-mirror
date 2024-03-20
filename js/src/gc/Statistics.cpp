@@ -298,7 +298,7 @@ Statistics::gcDuration(TimeDuration* total, TimeDuration* maxPause) const
 }
 
 void
-Statistics::sccDurations(TimeDuration* total, TimeDuration* maxPause) const
+Statistics::sccDurations(TimeDuration* total, TimeDuration* maxPause)
 {
     *total = *maxPause = 0;
     for (size_t i = 0; i < sccTimes.length(); i++) {
@@ -711,7 +711,8 @@ Statistics::formatJsonDescription(uint64_t timestamp)
 UniqueChars
 Statistics::formatJsonSliceDescription(unsigned i, const SliceData& slice)
 {
-    TimeDuration when = slice.start - slices_[0].start;
+    TimeDuration duration = slice.duration();
+    TimeDuration when = slice.start - slices[0].start;
     char budgetDescription[200];
     slice.budget.describe(budgetDescription, sizeof(budgetDescription) - 1);
     int64_t pageFaults = slice.endFaults - slice.startFaults;
@@ -1251,7 +1252,7 @@ FOR_EACH_GC_PROFILE_TIME(PRINT_PROFILE_HEADER)
 Statistics::printProfileTimes(const ProfileDurations& times)
 {
     for (auto time : times)
-        fprintf(stderr, " %6" PRIi64, static_cast<int64_t>(time.ToMilliseconds()));
+        fprintf(stderr, " %6.0f", time.ToMilliseconds());
     fprintf(stderr, "\n");
 }
 
