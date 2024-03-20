@@ -1235,9 +1235,9 @@ js::GCParallelTask::runFromActiveCooperatingThread(JSRuntime* rt)
 {
     MOZ_ASSERT(state == NotStarted);
     MOZ_ASSERT(js::CurrentThreadCanAccessRuntime(rt));
-    uint64_t timeStart = PRMJ_Now();
+    mozilla::TimeStamp timeStart = mozilla::TimeStamp::Now();
     run();
-    duration_ = PRMJ_Now() - timeStart;
+    duration_ = mozilla::TimeStamp::Now() - timeStart;
 }
 
 void
@@ -1248,11 +1248,11 @@ js::GCParallelTask::runFromHelperThread(AutoLockHelperThreadState& locked)
 
     {
         AutoUnlockHelperThreadState parallelSection(locked);
-        uint64_t timeStart = PRMJ_Now();
+        mozilla::TimeStamp timeStart = mozilla::TimeStamp::Now();
         TlsContext.get()->heapState = JS::HeapState::MajorCollecting;
         run();
         TlsContext.get()->heapState = JS::HeapState::Idle;
-        duration_ = PRMJ_Now() - timeStart;
+        duration_ = mozilla::TimeStamp::Now() - timeStart;
     }
 
     state = Finished;

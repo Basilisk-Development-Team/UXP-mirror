@@ -38,7 +38,8 @@ using namespace gc;
 using mozilla::ArrayLength;
 using mozilla::DebugOnly;
 using mozilla::PodCopy;
-using mozilla::PodZero;
+using mozilla::TimeDuration;
+using mozilla::TimeStamp;
 
 static const uintptr_t CanaryMagicValue = 0xDEADB15D;
 
@@ -154,7 +155,7 @@ js::Nursery::init(uint32_t maxNurseryBytes, AutoLockGC& lock)
             exit(0);
         }
         enableProfiling_ = true;
-        profileThreshold_ = atoi(env);
+        profileThreshold_ = TimeDuration::FromMicroseconds(atoi(env));
     }
 
     env = getenv("JS_GC_REPORT_TENURING");
@@ -166,10 +167,6 @@ js::Nursery::init(uint32_t maxNurseryBytes, AutoLockGC& lock)
         }
         reportTenurings_ = atoi(env);
     }
-
-    PodZero(&startTimes_);
-    PodZero(&profileTimes_);
-    PodZero(&totalTimes_);
 
     if (!runtime()->gc.storeBuffer().enable())
         return false;
@@ -445,10 +442,10 @@ FOR_EACH_NURSERY_PROFILE_TIME(PRINT_HEADER)
 }
 
 /* static */ void
-js::Nursery::printProfileTimes(const ProfileTimes& times)
+js::Nursery::printProfileDurations(const ProfileDurations& times)
 {
     for (auto time : times)
-        fprintf(stderr, " %6" PRIi64, time);
+        fprintf(stderr, " %6.0f", time.ToMicroseconds());
     fprintf(stderr, "\n");
 }
 
@@ -457,21 +454,21 @@ js::Nursery::printTotalProfileTimes()
 {
     if (enableProfiling_) {
         fprintf(stderr, "MinorGC TOTALS: %7" PRIu64 " collections:      ", minorGcCount_);
-        printProfileTimes(totalTimes_);
+        printProfileDurations(totalDurations_);
     }
 }
 
 inline void
 js::Nursery::startProfile(ProfileKey key)
 {
-    startTimes_[key] = PRMJ_Now();
+    startTimes_[key] = TimeStamp::Now();
 }
 
 inline void
 js::Nursery::endProfile(ProfileKey key)
 {
-    profileTimes_[key] = PRMJ_Now() - startTimes_[key];
-    totalTimes_[key] += profileTimes_[key];
+    profileDurations_[key] = TimeStamp::Now() - startTimes_[key];
+    totalDurations_[key] += profileDurations_[key];
 }
 
 inline void
@@ -557,7 +554,7 @@ js::Nursery::collect(JS::gcreason::Reason reason)
     endProfile(ProfileKey::Total);
     minorGcCount_++;
 
-    int64_t totalTime = profileTimes_[ProfileKey::Total];
+    TimeDuration totalTime = profileDurations_[ProfileKey::Total];
 
     rt->gc.stats().endNurseryCollection(reason);
     TraceMinorGCEnd();
@@ -573,7 +570,7 @@ js::Nursery::collect(JS::gcreason::Reason reason)
                 JS::gcreason::ExplainReason(reason),
                 promotionRate * 100,
                 numChunks());
-        printProfileTimes(profileTimes_);
+        printProfileDurations(profileDurations_);
 
         if (reportTenurings_) {
             for (auto& entry : tenureCounts.entries) {

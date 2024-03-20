@@ -11,6 +11,7 @@
 #include "mozilla/Atomics.h"
 #include "mozilla/EnumeratedArray.h"
 #include "mozilla/MemoryReporting.h"
+#include "mozilla/TimeStamp.h"
 #include "mozilla/TypeTraits.h"
 
 #include "js/GCAPI.h"
@@ -971,7 +972,7 @@ class GCParallelTask
     UnprotectedData<TaskState> state;
 
     // Amount of time this task took to execute.
-    ActiveThreadOrGCTaskData<int64_t> duration_;
+    ActiveThreadOrGCTaskData<mozilla::TimeDuration> duration_;
 
     explicit GCParallelTask(const GCParallelTask&) = delete;
 
@@ -986,7 +987,7 @@ class GCParallelTask
     GCParallelTask(GCParallelTask&& other)
       : runtime_(other.runtime_),
         state(other.state),
-        duration_(0),
+        duration_(nullptr),
         cancel_(false)
     {}
 
@@ -997,7 +998,7 @@ class GCParallelTask
     JSRuntime* runtime() { return runtime_; }
 
     // Time spent in the most recent invocation of this task.
-    int64_t duration() const { return duration_; }
+    mozilla::TimeDuration duration() const { return duration_; }
 
     // The simple interface to a parallel task works exactly like pthreads.
     bool start();

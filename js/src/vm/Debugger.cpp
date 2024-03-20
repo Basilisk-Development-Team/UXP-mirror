@@ -60,6 +60,8 @@ using mozilla::Some;
 using mozilla::Nothing;
 using mozilla::Variant;
 using mozilla::AsVariant;
+using mozilla::TimeDuration;
+using mozilla::TimeStamp;
 
 
 /*** Forward declarations, ClassOps and Classes **************************************************/
@@ -11155,8 +11157,8 @@ GarbageCollectionEvent::Create(JSRuntime* rt, ::js::gcstats::Statistics& stats, 
         if (!data->collections.growBy(1))
             return nullptr;
 
-        data->collections.back().startTimestamp = range.front().startTimestamp;
-        data->collections.back().endTimestamp = range.front().endTimestamp;
+        data->collections.back().startTimestamp = range.front().start;
+        data->collections.back().endTimestamp = range.front().end;
     }
 
 
@@ -11193,14 +11195,18 @@ GarbageCollectionEvent::toJSObject(JSContext* cx) const
     if (!slicesArray)
         return nullptr;
 
+    bool ignored; // Ignore inconsistencies in process creation timestamp.
+    TimeStamp originTime = TimeStamp::ProcessCreation(ignored);
+
     size_t idx = 0;
     for (auto range = collections.all(); !range.empty(); range.popFront()) {
         RootedPlainObject collectionObj(cx, NewBuiltinClassInstance<PlainObject>(cx));
         if (!collectionObj)
             return nullptr;
 
-        RootedValue start(cx, NumberValue(range.front().startTimestamp));
-        RootedValue end(cx, NumberValue(range.front().endTimestamp));
+        RootedValue start(cx), end(cx);
+        start = NumberValue((range.front().startTimestamp - originTime).ToMilliseconds());
+        end = NumberValue((range.front().endTimestamp - originTime).ToMilliseconds());
         if (!DefineProperty(cx, collectionObj, cx->names().startTimestamp, start) ||
             !DefineProperty(cx, collectionObj, cx->names().endTimestamp, end))
         {
