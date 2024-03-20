@@ -941,9 +941,6 @@ Statistics::endGC()
         for (int i = 0; i < PHASE_LIMIT; i++)
             phaseTotals[j][i] += phaseTimes[j][i];
 
-    TimeDuration total, longest;
-    gcDuration(&total, &longest);
-
     if (fp)
         printStats();
 
