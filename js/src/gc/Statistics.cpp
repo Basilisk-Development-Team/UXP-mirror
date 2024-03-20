@@ -298,7 +298,7 @@ Statistics::gcDuration(TimeDuration* total, TimeDuration* maxPause) const
 }
 
 void
-Statistics::sccDurations(TimeDuration* total, TimeDuration* maxPause) const
+Statistics::sccDurations(TimeDuration* total, TimeDuration* maxPause)
 {
     *total = *maxPause = 0;
     for (size_t i = 0; i < sccTimes.length(); i++) {
@@ -571,29 +571,29 @@ Statistics::formatDetailedSliceDescription(unsigned i, const SliceData& slice)
 }
 
 UniqueChars
-Statistics::formatDetailedPhaseTimes(const PhaseTimeTable phaseTimes)
+Statistics::formatDetailedPhaseTimes(const PhaseTimeTable& phaseTimes)
 {
     static const char* LevelToIndent[] = { "", "  ", "    ", "      " };
-    static const int64_t MaxUnaccountedChildTimeUS = 50;
+    static const TimeDuration MaxUnaccountedChildTime = TimeDuration::FromMicroseconds(50);
 
     FragmentVector fragments;
     char buffer[128];
-    for (AllPhaseIterator iter(phaseTimes); !iter.done(); iter.advance()) {
+    for (AllPhaseIterator iter; !iter.done(); iter.advance()) {
         Phase phase;
         size_t dagSlot;
         size_t level;
         iter.get(&phase, &dagSlot, &level);
         MOZ_ASSERT(level < 4);
 
-        int64_t ownTime = phaseTimes[dagSlot][phase];
-        int64_t childTime = SumChildTimes(dagSlot, phase, phaseTimes);
-        if (ownTime > 0) {
+        TimeDuration ownTime = phaseTimes[dagSlot][phase];
+        TimeDuration childTime = SumChildTimes(dagSlot, phase, phaseTimes);
+        if (!ownTime.IsZero()) {
             SprintfLiteral(buffer, "      %s%s: %.3fms\n",
                            LevelToIndent[level], phases[phase].name, t(ownTime));
             if (!fragments.append(DuplicateString(buffer)))
                 return UniqueChars(nullptr);
 
-            if (childTime && (ownTime - childTime) > MaxUnaccountedChildTimeUS) {
+            if (childTime && (ownTime - childTime) > MaxUnaccountedChildTime) {
                 MOZ_ASSERT(level < 3);
                 SprintfLiteral(buffer, "      %s%s: %.3fms\n",
                                LevelToIndent[level + 1], "Other", t(ownTime - childTime));
@@ -711,7 +711,8 @@ Statistics::formatJsonDescription(uint64_t timestamp)
 UniqueChars
 Statistics::formatJsonSliceDescription(unsigned i, const SliceData& slice)
 {
-    TimeDuration when = slice.start - slices_[0].start;
+    TimeDuration duration = slice.duration();
+    TimeDuration when = slice.start - slices[0].start;
     char budgetDescription[200];
     slice.budget.describe(budgetDescription, sizeof(budgetDescription) - 1);
     int64_t pageFaults = slice.endFaults - slice.startFaults;
@@ -1251,7 +1252,7 @@ FOR_EACH_GC_PROFILE_TIME(PRINT_PROFILE_HEADER)
 Statistics::printProfileTimes(const ProfileDurations& times)
 {
     for (auto time : times)
-        fprintf(stderr, " %6" PRIi64, static_cast<int64_t>(time.ToMilliseconds()));
+        fprintf(stderr, " %6.0f", time.ToMilliseconds());
     fprintf(stderr, "\n");
 }
 

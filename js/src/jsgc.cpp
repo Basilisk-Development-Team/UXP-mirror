@@ -1264,12 +1264,10 @@ class AutoNotifyGCActivity {
     explicit AutoNotifyGCActivity(GCRuntime& gc) : gc_(gc) {
         if (!gc_.isIncrementalGCInProgress())
             gc_.callGCCallback(JSGC_BEGIN);
-        }
     }
     ~AutoNotifyGCActivity() {
         if (!gc_.isIncrementalGCInProgress())
             gc_.callGCCallback(JSGC_END);
-        }
     }
 
   private:
