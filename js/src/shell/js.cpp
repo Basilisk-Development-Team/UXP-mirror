@@ -1452,18 +1452,16 @@ ParseCompileOptions(JSContext* cx, CompileOptions& options, HandleObject opts,
 }
 
 static void
-my_LargeAllocFailCallback(void* data)
+my_LargeAllocFailCallback()
 {
-    JSContext* cx = (JSContext*)data;
-    JSRuntime* rt = cx->runtime();
-
-    if (cx->helperThread())
+    JSContext* cx = TlsContext.get();
+    if (!cx || cx->helperThread())
         return;
 
     MOZ_ASSERT(!JS::CurrentThreadIsHeapBusy());
 
     JS::PrepareForFullGC(cx);
-    rt->gc.gc(GC_NORMAL, JS::gcreason::SHARED_MEMORY_LIMIT);
+    cx->runtime()->gc.gc(GC_NORMAL, JS::gcreason::SHARED_MEMORY_LIMIT);
 }
 
 static const uint32_t CacheEntry_SOURCE = 0;
@@ -3496,7 +3494,6 @@ WorkerMain(void* arg)
 
         environmentPreparer.emplace(cx);
 
-        JS::SetLargeAllocationFailureCallback(cx, my_LargeAllocFailCallback, (void*)cx);
     } else {
         JS_AddInterruptCallback(cx, ShellInterruptCallback);
     }
@@ -3526,8 +3523,6 @@ WorkerMain(void* arg)
         RootedValue result(cx);
         JS_ExecuteScript(cx, script, &result);
     } while (0);
-
-    JS::SetLargeAllocationFailureCallback(cx, nullptr, nullptr);
 
     JS::SetGetIncumbentGlobalCallback(cx, nullptr);
     JS::SetEnqueuePromiseJobCallback(cx, nullptr);
@@ -8407,7 +8402,7 @@ main(int argc, char** argv, char** envp)
 
     JS_SetGCParameter(cx, JSGC_MODE, JSGC_MODE_INCREMENTAL);
 
-    JS::SetLargeAllocationFailureCallback(cx, my_LargeAllocFailCallback, (void*)cx);
+    JS::SetProcessLargeAllocationFailureCallback(my_LargeAllocFailCallback);
 
     // Set some parameters to allow incremental GC in low memory conditions,
     // as is done for the browser, except in more-deterministic builds or when
@@ -8432,8 +8427,6 @@ main(int argc, char** argv, char** envp)
     if (OOM_printAllocationCount)
         printf("OOM max count: %" PRIu64 "\n", js::oom::counter);
 #endif
-
-    JS::SetLargeAllocationFailureCallback(cx, nullptr, nullptr);
 
     JS::SetGetIncumbentGlobalCallback(cx, nullptr);
     JS::SetEnqueuePromiseJobCallback(cx, nullptr);
