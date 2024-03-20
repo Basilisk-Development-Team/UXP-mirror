@@ -169,7 +169,6 @@ protected:
 
   virtual void CustomGCCallback(JSGCStatus aStatus) {}
   virtual void CustomOutOfMemoryCallback() {}
-  virtual void CustomLargeAllocationFailureCallback() {}
 
 private:
   void
@@ -224,7 +223,6 @@ private:
                                           JS::GCNurseryProgress aProgress,
                                           JS::gcreason::Reason aReason);
   static void OutOfMemoryCallback(JSContext* aContext, void* aData);
-  static void LargeAllocationFailureCallback(void* aData);
   static bool ContextCallback(JSContext* aCx, unsigned aOperation,
                               void* aData);
   static JSObject* GetIncumbentGlobalCallback(JSContext* aCx);
@@ -287,11 +285,12 @@ public:
     Recovered
   };
 
+  void SetLargeAllocationFailure(OOMState aNewState);
+
 private:
   void AnnotateAndSetOutOfMemory(OOMState* aStatePtr, OOMState aNewState);
   void OnGC(JSGCStatus aStatus);
   void OnOutOfMemory();
-  void OnLargeAllocationFailure();
 
 public:
   void AddJSHolder(void* aHolder, nsScriptObjectTracer* aTracer);

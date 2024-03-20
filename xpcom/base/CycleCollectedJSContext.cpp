@@ -532,8 +532,6 @@ CycleCollectedJSContext::Initialize(JSRuntime* aParentRuntime,
 
   JS_SetObjectsTenuredCallback(mJSContext, JSObjectsTenuredCb, this);
   JS::SetOutOfMemoryCallback(mJSContext, OutOfMemoryCallback, this);
-  JS::SetLargeAllocationFailureCallback(mJSContext,
-                                        LargeAllocationFailureCallback, this);
   JS::SetBuildIdOp(mJSContext, GetBuildId);
   JS::SetWarningReporter(mJSContext, MozCrashWarningReporter);
 
@@ -912,14 +910,6 @@ CycleCollectedJSContext::OutOfMemoryCallback(JSContext* aContext,
   MOZ_ASSERT(aContext == self->Context());
 
   self->OnOutOfMemory();
-}
-
-/* static */ void
-CycleCollectedJSContext::LargeAllocationFailureCallback(void* aData)
-{
-  CycleCollectedJSContext* self = static_cast<CycleCollectedJSContext*>(aData);
-
-  self->OnLargeAllocationFailure();
 }
 
 class PromiseJobRunnable final : public MicroTaskRunnable
@@ -1718,13 +1708,11 @@ CycleCollectedJSContext::OnOutOfMemory()
 }
 
 void
-CycleCollectedJSContext::OnLargeAllocationFailure()
+CycleCollectedJSContext::SetLargeAllocationFailure(OOMState aNewState)
 {
   MOZ_ASSERT(mJSContext);
 
-  AnnotateAndSetOutOfMemory(&mLargeAllocationFailureState, OOMState::Reporting);
-  CustomLargeAllocationFailureCallback();
-  AnnotateAndSetOutOfMemory(&mLargeAllocationFailureState, OOMState::Reported);
+  AnnotateAndSetOutOfMemory(&mLargeAllocationFailureState, aNewState);
 }
 
 void
