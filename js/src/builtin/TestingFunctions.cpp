@@ -3345,7 +3345,7 @@ minorGC(JSContext* cx, JSGCStatus status, void* data)
     if (info->active) {
         info->active = false;
         if (cx->zone() && !cx->zone()->isAtomsZone())
-            cx->zone()->group()->evictNursery(JS::gcreason::DEBUG_GC);
+            cx->runtime()->gc.evictNursery(JS::gcreason::DEBUG_GC);
         info->active = true;
     }
 }

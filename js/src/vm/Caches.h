@@ -209,7 +209,7 @@ class NewObjectCache
     }
 
     /* Remove any cached items keyed on moved objects. */
-    void clearNurseryObjects(ZoneGroup* group);
+    void clearNurseryObjects(JSRuntime* rt);
 
     /*
      * Get the entry index for the given lookup, return whether there was a hit
@@ -282,7 +282,7 @@ class NewObjectCache
     }
 };
 
-class ZoneGroupCaches
+class RuntimeCaches
 {
     UniquePtr<js::MathCache> mathCache_;
 

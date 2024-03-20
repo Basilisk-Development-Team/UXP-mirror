@@ -26,6 +26,8 @@
 #include "jsgcinlines.h"
 #include "jsobjinlines.h"
 
+#include "gc/Nursery-inl.h"
+
 using namespace js;
 using namespace js::gc;
 
@@ -286,8 +288,7 @@ js::TraceRuntime(JSTracer* trc)
     MOZ_ASSERT(!trc->isMarkingTracer());
 
     JSRuntime* rt = trc->runtime();
-    for (ZoneGroupsIter group(rt); !group.done(); group.next())
-        group->evictNursery();
+    EvictAllNurseries(rt);
     AutoPrepareForTracing prep(TlsContext.get(), WithAtoms);
     gcstats::AutoPhase ap(rt->gc.stats(), gcstats::PHASE_TRACE_HEAP);
     rt->gc.traceRuntime(trc, prep.session().lock);
