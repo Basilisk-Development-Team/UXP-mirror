@@ -119,7 +119,8 @@ enum class MathSpace {
 };
 
 SimpleLinearSum
-ExtractLinearSum(MDefinition* ins, MathSpace space = MathSpace::Unknown);
+ExtractLinearSum(MDefinition* ins, MathSpace space = MathSpace::Unknown,
+                                 int32_t recursionDepth = 0);
 
 [[nodiscard]] bool
 ExtractLinearInequality(MTest* test, BranchDirection direction,
