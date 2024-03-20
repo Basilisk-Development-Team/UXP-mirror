@@ -68,7 +68,7 @@ class GlobalHelperThreadState
 
     typedef Vector<jit::IonBuilder*, 0, SystemAllocPolicy> IonBuilderVector;
     typedef Vector<ParseTask*, 0, SystemAllocPolicy> ParseTaskVector;
-    typedef Vector<SourceCompressionTask*, 0, SystemAllocPolicy> SourceCompressionTaskVector;
+    typedef Vector<UniquePtr<SourceCompressionTask>, 0, SystemAllocPolicy> SourceCompressionTaskVector;
     typedef Vector<GCHelperState*, 0, SystemAllocPolicy> GCHelperStateVector;
     typedef Vector<GCParallelTask*, 0, SystemAllocPolicy> GCParallelTaskVector;
     typedef Vector<PromiseTask*, 0, SystemAllocPolicy> PromiseTaskVector;
@@ -161,7 +161,10 @@ class GlobalHelperThreadState
     template <typename T>
     void remove(T& vector, size_t* index)
     {
-        vector[(*index)--] = vector.back();
+        // Self-moving is undefined behavior.
+        if (*index != vector.length() - 1)
+            vector[*index] = mozilla::Move(vector.back());
+        (*index)--;
         vector.popBack();
     }
 
@@ -537,7 +540,7 @@ struct AutoEnqueuePendingParseTasksAfterGC {
 
 // Enqueue a compression job to be processed if there's a major GC.
 bool
-EnqueueOffThreadCompression(JSContext* cx, SourceCompressionTask* task);
+EnqueueOffThreadCompression(JSContext* cx, UniquePtr<SourceCompressionTask> task);
 
 // Cancel all scheduled, in progress, or finished compression tasks for
 // runtime.
@@ -609,10 +612,6 @@ struct ParseTask
 
     // Holds the ScriptSourceObject generated for the script compilation.
     ScriptSourceObject* sourceObject;
-
-    // Holds the SourceCompressionTask, if any were enqueued for the
-    // ScriptSource of sourceObject.
-    SourceCompressionTask* sourceCompressionTask;
 
     // Any errors or warnings produced during compilation. These are reported
     // when finishing the script.
@@ -691,7 +690,6 @@ class SourceCompressionTask
     JSRuntime* runtime_;
 
     // The major GC number of the runtime when the task was enqueued.
-    static const uint64_t MajorGCNumberWaitingForFixup = UINT64_MAX;
     uint64_t majorGCNumber_;
 
     // The source to be compressed.
@@ -704,14 +702,10 @@ class SourceCompressionTask
     mozilla::Maybe<SharedImmutableString> resultString_;
 
   public:
-    // The majorGCNumber is used for scheduling tasks. If the task is being
-    // enqueued from an off-thread parsing task, leave the GC number
-    // UINT64_MAX to be fixed up when the parse task finishes.
+    // The majorGCNumber is used for scheduling tasks.
     SourceCompressionTask(JSRuntime* rt, ScriptSource* source)
       : runtime_(rt),
-        majorGCNumber_(CurrentThreadCanAccessRuntime(rt)
-                       ? rt->gc.majorGCCount()
-                       : MajorGCNumberWaitingForFixup),
+        majorGCNumber_(rt->gc.majorGCCount()),
         sourceHolder_(source)
     { }
 
@@ -719,16 +713,9 @@ class SourceCompressionTask
         return runtime == runtime_;
     }
 
-    void fixupMajorGCNumber(JSRuntime* runtime) {
-        MOZ_ASSERT(majorGCNumber_ == MajorGCNumberWaitingForFixup);
-        majorGCNumber_ = runtime->gc.majorGCCount();
-    }
-
     bool shouldStart() const {
         // We wait 2 major GCs to start compressing, in order to avoid
         // immediate compression.
-        if (majorGCNumber_ == MajorGCNumberWaitingForFixup)
-            return false;
         return runtime_->gc.majorGCCount() > majorGCNumber_ + 1;
     }
 
