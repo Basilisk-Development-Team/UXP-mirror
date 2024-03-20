@@ -332,10 +332,9 @@ js::gc::GCRuntime::traceRuntimeCommon(JSTracer* trc, TraceOrMarkRuntime traceOrM
             // Trace legacy C stack roots.
             AutoGCRooter::traceAll(target, trc);
 
-           // Trace C stack roots.
+            // Trace C stack roots.
             MarkExactStackRoots(target, trc);
         }
-
         for (RootRange r = rootsHash.ref().all(); !r.empty(); r.popFront()) {
             const RootEntry& entry = r.front();
             TraceRoot(trc, entry.key(), entry.value());

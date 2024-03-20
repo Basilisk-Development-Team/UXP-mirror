@@ -3960,7 +3960,7 @@ CodeGenerator::visitCallDOMNative(LCallDOMNative* call)
 
     // Construct native exit frame.
     uint32_t safepointOffset = masm.buildFakeExitFrame(argJSContext);
-    masm.enterFakeExitFrame(IonDOMMethodExitFrameLayoutToken);
+    masm.enterFakeExitFrame(argJSContext, IonDOMMethodExitFrameLayoutToken);
 
     markSafepointAt(safepointOffset, call);
 
@@ -7644,11 +7644,10 @@ JitRuntime::generateLazyLinkStub(JSContext* cx)
     AllocatableGeneralRegisterSet regs(GeneralRegisterSet::Volatile());
     Register temp0 = regs.takeAny();
 
-    masm.enterFakeExitFrame(LazyLinkExitFrameLayoutToken);
+    masm.enterFakeExitFrame(temp0, LazyLinkExitFrameLayoutToken);
     masm.PushStubCode();
 
     masm.setupUnalignedABICall(temp0);
-    masm.loadJSContext(temp0);
     masm.passABIArg(temp0);
     masm.callWithABI(JS_FUNC_TO_DATA_PTR(void*, LazyLinkTopActivation));
 
@@ -9731,7 +9730,7 @@ CodeGenerator::link(JSContext* cx, CompilerConstraintList* constraints)
         for (size_t i = 0; i < graph.numConstants(); i++) {
             const Value& v = vp[i];
             if (v.isObject() && IsInsideNursery(&v.toObject())) {
-                cx->runtime()->gc.storeBuffer.putWholeCell(script);
+                cx->zone()->group()->storeBuffer().putWholeCell(script);
                 break;
             }
         }

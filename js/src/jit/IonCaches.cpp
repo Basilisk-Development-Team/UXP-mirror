@@ -951,7 +951,7 @@ EmitGetterCall(JSContext* cx, MacroAssembler& masm,
 
         if (!masm.icBuildOOLFakeExitFrame(returnAddr, aic))
             return false;
-        masm.enterFakeExitFrame(IonOOLNativeExitFrameLayoutToken);
+        masm.enterFakeExitFrame(scratchReg, IonOOLNativeExitFrameLayoutToken);
 
         // Construct and execute call.
         masm.setupUnalignedABICall(scratchReg);
@@ -1009,7 +1009,7 @@ EmitGetterCall(JSContext* cx, MacroAssembler& masm,
 
         if (!masm.icBuildOOLFakeExitFrame(returnAddr, aic))
             return false;
-        masm.enterFakeExitFrame(IonOOLPropertyOpExitFrameLayoutToken);
+        masm.enterFakeExitFrame(scratchReg, IonOOLPropertyOpExitFrameLayoutToken);
 
         // Make the call.
         masm.setupUnalignedABICall(scratchReg);
@@ -1726,7 +1726,7 @@ EmitCallProxyGet(JSContext* cx, MacroAssembler& masm, IonCache::StubAttacher& at
 
     if (!masm.icBuildOOLFakeExitFrame(returnAddr, aic))
         return false;
-    masm.enterFakeExitFrame(IonOOLProxyExitFrameLayoutToken);
+    masm.enterFakeExitFrame(scratch, IonOOLProxyExitFrameLayoutToken);
 
     // Make the call.
     masm.setupUnalignedABICall(scratch);
@@ -2605,7 +2605,7 @@ EmitCallProxySet(JSContext* cx, MacroAssembler& masm, IonCache::StubAttacher& at
 
     if (!masm.icBuildOOLFakeExitFrame(returnAddr, aic))
         return false;
-    masm.enterFakeExitFrame(IonOOLProxyExitFrameLayoutToken);
+    masm.enterFakeExitFrame(scratch, IonOOLProxyExitFrameLayoutToken);
 
     // Make the call.
     masm.setupUnalignedABICall(scratch);
@@ -2779,7 +2779,7 @@ GenerateCallSetter(JSContext* cx, IonScript* ion, MacroAssembler& masm,
 
         if (!masm.icBuildOOLFakeExitFrame(returnAddr, aic))
             return false;
-        masm.enterFakeExitFrame(IonOOLNativeExitFrameLayoutToken);
+        masm.enterFakeExitFrame(tempReg, IonOOLNativeExitFrameLayoutToken);
 
         // Make the call
         masm.setupUnalignedABICall(tempReg);
@@ -2843,7 +2843,7 @@ GenerateCallSetter(JSContext* cx, IonScript* ion, MacroAssembler& masm,
 
         if (!masm.icBuildOOLFakeExitFrame(returnAddr, aic))
             return false;
-        masm.enterFakeExitFrame(IonOOLSetterOpExitFrameLayoutToken);
+        masm.enterFakeExitFrame(tempReg, IonOOLSetterOpExitFrameLayoutToken);
 
         // Make the call.
         masm.setupUnalignedABICall(tempReg);

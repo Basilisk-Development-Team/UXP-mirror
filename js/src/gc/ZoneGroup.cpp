@@ -25,7 +25,7 @@ ZoneGroup::ZoneGroup(JSRuntime* runtime)
     jitZoneGroup(this, nullptr),
     debuggerList_(this),
     numFinishedBuilders(0),
-    ionLazyLinkListSize_(0),
+    ionLazyLinkListSize_(0)
 {}
 
 bool

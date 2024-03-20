@@ -390,7 +390,7 @@ JSRuntime::addSizeOfIncludingThis(mozilla::MallocSizeOf mallocSizeOf, JS::Runtim
         rtSizes->mathCache += cache->sizeOfIncludingThis(mallocSizeOf);
 
     rtSizes->uncompressedSourceCache +=
-        caches.uncompressedSourceCache.sizeOfExcludingThis(mallocSizeOf);
+        caches().uncompressedSourceCache.sizeOfExcludingThis(mallocSizeOf);
 
     rtSizes->gc.nurseryCommitted += gc.nursery().sizeOfHeapCommitted();
     rtSizes->gc.nurseryMallocedBuffers += gc.nursery().sizeOfMallocedBuffers(mallocSizeOf);

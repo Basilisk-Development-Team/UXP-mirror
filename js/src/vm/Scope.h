@@ -534,6 +534,7 @@ class FunctionScope : public Scope
         Data() = delete;
 
         void trace(JSTracer* trc);
+        Zone* zone() const;
     };
 
     static size_t sizeOfData(uint32_t length) {
@@ -953,6 +954,7 @@ class ModuleScope : public Scope
         Data() = delete;
 
         void trace(JSTracer* trc);
+        Zone* zone() const;
     };
 
     static size_t sizeOfData(uint32_t length) {
