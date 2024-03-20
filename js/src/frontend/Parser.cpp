@@ -800,7 +800,6 @@ ParserBase::ParserBase(JSContext* cx, LifoAlloc& alloc,
     traceListHead(nullptr),
     pc(nullptr),
     usedNames(usedNames),
-    sct(nullptr),
     ss(nullptr),
     keepAtoms(cx),
     foldConstants(foldConstants),
@@ -10557,7 +10556,7 @@ template <typename ParseHandler>
 typename ParseHandler::NameNodeType
 Parser<ParseHandler>::stringLiteral()
 {
-    return handler.newStringLiteral(stopStringCompression(), pos());
+    return handler.newStringLiteral(tokenStream.currentToken().atom(), pos());
 }
 
 template <typename ParseHandler>
@@ -10569,7 +10568,7 @@ Parser<ParseHandler>::noSubstitutionTaggedTemplate()
         return handler.newRawUndefinedLiteral(pos());
     }
 
-    return handler.newTemplateStringLiteral(stopStringCompression(), pos());
+    return handler.newTemplateStringLiteral(tokenStream.currentToken().atom(), pos());
 }
 
 template <typename ParseHandler>
@@ -10579,20 +10578,7 @@ Parser<ParseHandler>::noSubstitutionUntaggedTemplate()
     if (!tokenStream.checkForInvalidTemplateEscapeError())
         return null();
 
-    return handler.newTemplateStringLiteral(stopStringCompression(), pos());
-}
-
-template <typename ParseHandler>
-JSAtom * Parser<ParseHandler>::stopStringCompression() {
-    JSAtom* atom = tokenStream.currentToken().atom();
-
-    // Large strings are fast to parse but slow to compress. Stop compression on
-    // them, so we don't wait for a long time for compression to finish at the
-    // end of compilation.
-    const size_t HUGE_STRING = 50000;
-    if (sct && sct->active() && atom->length() >= HUGE_STRING)
-        sct->abort();
-    return atom;
+    return handler.newTemplateStringLiteral(tokenStream.currentToken().atom(), pos());
 }
 
 template <typename ParseHandler>
