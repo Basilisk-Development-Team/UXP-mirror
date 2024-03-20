@@ -707,9 +707,6 @@ typedef size_t
                                              JSCompartment* compartment);
 
 typedef void
-(* JSZoneCallback)(JS::Zone* zone);
-
-typedef void
 (* JSCompartmentNameCallback)(JSContext* cx, JSCompartment* compartment,
                               char* buf, size_t bufsize);
 
@@ -1297,12 +1294,6 @@ JS_SetSizeOfIncludingThisCompartmentCallback(JSContext* cx,
                                              JSSizeOfIncludingThisCompartmentCallback callback);
 
 extern JS_PUBLIC_API(void)
-JS_SetDestroyZoneCallback(JSContext* cx, JSZoneCallback callback);
-
-extern JS_PUBLIC_API(void)
-JS_SetSweepZoneCallback(JSContext* cx, JSZoneCallback callback);
-
-extern JS_PUBLIC_API(void)
 JS_SetCompartmentNameCallback(JSContext* cx, JSCompartmentNameCallback callback);
 
 extern JS_PUBLIC_API(void)
@@ -1839,6 +1830,17 @@ JS_SetGCParametersBasedOnAvailableMemory(JSContext* cx, uint32_t availMem);
 extern JS_PUBLIC_API(JSString*)
 JS_NewExternalString(JSContext* cx, const char16_t* chars, size_t length,
                      const JSStringFinalizer* fin);
+
+/**
+ * Create a new JSString whose chars member may refer to external memory.
+ * If a new external string is allocated, |*allocatedExternal| is set to true.
+ * Otherwise the returned string is either not an external string or an
+ * external string allocated by a previous call and |*allocatedExternal| is set
+ * to false. If |*allocatedExternal| is false, |fin| won't be called.
+ */
+extern JS_PUBLIC_API(JSString*)
+JS_NewMaybeExternalString(JSContext* cx, const char16_t* chars, size_t length,
+                          const JSStringFinalizer* fin, bool* allocatedExternal);
 
 /**
  * Return whether 'str' was created with JS_NewExternalString or
