@@ -563,6 +563,8 @@ class ScriptSource
                                 size_t length);
     void setSource(SharedImmutableTwoByteString&& string);
 
+    [[nodiscard]] bool tryCompressOffThread(JSContext* cx);
+
     [[nodiscard]] bool setCompressedSource(
         JSContext* cx,
         mozilla::UniquePtr<char[], JS::FreePolicy>&& raw,
