@@ -6062,7 +6062,7 @@ GCRuntime::abortGC()
     gcstats::AutoGCSlice agc(stats(), scanZonesBeforeGC(), invocationKind,
                              SliceBudget::unlimited(), JS::gcreason::ABORT_GC);
 
-    rt->zoneGroupFromMainThread()->evictNursery(JS::gcreason::ABORT_GC);
+    EvictAllNurseries(rt, JS::gcreason::ABORT_GC);
     AutoTraceSession session(rt, JS::HeapState::MajorCollecting);
 
     number++;

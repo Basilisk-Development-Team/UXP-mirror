@@ -2024,7 +2024,7 @@ AttachFinishedCompilations(ZoneGroup* group, JSContext* maybecx)
                 RootedScript script(maybecx, builder->script());
 
                 AutoUnlockHelperThreadState unlock(lock);
-                AutoCompartment ac(maybecx, script->compartment);
+                AutoCompartment ac(maybecx, script->compartment());
                 jit::LinkIonScript(maybecx, script);
             }
         }

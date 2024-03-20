@@ -4778,7 +4778,7 @@ JS::CompileModule(JSContext* cx, const ReadOnlyCompileOptions& options,
 JS_PUBLIC_API(void)
 JS::SetModulePrivate(JSObject* module, const JS::Value& value)
 {
-    JSRuntime* rt = module->compartment()->runtimeFromMainThread();
+    JSRuntime* rt = module->compartment()->runtimeFromActiveCooperatingThread();
     module->as<ModuleObject>().scriptSourceObject()->setPrivate(rt, value);
 }
 
@@ -4791,7 +4791,7 @@ JS::GetModulePrivate(JSObject* module)
 JS_PUBLIC_API(void)
 JS::SetScriptPrivate(JSScript* script, const JS::Value& value)
 {
-    JSRuntime* rt = script->compartment()->runtimeFromMainThread();
+    JSRuntime* rt = script->compartment()->runtimeFromActiveCooperatingThread();
     script->scriptSourceUnwrap().setPrivate(rt, value);
 }
 

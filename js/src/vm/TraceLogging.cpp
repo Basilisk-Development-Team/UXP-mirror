@@ -560,7 +560,7 @@ TraceLoggerThread::startEvent(uint32_t id)
 
     if (graph.get()) {
         for (uint32_t otherId = graph->nextTextId(); otherId <= id; otherId++)
-            graph->addTextId(otherId, maybeEventText(id));
+            graph->addTextId(otherId, eventText(id));
     }
 
     log(id);

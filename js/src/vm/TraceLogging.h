@@ -362,7 +362,7 @@ class TraceLoggerThreadState
             fprintf(stderr, "%s\n", text);
     }
 
-    const char* maybeEventText(uint32_t id);
+    const char* eventText(uint32_t id);
 
     void purgeUnusedPayloads();
 

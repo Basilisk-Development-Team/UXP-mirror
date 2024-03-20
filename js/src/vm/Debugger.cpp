@@ -3038,7 +3038,7 @@ Debugger::markAllForMovingGC(JSTracer* trc)
     JSRuntime* rt = trc->runtime();
     for (ZoneGroupsIter group(rt); !group.done(); group.next()) {
         for (Debugger* dbg : group->debuggerList())
-            dbg->traceForMovingGC(trc);
+            dbg->markForMovingGC(trc);
     }
 }
 
@@ -3062,18 +3062,10 @@ Debugger::markForMovingGC(JSTracer* trc)
     environments.trace(trc);
     wasmInstanceScripts.trace(trc);
     wasmInstanceSources.trace(trc);
-
+    
     for (Breakpoint* bp = firstBreakpoint(); bp; bp = bp->nextInDebugger()) {
-        switch (bp->site->type()) {
-          case BreakpointSite::Type::JS:
-            TraceManuallyBarrieredEdge(trc, &bp->site->asJS()->script,
-                                       "breakpoint script");
-            break;
-          case BreakpointSite::Type::Wasm:
-            TraceManuallyBarrieredEdge(trc, &bp->asWasm()->wasmInstance, "breakpoint wasm instance");
-            break;
-        }
-        TraceEdge(trc, &bp->getHandlerRef(), "breakpoint handler");
+            TraceManuallyBarrieredEdge(trc, &bp->site->script, "breakpoint script");
+            TraceEdge(trc, &bp->getHandlerRef(), "breakpoint handler");
     }
 }
 

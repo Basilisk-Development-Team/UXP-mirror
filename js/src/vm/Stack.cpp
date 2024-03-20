@@ -1718,7 +1718,7 @@ ActivationIterator::ActivationIterator(JSContext* cx)
 }
 
 ActivationIterator::ActivationIterator(JSContext* cx, const CooperatingContext& target)
- {
+{
     MOZ_ASSERT(cx == TlsContext.get());
 
     // If target was specified --- even if it is the same as cx itself --- then
@@ -1732,7 +1732,6 @@ ActivationIterator::ActivationIterator(JSContext* cx, const CooperatingContext& 
     // activations for a zone group that is not in use by any thread.
     jitTop_ = target.context() ? target.context()->jitTop.ref() : nullptr;
     activation_ = target.context() ? target.context()->activation_.ref() : nullptr;
-{
 
     settle();
 }

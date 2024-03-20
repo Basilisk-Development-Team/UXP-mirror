@@ -301,8 +301,8 @@ ParseTask::ParseTask(ParseTaskKind kind, JSContext* cx, JSObject* parseGlobal,
                      JS::OffThreadCompileCallback callback, void* callbackData)
   : kind(kind), options(cx), chars(chars), length(length),
     alloc(JSContext::TEMP_LIFO_ALLOC_PRIMARY_CHUNK_SIZE),
-    exclusiveContextGlobal(exclusiveContextGlobal),
     parseGlobal(parseGlobal),
+    callback(callback), callbackData(callbackData),
     script(nullptr), sourceObject(nullptr),
     overRecursed(false), outOfMemory(false)
 {

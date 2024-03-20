@@ -172,7 +172,7 @@ CodeGenerator::~CodeGenerator()
     js_delete(scriptCounts_);
 }
 
-typedef bool (*StringToNumberFn)(ExclusiveContext*, JSString*, double*);
+typedef bool (*StringToNumberFn)(JSContext*, JSString*, double*);
 static const VMFunction StringToNumberInfo =
     FunctionInfo<StringToNumberFn>(StringToNumber, "StringToNumber");
 
@@ -845,7 +845,7 @@ CodeGenerator::emitIntToString(Register input, Register output, Label* ool)
     masm.loadPtr(BaseIndex(output, input, ScalePointer), output);
 }
 
-typedef JSFlatString* (*IntToStringFn)(ExclusiveContext*, int);
+typedef JSFlatString* (*IntToStringFn)(JSContext*, int);
 static const VMFunction IntToStringInfo =
     FunctionInfo<IntToStringFn>(Int32ToString<CanGC>, "Int32ToString");
 
@@ -863,7 +863,7 @@ CodeGenerator::visitIntToString(LIntToString* lir)
     masm.bind(ool->rejoin());
 }
 
-typedef JSString* (*DoubleToStringFn)(ExclusiveContext*, double);
+typedef JSString* (*DoubleToStringFn)(JSContext*, double);
 static const VMFunction DoubleToStringInfo =
     FunctionInfo<DoubleToStringFn>(NumberToString<CanGC>, "NumberToString");
 
@@ -3321,7 +3321,7 @@ CodeGenerator::visitMaybeToDoubleElement(LMaybeToDoubleElement* lir)
     masm.bind(&done);
 }
 
-typedef bool (*CopyElementsForWriteFn)(ExclusiveContext*, NativeObject*);
+typedef bool (*CopyElementsForWriteFn)(JSContext*, NativeObject*);
 static const VMFunction CopyElementsForWriteInfo =
     FunctionInfo<CopyElementsForWriteFn>(NativeObject::CopyElementsForWrite,
                                          "NativeObject::CopyElementsForWrite");
@@ -3536,7 +3536,7 @@ EmitStoreBufferCheckForConstant(MacroAssembler& masm, JSObject* object,
     gc::Arena* arena = cell->arena();
 
     Register cells = temp;
-    masm.loadPtr(AbsoluteAddress(&arena->bufferedCells), cells);
+    masm.loadPtr(AbsoluteAddress(&arena->bufferedCells()), cells);
 
     size_t index = gc::ArenaCellSet::getCellIndex(cell);
     size_t word;
@@ -3831,7 +3831,7 @@ CodeGenerator::visitCallNative(LCallNative* call)
 
     // Construct native exit frame.
     uint32_t safepointOffset = masm.buildFakeExitFrame(tempReg);
-    masm.enterFakeExitFrameForNative(call->mir()->isConstructing());
+    masm.enterFakeExitFrameForNative(tempReg, call->mir()->isConstructing());
 
     markSafepointAt(safepointOffset, call);
 
@@ -3960,7 +3960,7 @@ CodeGenerator::visitCallDOMNative(LCallDOMNative* call)
 
     // Construct native exit frame.
     uint32_t safepointOffset = masm.buildFakeExitFrame(argJSContext);
-    masm.enterFakeExitFrame(IonDOMMethodExitFrameLayoutToken);
+    masm.enterFakeExitFrame(argJSContext, IonDOMMethodExitFrameLayoutToken);
 
     markSafepointAt(safepointOffset, call);
 
@@ -4771,13 +4771,17 @@ CodeGenerator::visitCheckOverRecursed(LCheckOverRecursed* lir)
 
     // Since Ion frames exist on the C stack, the stack limit may be
     // dynamically set by JS_SetThreadStackLimit() and JS_SetNativeStackQuota().
-    const void* limitAddr = GetJitContext()->runtime->addressOfJitStackLimit();
 
     CheckOverRecursedFailure* ool = new(alloc()) CheckOverRecursedFailure(lir);
     addOutOfLineCode(ool, lir->mir());
 
+    Register temp = ToRegister(lir->temp());
+
     // Conditional forward (unlikely) branch to failure.
-    masm.branchStackPtrRhs(Assembler::AboveOrEqual, AbsoluteAddress(limitAddr), ool->entry());
+    const void* contextAddr = GetJitContext()->compartment->zone()->addressOfJSContext();
+    masm.loadPtr(AbsoluteAddress(contextAddr), temp);
+    masm.branchStackPtrRhs(Assembler::AboveOrEqual,
+                           Address(temp, offsetof(JSContext, jitStackLimit)), ool->entry());
     masm.bind(ool->rejoin());
 }
 
@@ -7165,7 +7169,7 @@ CodeGenerator::visitIsNullOrLikeUndefinedAndBranchT(LIsNullOrLikeUndefinedAndBra
     }
 }
 
-typedef JSString* (*ConcatStringsFn)(ExclusiveContext*, HandleString, HandleString);
+typedef JSString* (*ConcatStringsFn)(JSContext*, HandleString, HandleString);
 static const VMFunction ConcatStringsInfo =
     FunctionInfo<ConcatStringsFn>(ConcatStrings<CanGC>, "ConcatStrings");
 
@@ -7640,11 +7644,10 @@ JitRuntime::generateLazyLinkStub(JSContext* cx)
     AllocatableGeneralRegisterSet regs(GeneralRegisterSet::Volatile());
     Register temp0 = regs.takeAny();
 
-    masm.enterFakeExitFrame(LazyLinkExitFrameLayoutToken);
+    masm.enterFakeExitFrame(temp0, LazyLinkExitFrameLayoutToken);
     masm.PushStubCode();
 
     masm.setupUnalignedABICall(temp0);
-    masm.loadJSContext(temp0);
     masm.passABIArg(temp0);
     masm.callWithABI(JS_FUNC_TO_DATA_PTR(void*, LazyLinkTopActivation));
 
@@ -9727,7 +9730,7 @@ CodeGenerator::link(JSContext* cx, CompilerConstraintList* constraints)
         for (size_t i = 0; i < graph.numConstants(); i++) {
             const Value& v = vp[i];
             if (v.isObject() && IsInsideNursery(&v.toObject())) {
-                cx->runtime()->gc.storeBuffer.putWholeCell(script);
+                cx->zone()->group()->storeBuffer().putWholeCell(script);
                 break;
             }
         }
@@ -11206,7 +11209,7 @@ CodeGenerator::visitGetDOMProperty(LGetDOMProperty* ins)
     masm.moveStackPtrTo(ObjectReg);
 
     uint32_t safepointOffset = masm.buildFakeExitFrame(JSContextReg);
-    masm.enterFakeExitFrame(IonDOMExitFrameLayoutGetterToken);
+    masm.enterFakeExitFrame(JSContextReg, IonDOMExitFrameLayoutGetterToken);
 
     markSafepointAt(safepointOffset, ins);
 
@@ -11296,7 +11299,7 @@ CodeGenerator::visitSetDOMProperty(LSetDOMProperty* ins)
     masm.moveStackPtrTo(ObjectReg);
 
     uint32_t safepointOffset = masm.buildFakeExitFrame(JSContextReg);
-    masm.enterFakeExitFrame(IonDOMExitFrameLayoutSetterToken);
+    masm.enterFakeExitFrame(JSContextReg, IonDOMExitFrameLayoutSetterToken);
 
     markSafepointAt(safepointOffset, ins);
 
@@ -11820,8 +11823,13 @@ CodeGenerator::visitInterruptCheck(LInterruptCheck* lir)
 
     OutOfLineCode* ool = oolCallVM(InterruptCheckInfo, lir, ArgList(), StoreNothing());
 
-    AbsoluteAddress interruptAddr(GetJitContext()->runtime->addressOfInterruptUint32());
-    masm.branch32(Assembler::NotEqual, interruptAddr, Imm32(0), ool->entry());
+    Register temp = ToRegister(lir->temp());
+
+    const void* contextAddr = GetJitContext()->compartment->zone()->addressOfJSContext();
+    masm.loadPtr(AbsoluteAddress(contextAddr), temp);
+    masm.branch32(Assembler::NotEqual, Address(temp, offsetof(JSContext, interrupt_)),
+                  Imm32(0), ool->entry());
+
     masm.bind(ool->rejoin());
 }
 
