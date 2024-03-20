@@ -2866,8 +2866,14 @@ static bool MonotoneSub(int32_t lhs, int32_t rhs) {
 
 // Extract a linear sum from ins, if possible (otherwise giving the sum 'ins + 0').
 SimpleLinearSum
-jit::ExtractLinearSum(MDefinition* ins, MathSpace space)
+jit::ExtractLinearSum(MDefinition* ins, MathSpace space,
+                                      int32_t recursionDepth)
 {
+    const int32_t SAFE_RECURSION_LIMIT = 100;
+  if (recursionDepth > SAFE_RECURSION_LIMIT) {
+    return SimpleLinearSum(ins, 0);
+  }
+
     if (ins->isBeta())
         ins = ins->getOperand(0);
 
@@ -2894,8 +2900,8 @@ jit::ExtractLinearSum(MDefinition* ins, MathSpace space)
         return SimpleLinearSum(ins, 0);
 
     // Extract linear sums of each operand.
-    SimpleLinearSum lsum = ExtractLinearSum(lhs, space);
-    SimpleLinearSum rsum = ExtractLinearSum(rhs, space);
+    SimpleLinearSum lsum = ExtractLinearSum(lhs, space, recursionDepth + 1);
+    SimpleLinearSum rsum = ExtractLinearSum(rhs, space, recursionDepth + 1);
 
     // LinearSum only considers a single term operand, if both sides have
     // terms, then ignore extracted linear sums.
