@@ -6,6 +6,7 @@
 #ifndef js_GCAPI_h
 #define js_GCAPI_h
 
+#include "mozilla/TimeStamp.h"
 #include "mozilla/Vector.h"
 
 #include "js/GCAnnotations.h"
@@ -278,8 +279,8 @@ class GarbageCollectionEvent
     // Represents a single slice of a possibly multi-slice incremental garbage
     // collection.
     struct Collection {
-        double startTimestamp;
-        double endTimestamp;
+        mozilla::TimeStamp startTimestamp;
+        mozilla::TimeStamp endTimestamp;
     };
 
     // The set of garbage collection slices that made up this GC cycle.
