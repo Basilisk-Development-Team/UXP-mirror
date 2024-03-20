@@ -983,7 +983,7 @@ class GCParallelTask
     virtual void run() = 0;
 
   public:
-    explicit GCParallelTask(JSRuntime* runtime) : runtime_(runtime), state(NotStarted), duration_(0) {}
+    explicit GCParallelTask(JSRuntime* runtime) : runtime_(runtime), state(NotStarted), duration_(nullptr) {}
     GCParallelTask(GCParallelTask&& other)
       : runtime_(other.runtime_),
         state(other.state),
