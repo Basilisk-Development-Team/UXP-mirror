@@ -21,7 +21,7 @@ class LazyScript;
 class LifoAlloc;
 class ModuleObject;
 class ScriptSourceObject;
-struct SourceCompressionTask;
+class SourceCompressionTask;
 
 namespace frontend {
 
@@ -29,16 +29,16 @@ JSScript*
 CompileGlobalScript(JSContext* cx, LifoAlloc& alloc, ScopeKind scopeKind,
                     const ReadOnlyCompileOptions& options,
                     SourceBufferHolder& srcBuf,
-                    SourceCompressionTask* extraSct = nullptr,
-                    ScriptSourceObject** sourceObjectOut = nullptr);
+                    ScriptSourceObject** sourceObjectOut = nullptr,
+                    SourceCompressionTask** sourceCompressionTaskOut = nullptr);
 
 JSScript*
 CompileEvalScript(JSContext* cx, LifoAlloc& alloc,
                   HandleObject scopeChain, HandleScope enclosingScope,
                   const ReadOnlyCompileOptions& options,
                   SourceBufferHolder& srcBuf,
-                  SourceCompressionTask* extraSct = nullptr,
-                  ScriptSourceObject** sourceObjectOut = nullptr);
+                  ScriptSourceObject** sourceObjectOut = nullptr,
+                  SourceCompressionTask** sourceCompressionTaskOut = nullptr);
 
 ModuleObject*
 CompileModule(JSContext* cx, const ReadOnlyCompileOptions& options,
@@ -47,7 +47,8 @@ CompileModule(JSContext* cx, const ReadOnlyCompileOptions& options,
 ModuleObject*
 CompileModule(JSContext* cx, const ReadOnlyCompileOptions& options,
               SourceBufferHolder& srcBuf, LifoAlloc& alloc,
-              ScriptSourceObject** sourceObjectOut = nullptr);
+              ScriptSourceObject** sourceObjectOut = nullptr,
+              SourceCompressionTask** sourceCompressionTaskOut = nullptr);
 
 [[nodiscard]] bool
 CompileLazyFunction(JSContext* cx, Handle<LazyScript*> lazy, const char16_t* chars, size_t length);

@@ -284,6 +284,7 @@ JSRuntime::destroyRuntime()
          */
         CancelOffThreadIonCompile(this);
         CancelOffThreadParses(this);
+        CancelOffThreadCompressions(this);
 
         /* Remove persistent GC roots. */
         gc.finishRoots();
