@@ -242,10 +242,6 @@ BaselineCompiler::compile()
     // Adopt fallback stubs from the compiler into the baseline script.
     baselineScript->adoptFallbackStubs(&stubSpace_);
 
-    // All barriers are emitted off-by-default, toggle them on if needed.
-    if (cx->zone()->needsIncrementalBarrier())
-        baselineScript->toggleBarriers(true, DontReprotect);
-
     // If profiler instrumentation is enabled, toggle instrumentation on.
     if (cx->runtime()->jitRuntime()->isProfilerInstrumentationEnabled(cx->runtime()))
         baselineScript->toggleProfilerInstrumentation(true);
