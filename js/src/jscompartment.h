@@ -630,7 +630,7 @@ struct JSCompartment
 
     void sweepCrossCompartmentWrappers();
     void sweepSavedStacks();
-    void sweepGlobalObject(js::FreeOp* fop);
+    void sweepGlobalObject();
     void sweepSelfHostingScriptSource();
     void sweepJitCompartment(js::FreeOp* fop);
     void sweepRegExps();
@@ -638,6 +638,7 @@ struct JSCompartment
     void sweepNativeIterators();
     void sweepTemplateObjects();
     void sweepVarNames();
+    void sweepWatchpoints();
 
     void purge();
     void clearTables();
