@@ -1875,8 +1875,6 @@ GCMarker::restoreValueArray(JSObject* objArg, void** vpp, void** endp)
     NativeObject* obj = &objArg->as<NativeObject>();
 
     if (kind == HeapSlot::Element) {
-        if (!obj->is<ArrayObject>())
-            return false;
 
         uint32_t initlen = obj->getDenseInitializedLength();
         HeapSlot* vp = obj->getDenseElementsAllowCopyOnWrite();
