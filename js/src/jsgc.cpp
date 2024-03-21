@@ -3720,7 +3720,7 @@ GCRuntime::beginMarkPhase(JS::gcreason::Reason reason, AutoLockForExclusiveAcces
      * purpose.
      */
 	 
-    MOZ_ASSERT_IF(reason == JS::gcreason::DELAYED_ATOMS_GC, atomsZone->isGCMarking());
+    MOZ_ASSERT_IF(reason == JS::gcreason::DELAYED_ATOMS_GC, atomsZone->shouldMarkInZone());
 
     /* Check that at least one zone is scheduled for collection. */
     if (!any)

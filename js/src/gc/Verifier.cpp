@@ -108,7 +108,7 @@ HeapCheckTracerBase::onChild(const JS::GCCellPtr& thing)
 }
 
 bool
-+HeapCheckTracerBase::traceHeap(AutoLockForExclusiveAccess& lock)
+HeapCheckTracerBase::traceHeap(AutoLockForExclusiveAccess& lock)
 {
     // The analysis thinks that traceRuntime might GC by calling a GC callback.
     JS::AutoSuppressGCAnalysis nogc;

@@ -525,7 +525,7 @@ ConstraintTypeSet::addConstraint(JSContext* cx, TypeConstraint* constraint, bool
               InferSpewColor(constraint), constraint, InferSpewColorReset(),
               constraint->kind());
 
-    MOZ_ASSERT(constraint->next() == nullptr);
+    MOZ_ASSERT(constraint->next == nullptr);
     constraint->next = constraintList;
     constraintList = constraint;
 
@@ -2037,7 +2037,7 @@ ObjectStateChange(JSContext* cx, ObjectGroup* group, bool markingUnknown)
                 constraint = constraint->next;
             }
         } else {
-            MOZ_ASSERT(!types->constraintList());
+            MOZ_ASSERT(!types->constraintList);
         }
     }
 }
@@ -2875,7 +2875,7 @@ ObjectGroup::markStateChange(JSContext* cx)
                 constraint = constraint->next;
             }
         } else {
-            MOZ_ASSERT(!types->constraintList());
+            MOZ_ASSERT(!types->constraintList);
         }
     }
 }

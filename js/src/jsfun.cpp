@@ -1048,7 +1048,7 @@ js::FunctionToString(JSContext* cx, HandleFunction fun, bool isToSource)
             // 2. The source is marked as "lazy", i.e., retrieved on demand, and
             // the embedding has not provided a hook to retrieve sources.
             MOZ_ASSERT_IF(fun->infallibleIsDefaultClassConstructor(cx),
-                          !cx->runtime()->sourceHook ||
+                          !cx->runtime()->sourceHook.ref() ||
                           !script->scriptSource()->sourceRetrievable() ||
                           fun->compartment()->behaviors().discardSource());
 
