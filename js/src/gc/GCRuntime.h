@@ -920,6 +920,7 @@ class GCRuntime
     static IncrementalProgress sweepShapeTree(GCRuntime* gc, FreeOp* fop, Zone* zone,
                                               SliceBudget& budget, AllocKind kind);
     void endSweepPhase(bool lastGC, AutoLockForExclusiveAccess& lock);
+    bool allCCVisibleZonesWereCollected() const;
     void sweepZones(FreeOp* fop, ZoneGroup* group, bool lastGC);
     void sweepZoneGroups(FreeOp* fop, bool destroyingRuntime);
     void decommitAllWithoutUnlocking(const AutoLockGC& lock);
