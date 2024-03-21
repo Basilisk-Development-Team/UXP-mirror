@@ -4510,7 +4510,6 @@ SweepMisc(JSRuntime* runtime)
         c->sweepSavedStacks();
         c->sweepSelfHostingScriptSource();
         c->sweepNativeIterators();
-        c->sweepWatchpoints();
     }
 }
 
@@ -4622,11 +4621,6 @@ GCRuntime::sweepJitDataOnMainThread(FreeOp* fop)
 
         for (GCCompartmentGroupIter c(rt); !c.done(); c.next())
             c->sweepJitCompartment(fop);
-
-        for (GCZoneGroupIter zone(rt); !zone.done(); zone.next()) {
-            if (jit::JitZone* jitZone = zone->jitZone())
-                jitZone->sweep(fop);
-        }
 
         // Bug 1071218: the following method has not yet been refactored to
         // work on a single zone-group at once.
@@ -4753,7 +4747,7 @@ GCRuntime::beginSweepingZoneGroup()
         AutoPhase ap(stats(), PHASE_FINALIZE_START);
         callFinalizeCallbacks(&fop, JSFINALIZE_GROUP_START);
         {
-            AutoPhase ap2(stats(), PHASE_WEAK_ZONES_CALLBACK);
+            AutoPhase ap2(stats(), PHASE_WEAK_ZONEGROUP_CALLBACK);
             callWeakPointerZoneGroupCallbacks();
         }
         {
@@ -4775,7 +4769,7 @@ GCRuntime::beginSweepingZoneGroup()
             sweepAtoms.emplace(rt, SweepAtoms, PHASE_SWEEP_ATOMS, lock);
 
         AutoPhase ap(stats(), PHASE_SWEEP_COMPARTMENTS);
-        AutoSCC scc(stats(), ZoneGroupIndex);
+        AutoSCC scc(stats(), zoneGroupIndex);
 
         AutoRunParallelTask sweepCCWrappers(rt, SweepCCWrappers, PHASE_SWEEP_CC_WRAPPER, lock);
         AutoRunParallelTask sweepObjectGroups(rt, SweepObjectGroups, PHASE_SWEEP_TYPE_OBJECT, lock);

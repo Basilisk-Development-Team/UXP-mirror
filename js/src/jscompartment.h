@@ -638,7 +638,6 @@ struct JSCompartment
     void sweepNativeIterators();
     void sweepTemplateObjects();
     void sweepVarNames();
-    void sweepWatchpoints();
 
     void purge();
     void clearTables();
