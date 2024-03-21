@@ -5527,7 +5527,7 @@ AutoGCSlice::~AutoGCSlice()
     /* We can't use GCZonesIter if this is the end of the last slice. */
     for (ZonesIter zone(runtime, WithAtoms); !zone.done(); zone.next()) {
         if (zone->shouldMarkInZone()) {
-            zone->setNeedsIncrementalBarrier(false);
+            zone->setNeedsIncrementalBarrier(true);
             zone->arenas.purge();
         } else {
             zone->setNeedsIncrementalBarrier(false);
