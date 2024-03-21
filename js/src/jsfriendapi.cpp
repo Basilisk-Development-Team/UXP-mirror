@@ -21,6 +21,7 @@
 
 #include "builtin/Promise.h"
 #include "builtin/TestingFunctions.h"
+#include "gc/GCInternals.h"
 #include "js/Proxy.h"
 #include "proxy/DeadObjectProxy.h"
 #include "vm/ArgumentsObject.h"
@@ -1144,7 +1145,12 @@ js::DumpHeap(JSContext* cx, FILE* fp, js::DumpHeapNurseryBehaviour nurseryBehavi
 
     DumpHeapTracer dtrc(fp, cx);
     fprintf(dtrc.output, "# Roots.\n");
-    TraceRuntime(&dtrc);
+    {
+        JSRuntime* rt = cx->runtime();
+        js::gc::AutoPrepareForTracing prep(cx, WithAtoms);
+        gcstats::AutoPhase ap(rt->gc.stats(), gcstats::PHASE_TRACE_HEAP);
+        rt->gc.traceRuntime(&dtrc, prep.session().lock);
+    }
 
     fprintf(dtrc.output, "# Weak maps.\n");
     WeakMapBase::traceAllMappings(&dtrc);
