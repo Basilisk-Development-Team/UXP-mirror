@@ -107,12 +107,12 @@ struct Zone
 
   public:
 
-    bool needsIncrementalBarrier_;
+    uint32_t needsIncrementalBarrier_;
 
     Zone(JSRuntime* runtime, JSTracer* barrierTracerArg)
       : runtime_(runtime),
         barrierTracer_(barrierTracerArg),
-        needsIncrementalBarrier_(false)
+        needsIncrementalBarrier_(0)
     {}
 
     bool needsIncrementalBarrier() const {

@@ -495,8 +495,6 @@ class JitCompartment
         return baselineSetPropReturnAddr_;
     }
 
-    void toggleBarriers(bool enabled);
-
   public:
     JitCompartment();
     ~JitCompartment();

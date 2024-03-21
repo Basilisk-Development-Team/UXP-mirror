@@ -280,9 +280,8 @@ struct Zone : public JS::shadow::Zone,
     // possibly at other times too.
     uint64_t gcNumber();
 
-    enum ShouldUpdateJit { DontUpdateJit, UpdateJit };
-    void setNeedsIncrementalBarrier(bool needs, ShouldUpdateJit updateJit);
-    const bool* addressOfNeedsIncrementalBarrier() const { return &needsIncrementalBarrier_; }
+    void setNeedsIncrementalBarrier(bool needs);
+    const uint32_t* addressOfNeedsIncrementalBarrier() const { return &needsIncrementalBarrier_; }
 
     js::jit::JitZone* getJitZone(JSContext* cx) { return jitZone_ ? jitZone_ : createJitZone(cx); }
     js::jit::JitZone* jitZone() { return jitZone_; }
@@ -608,7 +607,6 @@ struct Zone : public JS::shadow::Zone,
     js::UnprotectedData<GCState> gcState_;
     js::ActiveThreadData<bool> gcScheduled_;
     js::ZoneGroupData<bool> gcPreserveCode_;
-    js::ZoneGroupData<bool> jitUsingBarriers_;
     js::ZoneGroupData<bool> keepShapeTables_;
 
     // Allow zones to be linked into a list

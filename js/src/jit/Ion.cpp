@@ -670,28 +670,6 @@ JitCompartment::sweep(FreeOp* fop, JSCompartment* compartment)
         regExpTesterStub_ = nullptr;
 }
 
-void
-JitCompartment::toggleBarriers(bool enabled)
-{
-    // Toggle barriers in compartment wide stubs that have patchable pre barriers.
-    if (regExpMatcherStub_)
-        regExpMatcherStub_->togglePreBarriers(enabled, Reprotect);
-    if (regExpSearcherStub_)
-        regExpSearcherStub_->togglePreBarriers(enabled, Reprotect);
-    if (regExpTesterStub_)
-        regExpTesterStub_->togglePreBarriers(enabled, Reprotect);
-
-    // Toggle barriers in baseline IC stubs.
-    for (ICStubCodeMap::Enum e(*stubCodes_); !e.empty(); e.popFront()) {
-        JitCode* code = *e.front().value().unsafeGet();
-        code->togglePreBarriers(enabled, Reprotect);
-    }
-    for (CacheIRStubCodeMap::Enum e(*cacheIRStubCodes_); !e.empty(); e.popFront()) {
-        JitCode* code = *e.front().value().unsafeGet();
-        code->togglePreBarriers(enabled, Reprotect);
-    }
-}
-
 size_t
 JitCompartment::sizeOfIncludingThis(mozilla::MallocSizeOf mallocSizeOf) const
 {
@@ -761,9 +739,6 @@ JitCode::copyFrom(MacroAssembler& masm)
     dataRelocTableBytes_ = masm.dataRelocationTableBytes();
     masm.copyDataRelocationTable(code_ + dataRelocTableOffset());
 
-    preBarrierTableBytes_ = masm.preBarrierTableBytes();
-    masm.copyPreBarrierTable(code_ + preBarrierTableOffset());
-
     masm.processCodeLabels(code_);
 }
 
@@ -822,26 +797,6 @@ JitCode::finalize(FreeOp* fop)
     if (!PerfEnabled())
         pool_->release(headerSize_ + bufferSize_, CodeKind(kind_));
     pool_ = nullptr;
-}
-
-void
-JitCode::togglePreBarriers(bool enabled, ReprotectCode reprotect)
-{
-    uint8_t* start = code_ + preBarrierTableOffset();
-    CompactBufferReader reader(start, start + preBarrierTableBytes_);
-
-    if (!reader.more())
-        return;
-
-    MaybeAutoWritableJitCode awjc(this, reprotect);
-    do {
-        size_t offset = reader.readUnsigned();
-        CodeLocationLabel loc(this, CodeOffset(offset));
-        if (enabled)
-            Assembler::ToggleToCmp(loc);
-        else
-            Assembler::ToggleToJmp(loc);
-    } while (reader.more());
 }
 
 IonScript::IonScript()
@@ -1236,12 +1191,6 @@ JS::DeletePolicy<js::jit::IonScript>::operator()(const js::jit::IonScript* scrip
 }
 
 void
-IonScript::toggleBarriers(bool enabled, ReprotectCode reprotect)
-{
-    method()->togglePreBarriers(enabled, reprotect);
-}
-
-void
 IonScript::purgeOptimizedStubs(Zone* zone)
 {
     for (size_t i = 0; i < numSharedStubs(); i++) {
@@ -1337,26 +1286,6 @@ IonScript::unlinkFromRuntime(FreeOp* fop)
     // called during destruction, and may be additionally called when the
     // script is invalidated.
     backedgeEntries_ = 0;
-}
-
-void
-jit::ToggleBarriers(JS::Zone* zone, bool needs)
-{
-    JSRuntime* rt = zone->runtimeFromActiveCooperatingThread();
-    if (!rt->hasJitRuntime())
-        return;
-
-    for (auto script = zone->cellIter<JSScript>(); !script.done(); script.next()) {
-        if (script->hasIonScript())
-            script->ionScript()->toggleBarriers(needs);
-        if (script->hasBaselineScript())
-            script->baselineScript()->toggleBarriers(needs);
-    }
-
-    for (CompartmentsInZoneIter comp(zone); !comp.done(); comp.next()) {
-        if (comp->jitCompartment())
-            comp->jitCompartment()->toggleBarriers(needs);
-    }
 }
 
 namespace js {
