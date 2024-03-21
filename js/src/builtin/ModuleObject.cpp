@@ -275,7 +275,7 @@ IndirectBindingMap::put(JSContext* cx, HandleId name,
     // different zone to the final module. Lazily allocate the map so we don't
     // have to switch its zone when merging compartments.
     if (!map_) {
-        MOZ_ASSERT(!cx->zone()->usedByExclusiveThread);
+        MOZ_ASSERT(!cx->zone()->usedByHelperThread());
         map_.emplace(cx->zone());
         if (!map_->init()) {
             map_.reset();
