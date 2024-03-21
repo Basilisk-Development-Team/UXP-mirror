@@ -136,9 +136,6 @@ js::Nursery::init(uint32_t maxNurseryBytes, AutoLockGC& lock)
     if (maxNurseryChunks_ == 0)
         return true;
 
-    if (!cellsWithUid_.init())
-        return false;
-
     AutoMaybeStartBackgroundAllocation maybeBgAlloc;
     updateNumChunksLocked(1, maybeBgAlloc, lock);
     if (numChunks() == 0)
@@ -742,8 +739,8 @@ void
 js::Nursery::sweep()
 {
     /* Sweep unique id's in all in-use chunks. */
-    for (CellsWithUniqueIdSet::Enum e(cellsWithUid_); !e.empty(); e.popFront()) {
-        JSObject* obj = static_cast<JSObject*>(e.front());
+    for (Cell* cell : cellsWithUid_) {
+        JSObject* obj = static_cast<JSObject*>(cell);
         if (!IsForwarded(obj))
             obj->zone()->removeUniqueId(obj);
         else
