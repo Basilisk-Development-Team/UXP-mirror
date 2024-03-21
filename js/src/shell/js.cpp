@@ -3350,6 +3350,7 @@ struct CooperationState
       , idle(false)
       , numThreads(0)
       , yieldCount(0)
+      , singleThreaded(false)
     {}
 
     Mutex lock;
@@ -3357,6 +3358,7 @@ struct CooperationState
     bool idle;
     size_t numThreads;
     uint64_t yieldCount;
+    bool singleThreaded;
 };
 static CooperationState* cooperationState = nullptr;
 
@@ -3402,8 +3404,8 @@ CooperativeYieldThread(JSContext* cx, unsigned argc, Value* vp)
 {
     CallArgs args = CallArgsFromVp(argc, vp);
 
-    if (!cooperationState) {
-        JS_ReportErrorASCII(cx, "No cooperative threads have been created");
+    if (!cx->runtime()->gc.canChangeActiveContext(cx)) {
+        JS_ReportErrorASCII(cx, "Cooperating multithreading context switches are not currently allowed");
         return false;
     }
 
@@ -3412,6 +3414,10 @@ CooperativeYieldThread(JSContext* cx, unsigned argc, Value* vp)
         return false;
     }
 
+    if (cooperationState->singleThreaded) {
+        JS_ReportErrorASCII(cx, "Yielding is not allowed while single threaded");
+        return false;
+    }
     CooperativeBeginWait(cx);
     CooperativeYield();
     CooperativeEndWait(cx);
@@ -3420,6 +3426,34 @@ CooperativeYieldThread(JSContext* cx, unsigned argc, Value* vp)
     return true;
 }
 
+static void
+CooperativeBeginSingleThreadedExecution(JSContext* cx)
+{
+    MOZ_ASSERT(!cooperationState->singleThreaded);
+
+    // Yield until all other threads have exited any zone groups they are in.
+    while (true) {
+        bool done = true;
+        for (ZoneGroupsIter group(cx->runtime()); !group.done(); group.next()) {
+            if (!group->ownedByCurrentThread() && group->ownerContext().context())
+                done = false;
+        }
+        if (done)
+            break;
+        CooperativeBeginWait(cx);
+        CooperativeYield();
+        CooperativeEndWait(cx);
+    }
+
+    cooperationState->singleThreaded = true;
+}
+
+static void
+CooperativeEndSingleThreadedExecution(JSContext* cx)
+{
+    if (cooperationState)
+        cooperationState->singleThreaded = false;
+}
 struct WorkerInput
 {
     JSRuntime* parentRuntime;
@@ -3576,6 +3610,10 @@ EvalInThread(JSContext* cx, unsigned argc, Value* vp, bool cooperative)
         return false;
     }
 
+    if (cooperative && cooperationState->singleThreaded) {
+        JS_ReportErrorASCII(cx, "Creating cooperative threads is not allowed while single threaded");
+        return false;
+    }
     if (!args[0].toString()->ensureLinear(cx))
         return false;
 
@@ -3607,8 +3645,6 @@ EvalInThread(JSContext* cx, unsigned argc, Value* vp, bool cooperative)
     }
 
     if (cooperative) {
-        if (!cooperationState)
-            cooperationState = js_new<CooperationState>();
         cooperationState->numThreads++;
         CooperativeBeginWait(cx);
     }
@@ -3857,7 +3893,7 @@ KillWorkerThreads(JSContext* cx)
     workerThreadsLock = nullptr;
 
     // Yield until all other cooperative threads in the main runtime finish.
-    while (cooperationState && cooperationState->numThreads) {
+    while (cooperationState->numThreads) {
         CooperativeBeginWait(cx);
         CooperativeYield();
         CooperativeEndWait(cx);
@@ -8420,6 +8456,10 @@ main(int argc, char** argv, char** envp)
     JS::SetModuleResolveHook(cx->runtime(), ShellModuleResolveHook);
     JS::SetModuleDynamicImportHook(cx, ShellModuleDynamicImportHook);
     JS::SetModuleMetadataHook(cx, ShellModuleMetadataHook);
+    cooperationState = js_new<CooperationState>();
+    JS::SetSingleThreadedExecutionCallbacks(cx,
+                                            CooperativeBeginSingleThreadedExecution,
+                                            CooperativeEndSingleThreadedExecution);
 
     result = Shell(cx, &op, envp);
 
