@@ -539,7 +539,6 @@ class TypeSet
     static inline Type GetMaybeUntrackedValueType(const Value& val);
 
     static bool IsTypeMarked(JSRuntime* rt, Type* v);
-    static bool IsTypeAllocatedDuringIncremental(Type v);
     static bool IsTypeAboutToBeFinalized(Type* v);
 } JS_HAZ_GC_POINTER;
 
