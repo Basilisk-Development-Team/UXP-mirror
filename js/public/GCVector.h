@@ -128,6 +128,20 @@ class GCVector
         for (auto& elem : vector)
             GCPolicy<T>::trace(trc, &elem, "vector element");
     }
+
+    void sweep() {
+        uint32_t src, dst = 0;
+        for (src = 0; src < length(); src++) {
+            if (!GCPolicy<T>::needsSweep(&vector[src])) {
+                if (dst != src)
+                    vector[dst] = vector[src].unbarrieredGet();
+                dst++;
+            }
+        }
+
+        if (dst != length())
+            vector.shrinkTo(dst);
+    }
 };
 
 // AllocPolicy is optional. It has a default value declared in TypeDecls.h
