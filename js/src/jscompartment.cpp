@@ -760,13 +760,10 @@ JSCompartment::sweepSavedStacks()
 }
 
 void
-JSCompartment::sweepGlobalObject(FreeOp* fop)
+JSCompartment::sweepGlobalObject()
 {
-    if (global_ && IsAboutToBeFinalized(&global_)) {
-        if (isDebuggee())
-            Debugger::detachAllDebuggersFromGlobal(fop, global_.unbarrieredGet());
+    if (global_ && IsAboutToBeFinalized(&global_))
         global_.set(nullptr);
-    }
 }
 
 void
