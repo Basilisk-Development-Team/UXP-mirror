@@ -635,7 +635,7 @@ ExposeGCThingToActiveJS(JS::GCCellPtr thing)
 
     if (IsIncrementalBarrierNeededOnTenuredGCThing(thing))
         JS::IncrementalReferenceBarrier(thing);
-    else if (!thing.mayBeOwnedByOtherRuntime() && js::gc::detail::CellIsMarkedGray(thing.asCell()))
+    else if (!thing.mayBeOwnedByOtherRuntime() && js::gc::detail::TenuredCellIsMarkedGray(thing.asCell()))
         JS::UnmarkGrayGCThingRecursively(thing);
 }
 
