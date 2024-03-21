@@ -2395,6 +2395,7 @@ GenerateSetSlot(JSContext* cx, MacroAssembler& masm, IonCache::StubAttacher& att
 
     if (obj->as<NativeObject>().isFixedSlot(shape->slot())) {
         Address addr(object, NativeObject::getFixedSlotOffset(shape->slot()));
+        if (cx->zone()->needsIncrementalBarrier())
 		    masm.guardedCallPreBarrier(addr, MIRType::Value);
 
         masm.storeConstantOrRegister(value, addr);
@@ -2402,7 +2403,7 @@ GenerateSetSlot(JSContext* cx, MacroAssembler& masm, IonCache::StubAttacher& att
         masm.loadPtr(Address(object, NativeObject::offsetOfSlots()), tempReg);
 
         Address addr(tempReg, obj->as<NativeObject>().dynamicSlotIndex(shape->slot()) * sizeof(Value));
-
+        if (cx->zone()->needsIncrementalBarrier())
             masm.guardedCallPreBarrier(addr, MIRType::Value);
 
         masm.storeConstantOrRegister(value, addr);
@@ -3124,6 +3125,7 @@ GenerateAddSlot(JSContext* cx, MacroAssembler& masm, IonCache::StubAttacher& att
 
     // Write the object or expando object's new shape.
     Address shapeAddr(object, ShapedObject::offsetOfShape());
+    if (cx->zone()->needsIncrementalBarrier())
         masm.guardedCallPreBarrier(shapeAddr, MIRType::Shape);
     masm.storePtr(ImmGCPtr(newShape), shapeAddr);
 
@@ -3142,6 +3144,7 @@ GenerateAddSlot(JSContext* cx, MacroAssembler& masm, IonCache::StubAttacher& att
                        &noTypeChange);
 
         Address groupAddr(object, JSObject::offsetOfGroup());
+        if (cx->zone()->needsIncrementalBarrier())
             masm.guardedCallPreBarrier(groupAddr, MIRType::ObjectGroup);
         masm.storePtr(ImmGCPtr(obj->group()), groupAddr);
 
@@ -3390,13 +3393,14 @@ GenerateSetUnboxed(JSContext* cx, MacroAssembler& masm, IonCache::StubAttacher& 
         CheckTypeSetForWrite(masm, obj, id, tempReg, value, failures);
 
     Address address(object, UnboxedPlainObject::offsetOfData() + unboxedOffset);
+    if (cx->zone()->needsIncrementalBarrier()) {
         if (unboxedType == JSVAL_TYPE_OBJECT)
             masm.guardedCallPreBarrier(address, MIRType::Object);
         else if (unboxedType == JSVAL_TYPE_STRING)
             masm.guardedCallPreBarrier(address, MIRType::String);
         else
             MOZ_ASSERT(!UnboxedTypeNeedsPreBarrier(unboxedType));
-
+    }
     masm.storeUnboxedProperty(address, unboxedType, value, failures);
 
     attacher.jumpRejoin(masm);
@@ -4503,6 +4507,7 @@ GenerateSetDenseElement(JSContext* cx, MacroAssembler& masm, IonCache::StubAttac
             // else
             masm.bind(&inBounds);
         }
+        if (cx->zone()->needsIncrementalBarrier())
             masm.guardedCallPreBarrier(target, MIRType::Value);
 
         // Store the value.
