@@ -1289,7 +1289,6 @@ class Assembler : public AssemblerShared
 
     CompactBufferWriter jumpRelocations_;
     CompactBufferWriter dataRelocations_;
-    CompactBufferWriter preBarriers_;
 
     ARMBuffer m_buffer;
 
@@ -1365,9 +1364,6 @@ class Assembler : public AssemblerShared
                 dataRelocations_.writeUnsigned(nextOffset().getOffset());
         }
     }
-    void writePrebarrierOffset(CodeOffset label) {
-        preBarriers_.writeUnsigned(label.offset());
-    }
 
     enum RelocBranchStyle {
         B_MOVWT,
@@ -1412,14 +1408,12 @@ class Assembler : public AssemblerShared
     void executableCopy(void* buffer);
     void copyJumpRelocationTable(uint8_t* dest);
     void copyDataRelocationTable(uint8_t* dest);
-    void copyPreBarrierTable(uint8_t* dest);
 
     // Size of the instruction stream, in bytes, after pools are flushed.
     size_t size() const;
     // Size of the jump relocation table, in bytes.
     size_t jumpRelocationTableBytes() const;
     size_t dataRelocationTableBytes() const;
-    size_t preBarrierTableBytes() const;
 
     // Size of the data table, in bytes.
     size_t bytesNeeded() const;

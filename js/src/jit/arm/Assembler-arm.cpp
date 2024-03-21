@@ -925,13 +925,6 @@ Assembler::copyDataRelocationTable(uint8_t* dest)
 }
 
 void
-Assembler::copyPreBarrierTable(uint8_t* dest)
-{
-    if (preBarriers_.length())
-        memcpy(dest, preBarriers_.buffer(), preBarriers_.length());
-}
-
-void
 Assembler::trace(JSTracer* trc)
 {
     for (size_t i = 0; i < jumps_.length(); i++) {
@@ -1389,8 +1382,7 @@ Assembler::oom() const
     return AssemblerShared::oom() ||
            m_buffer.oom() ||
            jumpRelocations_.oom() ||
-           dataRelocations_.oom() ||
-           preBarriers_.oom();
+           dataRelocations_.oom();
 }
 
 // Size of the instruction stream, in bytes. Including pools. This function
@@ -1413,20 +1405,13 @@ Assembler::dataRelocationTableBytes() const
     return dataRelocations_.length();
 }
 
-size_t
-Assembler::preBarrierTableBytes() const
-{
-    return preBarriers_.length();
-}
-
 // Size of the data table, in bytes.
 size_t
 Assembler::bytesNeeded() const
 {
     return size() +
         jumpRelocationTableBytes() +
-        dataRelocationTableBytes() +
-        preBarrierTableBytes();
+        dataRelocationTableBytes();
 }
 
 #ifdef JS_DISASM_ARM
