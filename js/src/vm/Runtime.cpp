@@ -816,3 +816,9 @@ JS::IsProfilingEnabledForContext(JSContext* cx)
     MOZ_ASSERT(cx);
     return cx->runtime()->spsProfiler().enabled();
 }
+
+JS_PUBLIC_API(void)
+JS::shadow::RegisterWeakCache(JSRuntime* rt, WeakCache<void*>* cachep)
+{
+    rt->registerWeakCache(cachep);
+}
