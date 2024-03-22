@@ -2933,7 +2933,7 @@ Debugger::markCrossCompartmentEdges(JSTracer* trc)
  * all the edges being reported here are strong references.
  *
  * This method is also used during compacting GC to update cross compartment
- * pointers in zones that are not currently being compacted.
+ * pointers into zones that are being compacted.
  */
 /* static */ void
 Debugger::markIncomingCrossCompartmentEdges(JSTracer* trc)
@@ -2942,11 +2942,11 @@ Debugger::markIncomingCrossCompartmentEdges(JSTracer* trc)
     gc::State state = rt->gc.state();
     MOZ_ASSERT(state == gc::State::MarkRoots || state == gc::State::Compact);
 
+
     for (ZoneGroupsIter group(rt); !group.done(); group.next()) {
         for (Debugger* dbg : group->debuggerList()) {
             Zone* zone = MaybeForwarded(dbg->object.get())->zone();
-            if ((state == gc::State::MarkRoots && !zone->isCollecting()) ||
-                (state == gc::State::Compact && !zone->isGCCompacting()))
+            if (!zone->isCollecting() || state == gc::State::Compact)
                 dbg->markCrossCompartmentEdges(trc);
         }
     }
@@ -3040,9 +3040,9 @@ Debugger::markAllForMovingGC(JSTracer* trc)
 }
 
 /*
- * Mark all debugger-owned GC things unconditionally. This is used by the minor
- * GC: the minor GC cannot apply the weak constraints of the full GC because it
- * visits only part of the heap.
+ * Mark all debugger-owned GC things unconditionally. This is used during
+ * compacting GC and in minor GC: the minor GC cannot apply the weak constraints
+ * of the full GC because it visits only part of the heap.
  */
 void
 Debugger::markForMovingGC(JSTracer* trc)
