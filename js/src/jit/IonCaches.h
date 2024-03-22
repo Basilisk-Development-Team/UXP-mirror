@@ -843,6 +843,7 @@ bool IsCacheableGetPropReadSlotForIonOrCacheIR(JSObject* obj, JSObject* holder, 
 
 bool IsCacheableGetPropCallScripted(JSObject* obj, JSObject* holder, Shape* shape,
                                     bool* isTemporarilyUnoptimizable = nullptr);
+bool IsCacheableGetPropCallNative(JSObject* obj, JSObject* holder, Shape* shape);
 
 } // namespace jit
 } // namespace js

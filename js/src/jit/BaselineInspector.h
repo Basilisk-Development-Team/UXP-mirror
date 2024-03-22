@@ -127,7 +127,12 @@ class BaselineInspector
     LexicalEnvironmentObject* templateNamedLambdaObject();
     CallObject* templateCallObject();
 
-    [[nodiscard]] bool commonGetPropFunction(jsbytecode* pc, JSObject** holder, Shape** holderShape,
+     // If |innerized| is true, we're doing a GETPROP on a WindowProxy and
+    // IonBuilder unwrapped/innerized it to do the lookup on the Window (the
+    // global object) instead. In this case we should only look for Baseline
+    // stubs that performed the same optimization.
+     [[nodiscard]] bool commonGetPropFunction(jsbytecode* pc, bool innerized,
+                                            JSObject** holder, Shape** holderShape,
                                             JSFunction** commonGetter, Shape** globalShape,
                                             bool* isOwnProperty, ReceiverVector& receivers,
                                             ObjectGroupVector& convertUnboxedGroups);
