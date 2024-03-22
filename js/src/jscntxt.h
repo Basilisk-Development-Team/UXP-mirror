@@ -601,7 +601,7 @@ struct JSContext : public JS::RootingContext,
     /* Exception state -- the exception member is a GC root by definition. */
     js::ThreadLocalData<bool> throwing;            /* is there a pending exception? */
     js::ThreadLocalData<JS::PersistentRooted<JS::Value>> unwrappedException_; /* most-recently-thrown exception */
-	js::ThreadLocalData<JS::PersistentRooted<js::SavedFrame*>> unwrappedExceptionStack_;; /* most-recently-thrown exception */
+	js::ThreadLocalData<JS::PersistentRooted<js::SavedFrame*>> unwrappedExceptionStack_; /* most-recently-thrown exception */
 
     JS::Value& unwrappedException() {
         if (!unwrappedException_.ref().initialized())
@@ -764,7 +764,7 @@ struct JSContext : public JS::RootingContext,
         throwing = false;
         overRecursed_ = false;
         unwrappedException().setUndefined();
-        unwrappedExceptionStack_ = nullptr;
+        unwrappedExceptionStack() = nullptr;
     }
 
     bool isThrowingOverRecursed() const { return throwing && overRecursed_; }

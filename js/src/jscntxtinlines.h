@@ -400,7 +400,7 @@ JSContext::setPendingException(JS::HandleValue v, js::HandleSavedFrame stack)
     this->overRecursed_ = false;
     this->throwing = true;
     this->unwrappedException() = v;
-    this->unwrappedExceptionStack_ = stack;
+    this->unwrappedExceptionStack() = stack;
     // We don't use assertSameCompartment here to allow
     // js::SetPendingExceptionCrossContext to work.
     MOZ_ASSERT_IF(v.isObject(), v.toObject().compartment() == compartment());
