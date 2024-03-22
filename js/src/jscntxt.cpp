@@ -1264,6 +1264,18 @@ JSContext::~JSContext()
     TlsContext.set(nullptr);
 }
 
+void
+JSContext::setRuntime(JSRuntime* rt)
+{
+    MOZ_ASSERT(!resolvingList);
+    MOZ_ASSERT(!compartment());
+    MOZ_ASSERT(!activation());
+    MOZ_ASSERT(!unwrappedException_.ref().initialized());
+    MOZ_ASSERT(!unwrappedExceptionStack_.ref().initialized());
+    MOZ_ASSERT(!asyncStackForNewActivations_.ref().initialized());
+
+    runtime_ = rt;
+}
 
 void
 JSContext::setPendingExceptionAndCaptureStack(HandleValue value)
@@ -1280,18 +1292,6 @@ JSContext::setPendingExceptionAndCaptureStack(HandleValue value)
         nstack = &stack->as<SavedFrame>();
     }
     setPendingException(value, nstack);
-}
-
-void
-JSContext::setRuntime(JSRuntime* rt)
-{
-    MOZ_ASSERT(!resolvingList);
-    MOZ_ASSERT(!compartment());
-    MOZ_ASSERT(!activation());
-    MOZ_ASSERT(!unwrappedException_.ref().initialized());
-	MOZ_ASSERT(!unwrappedExceptionStack_.ref().initialized());
-    MOZ_ASSERT(!asyncStackForNewActivations_.ref().initialized());
-    runtime_ = rt;
 }
 
 bool
