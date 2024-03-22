@@ -443,7 +443,7 @@ class IonBuilder
     [[nodiscard]] bool getPropTryUnboxed(bool* emitted, MDefinition* obj, PropertyName* name,
                                         BarrierKind barrier, TemporaryTypeSet* types);
     [[nodiscard]] bool getPropTryCommonGetter(bool* emitted, MDefinition* obj, PropertyName* name,
-                                             TemporaryTypeSet* types);
+                                             TemporaryTypeSet* types, bool innerized = false);
     [[nodiscard]] bool getPropTryInlineAccess(bool* emitted, MDefinition* obj, PropertyName* name,
                                              BarrierKind barrier, TemporaryTypeSet* types);
     [[nodiscard]] bool getPropTryTypedObject(bool* emitted, MDefinition* obj, PropertyName* name);

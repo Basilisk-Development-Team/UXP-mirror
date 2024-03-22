@@ -12419,7 +12419,7 @@ IonBuilder::addShapeGuardsForGetterSetter(MDefinition* obj, JSObject* holder, Sh
 
 bool
 IonBuilder::getPropTryCommonGetter(bool* emitted, MDefinition* obj, PropertyName* name,
-                                   TemporaryTypeSet* types)
+                                   TemporaryTypeSet* types, bool innerized)
 {
     MOZ_ASSERT(*emitted == false);
 
@@ -12430,7 +12430,7 @@ IonBuilder::getPropTryCommonGetter(bool* emitted, MDefinition* obj, PropertyName
     bool isOwnProperty = false;
     BaselineInspector::ReceiverVector receivers(alloc());
     BaselineInspector::ObjectGroupVector convertUnboxedGroups(alloc());
-    if (!inspector->commonGetPropFunction(pc, &foundProto, &lastProperty, &commonGetter,
+    if (!inspector->commonGetPropFunction(pc, innerized, &foundProto, &lastProperty, &commonGetter,
                                           &globalShape, &isOwnProperty,
                                           receivers, convertUnboxedGroups))
     {
@@ -12912,8 +12912,11 @@ IonBuilder::getPropTryInnerize(bool* emitted, MDefinition* obj, PropertyName* na
             return *emitted;
 
         trackOptimizationAttempt(TrackedStrategy::GetProp_CommonGetter);
-        if (!getPropTryCommonGetter(emitted, inner, name, types) || *emitted)
+        if (!getPropTryCommonGetter(emitted, inner, name, types, /* innerized = */true) ||
+            *emitted)
+        {
             return *emitted;
+		}
     }
 
     // Passing the inner object to GetProperty IC is safe, see the
