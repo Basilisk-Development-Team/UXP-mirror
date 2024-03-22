@@ -330,7 +330,7 @@ GetPropIRGenerator::tryAttachWindowProxy(CacheIRWriter& writer, HandleObject obj
     // This must be a WindowProxy for the current Window/global. Else it would
     // be a cross-compartment wrapper and IsWindowProxy returns false for
     // those.
-    MOZ_ASSERT(obj->getClass() == cx_->maybeWindowProxyClass());
+    MOZ_ASSERT(obj->getClass() == cx_->runtime()->maybeWindowProxyClass());
     MOZ_ASSERT(ToWindowIfWindowProxy(obj) == cx_->global());
 
     // Now try to do the lookup on the Window (the current global) and see if

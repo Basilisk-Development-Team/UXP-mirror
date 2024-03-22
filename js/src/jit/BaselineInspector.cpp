@@ -729,7 +729,7 @@ AddCacheIRGetPropFunction(ICCacheIR_Monitored* stub, bool innerized,
     // We match either an own getter:
     //
     //   GuardIsObject objId
-   //   [..WindowProxy innerization..]
+    //   [..WindowProxy innerization..]
     //   <GuardReceiver objId>
     //   Call(Scripted|Native)GetterResult objId
     //
@@ -826,6 +826,7 @@ AddCacheIRGetPropFunction(ICCacheIR_Monitored* stub, bool innerized,
         (*isOwnProperty || *globalShape != thisGlobalShape || *holderShape != objShape))
     {
         return false;
+    }
 
     MOZ_ASSERT_IF(*commonGetter, *commonGetter == getter);
 

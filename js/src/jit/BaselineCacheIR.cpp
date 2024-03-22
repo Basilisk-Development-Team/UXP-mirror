@@ -458,7 +458,7 @@ class MOZ_RAII BaselineCacheIRCompiler : public CacheIRCompiler
     void enterStubFrame(MacroAssembler& masm, Register scratch);
     void leaveStubFrame(MacroAssembler& masm, bool calledIntoIon = false);
 
-    MOZ_MUST_USE bool callVM(MacroAssembler& masm, const VMFunction& fun);
+    [[nodiscard]] bool callVM(MacroAssembler& masm, const VMFunction& fun);
 
   public:
     BaselineCacheIRCompiler(JSContext* cx, const CacheIRWriter& writer, ICStubEngine engine,
@@ -560,7 +560,7 @@ BaselineCacheIRCompiler::callVM(MacroAssembler& masm, const VMFunction& fun)
 {
     MOZ_ASSERT(inStubFrame_);
 
-    JitCode* code = cx_->jitRuntime()->getVMWrapper(fun);
+    JitCode* code = cx_->runtime()->jitRuntime()->getVMWrapper(fun);
     if (!code)
         return false;
 
@@ -992,7 +992,7 @@ BaselineCacheIRCompiler::emitGuardClass()
         clasp = &UnmappedArgumentsObject::class_;
         break;
       case GuardClassKind::WindowProxy:
-        clasp = cx_->maybeWindowProxyClass();
+        clasp = cx_->runtime()->maybeWindowProxyClass();
         break;
     }
 
@@ -1500,7 +1500,8 @@ static const size_t MaxOptimizedCacheIRStubs = 16;
 
 ICStub*
 jit::AttachBaselineCacheIRStub(JSContext* cx, const CacheIRWriter& writer,
-+                               CacheKind kind, ICStubEngine engine, JSScript* outerScript,
+                               CacheKind kind, ICStubEngine engine, JSScript* outerScript,
+                               ICFallbackStub* stub)
 {
     // We shouldn't GC or report OOM (or any other exception) here.
     AutoAssertNoPendingException aanpe(cx);
