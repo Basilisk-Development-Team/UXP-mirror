@@ -703,7 +703,7 @@ class BaseCompiler
 
     bool isAvailable(Register64 r) {
 #ifdef JS_PUNBOX64
-        return isAvailable(r);
+        return isAvailable(r.reg);
 #else
         return isAvailable(r.low) && isAvailable(r.high);
 #endif
@@ -1345,7 +1345,7 @@ class BaseCompiler
               }
               case Stk::RegisterI64: {
 #ifdef JS_PUNBOX64
-                masm.Push(v.i64reg());
+                masm.Push(v.i64reg().reg);
                 freeI64(v.i64reg());
 #else
                 masm.Push(v.i64reg().high);
@@ -2805,7 +2805,7 @@ class BaseCompiler
 
     void signExtendI64_8(RegI64 r) {
 #if defined(JS_CODEGEN_X64)
-        masm.movsbq(Operand(r), r);
+        masm.movsbq(Operand(r.reg), r.reg);
 #elif defined(JS_CODEGEN_X86) || defined(JS_CODEGEN_ARM)
         masm.move8SignExtend(r.low, r.low);
         signExtendI32ToI64(RegI32(r.low), r);
@@ -2816,7 +2816,7 @@ class BaseCompiler
 
     void signExtendI64_16(RegI64 r) {
 #if defined(JS_CODEGEN_X64)
-        masm.movswq(Operand(r), r);
+        masm.movswq(Operand(r.reg), r.reg);
 #elif defined(JS_CODEGEN_X86) || defined(JS_CODEGEN_ARM)
         masm.move16SignExtend(r.low, r.low);
         signExtendI32ToI64(RegI32(r.low), r);
@@ -3804,7 +3804,7 @@ class BaseCompiler
     template<typename Cond, typename Lhs, typename Rhs>
     void jumpConditionalWithJoinReg(BranchState* b, Cond cond, Lhs lhs, Rhs rhs)
     {
-        AnyReg r = popJoinRegUnlessVoid(b->resultType);
+        AnyReg r = allocJoinReg(b->resultType);
 
         if (b->framePushed != BranchState::NoPop && willPopStackBeforeBranch(b->framePushed)) {
             Label notTaken;
@@ -3816,7 +3816,7 @@ class BaseCompiler
             branchTo(b->invertBranch ? Assembler::InvertCondition(cond) : cond, lhs, rhs, b->label);
         }
 
-        pushJoinRegUnlessVoid(r);
+        pushJoinReg(r);
     }
 
     // sniffConditionalControl{Cmp,Eqz} may modify the latentWhatever_ state in
