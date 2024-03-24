@@ -508,14 +508,13 @@ JSContext::currentScript(jsbytecode** ppc,
 
     MOZ_ASSERT(act->cx() == this);
 
+    if (!allowCrossCompartment && act->compartment() != compartment())
+        return nullptr;
+
     if (act->isJit()) {
         JSScript* script = nullptr;
         js::jit::GetPcScript(const_cast<JSContext*>(this), &script, ppc);
-        if (!allowCrossCompartment && script->compartment() != compartment()) {
-            if (ppc)
-                *ppc = nullptr;
-            return nullptr;
-        }
+        MOZ_ASSERT(allowCrossCompartment || script->compartment() == compartment());
         return script;
     }
 
@@ -528,8 +527,7 @@ JSContext::currentScript(jsbytecode** ppc,
     MOZ_ASSERT(!fp->runningInJit());
 
     JSScript* script = fp->script();
-    if (!allowCrossCompartment && script->compartment() != compartment())
-        return nullptr;
+    MOZ_ASSERT(allowCrossCompartment || script->compartment() == compartment());
 
     if (ppc) {
         *ppc = act->asInterpreter()->regs().pc;
