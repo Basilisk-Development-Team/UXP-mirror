@@ -168,8 +168,6 @@ class FunctionCompiler
     uint32_t                   blockDepth_;
     ControlFlowPatchsVector    blockPatches_;
 
-    FuncCompileResults&        compileResults_;
-
     // TLS pointer argument to the current function.
     MWasmParameter*            tlsPointer_;
 
@@ -178,8 +176,7 @@ class FunctionCompiler
                      Decoder& decoder,
                      const FuncBytes& func,
                      const ValTypeVector& locals,
-                     MIRGenerator& mirGen,
-                     FuncCompileResults& compileResults)
+                     MIRGenerator& mirGen)
       : mg_(mg),
         iter_(decoder, func.lineOrBytecode()),
         func_(func),
@@ -194,14 +191,12 @@ class FunctionCompiler
         maxStackArgBytes_(0),
         loopDepth_(0),
         blockDepth_(0),
-        compileResults_(compileResults),
         tlsPointer_(nullptr)
     {}
 
     const ModuleGeneratorData& mg() const    { return mg_; }
     IonOpIter&                 iter()        { return iter_; }
     TempAllocator&             alloc() const { return alloc_; }
-    MacroAssembler&            masm() const  { return compileResults_.masm(); }
     const Sig&                 sig() const   { return func_.sig(); }
 
     TrapOffset trapOffset() const {
@@ -2907,12 +2902,12 @@ EmitExpr(FunctionCompiler& f)
 }
 
 bool
-wasm::IonCompileFunction(IonCompileTask* task)
+wasm::IonCompileFunction(CompileTask* task, FuncCompileUnit* unit)
 {
-    MOZ_ASSERT(task->mode() == IonCompileTask::CompileMode::Ion);
+    MOZ_ASSERT(unit->mode() == CompileMode::Ion);
 
-    const FuncBytes& func = task->func();
-    FuncCompileResults& results = task->results();
+    const FuncBytes& func = unit->func();
+    const ModuleEnvironment& env = task->env();
 
     Decoder d(func.bytes());
 
@@ -2921,18 +2916,18 @@ wasm::IonCompileFunction(IonCompileTask* task)
     ValTypeVector locals;
     if (!locals.appendAll(func.sig().args()))
         return false;
-    if (!DecodeLocalEntries(d, task->mg().kind, &locals))
+	if (!DecodeLocalEntries(d, mg.kind, &locals))
         return false;
 
     // Set up for Ion compilation.
 
-    JitContext jitContext(&results.alloc());
+    JitContext jitContext(&task->alloc());
     const JitCompileOptions options;
-    MIRGraph graph(&results.alloc());
+    MIRGraph graph(&task->alloc());
     CompileInfo compileInfo(locals.length());
-    MIRGenerator mir(nullptr, options, &results.alloc(), &graph, &compileInfo,
+    MIRGenerator mir(nullptr, options, &task->alloc(), &graph, &compileInfo,
                      IonOptimizations.get(OptimizationLevel::Wasm));
-    mir.initMinWasmHeapLength(task->mg().minMemoryLength);
+	mir.initMinWasmHeapLength(mg.minMemoryLength);
 
     // Capture the prologue's trap site before decoding the function.
 
@@ -2940,7 +2935,7 @@ wasm::IonCompileFunction(IonCompileTask* task)
 
     // Build MIR graph
     {
-        FunctionCompiler f(task->mg(), d, func, locals, mir, results);
+		FunctionCompiler f(mg, d, func, locals, mir);
         if (!f.init())
             return false;
 
@@ -2980,30 +2975,16 @@ wasm::IonCompileFunction(IonCompileTask* task)
         if (!lir)
             return false;
 
-        SigIdDesc sigId = task->mg().funcSigs[func.index()]->id;
+        SigIdDesc sigId = mg.funcSigs[func.index()]->id;
 
-        CodeGenerator codegen(&mir, lir, &results.masm());
-        if (!codegen.generateWasm(sigId, prologueTrapOffset, &results.offsets()))
+        CodeGenerator codegen(&mir, lir, &task->masm());
+
+        FuncOffsets offsets;
+        if (!codegen.generateWasm(sigId, prologueTrapOffset, &offsets))
             return false;
+
+        unit->finish(offsets);
     }
 
     return true;
-}
-
-bool
-wasm::CompileFunction(IonCompileTask* task)
-{
-    TraceLoggerThread* logger = TraceLoggerForCurrentThread();
-    AutoTraceLog logCompile(logger, TraceLogger_WasmCompilation);
-
-    switch (task->mode()) {
-      case wasm::IonCompileTask::CompileMode::Ion:
-        return wasm::IonCompileFunction(task);
-      case wasm::IonCompileTask::CompileMode::Baseline:
-        return wasm::BaselineCompileFunction(task);
-      case wasm::IonCompileTask::CompileMode::None:
-        break;
-    }
-
-    MOZ_CRASH("Uninitialized task");
 }
