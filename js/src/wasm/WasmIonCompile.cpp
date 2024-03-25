@@ -2907,7 +2907,7 @@ wasm::IonCompileFunction(CompileTask* task, FuncCompileUnit* unit)
     MOZ_ASSERT(unit->mode() == CompileMode::Ion);
 
     const FuncBytes& func = unit->func();
-    const ModuleEnvironment& env = task->env();
+    const ModuleGeneratorData& mg = task->mg();
 
     Decoder d(func.bytes());
 

@@ -772,6 +772,15 @@ ModuleGenerator::numFuncImports() const
 }
 
 uint32_t
+ModuleGenerator::numFuncDefs() const
+{
+    // asm.js overallocates the length of funcSigs and in general does not know
+    // the number of function definitions until it's done compiling.
+    MOZ_ASSERT(!isAsmJS());
+    return shared_->funcSigs.length() - numFuncImports();
+}
+
+uint32_t
 ModuleGenerator::numFuncs() const
 {
     // asm.js pre-reserves a bunch of function index space which is
@@ -1036,7 +1045,7 @@ ModuleGenerator::finishFuncDefs()
         for (uint32_t i = AsmJSFirstDefFuncIndex; i < numFinishedFuncDefs_; i++)
             MOZ_ASSERT(funcCodeRange(i).funcIndex() == i);
     } else {
-        MOZ_ASSERT(numFinishedFuncDefs_ == mg_->numFuncDefs());
+        MOZ_ASSERT(numFinishedFuncDefs_ == numFuncDefs());
         for (uint32_t i = 0; i < numFuncs(); i++)
             MOZ_ASSERT(funcCodeRange(i).funcIndex() == i);
     }
