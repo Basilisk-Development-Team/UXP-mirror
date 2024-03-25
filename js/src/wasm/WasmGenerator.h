@@ -26,7 +26,7 @@
 namespace js {
 namespace wasm {
 
-struct ModuleEnvironment;
+struct ModuleGeneratorData;
 
 typedef Vector<jit::MIRType, 8, SystemAllocPolicy> MIRTypeVector;
 typedef jit::ABIArgIter<MIRTypeVector> ABIArgMIRTypeIter;
@@ -56,7 +56,7 @@ class FuncBytes
     Bytes& bytes() {
         return bytes_;
     }
-    MOZ_MUST_USE bool addCallSiteLineNum(uint32_t lineno) {
+    [[nodiscard]] bool addCallSiteLineNum(uint32_t lineno) {
         return callSiteLineNums_.append(lineno);
     }
     void setLineOrBytecode(uint32_t lineOrBytecode) {
@@ -138,7 +138,7 @@ typedef Vector<FuncCompileUnit, 8, SystemAllocPolicy> FuncCompileUnitVector;
 
 class CompileTask
 {
-  const ModuleEnvironment&   env_;
+    const ModuleGeneratorData&   mg_;
     LifoAlloc                  lifo_;
     Maybe<jit::TempAllocator>  alloc_;
     Maybe<jit::MacroAssembler> masm_;
@@ -153,8 +153,8 @@ class CompileTask
     }
 
   public:
-    CompileTask(const ModuleEnvironment& env, size_t defaultChunkSize)
-      : env_(env),
+    CompileTask(const ModuleGeneratorData& mg, size_t defaultChunkSize)
+      : mg_(mg),
         lifo_(defaultChunkSize)
     {
         init();
@@ -165,8 +165,8 @@ class CompileTask
     jit::TempAllocator& alloc() {
         return *alloc_;
     }
-    const ModuleEnvironment& env() const {
-        return env_;
+    const ModuleGeneratorData& mg() const {
+        return mg_;
     }
     jit::MacroAssembler& masm() {
         return *masm_;
@@ -281,7 +281,9 @@ class MOZ_STACK_CLASS ModuleGenerator
 
     bool funcIsCompiled(uint32_t funcIndex) const;
     const CodeRange& funcCodeRange(uint32_t funcIndex) const;
+public:
     uint32_t numFuncImports() const;
+private:
     [[nodiscard]] bool patchCallSites(TrapExitOffsetArray* maybeTrapExits = nullptr);
     [[nodiscard]] bool patchFarJumps(const TrapExitOffsetArray& trapExits);
     [[nodiscard]] bool finishTask(CompileTask* task);
@@ -320,6 +322,10 @@ class MOZ_STACK_CLASS ModuleGenerator
 
     // Globals:
     const GlobalDescVector& globals() const { return shared_->globals; }
+
+    // Functions declarations:
+    uint32_t numFuncDefs() const;
+    uint32_t numFuncs() const;
 
     // Exports:
     [[nodiscard]] bool addFuncExport(UniqueChars fieldName, uint32_t funcIndex);
