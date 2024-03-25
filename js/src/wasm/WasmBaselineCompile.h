@@ -18,12 +18,12 @@
 #ifndef asmjs_wasm_baseline_compile_h
 #define asmjs_wasm_baseline_compile_h
 
-#include "wasm/WasmIonCompile.h"
-
 namespace js {
 namespace wasm {
 
 class FunctionGenerator;
+class CompileTask;
+class FuncCompileUnit;
 
 // Return true if BaselineCompileFunction can generate code for the
 // function held in the FunctionGenerator.  If false is returned a
@@ -39,7 +39,7 @@ BaselineCanCompile(const FunctionGenerator* fg);
 
 // Generate adequate code quickly.
 bool
-BaselineCompileFunction(IonCompileTask* task);
+BaselineCompileFunction(CompileTask* task, FuncCompileUnit* unit);
 
 } // namespace wasm
 } // namespace js

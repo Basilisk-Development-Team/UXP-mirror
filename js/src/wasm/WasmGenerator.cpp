@@ -55,6 +55,8 @@ ModuleGenerator::ModuleGenerator(ImportVector&& imports)
     startOfUnpatchedCallsites_(0),
     parallel_(false),
     outstanding_(0),
+    currentTask_(nullptr),
+    batchedBytecode_(0),
     activeFuncDef_(nullptr),
     startedFuncDefs_(false),
     finishedFuncDefs_(false),
@@ -70,12 +72,12 @@ ModuleGenerator::~ModuleGenerator()
         if (outstanding_) {
             AutoLockHelperThreadState lock;
             while (true) {
-                IonCompileTaskPtrVector& worklist = HelperThreadState().wasmWorklist(lock);
+                CompileTaskPtrVector& worklist = HelperThreadState().wasmWorklist(lock);
                 MOZ_ASSERT(outstanding_ >= worklist.length());
                 outstanding_ -= worklist.length();
                 worklist.clear();
 
-                IonCompileTaskPtrVector& finished = HelperThreadState().wasmFinishedList(lock);
+                CompileTaskPtrVector& finished = HelperThreadState().wasmFinishedList(lock);
                 MOZ_ASSERT(outstanding_ >= finished.length());
                 outstanding_ -= finished.length();
                 finished.clear();
@@ -96,6 +98,8 @@ ModuleGenerator::~ModuleGenerator()
     } else {
         MOZ_ASSERT(!outstanding_);
     }
+    MOZ_ASSERT_IF(finishedFuncDefs_, !batchedBytecode_);
+    MOZ_ASSERT_IF(finishedFuncDefs_, !currentTask_);
 }
 
 bool
@@ -202,7 +206,7 @@ ModuleGenerator::finishOutstandingTask()
 {
     MOZ_ASSERT(parallel_);
 
-    IonCompileTask* task = nullptr;
+    CompileTask* task = nullptr;
     {
         AutoLockHelperThreadState lock;
         while (true) {
@@ -363,40 +367,44 @@ ModuleGenerator::patchFarJumps(const TrapExitOffsetArray& trapExits)
 }
 
 bool
-ModuleGenerator::finishTask(IonCompileTask* task)
+ModuleGenerator::finishTask(CompileTask* task)
 {
-    const FuncBytes& func = task->func();
-    FuncCompileResults& results = task->results();
-
     masm_.haltingAlign(CodeAlignment);
 
     // Before merging in the new function's code, if calls in a prior function
     // body might go out of range, insert far jumps to extend the range.
-    if ((masm_.size() - startOfUnpatchedCallsites_) + results.masm().size() > JumpRange()) {
+    if ((masm_.size() - startOfUnpatchedCallsites_) + task->masm().size() > JumpRange()) {
         startOfUnpatchedCallsites_ = masm_.size();
         if (!patchCallSites())
             return false;
     }
 
-    // Offset the recorded FuncOffsets by the offset of the function in the
-    // whole module's code segment.
     uint32_t offsetInWhole = masm_.size();
-    results.offsets().offsetBy(offsetInWhole);
+    for (const FuncCompileUnit& unit : task->units()) {
+        const FuncBytes& func = unit.func();
+
+        // Offset the recorded FuncOffsets by the offset of the function in the
+        // whole module's code segment.
+        FuncOffsets offsets = unit.offsets();
+        offsets.offsetBy(offsetInWhole);
 
     // Add the CodeRange for this function.
-    uint32_t funcCodeRangeIndex = metadata_->codeRanges.length();
-    if (!metadata_->codeRanges.emplaceBack(func.index(), func.lineOrBytecode(), results.offsets()))
-        return false;
+        uint32_t funcCodeRangeIndex = metadata_->codeRanges.length();
+        if (!metadata_->codeRanges.emplaceBack(func.index(), func.lineOrBytecode(), offsets))
+            return false;
 
-    MOZ_ASSERT(!funcIsCompiled(func.index()));
-    funcToCodeRange_[func.index()] = funcCodeRangeIndex;
+        MOZ_ASSERT(!funcIsCompiled(func.index()));
+        funcToCodeRange_[func.index()] = funcCodeRangeIndex;
+	}
 
     // Merge the compiled results into the whole-module masm.
     mozilla::DebugOnly<size_t> sizeBefore = masm_.size();
-    if (!masm_.asmMergeWith(results.masm()))
+    if (!masm_.asmMergeWith(task->masm()))
         return false;
-    MOZ_ASSERT(masm_.size() == offsetInWhole + results.masm().size());
+    MOZ_ASSERT(masm_.size() == offsetInWhole + task->masm().size());
 
+    if (!task->reset(&freeFuncBytes_))
+        return false;
     freeTasks_.infallibleAppend(task);
     return true;
 }
@@ -764,15 +772,6 @@ ModuleGenerator::numFuncImports() const
 }
 
 uint32_t
-ModuleGenerator::numFuncDefs() const
-{
-    // asm.js overallocates the length of funcSigs and in general does not know
-    // the number of function definitions until it's done compiling.
-    MOZ_ASSERT(!isAsmJS());
-    return shared_->funcSigs.length() - numFuncImports();
-}
-
-uint32_t
 ModuleGenerator::numFuncs() const
 {
     // asm.js pre-reserves a bunch of function index space which is
@@ -908,17 +907,50 @@ ModuleGenerator::startFuncDef(uint32_t lineOrBytecode, FunctionGenerator* fg)
     MOZ_ASSERT(!activeFuncDef_);
     MOZ_ASSERT(!finishedFuncDefs_);
 
-    if (freeTasks_.empty() && !finishOutstandingTask())
-        return false;
+    if (!freeFuncBytes_.empty()) {
+        fg->funcBytes_ = Move(freeFuncBytes_.back());
+        freeFuncBytes_.popBack();
+    } else {
+        fg->funcBytes_ = js::MakeUnique<FuncBytes>();
+        if (!fg->funcBytes_)
+            return false;
+    }
 
-    IonCompileTask* task = freeTasks_.popCopy();
+    if (!currentTask_) {
+        if (freeTasks_.empty() && !finishOutstandingTask())
+            return false;
+        currentTask_ = freeTasks_.popCopy();
+    }
 
-    task->reset(&fg->bytes_);
-    fg->bytes_.clear();
-    fg->lineOrBytecode_ = lineOrBytecode;
+    fg->funcBytes_->setLineOrBytecode(lineOrBytecode);
     fg->m_ = this;
-    fg->task_ = task;
     activeFuncDef_ = fg;
+    return true;
+}
+
+bool
+ModuleGenerator::launchBatchCompile()
+{
+    MOZ_ASSERT(currentTask_);
+
+    size_t numBatchedFuncs = currentTask_->units().length();
+    MOZ_ASSERT(numBatchedFuncs);
+
+   if (parallel_) {
+        if (!StartOffThreadWasmCompile(currentTask_))
+            return false;
+        outstanding_++;
+    } else {
+        if (!CompileFunction(currentTask_))
+            return false;
+        if (!finishTask(currentTask_))
+            return false;
+    }
+
+    currentTask_ = nullptr;
+    batchedBytecode_ = 0;
+
+    numFinishedFuncDefs_ += numBatchedFuncs;
     return true;
 }
 
@@ -927,35 +959,29 @@ ModuleGenerator::finishFuncDef(uint32_t funcIndex, FunctionGenerator* fg)
 {
     MOZ_ASSERT(activeFuncDef_ == fg);
 
-    auto func = js::MakeUnique<FuncBytes>(Move(fg->bytes_),
-                                          funcIndex,
-                                          funcSig(funcIndex),
-                                          fg->lineOrBytecode_,
-                                          Move(fg->callSiteLineNums_));
-    if (!func)
-        return false;
+    UniqueFuncBytes func = Move(fg->funcBytes_);
+
+    func->setFunc(funcIndex, &funcSig(funcIndex));
 
     auto mode = alwaysBaseline_ && BaselineCanCompile(fg)
-                ? IonCompileTask::CompileMode::Baseline
-                : IonCompileTask::CompileMode::Ion;
+                ? CompileMode::Baseline
+                : CompileMode::Ion;
 
-    fg->task_->init(Move(func), mode);
+    CheckedInt<uint32_t> newBatched = func->bytes().length();
+    if (mode == CompileMode::Ion)
+        newBatched *= JitOptions.wasmBatchIonScaleFactor;
+    newBatched += batchedBytecode_;
 
-    if (parallel_) {
-        if (!StartOffThreadWasmCompile(fg->task_))
-            return false;
-        outstanding_++;
-    } else {
-        if (!CompileFunction(fg->task_))
-            return false;
-        if (!finishTask(fg->task_))
-            return false;
-    }
+    if (!currentTask_->units().emplaceBack(Move(func), mode))
+        return false;
+
+    if (newBatched.isValid() && newBatched.value() < JitOptions.wasmBatchThreshold)
+        batchedBytecode_ = newBatched.value();
+    else if (!launchBatchCompile())
+        return false;
 
     fg->m_ = nullptr;
-    fg->task_ = nullptr;
     activeFuncDef_ = nullptr;
-    numFinishedFuncDefs_++;
     return true;
 }
 
@@ -965,6 +991,9 @@ ModuleGenerator::finishFuncDefs()
     MOZ_ASSERT(startedFuncDefs_);
     MOZ_ASSERT(!activeFuncDef_);
     MOZ_ASSERT(!finishedFuncDefs_);
+
+    if (currentTask_ && !launchBatchCompile())
+        return false;
 
     while (outstanding_ > 0) {
         if (!finishOutstandingTask())
@@ -1007,7 +1036,7 @@ ModuleGenerator::finishFuncDefs()
         for (uint32_t i = AsmJSFirstDefFuncIndex; i < numFinishedFuncDefs_; i++)
             MOZ_ASSERT(funcCodeRange(i).funcIndex() == i);
     } else {
-        MOZ_ASSERT(numFinishedFuncDefs_ == numFuncDefs());
+        MOZ_ASSERT(numFinishedFuncDefs_ == mg_->numFuncDefs());
         for (uint32_t i = 0; i < numFuncs(); i++)
             MOZ_ASSERT(funcCodeRange(i).funcIndex() == i);
     }
@@ -1162,4 +1191,26 @@ ModuleGenerator::finish(const ShareableBytes& bytecode)
                                        Move(elemSegments_),
                                        *metadata_,
                                        bytecode));
+}
+
+bool
+wasm::CompileFunction(CompileTask* task)
+{
+    TraceLoggerThread* logger = TraceLoggerForCurrentThread();
+    AutoTraceLog logCompile(logger, TraceLogger_WasmCompilation);
+
+    for (FuncCompileUnit& unit : task->units()) {
+        switch (unit.mode()) {
+          case CompileMode::Ion:
+            if (!IonCompileFunction(task, &unit))
+                return false;
+            break;
+          case CompileMode::Baseline:
+            if (!BaselineCompileFunction(task, &unit))
+                return false;
+            break;
+        }
+    }
+
+    return true;
 }

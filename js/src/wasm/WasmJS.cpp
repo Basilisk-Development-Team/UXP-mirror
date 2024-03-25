@@ -1701,14 +1701,14 @@ ResolveCompilation(JSContext* cx, Module& module, Handle<PromiseObject*> promise
     return PromiseObject::resolve(cx, promise, resolutionValue);
 }
 
-struct CompileTask : PromiseTask
+struct CompilePromiseTask : PromiseTask
 {
     MutableBytes bytecode;
     CompileArgs  compileArgs;
     UniqueChars  error;
     SharedModule module;
 
-    CompileTask(JSContext* cx, Handle<PromiseObject*> promise)
+    CompilePromiseTask(JSContext* cx, Handle<PromiseObject*> promise)
       : PromiseTask(cx, promise)
     {}
 
@@ -1777,7 +1777,7 @@ WebAssembly_compile(JSContext* cx, unsigned argc, Value* vp)
     if (!promise)
         return false;
 
-    auto task = cx->make_unique<CompileTask>(cx, promise);
+    auto task = cx->make_unique<CompilePromiseTask>(cx, promise);
     if (!task)
         return false;
 
@@ -1825,12 +1825,12 @@ ResolveInstantiation(JSContext* cx, Module& module, HandleObject importObj,
     return PromiseObject::resolve(cx, promise, val);
 }
 
-struct InstantiateTask : CompileTask
+struct InstantiatePromiseTask : CompilePromiseTask
 {
     PersistentRootedObject importObj;
 
-    InstantiateTask(JSContext* cx, Handle<PromiseObject*> promise, HandleObject importObj)
-      : CompileTask(cx, promise),
+    InstantiatePromiseTask(JSContext* cx, Handle<PromiseObject*> promise, HandleObject importObj)
+      : CompilePromiseTask(cx, promise),
         importObj(cx, importObj)
     {}
 
@@ -1897,7 +1897,7 @@ WebAssembly_instantiate(JSContext* cx, unsigned argc, Value* vp)
         if (!PromiseObject::resolve(cx, promise, resolutionValue))
             return false;
     } else {
-        auto task = cx->make_unique<InstantiateTask>(cx, promise, importObj);
+        auto task = cx->make_unique<InstantiatePromiseTask>(cx, promise, importObj);
         if (!task)
             return false;
 
