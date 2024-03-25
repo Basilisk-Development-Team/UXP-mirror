@@ -1349,6 +1349,13 @@ BaselineGetFunctionThis(JSContext* cx, BaselineFrame* frame, MutableHandleValue 
 }
 
 bool
+ProxyGetProperty(JSContext* cx, HandleObject proxy, HandleId id, MutableHandleValue vp)
+{
+    RootedValue receiver(cx, ObjectValue(*proxy));
+    return Proxy::get(cx, proxy, receiver, id, vp);
+}
+
+bool
 CheckIsCallable(JSContext* cx, HandleValue v, CheckIsCallableKind kind)
 {
     if (!IsCallable(v))
