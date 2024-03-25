@@ -144,6 +144,7 @@ typedef bool IsSigned;
 typedef bool ZeroOnOverflow;
 typedef bool IsKnownNotZero;
 typedef bool HandleNaNSpecially;
+typedef bool PopStack;
 typedef bool InvertBranch;
 typedef unsigned ByteSize;
 typedef unsigned BitSize;
@@ -1165,7 +1166,7 @@ class BaseCompiler
           case Stk::None:
             break;
           default:
-            MOZ_CRASH("Compiler bug: Expected int on stack");
+            MOZ_CRASH("Compiler bug: Expected I32 on stack");
         }
     }
 
@@ -1184,9 +1185,8 @@ class BaseCompiler
             loadRegisterI64(r, src);
             break;
           case Stk::None:
-            break;
           default:
-            MOZ_CRASH("Compiler bug: Expected int on stack");
+            MOZ_CRASH("Compiler bug: expected F64 on stack");
         }
     }
 
@@ -1207,9 +1207,8 @@ class BaseCompiler
                 masm.move32(src.i64reg().low, r);
             break;
           case Stk::None:
-            break;
           default:
-            MOZ_CRASH("Compiler bug: Expected int on stack");
+            MOZ_CRASH("Compiler bug: Expected I64 on stack");
         }
     }
 
@@ -1229,9 +1228,8 @@ class BaseCompiler
                 masm.move32(src.i64reg().high, r);
             break;
           case Stk::None:
-            break;
           default:
-            MOZ_CRASH("Compiler bug: Expected int on stack");
+            MOZ_CRASH("Compiler bug: Expected I64 on stack");
         }
     }
 #endif
@@ -1251,9 +1249,8 @@ class BaseCompiler
             loadRegisterF64(r, src);
             break;
           case Stk::None:
-            break;
           default:
-            MOZ_CRASH("Compiler bug: expected double on stack");
+            MOZ_CRASH("Compiler bug: expected F64 on stack");
         }
     }
 
@@ -1272,9 +1269,8 @@ class BaseCompiler
             loadRegisterF32(r, src);
             break;
           case Stk::None:
-            break;
           default:
-            MOZ_CRASH("Compiler bug: expected float on stack");
+            MOZ_CRASH("Compiler bug: expected F32 on stack");
         }
     }
 
@@ -1504,16 +1500,6 @@ class BaseCompiler
             loadRegisterI32(r, v);
             break;
           case Stk::None:
-            // This case crops up in situations where there's unreachable code that
-            // the type system interprets as "generating" a value of the correct type:
-            //
-            //   (if (return) E1 E2)                    type is type(E1) meet type(E2)
-            //   (if E (unreachable) (i32.const 1))     type is int
-            //   (if E (i32.const 1) (unreachable))     type is int
-            //
-            // It becomes silly to handle this throughout the code, so just handle it
-            // here even if that means weaker run-time checking.
-            break;
           default:
             MOZ_CRASH("Compiler bug: expected int on stack");
         }
@@ -1568,8 +1554,6 @@ class BaseCompiler
             loadRegisterI64(r, v);
             break;
           case Stk::None:
-            // See popI32()
-            break;
           default:
             MOZ_CRASH("Compiler bug: expected long on stack");
         }
@@ -1623,8 +1607,6 @@ class BaseCompiler
             loadRegisterF64(r, v);
             break;
           case Stk::None:
-            // See popI32()
-            break;
           default:
             MOZ_CRASH("Compiler bug: expected double on stack");
         }
@@ -1673,8 +1655,6 @@ class BaseCompiler
             loadRegisterF32(r, v);
             break;
           case Stk::None:
-            // See popI32()
-            break;
           default:
             MOZ_CRASH("Compiler bug: expected float on stack");
         }
@@ -1733,37 +1713,48 @@ class BaseCompiler
     // popping of the stack we can just use the JoinReg as it will
     // become available in that process.
 
-    [[nodiscard]] AnyReg popJoinReg() {
-        switch (stk_.back().kind()) {
-          case Stk::RegisterI32:
-          case Stk::ConstI32:
-          case Stk::MemI32:
-          case Stk::LocalI32:
-            return AnyReg(popI32(joinRegI32));
-          case Stk::RegisterI64:
-          case Stk::ConstI64:
-          case Stk::MemI64:
-          case Stk::LocalI64:
-            return AnyReg(popI64(joinRegI64));
-          case Stk::RegisterF64:
-          case Stk::ConstF64:
-          case Stk::MemF64:
-          case Stk::LocalF64:
-            return AnyReg(popF64(joinRegF64));
-          case Stk::RegisterF32:
-          case Stk::ConstF32:
-          case Stk::MemF32:
-          case Stk::LocalF32:
-            return AnyReg(popF32(joinRegF32));
-          case Stk::None:
-            stk_.popBack();
+    [[nodiscard]] AnyReg popJoinRegUnlessVoid(ExprType type) {
+        switch (type) {
+          case ExprType::Void: {
             return AnyReg();
-          default:
-            MOZ_CRASH("Compiler bug: unexpected value on stack");
+          }
+          case ExprType::I32: {
+            DebugOnly<Stk::Kind> k(stk_.back().kind());
+            MOZ_ASSERT(k == Stk::RegisterI32 || k == Stk::ConstI32 || k == Stk::MemI32 ||
+                       k == Stk::LocalI32);
+            return AnyReg(popI32(joinRegI32));
+          }
+          case ExprType::I64: {
+            DebugOnly<Stk::Kind> k(stk_.back().kind());
+            MOZ_ASSERT(k == Stk::RegisterI64 || k == Stk::ConstI64 || k == Stk::MemI64 ||
+                       k == Stk::LocalI64);
+            return AnyReg(popI64(joinRegI64));
+          }
+          case ExprType::F64: {
+            DebugOnly<Stk::Kind> k(stk_.back().kind());
+            MOZ_ASSERT(k == Stk::RegisterF64 || k == Stk::ConstF64 || k == Stk::MemF64 ||
+                       k == Stk::LocalF64);
+            return AnyReg(popF64(joinRegF64));
+          }
+          case ExprType::F32: {
+            DebugOnly<Stk::Kind> k(stk_.back().kind());
+            MOZ_ASSERT(k == Stk::RegisterF32 || k == Stk::ConstF32 || k == Stk::MemF32 ||
+                       k == Stk::LocalF32);
+            return AnyReg(popF32(joinRegF32));
+          }
+          default: {
+            MOZ_CRASH("Compiler bug: unexpected expression type");
+          }
         }
     }
 
-    [[nodiscard]] AnyReg allocJoinReg(ExprType type) {
+     // If we ever start not sync-ing on entry to Block (but instead try to sync
+    // lazily) then this may start asserting because it does not spill the
+    // joinreg if the joinreg is already allocated.  Note, it *can't* spill the
+    // joinreg in the contexts it's being used, so some other solution will need
+    // to be found.
+
+    [[nodiscard]] AnyReg captureJoinRegUnlessVoid(ExprType type) {
         switch (type) {
           case ExprType::I32:
             allocGPR(joinRegI32);
@@ -1778,16 +1769,15 @@ class BaseCompiler
             allocFPU(joinRegF64);
             return AnyReg(joinRegF64);
           case ExprType::Void:
-            MOZ_CRASH("Compiler bug: allocating void join reg");
+            return AnyReg();
           default:
             MOZ_CRASH("Compiler bug: unexpected type");
         }
     }
 
-    void pushJoinReg(AnyReg r) {
+    void pushJoinRegUnlessVoid(AnyReg r) {
         switch (r.tag) {
           case AnyReg::NONE:
-            MOZ_CRASH("Compile bug: attempting to push void");
             break;
           case AnyReg::I32:
             pushI32(r.i32());
@@ -1804,10 +1794,9 @@ class BaseCompiler
         }
     }
 
-    void freeJoinReg(AnyReg r) {
+    void freeJoinRegUnlessVoid(AnyReg r) {
         switch (r.tag) {
           case AnyReg::NONE:
-            MOZ_CRASH("Compile bug: attempting to free void reg");
             break;
           case AnyReg::I32:
             freeI32(r.i32());
@@ -2008,8 +1997,7 @@ class BaseCompiler
 
         if (!ctl_.emplaceBack(Control(framePushed, stackSize)))
             return false;
-        if (label)
-            ctl_.back().label = label->release();
+        ctl_.back().label = label->release();
         if (otherLabel)
             ctl_.back().otherLabel = otherLabel->release();
         ctl_.back().deadOnArrival = deadCode_;
@@ -2022,9 +2010,6 @@ class BaseCompiler
             freeLabel(last.label);
         if (last.otherLabel)
             freeLabel(last.otherLabel);
-
-        if (deadCode_ && !ctl_.empty())
-            popValueStackTo(ctl_.back().stackSize);
     }
 
     Control& controlItem(uint32_t relativeDepth) {
@@ -2126,6 +2111,9 @@ class BaseCompiler
     }
 
     bool endFunction() {
+        // Always branch to outOfLinePrologue_ or returnLabel_.
+        masm.breakpoint();
+
         // Out-of-line prologue.  Assumes that the in-line prologue has
         // been executed and that a frame of size = localSize_ + sizeof(Frame)
         // has been allocated.
@@ -2561,8 +2549,9 @@ class BaseCompiler
         return rv;
     }
 
-    void returnCleanup() {
-        popStackBeforeBranch(ctl_[0].framePushed);
+    void returnCleanup(bool popStack) {
+        if (popStack)
+            popStackBeforeBranch(ctl_[0].framePushed);
         masm.jump(&returnLabel_);
     }
 
@@ -3671,6 +3660,34 @@ class BaseCompiler
         *r0 = popF64();
     }
 
+    template<bool freeIt> void freeOrPushI32(RegI32 r) {
+        if (freeIt)
+            freeI32(r);
+        else
+            pushI32(r);
+    }
+
+    template<bool freeIt> void freeOrPushI64(RegI64 r) {
+        if (freeIt)
+            freeI64(r);
+        else
+            pushI64(r);
+    }
+
+    template<bool freeIt> void freeOrPushF32(RegF32 r) {
+        if (freeIt)
+            freeF32(r);
+        else
+            pushF32(r);
+    }
+
+    template<bool freeIt> void freeOrPushF64(RegF64 r) {
+        if (freeIt)
+            freeF64(r);
+        else
+            pushF64(r);
+    }
+
     ////////////////////////////////////////////////////////////
     //
     // Sundry helpers.
@@ -3804,7 +3821,7 @@ class BaseCompiler
     template<typename Cond, typename Lhs, typename Rhs>
     void jumpConditionalWithJoinReg(BranchState* b, Cond cond, Lhs lhs, Rhs rhs)
     {
-        AnyReg r = allocJoinReg(b->resultType);
+        AnyReg r = popJoinRegUnlessVoid(b->resultType);
 
         if (b->framePushed != BranchState::NoPop && willPopStackBeforeBranch(b->framePushed)) {
             Label notTaken;
@@ -3816,7 +3833,7 @@ class BaseCompiler
             branchTo(b->invertBranch ? Assembler::InvertCondition(cond) : cond, lhs, rhs, b->label);
         }
 
-        pushJoinReg(r);
+        pushJoinRegUnlessVoid(r);
     }
 
     // sniffConditionalControl{Cmp,Eqz} may modify the latentWhatever_ state in
@@ -3865,12 +3882,21 @@ class BaseCompiler
     [[nodiscard]] bool emitTeeStoreWithCoercion(ValType resultType, Scalar::Type viewType);
     [[nodiscard]] bool emitSelect();
 
-    void endBlock(ExprType type, bool isFunctionBody);
+    // Mark these templates as inline to work around a compiler crash in
+    // gcc 4.8.5 when compiling for linux64-opt.
+
+    template<bool isSetLocal> [[nodiscard]] inline bool emitSetOrTeeLocal(uint32_t slot);
+    template<bool isSetGlobal> [[nodiscard]] inline bool emitSetOrTeeGlobal(uint32_t id);
+    template<bool isStore>     [[nodiscard]] inline bool emitStoreOrTeeStore(ValType resultType,
+                                                 Scalar::Type viewType,
+                                                 LinearMemoryAddress<Nothing> addr);
+
+    void endBlock(ExprType type);
     void endLoop(ExprType type);
     void endIfThen();
     void endIfThenElse(ExprType type);
 
-    void doReturn(ExprType returnType);
+    void doReturn(ExprType returnType, bool popStack);
     void pushReturned(const FunctionCall& call, ExprType type);
 
     void emitCompareI32(Assembler::Condition compareOp, ValType compareType);
@@ -5242,14 +5268,14 @@ BaseCompiler::emitBlock()
 }
 
 void
-BaseCompiler::endBlock(ExprType type, bool isFunctionBody)
+BaseCompiler::endBlock(ExprType type)
 {
     Control& block = controlItem(0);
 
     // Save the value.
     AnyReg r;
-    if (!deadCode_ && !IsVoid(type))
-        r = popJoinReg();
+    if (!deadCode_)
+        r = popJoinRegUnlessVoid(type);
 
     // Leave the block.
     popStackOnBlockExit(block.framePushed);
@@ -5257,23 +5283,19 @@ BaseCompiler::endBlock(ExprType type, bool isFunctionBody)
     // Bind after cleanup: branches out will have popped the stack.
     if (block.label->used()) {
         masm.bind(block.label);
-        if (deadCode_ && !IsVoid(type))
-            r = allocJoinReg(type);
+        // No value was provided by the fallthrough but the branch out will
+        // have stored one in joinReg, so capture that.
+        if (deadCode_)
+           r = captureJoinRegUnlessVoid(type);
         deadCode_ = false;
     }
 
-    MOZ_ASSERT(stk_.length() == block.stackSize);
-
-    // Retain the value stored in joinReg by all paths.
-    if (!deadCode_) {
-        if (!IsVoid(type))
-            pushJoinReg(r);
-
-        if (isFunctionBody)
-            doReturn(func_.sig().ret());
-    }
-
+    popValueStackTo(block.stackSize);
     popControl();
+
+    // Retain the value stored in joinReg by all paths, if there are any.
+    if (!deadCode_)
+        pushJoinRegUnlessVoid(r);
 }
 
 bool
@@ -5306,18 +5328,17 @@ BaseCompiler::endLoop(ExprType type)
     Control& block = controlItem(0);
 
     AnyReg r;
-    if (!deadCode_ && !IsVoid(type))
-        r = popJoinReg();
+    if (!deadCode_)
+        r = popJoinRegUnlessVoid(type);
 
     popStackOnBlockExit(block.framePushed);
 
-    MOZ_ASSERT(stk_.length() == block.stackSize);
-
+    popValueStackTo(block.stackSize);
     popControl();
 
     // Retain the value stored in joinReg by all paths.
-    if (!deadCode_ && !IsVoid(type))
-        pushJoinReg(r);
+    if (!deadCode_)
+        pushJoinRegUnlessVoid(r);
 }
 
 // The bodies of the "then" and "else" arms can be arbitrary sequences
@@ -5381,8 +5402,7 @@ BaseCompiler::endIfThen()
 
     deadCode_ = ifThen.deadOnArrival;
 
-    MOZ_ASSERT(stk_.length() == ifThen.stackSize);
-
+    popValueStackTo(ifThen.stackSize);
     popControl();
 }
 
@@ -5403,8 +5423,8 @@ BaseCompiler::emitElse()
     ifThenElse.deadThenBranch = deadCode_;
 
     AnyReg r;
-    if (!deadCode_ && !IsVoid(thenType))
-        r = popJoinReg();
+    if (!deadCode_)
+        r = popJoinRegUnlessVoid(thenType);
 
     popStackOnBlockExit(ifThenElse.framePushed);
 
@@ -5416,10 +5436,10 @@ BaseCompiler::emitElse()
 
     // Reset to the "else" branch.
 
-    MOZ_ASSERT(stk_.length() == ifThenElse.stackSize);
+    popValueStackTo(ifThenElse.stackSize);
 
-    if (!deadCode_ && !IsVoid(thenType))
-        freeJoinReg(r);
+    if (!deadCode_)
+        freeJoinRegUnlessVoid(r);
 
     deadCode_ = ifThenElse.deadOnArrival;
 
@@ -5438,27 +5458,30 @@ BaseCompiler::endIfThenElse(ExprType type)
     // we want to find there.  The "then" arm has the same constraint.
 
     AnyReg r;
-    if (!deadCode_ && !IsVoid(type))
-        r = popJoinReg();
+    if (!deadCode_)
+        r = popJoinRegUnlessVoid(type);
 
     popStackOnBlockExit(ifThenElse.framePushed);
 
     if (ifThenElse.label->used())
         masm.bind(ifThenElse.label);
 
-    if (!ifThenElse.deadOnArrival &&
-        (!ifThenElse.deadThenBranch || !deadCode_ || ifThenElse.label->bound())) {
-        if (deadCode_ && !IsVoid(type))
-            r = allocJoinReg(type);
+    bool joinLive = !ifThenElse.deadOnArrival &&
+                    (!ifThenElse.deadThenBranch || !deadCode_ || ifThenElse.label->bound());
+
+    if (joinLive) {
+        // No value was provided by the "then" path but capture the one
+        // provided by the "else" path.
+        if (deadCode_)
+            r = captureJoinRegUnlessVoid(type);
         deadCode_ = false;
     }
 
-    MOZ_ASSERT(stk_.length() == ifThenElse.stackSize);
-
+    popValueStackTo(ifThenElse.stackSize);
     popControl();
 
-    if (!deadCode_ && !IsVoid(type))
-        pushJoinReg(r);
+    if (!deadCode_)
+        pushJoinRegUnlessVoid(r);
 }
 
 bool
@@ -5471,7 +5494,7 @@ BaseCompiler::emitEnd()
         return false;
 
     switch (kind) {
-      case LabelKind::Block: endBlock(type, iter_.controlStackEmpty()); break;
+      case LabelKind::Block: endBlock(type); break;
       case LabelKind::Loop:  endLoop(type); break;
       case LabelKind::UnreachableThen:
       case LabelKind::Then:  endIfThen(); break;
@@ -5498,9 +5521,7 @@ BaseCompiler::emitBr()
     // Save any value in the designated join register, where the
     // normal block exit code will also leave it.
 
-    AnyReg r;
-    if (!IsVoid(type))
-        r = popJoinReg();
+    AnyReg r = popJoinRegUnlessVoid(type);
 
     popStackBeforeBranch(target.framePushed);
     masm.jump(target.label);
@@ -5508,12 +5529,9 @@ BaseCompiler::emitBr()
     // The register holding the join value is free for the remainder
     // of this block.
 
-    if (!IsVoid(type))
-        freeJoinReg(r);
+    freeJoinRegUnlessVoid(r);
 
     deadCode_ = true;
-
-    popValueStackTo(ctl_.back().stackSize);
 
     return true;
 }
@@ -5579,9 +5597,7 @@ BaseCompiler::emitBrTable()
 
     maybeUnreserveJoinRegI(type);
 
-    AnyReg r;
-    if (!IsVoid(type))
-        r = popJoinReg();
+    AnyReg r = popJoinRegUnlessVoid(type);
 
     Label dispatchCode;
     masm.branch32(Assembler::Below, rc, Imm32(tableLength), &dispatchCode);
@@ -5593,13 +5609,14 @@ BaseCompiler::emitBrTable()
 
     // Emit stubs.  rc is dead in all of these but we don't need it.
     //
+    // The labels in the vector are in the TempAllocator and will
+    // be freed by and by.
+    //
     // TODO / OPTIMIZE (Bug 1316804): Branch directly to the case code if we
     // can, don't emit an intermediate stub.
 
     for (uint32_t i = 0; i < tableLength; i++) {
         PooledLabel* stubLabel = newLabel();
-        // The labels in the vector are in the TempAllocator and will
-        // be freed by and by.
         if (!stubLabel)
             return false;
         stubs.infallibleAppend(stubLabel);
@@ -5625,13 +5642,10 @@ BaseCompiler::emitBrTable()
     // Clean up.
 
     freeI32(rc);
-    if (!IsVoid(type))
-        freeJoinReg(r);
+    freeJoinRegUnlessVoid(r);
 
     for (uint32_t i = 0; i < tableLength; i++)
         freeLabel(stubs[i]);
-
-    popValueStackTo(ctl_.back().stackSize);
 
     return true;
 }
@@ -5651,34 +5665,34 @@ BaseCompiler::emitDrop()
 }
 
 void
-BaseCompiler::doReturn(ExprType type)
+BaseCompiler::doReturn(ExprType type, bool popStack)
 {
     switch (type) {
       case ExprType::Void: {
-        returnCleanup();
+        returnCleanup(popStack);
         break;
       }
       case ExprType::I32: {
         RegI32 rv = popI32(RegI32(ReturnReg));
-        returnCleanup();
+        returnCleanup(popStack);
         freeI32(rv);
         break;
       }
       case ExprType::I64: {
         RegI64 rv = popI64(RegI64(ReturnReg64));
-        returnCleanup();
+        returnCleanup(popStack);
         freeI64(rv);
         break;
       }
       case ExprType::F64: {
         RegF64 rv = popF64(RegF64(ReturnDoubleReg));
-        returnCleanup();
+        returnCleanup(popStack);
         freeF64(rv);
         break;
       }
       case ExprType::F32: {
         RegF32 rv = popF32(RegF32(ReturnFloat32Reg));
-        returnCleanup();
+        returnCleanup(popStack);
         freeF32(rv);
         break;
       }
@@ -5698,10 +5712,8 @@ BaseCompiler::emitReturn()
     if (deadCode_)
         return true;
 
-    doReturn(func_.sig().ret());
+    doReturn(func_.sig().ret(), PopStack(true));
     deadCode_ = true;
-
-    popValueStackTo(ctl_.back().stackSize);
 
     return true;
 }
@@ -6118,13 +6130,10 @@ BaseCompiler::emitGetLocal()
     return true;
 }
 
+template<bool isSetLocal>
 bool
-BaseCompiler::emitSetLocal()
+BaseCompiler::emitSetOrTeeLocal(uint32_t slot)
 {
-    uint32_t slot;
-    Nothing unused_value;
-    if (!iter_.readSetLocal(locals_, &slot, &unused_value))
-        return false;
 
     if (deadCode_)
         return true;
@@ -6134,28 +6143,28 @@ BaseCompiler::emitSetLocal()
         RegI32 rv = popI32();
         syncLocal(slot);
         storeToFrameI32(rv, frameOffsetFromSlot(slot, MIRType::Int32));
-        freeI32(rv);
+        freeOrPushI32<isSetLocal>(rv);
         break;
       }
       case ValType::I64: {
         RegI64 rv = popI64();
         syncLocal(slot);
         storeToFrameI64(rv, frameOffsetFromSlot(slot, MIRType::Int64));
-        freeI64(rv);
+        freeOrPushI64<isSetLocal>(rv);
         break;
       }
       case ValType::F64: {
         RegF64 rv = popF64();
         syncLocal(slot);
         storeToFrameF64(rv, frameOffsetFromSlot(slot, MIRType::Double));
-        freeF64(rv);
+        freeOrPushF64<isSetLocal>(rv);
         break;
       }
       case ValType::F32: {
         RegF32 rv = popF32();
         syncLocal(slot);
         storeToFrameF32(rv, frameOffsetFromSlot(slot, MIRType::Float32));
-        freeF32(rv);
+        freeOrPushF32<isSetLocal>(rv);
         break;
       }
       default:
@@ -6166,6 +6175,16 @@ BaseCompiler::emitSetLocal()
 }
 
 bool
+BaseCompiler::emitSetLocal()
+{
+    uint32_t slot;
+    Nothing unused_value;
+    if (!iter_.readSetLocal(locals_, &slot, &unused_value))
+        return false;
+    return emitSetOrTeeLocal<true>(slot);
+}
+
+bool
 BaseCompiler::emitTeeLocal()
 {
     uint32_t slot;
@@ -6173,43 +6192,7 @@ BaseCompiler::emitTeeLocal()
     if (!iter_.readTeeLocal(locals_, &slot, &unused_value))
         return false;
 
-    if (deadCode_)
-        return true;
-
-    switch (locals_[slot]) {
-      case ValType::I32: {
-        RegI32 rv = popI32();
-        syncLocal(slot);
-        storeToFrameI32(rv, frameOffsetFromSlot(slot, MIRType::Int32));
-        pushI32(rv);
-        break;
-      }
-      case ValType::I64: {
-        RegI64 rv = popI64();
-        syncLocal(slot);
-        storeToFrameI64(rv, frameOffsetFromSlot(slot, MIRType::Int64));
-        pushI64(rv);
-        break;
-      }
-      case ValType::F64: {
-        RegF64 rv = popF64();
-        syncLocal(slot);
-        storeToFrameF64(rv, frameOffsetFromSlot(slot, MIRType::Double));
-        pushF64(rv);
-        break;
-      }
-      case ValType::F32: {
-        RegF32 rv = popF32();
-        syncLocal(slot);
-        storeToFrameF32(rv, frameOffsetFromSlot(slot, MIRType::Float32));
-        pushF32(rv);
-        break;
-      }
-      default:
-        MOZ_CRASH("Local variable type");
-    }
-
-    return true;
+    return emitSetOrTeeLocal<false>(slot);
 }
 
 bool
@@ -6277,13 +6260,10 @@ BaseCompiler::emitGetGlobal()
     return true;
 }
 
+template<bool isSetGlobal>
 bool
-BaseCompiler::emitSetGlobal()
+BaseCompiler::emitSetOrTeeGlobal(uint32_t id)
 {
-    uint32_t id;
-    Nothing unused_value;
-    if (!iter_.readSetGlobal(mg_.globals, &id, &unused_value))
-        return false;
 
     if (deadCode_)
         return true;
@@ -6294,25 +6274,25 @@ BaseCompiler::emitSetGlobal()
       case ValType::I32: {
         RegI32 rv = popI32();
         storeGlobalVarI32(global.offset(), rv);
-        freeI32(rv);
+        freeOrPushI32<isSetGlobal>(rv);
         break;
       }
       case ValType::I64: {
         RegI64 rv = popI64();
         storeGlobalVarI64(global.offset(), rv);
-        freeI64(rv);
+        freeOrPushI64<isSetGlobal>(rv);
         break;
       }
       case ValType::F32: {
         RegF32 rv = popF32();
         storeGlobalVarF32(global.offset(), rv);
-        freeF32(rv);
+        freeOrPushF32<isSetGlobal>(rv);
         break;
       }
       case ValType::F64: {
         RegF64 rv = popF64();
         storeGlobalVarF64(global.offset(), rv);
-        freeF64(rv);
+        freeOrPushF64<isSetGlobal>(rv);
         break;
       }
       default:
@@ -6323,6 +6303,17 @@ BaseCompiler::emitSetGlobal()
 }
 
 bool
+BaseCompiler::emitSetGlobal()
+{
+    uint32_t id;
+    Nothing unused_value;
+    if (!iter_.readSetGlobal(mg_.globals, &id, &unused_value))
+        return false;
+
+    return emitSetOrTeeGlobal<true>(id);
+}
+
+bool
 BaseCompiler::emitTeeGlobal()
 {
     uint32_t id;
@@ -6330,41 +6321,7 @@ BaseCompiler::emitTeeGlobal()
     if (!iter_.readTeeGlobal(mg_.globals, &id, &unused_value))
         return false;
 
-    if (deadCode_)
-        return true;
-
-    const GlobalDesc& global = mg_.globals[id];
-
-    switch (global.type()) {
-      case ValType::I32: {
-        RegI32 rv = popI32();
-        storeGlobalVarI32(global.offset(), rv);
-        pushI32(rv);
-        break;
-      }
-      case ValType::I64: {
-        RegI64 rv = popI64();
-        storeGlobalVarI64(global.offset(), rv);
-        pushI64(rv);
-        break;
-      }
-      case ValType::F32: {
-        RegF32 rv = popF32();
-        storeGlobalVarF32(global.offset(), rv);
-        pushF32(rv);
-        break;
-      }
-      case ValType::F64: {
-        RegF64 rv = popF64();
-        storeGlobalVarF64(global.offset(), rv);
-        pushF64(rv);
-        break;
-      }
-      default:
-        MOZ_CRASH("Global variable type");
-        break;
-    }
-    return true;
+    return emitSetOrTeeGlobal<false>(id);
 }
 
 bool
@@ -6449,13 +6406,11 @@ BaseCompiler::emitLoad(ValType type, Scalar::Type viewType)
     return true;
 }
 
+template<bool isStore>
 bool
-BaseCompiler::emitStore(ValType resultType, Scalar::Type viewType)
+BaseCompiler::emitStoreOrTeeStore(ValType resultType, Scalar::Type viewType,
+                                  LinearMemoryAddress<Nothing> addr)
 {
-    LinearMemoryAddress<Nothing> addr;
-    Nothing unused_value;
-    if (!iter_.readStore(resultType, Scalar::byteSize(viewType), &addr, &unused_value))
-        return false;
 
     if (deadCode_)
         return true;
@@ -6476,7 +6431,7 @@ BaseCompiler::emitStore(ValType resultType, Scalar::Type viewType)
         if (!store(access, rp, AnyReg(rv), tmp1, tmp2))
             return false;
         freeI32(rp);
-        freeI32(rv);
+        freeOrPushI32<isStore>(rv);
         break;
       }
       case ValType::I64: {
@@ -6485,7 +6440,7 @@ BaseCompiler::emitStore(ValType resultType, Scalar::Type viewType)
         if (!store(access, rp, AnyReg(rv), tmp1, tmp2))
             return false;
         freeI32(rp);
-        freeI64(rv);
+        freeOrPushI64<isStore>(rv);
         break;
       }
       case ValType::F32: {
@@ -6494,7 +6449,7 @@ BaseCompiler::emitStore(ValType resultType, Scalar::Type viewType)
         if (!store(access, rp, AnyReg(rv), tmp1, tmp2))
             return false;
         freeI32(rp);
-        freeF32(rv);
+        freeOrPushF32<isStore>(rv);
         break;
       }
       case ValType::F64: {
@@ -6503,7 +6458,7 @@ BaseCompiler::emitStore(ValType resultType, Scalar::Type viewType)
         if (!store(access, rp, AnyReg(rv), tmp1, tmp2))
             return false;
         freeI32(rp);
-        freeF64(rv);
+        freeOrPushF64<isStore>(rv);
         break;
       }
       default:
@@ -6520,6 +6475,17 @@ BaseCompiler::emitStore(ValType resultType, Scalar::Type viewType)
 }
 
 bool
+BaseCompiler::emitStore(ValType resultType, Scalar::Type viewType)
+{
+    LinearMemoryAddress<Nothing> addr;
+    Nothing unused_value;
+    if (!iter_.readStore(resultType, Scalar::byteSize(viewType), &addr, &unused_value))
+        return false;
+
+    return emitStoreOrTeeStore<true>(resultType, viewType, addr);
+}
+
+bool
 BaseCompiler::emitTeeStore(ValType resultType, Scalar::Type viewType)
 {
     LinearMemoryAddress<Nothing> addr;
@@ -6527,66 +6493,7 @@ BaseCompiler::emitTeeStore(ValType resultType, Scalar::Type viewType)
     if (!iter_.readTeeStore(resultType, Scalar::byteSize(viewType), &addr, &unused_value))
         return false;
 
-    if (deadCode_)
-        return true;
-
-    // TODO / OPTIMIZE (bug 1316831): Disable bounds checking on constant
-    // accesses below the minimum heap length.
-
-    MemoryAccessDesc access(viewType, addr.align, addr.offset, trapIfNotAsmJS());
-
-    size_t temps = loadStoreTemps(access);
-    RegI32 tmp1 = temps >= 1 ? needI32() : invalidI32();
-    RegI32 tmp2 = temps >= 2 ? needI32() : invalidI32();
-
-    switch (resultType) {
-      case ValType::I32: {
-        RegI32 rp, rv;
-        pop2xI32(&rp, &rv);
-        if (!store(access, rp, AnyReg(rv), tmp1, tmp2))
-            return false;
-        freeI32(rp);
-        pushI32(rv);
-        break;
-      }
-      case ValType::I64: {
-        RegI64 rv = popI64();
-        RegI32 rp = popI32();
-        if (!store(access, rp, AnyReg(rv), tmp1, tmp2))
-            return false;
-        freeI32(rp);
-        pushI64(rv);
-        break;
-      }
-      case ValType::F32: {
-        RegF32 rv = popF32();
-        RegI32 rp = popI32();
-        if (!store(access, rp, AnyReg(rv), tmp1, tmp2))
-            return false;
-        freeI32(rp);
-        pushF32(rv);
-        break;
-      }
-      case ValType::F64: {
-        RegF64 rv = popF64();
-        RegI32 rp = popI32();
-        if (!store(access, rp, AnyReg(rv), tmp1, tmp2))
-            return false;
-        freeI32(rp);
-        pushF64(rv);
-        break;
-      }
-      default:
-        MOZ_CRASH("store type");
-        break;
-    }
-
-    if (temps >= 1)
-        freeI32(tmp1);
-    if (temps >= 2)
-        freeI32(tmp2);
-
-    return true;
+    return emitStoreOrTeeStore<false>(resultType, viewType, addr);
 }
 
 bool
@@ -6939,7 +6846,6 @@ BaseCompiler::emitBody()
             if (!deadCode_) {
                 unreachableTrap();
                 deadCode_ = true;
-                popValueStackTo(ctl_.back().stackSize);
             }
             NEXT();
 
@@ -7480,11 +7386,18 @@ BaseCompiler::emitFunction()
     beginFunction();
 
     UniquePooledLabel functionEnd(newLabel());
+    if (!functionEnd)
+        return false;
+
+    // For the function's block; it will be popped by endBlock().
     if (!pushControl(&functionEnd))
         return false;
 
     if (!emitBody())
         return false;
+
+    if (!deadCode_)
+        doReturn(sig.ret(), PopStack(false));
 
     if (!iter_.readFunctionEnd())
         return false;
