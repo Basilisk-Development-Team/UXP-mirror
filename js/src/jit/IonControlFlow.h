@@ -642,7 +642,7 @@ class ControlFlowGenerator
             TABLE_SWITCH,       // switch() { x }
             COND_SWITCH_CASE,   // switch() { case X: ... }
             COND_SWITCH_BODY,   // switch() { case ...: X }
-            AND_OR,             // && x, || x
+            LOGICAL,             // && x, || x, ?? x
             LABEL,              // label: x
             TRY                 // try { x } catch(e) { }
         };
@@ -729,7 +729,7 @@ class ControlFlowGenerator
 
         static CFGState If(jsbytecode* join, CFGTest* test);
         static CFGState IfElse(jsbytecode* trueEnd, jsbytecode* falseEnd, CFGTest* test);
-        static CFGState AndOr(jsbytecode* join, CFGBlock* lhs);
+        static CFGState Logical(jsbytecode* join, CFGBlock* lhs);
         static CFGState TableSwitch(TempAllocator& alloc, jsbytecode* exitpc);
         static CFGState CondSwitch(TempAllocator& alloc, jsbytecode* exitpc,
                                    jsbytecode* defaultTarget);
@@ -747,10 +747,10 @@ class ControlFlowGenerator
   public:
     ControlFlowGenerator(TempAllocator& alloc, JSScript* script);
 
-    MOZ_MUST_USE bool init();
+    [[nodiscard]] bool init();
 
-    MOZ_MUST_USE bool traverseBytecode();
-    MOZ_MUST_USE bool addBlock(CFGBlock* block);
+    [[nodiscard]] bool traverseBytecode();
+    [[nodiscard]] bool addBlock(CFGBlock* block);
     ControlFlowGraph* getGraph(TempAllocator& alloc) {
         ControlFlowGraph* cfg = ControlFlowGraph::New(alloc);
         if (!cfg)
@@ -766,7 +766,7 @@ class ControlFlowGenerator
 
   private:
     void popCfgStack();
-    MOZ_MUST_USE bool processDeferredContinues(CFGState& state);
+    [[nodiscard]] bool processDeferredContinues(CFGState& state);
     ControlStatus processControlEnd();
     ControlStatus processCfgStack();
     ControlStatus processCfgEntry(CFGState& state);
@@ -802,12 +802,12 @@ class ControlFlowGenerator
     ControlStatus snoopControlFlow(JSOp op);
     ControlStatus processBrokenLoop(CFGState& state);
     ControlStatus finishLoop(CFGState& state, CFGBlock* successor);
-    ControlStatus processAndOr(JSOp op);
-    ControlStatus processAndOrEnd(CFGState& state);
+    ControlStatus processLogical(JSOp op);
+    ControlStatus processLogicalEnd(CFGState& state);
     ControlStatus processLabel();
     ControlStatus processLabelEnd(CFGState& state);
 
-    MOZ_MUST_USE bool pushLoop(CFGState::State state, jsbytecode* stopAt, CFGBlock* entry,
+    [[nodiscard]] bool pushLoop(CFGState::State state, jsbytecode* stopAt, CFGBlock* entry,
                                jsbytecode* loopHead, jsbytecode* initialPc,
                                jsbytecode* bodyStart, jsbytecode* bodyEnd,
                                jsbytecode* exitpc, jsbytecode* continuepc);

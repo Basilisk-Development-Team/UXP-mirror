@@ -1816,6 +1816,7 @@ IonBuilder::inspectOpcode(JSOp op)
 
       case JSOP_RETURN:
       case JSOP_RETRVAL:
+      case JSOP_COALESCE:
       case JSOP_AND:
       case JSOP_OR:
       case JSOP_TRY:
@@ -6500,6 +6501,7 @@ IonBuilder::newBlockAfter(MBasicBlock* at, MBasicBlock* predecessor, jsbytecode*
     return block;
 }
 
+MBasicBlock*
 IonBuilder::newOsrPreheader(MBasicBlock* predecessor, jsbytecode* loopEntry,
                             jsbytecode* beforeLoopEntry)
 {

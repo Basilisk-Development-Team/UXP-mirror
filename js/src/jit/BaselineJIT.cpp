@@ -79,7 +79,6 @@ BaselineScript::BaselineScript(uint32_t prologueOffset, uint32_t epilogueOffset,
     flags_(0),
     inlinedBytecodeLength_(0),
     maxInliningDepth_(UINT8_MAX),
-    pendingBuilder_(nullptr)
     pendingBuilder_(nullptr),
     controlFlowGraph_(nullptr)
 { }

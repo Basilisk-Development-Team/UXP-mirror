@@ -327,9 +327,10 @@ ControlFlowGenerator::snoopControlFlow(JSOp op)
       case JSOP_IFEQ:
         return processIfStart(JSOP_IFEQ);
 
+      case JSOP_COALESCE:
       case JSOP_AND:
       case JSOP_OR:
-        return processAndOr(op);
+        return processLogical(op);
 
       case JSOP_LABEL:
         return processLabel();
@@ -479,8 +480,8 @@ ControlFlowGenerator::processCfgEntry(CFGState& state)
       case CFGState::COND_SWITCH_BODY:
         return processCondSwitchBody(state);
 
-      case CFGState::AND_OR:
-        return processAndOrEnd(state);
+      case CFGState::LOGICAL:
+        return processLogicalEnd(state);
 
       case CFGState::LABEL:
         return processLabelEnd(state);
@@ -1349,7 +1350,7 @@ ControlFlowGenerator::processCondSwitchBody(CFGState& state)
 }
 
 ControlFlowGenerator::ControlStatus
-ControlFlowGenerator::processAndOrEnd(CFGState& state)
+ControlFlowGenerator::processLogicalEnd(CFGState& state)
 {
     MOZ_ASSERT(current);
     CFGBlock* lhs = state.branch.ifFalse;
@@ -2026,10 +2027,10 @@ ControlFlowGenerator::CFGState::IfElse(jsbytecode* trueEnd, jsbytecode* falseEnd
 }
 
 ControlFlowGenerator::CFGState
-ControlFlowGenerator::CFGState::AndOr(jsbytecode* join, CFGBlock* lhs)
+ControlFlowGenerator::CFGState::Logical(jsbytecode* join, CFGBlock* lhs)
 {
     CFGState state;
-    state.state = AND_OR;
+    state.state = LOGICAL;
     state.stopAt = join;
     state.branch.ifFalse = lhs;
     state.branch.test = nullptr;
@@ -2085,9 +2086,9 @@ ControlFlowGenerator::CFGState::Try(jsbytecode* exitpc, CFGBlock* successor)
 }
 
 ControlFlowGenerator::ControlStatus
-ControlFlowGenerator::processLogicalEnd(JSOp op)
+ControlFlowGenerator::processLogical(JSOp op)
 {
-    MOZ_ASSERT(op == JSOP_AND || op == JSOP_OR);
+    MOZ_ASSERT(op == JSOP_AND || op == JSOP_OR || op == JSOP_COALESCE);
 
     jsbytecode* rhsStart = pc + CodeSpec[op].length;
     jsbytecode* joinStart = pc + GetJumpOffset(pc);
@@ -2104,7 +2105,7 @@ ControlFlowGenerator::processLogicalEnd(JSOp op)
     current->setStopPc(pc);
 
     // Create the rhs block.
-    if (!cfgStack_.append(CFGState::AndOr(joinStart, evalLhs)))
+    if (!cfgStack_.append(CFGState::Logical(joinStart, evalLhs)))
         return ControlStatus::Error;
 
     if (!addBlock(evalLhs))
@@ -2135,5 +2136,4 @@ ControlFlowGenerator::processLabel()
         return ControlStatus::Error;
 
     return ControlStatus::None;
-
 }
