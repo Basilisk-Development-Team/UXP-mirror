@@ -1634,6 +1634,11 @@ IonBuilder::blockIsOSREntry(const CFGBlock* block, const CFGBlock* predecessor)
         return false;
     }
 
+    if (block->stopPc() == block->startPc() && block->stopIns()->isBackEdge()) {
+        // An empty block with only a backedge can never be a loop entry.
+        return false;
+    }
+
     MOZ_ASSERT(*info().osrPc() == JSOP_LOOPENTRY);
     // Skip over the LOOPENTRY to match.
     return GetNextPc(info().osrPc()) == entryPc;
@@ -2920,17 +2925,22 @@ if (!setCurrentAndSpecializePhis(ifTrue))
 bool
 IonBuilder::visitCompare(CFGCompare* compare)
 {
-    MDefinition* lhs = current->pop();
     MDefinition* rhs = current->peek(-1);
 
-    if (!jsop_compare(JSOP_STRICTEQ, lhs, rhs))
+    MDefinition* lhs = current->peek(-2);
+        return false;
+
+    // Execute the compare operation.
+    if (!jsop_compare(JSOP_STRICTEQ))
         return false;
     MInstruction* cmpResult = current->pop()->toInstruction();
     MOZ_ASSERT(!cmpResult->isEffectful());
 
     // Create true and false branches.
-    MBasicBlock* ifTrue = newBlock(current, compare->trueBranch()->startPc());
-    MBasicBlock* ifFalse = newBlock(current, compare->falseBranch()->startPc());
+    MBasicBlock* ifTrue = newBlockPopN(current, compare->trueBranch()->startPc(),
+                                     compare->truePopAmount());
+    MBasicBlock* ifFalse = newBlockPopN(current, compare->falseBranch()->startPc(),
+                                      compare->falsePopAmount());
     if (!ifTrue || !ifFalse)
         return false;
 
