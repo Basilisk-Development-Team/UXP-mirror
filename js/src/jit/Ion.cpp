@@ -2155,6 +2155,8 @@ IonCompile(JSContext* cx, JSScript* script,
         return reason;
     }
 
+    AssertBasicGraphCoherency(builder->graph());
+
     // If possible, compile the script off thread.
     if (options.offThreadCompilationAvailable()) {
         JitSpew(JitSpew_IonSyncLogs, "Can't log script %s:%" PRIuSIZE
