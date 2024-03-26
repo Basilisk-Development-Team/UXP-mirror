@@ -109,7 +109,10 @@ class ObjOperandId : public OperandId
     _(CallScriptedGetterResult)           \
     _(CallNativeGetterResult)             \
     _(CallProxyGetResult)                 \
-    _(LoadUndefinedResult)
+    _(LoadUndefinedResult)                \
+                                          \
+    _(TypeMonitorResult)                  \
+    _(ReturnFromIC)
 
 enum class CacheOp {
 #define DEFINE_OP(op) op,
@@ -431,6 +434,12 @@ class MOZ_RAII CacheIRWriter : public JS::CustomAutoRooter
     void callNativeGetterResult(ObjOperandId obj, JSFunction* getter) {
         writeOpWithOperandId(CacheOp::CallNativeGetterResult, obj);
         addStubField(uintptr_t(getter), StubField::Type::JSObject);
+    }
+	void typeMonitorResult() {
+        writeOp(CacheOp::TypeMonitorResult);
+    }
+    void returnFromIC() {
+        writeOp(CacheOp::ReturnFromIC);
     }
     void callProxyGetResult(ObjOperandId obj, jsid id) {
         writeOpWithOperandId(CacheOp::CallProxyGetResult, obj);
