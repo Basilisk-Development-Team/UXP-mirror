@@ -966,6 +966,8 @@ GetCacheIRExpectedInputType(ICCacheIR_Monitored* stub)
 
     if (reader.matchOp(CacheOp::GuardIsObject, ValOperandId(0)))
         return MIRType::Object;
+    if (reader.matchOp(CacheOp::GuardIsString, ValOperandId(0)))
+        return MIRType::String;
     if (reader.matchOp(CacheOp::GuardType, ValOperandId(0))) {
         JSValueType type = reader.valueType();
         return MIRTypeFromValueType(type);
@@ -1019,10 +1021,6 @@ BaselineInspector::expectedPropertyAccessInputType(jsbytecode* pc)
           case ICStub::GetElem_TypedArray:
           case ICStub::GetElem_UnboxedArray:
             stubType = MIRType::Object;
-            break;
-
-          case ICStub::GetProp_StringLength:
-            stubType = MIRType::String;
             break;
 
           case ICStub::CacheIR_Monitored:
