@@ -248,6 +248,21 @@ EmitReadSlotResult(CacheIRWriter& writer, JSObject* obj, JSObject* holder,
 }
 
 static void
+EmitReadSlotReturn(CacheIRWriter& writer, JSObject*, JSObject* holder, Shape* shape)
+{
+    // Slot access.
+    if (holder) {
+        MOZ_ASSERT(shape);
+        writer.typeMonitorResult();
+    } else {
+        // Normally for this op, the result would have to be monitored by TI.
+        // However, since this stub ALWAYS returns UndefinedValue(), and we can be sure
+        // that undefined is already registered with the type-set, this can be avoided.
+        writer.returnFromIC();
+    }
+}
+
+static void
 EmitCallGetterResultNoGuards(CacheIRWriter& writer, JSObject* obj, JSObject* holder,
                              Shape* shape, ObjOperandId objId)
 {
@@ -255,6 +270,7 @@ EmitCallGetterResultNoGuards(CacheIRWriter& writer, JSObject* obj, JSObject* hol
         JSFunction* target = &shape->getterValue().toObject().as<JSFunction>();
         MOZ_ASSERT(target->isNative());
         writer.callNativeGetterResult(objId, target);
+        writer.typeMonitorResult();
         return;
     }
 
@@ -263,6 +279,7 @@ EmitCallGetterResultNoGuards(CacheIRWriter& writer, JSObject* obj, JSObject* hol
     JSFunction* target = &shape->getterValue().toObject().as<JSFunction>();
     MOZ_ASSERT(target->hasJITCode());
     writer.callScriptedGetterResult(objId, target);
+    writer.typeMonitorResult();
 }
 
 static void
@@ -312,6 +329,7 @@ GetPropIRGenerator::tryAttachNative(HandleObject obj, ObjOperandId objId)
             }
         }
         EmitReadSlotResult(writer, obj, holder, shape, objId);
+        EmitReadSlotReturn(writer, obj, holder, shape);
         break;
      case CanAttachCallGetter:
         EmitCallGetterResult(writer, obj, holder, shape, objId);
@@ -386,6 +404,7 @@ GetPropIRGenerator::tryAttachGenericProxy(HandleObject obj, ObjOperandId objId)
     writer.guardNotDOMProxy(objId);
 
     writer.callProxyGetResult(objId, NameToId(name_));
+    writer.typeMonitorResult();
     return true;
 }
 
@@ -403,6 +422,7 @@ GetPropIRGenerator::tryAttachDOMProxyShadowed(HandleObject obj, ObjOperandId obj
     // guard enforces a given JSClass, so just go ahead and emit the call to
     // ProxyGet.
     writer.callProxyGetResult(objId, NameToId(name_));
+    writer.typeMonitorResult();
     return true;
 }
 
@@ -475,6 +495,7 @@ GetPropIRGenerator::tryAttachDOMProxyUnshadowed(HandleObject obj, ObjOperandId o
 
         if (canCache == CanAttachReadSlot) {
             EmitLoadSlotResult(writer, holderId, holder, shape);
+            writer.typeMonitorResult();
         } else {
             // EmitCallGetterResultNoGuards expects |obj| to be the object the
             // property is on to do some checks. Since we actually looked at
@@ -487,6 +508,7 @@ GetPropIRGenerator::tryAttachDOMProxyUnshadowed(HandleObject obj, ObjOperandId o
         // Property was not found on the prototype chain. Deoptimize down to
         // proxy get call.
         writer.callProxyGetResult(objId, id);
+        writer.typeMonitorResult();
     }
 
     return true;
@@ -536,6 +558,10 @@ GetPropIRGenerator::tryAttachUnboxed(HandleObject obj, ObjOperandId objId)
     writer.guardGroup(objId, obj->group());
     writer.loadUnboxedPropertyResult(objId, property->type,
                                      UnboxedPlainObject::offsetOfData() + property->offset);
+    if (property->type == JSVAL_TYPE_OBJECT)
+        writer.typeMonitorResult();
+    else
+        writer.returnFromIC();
     emitted_ = true;
     preliminaryObjectAction_ = PreliminaryObjectAction::Unlink;
     return true;
@@ -560,6 +586,7 @@ GetPropIRGenerator::tryAttachUnboxedExpando(HandleObject obj, ObjOperandId objId
     emitted_ = true;
 
     EmitReadSlotResult(writer, obj, obj, shape, objId);
+    EmitReadSlotReturn(writer, obj, obj, shape);
     return true;
 }
 
@@ -597,6 +624,22 @@ GetPropIRGenerator::tryAttachTypedObject(HandleObject obj, ObjOperandId objId)
     writer.guardNoDetachedTypedObjects();
     writer.guardShape(objId, shape);
     writer.loadTypedObjectResult(objId, fieldOffset, layout, typeDescr);
+
+    // Only monitor the result if the type produced by this stub might vary.
+    bool monitorLoad = false;
+    if (SimpleTypeDescrKeyIsScalar(typeDescr)) {
+        Scalar::Type type = ScalarTypeFromSimpleTypeDescrKey(typeDescr);
+        monitorLoad = type == Scalar::Uint32;
+    } else {
+        ReferenceTypeDescr::Type type = ReferenceTypeFromSimpleTypeDescrKey(typeDescr);
+        monitorLoad = type != ReferenceTypeDescr::TYPE_STRING;
+    }
+
+    if (monitorLoad)
+        writer.typeMonitorResult();
+    else
+        writer.returnFromIC();
+
     emitted_ = true;
     return true;
 }
@@ -617,6 +660,7 @@ GetPropIRGenerator::tryAttachObjectLength(HandleObject obj, ObjOperandId objId)
 
         writer.guardClass(objId, GuardClassKind::Array);
         writer.loadInt32ArrayLengthResult(objId);
+        writer.returnFromIC();
         emitted_ = true;
         return true;
     }
@@ -624,6 +668,7 @@ GetPropIRGenerator::tryAttachObjectLength(HandleObject obj, ObjOperandId objId)
     if (obj->is<UnboxedArrayObject>()) {
         writer.guardClass(objId, GuardClassKind::UnboxedArray);
         writer.loadUnboxedArrayLengthResult(objId);
+        writer.returnFromIC();
         emitted_ = true;
         return true;
     }
@@ -636,6 +681,7 @@ GetPropIRGenerator::tryAttachObjectLength(HandleObject obj, ObjOperandId objId)
             writer.guardClass(objId, GuardClassKind::UnmappedArguments);
         }
         writer.loadArgumentsObjectLengthResult(objId);
+        writer.returnFromIC();
         emitted_ = true;
         return true;
     }
@@ -671,6 +717,7 @@ GetPropIRGenerator::tryAttachModuleNamespace(HandleObject obj, ObjOperandId objI
 
     ObjOperandId envId = writer.loadObject(env);
     EmitLoadSlotResult(writer, envId, env, shape);
+    writer.typeMonitorResult();
     return true;
 }
 
@@ -722,6 +769,7 @@ GetPropIRGenerator::tryAttachPrimitive(ValOperandId valId)
     ObjOperandId protoId = writer.loadObject(proto);
     writer.guardShape(protoId, proto->lastProperty());
     EmitLoadSlotResult(writer, protoId, proto, shape);
+    writer.typeMonitorResult();
 
     emitted_ = true;
     return true;
