@@ -283,7 +283,7 @@ class MOZ_RAII AutoScratchRegisterExcluding
             alloc_.releaseRegister(excluding);
         }
         MOZ_ASSERT(alloc_.currentOpRegs_.has(reg_));
-        }
+    }
     ~AutoScratchRegisterExcluding() {
         alloc_.releaseRegister(reg_);
     }
@@ -512,7 +512,7 @@ class MOZ_RAII AutoStubFrame
 {
     BaselineCacheIRCompiler& compiler;
 #ifdef DEBUG
-     uint32_t framePushedAtEnterStubFrame_;
+    uint32_t framePushedAtEnterStubFrame_;
 #endif
     Maybe<AutoScratchRegister> tail;
 
@@ -543,7 +543,7 @@ class MOZ_RAII AutoStubFrame
             EmitIonEnterStubFrame(masm, scratch);
         }
 
-      MOZ_ASSERT(!compiler.inStubFrame_);
+        MOZ_ASSERT(!compiler.inStubFrame_);
         compiler.inStubFrame_ = true;
         compiler.makesGCCalls_ = true;
     }
@@ -551,14 +551,14 @@ class MOZ_RAII AutoStubFrame
         MOZ_ASSERT(compiler.inStubFrame_);
         compiler.inStubFrame_ = false;
 
-    if (compiler.engine_ == ICStubEngine::Baseline) {
+        if (compiler.engine_ == ICStubEngine::Baseline) {
 #ifdef DEBUG
             masm.setFramePushed(framePushedAtEnterStubFrame_);
             if (calledIntoIon)
                 masm.adjustFrame(sizeof(intptr_t)); // Calls into ion have this extra.
 #endif
 
-        EmitBaselineLeaveStubFrame(masm, calledIntoIon);
+            EmitBaselineLeaveStubFrame(masm, calledIntoIon);
         } else {
             EmitIonLeaveStubFrame(masm);
         }
@@ -1232,11 +1232,7 @@ BaselineCacheIRCompiler::emitCallScriptedGetterResult()
 {
     MOZ_ASSERT(engine_ == ICStubEngine::Baseline);
 
-    // We use ICTailCallReg when entering the stub frame, so ensure it's not
-    // used for something else.
-    Maybe<AutoScratchRegister> tail;
-    if (allocator.isAllocatable(ICTailCallReg))
-        tail.emplace(allocator, masm, ICTailCallReg);
+    AutoStubFrame stubFrame(*this);
 
     Register obj = allocator.useRegister(masm, reader.objOperandId());
     Address getterAddr(stubAddress(reader.stubOffset()));
@@ -1344,7 +1340,6 @@ BaselineCacheIRCompiler::emitCallProxyGetResult()
 
     allocator.discardStack(masm);
 
-    // Push a stub frame so that we can perform a non-tail call.
     stubFrame.enter(masm, scratch);
 
     // Load the jsid in the scratch register.
@@ -1738,7 +1733,7 @@ CacheIRWriter::copyStubData(uint8_t* dest) const
             InitGCPtr<ObjectGroup*>(destWords, field.asWord());
             break;
           case StubField::Type::Symbol:
-            InitGCPtr<Symbol*>(destWords, field.asWord());
+            InitGCPtr<JS::Symbol*>(destWords, field.asWord());
             break;
           case StubField::Type::String:
             InitGCPtr<JSString*>(destWords, field.asWord());
