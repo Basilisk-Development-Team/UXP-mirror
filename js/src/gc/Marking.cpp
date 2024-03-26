@@ -1937,7 +1937,7 @@ MarkStack::TaggedPtr::TaggedPtr(Tag tag, Cell* ptr)
   : bits(tag | uintptr_t(ptr))
 {
     MOZ_ASSERT(tag <= LastTag);
-    MOZ_ASSERT((uintptr_t(ptr) & CellAlignMask) == 0);
+    MOZ_ASSERT((uintptr_t(ptr) & CellMask) == 0);
 }
 
 inline MarkStack::Tag
