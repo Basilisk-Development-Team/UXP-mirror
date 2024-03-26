@@ -442,6 +442,7 @@ jit::CheckLogging()
             "  profiling     Profiling-related information\n"
             "  trackopts     Optimization tracking information\n"
             "  dump-mir-expr Dump the MIR expressions\n"
+            "  cfg           Control flow graph generation\n"
             "  all           Everything\n"
             "\n"
             "  bl-aborts     Baseline compiler abort messages\n"
@@ -518,6 +519,8 @@ jit::CheckLogging()
         EnableChannel(JitSpew_OptimizationTracking);
     if (ContainsFlag(env, "dump-mir-expr"))
         EnableChannel(JitSpew_MIRExpressions);
+    if (ContainsFlag(env, "cfg"))
+        EnableChannel(JitSpew_CFG);
     if (ContainsFlag(env, "all"))
         LoggingBits = uint64_t(-1);
 

@@ -219,6 +219,7 @@ main_deunified_sources = [
     'jit/IonAnalysis.cpp',
     'jit/IonBuilder.cpp',
     'jit/IonCaches.cpp',
+    'jit/IonControlFlow.cpp',
     'jit/IonOptimizationLevels.cpp',
     'jit/JitcodeMap.cpp',
     'jit/JitFrames.cpp',
