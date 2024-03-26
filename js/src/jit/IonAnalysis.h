@@ -24,6 +24,9 @@ PruneUnusedBranches(MIRGenerator* mir, MIRGraph& graph);
 FoldTests(MIRGraph& graph);
 
 [[nodiscard]] bool
+FoldEmptyBlocks(MIRGraph& graph);
+
+[[nodiscard]] bool
 SplitCriticalEdges(MIRGraph& graph);
 
 bool

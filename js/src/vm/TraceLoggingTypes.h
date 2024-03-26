@@ -41,6 +41,7 @@
     /* Specific passes during ion compilation */      \
     _(PruneUnusedBranches)                            \
     _(FoldTests)                                      \
+    _(FoldEmptyBlocks)                                \
     _(SplitCriticalEdges)                             \
     _(RenumberBlocks)                                 \
     _(ScalarReplacement)                              \
