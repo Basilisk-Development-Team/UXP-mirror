@@ -520,25 +520,24 @@ class MOZ_RAII GetPropIRGenerator
     MutableHandleValue res_;
     ICStubEngine engine_;
     bool* isTemporarilyUnoptimizable_;
-    bool emitted_;
 
     enum class PreliminaryObjectAction { None, Unlink, NotePreliminary };
     PreliminaryObjectAction preliminaryObjectAction_;
 
-    [[nodiscard]] bool tryAttachNative(HandleObject obj, ObjOperandId objId);
-    [[nodiscard]] bool tryAttachUnboxed(HandleObject obj, ObjOperandId objId);
-    [[nodiscard]] bool tryAttachUnboxedExpando(HandleObject obj, ObjOperandId objId);
-    [[nodiscard]] bool tryAttachTypedObject(HandleObject obj, ObjOperandId objId);
-    [[nodiscard]] bool tryAttachObjectLength(HandleObject obj, ObjOperandId objId);
-    [[nodiscard]] bool tryAttachModuleNamespace(HandleObject obj, ObjOperandId objId);
-    [[nodiscard]] bool tryAttachWindowProxy(HandleObject obj, ObjOperandId objId);
+    bool tryAttachNative(HandleObject obj, ObjOperandId objId);
+    bool tryAttachUnboxed(HandleObject obj, ObjOperandId objId);
+    bool tryAttachUnboxedExpando(HandleObject obj, ObjOperandId objId);
+    bool tryAttachTypedObject(HandleObject obj, ObjOperandId objId);
+    bool tryAttachObjectLength(HandleObject obj, ObjOperandId objId);
+    bool tryAttachModuleNamespace(HandleObject obj, ObjOperandId objId);
+    bool tryAttachWindowProxy(HandleObject obj, ObjOperandId objId);
 
-    [[nodiscard]] bool tryAttachGenericProxy(HandleObject obj, ObjOperandId objId);
-    [[nodiscard]] bool tryAttachDOMProxyShadowed(HandleObject obj, ObjOperandId objId);
-    [[nodiscard]] bool tryAttachDOMProxyUnshadowed(HandleObject obj, ObjOperandId objId);
-    [[nodiscard]] bool tryAttachProxy(HandleObject obj, ObjOperandId objId);
+    bool tryAttachGenericProxy(HandleObject obj, ObjOperandId objId);
+    bool tryAttachDOMProxyShadowed(HandleObject obj, ObjOperandId objId);
+    bool tryAttachDOMProxyUnshadowed(HandleObject obj, ObjOperandId objId);
+    bool tryAttachProxy(HandleObject obj, ObjOperandId objId);
 
-    [[nodiscard]] bool tryAttachPrimitive(ValOperandId valId);
+    bool tryAttachPrimitive(ValOperandId valId);
 
     GetPropIRGenerator(const GetPropIRGenerator&) = delete;
     GetPropIRGenerator& operator=(const GetPropIRGenerator&) = delete;
@@ -548,9 +547,7 @@ class MOZ_RAII GetPropIRGenerator
                        bool* isTemporarilyUnoptimizable,
                        HandleValue val, HandlePropertyName name, MutableHandleValue res);
 
-    bool emitted() const { return emitted_; }
-
-    [[nodiscard]] bool tryAttachStub();
+    bool tryAttachStub();
 
     bool shouldUnlinkPreliminaryObjectStubs() const {
         return preliminaryObjectAction_ == PreliminaryObjectAction::Unlink;
