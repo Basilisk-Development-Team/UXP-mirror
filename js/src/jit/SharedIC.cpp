@@ -175,6 +175,7 @@ ICStub::NonCacheIRStubMakesGCCalls(Kind kind)
       case Call_ScriptedApplyArguments:
       case Call_ScriptedFunCall:
       case Call_StringSplit:
+      case WarmUpCounter_Fallback:
       case GetProp_CallNativeGlobal:
       case GetProp_Generic:
       case SetProp_CallScripted:

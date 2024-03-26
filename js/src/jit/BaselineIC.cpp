@@ -1171,6 +1171,7 @@ ICGetElem_Fallback::Compiler::generateStubCode(MacroAssembler& masm)
     return tailCallVM(DoGetElemFallbackInfo, masm);
 }
 
+//
 // GetElem_String
 //
 
