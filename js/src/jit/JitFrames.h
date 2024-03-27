@@ -454,7 +454,7 @@ class RectifierFrameLayout : public JitFrameLayout
     }
 };
 
-class IonAccessorICFrameLayout : public CommonFrameLayout
+class IonICCallFrameLayout : public CommonFrameLayout
 {
   protected:
     // Pointer to root the stub's JitCode.
@@ -465,7 +465,7 @@ class IonAccessorICFrameLayout : public CommonFrameLayout
         return &stubCode_;
     }
     static size_t Size() {
-        return sizeof(IonAccessorICFrameLayout);
+        return sizeof(IonICCallFrameLayout);
     }
 };
 
