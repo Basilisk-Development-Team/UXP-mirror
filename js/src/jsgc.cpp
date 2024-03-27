@@ -1784,6 +1784,9 @@ RelocateCell(Zone* zone, TenuredCell* src, AllocKind thingKind, size_t thingSize
                 if (owner == srcNative)
                     owner = dstNative;
             }
+        } else if (srcObj->is<ProxyObject>()) {
+            if (srcObj->as<ProxyObject>().usingInlineValueArray())
+                dstObj->as<ProxyObject>().setInlineValueArray();
         }
 
         // Call object moved hook if present.
