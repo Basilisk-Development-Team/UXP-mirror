@@ -139,7 +139,7 @@ FinishOffThreadIonCompile(jit::IonBuilder* builder, const AutoLockHelperThreadSt
 }
 
 static JSRuntime*
-GetSelectorRuntime(CompilationSelector selector)
+GetSelectorRuntime(const CompilationSelector& selector)
 {
     struct Matcher
     {
@@ -156,7 +156,7 @@ GetSelectorRuntime(CompilationSelector selector)
 }
 
 static bool
-JitDataStructuresExist(CompilationSelector selector)
+JitDataStructuresExist(const CompilationSelector& selector)
 {
     struct Matcher
     {
@@ -196,7 +196,7 @@ IonBuilderMatches(const CompilationSelector& selector, jit::IonBuilder* builder)
 }
 
 void
-js::CancelOffThreadIonCompile(CompilationSelector selector, bool discardLazyLinkList)
+js::CancelOffThreadIonCompile(const CompilationSelector& selector, bool discardLazyLinkList)
 {
     if (!JitDataStructuresExist(selector))
         return;
