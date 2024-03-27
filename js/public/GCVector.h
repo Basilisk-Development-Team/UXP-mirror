@@ -73,6 +73,7 @@ class GCVector
     bool resize(size_t newLen) { return vector.resize(newLen); }
 
     void clear() { return vector.clear(); }
+    void clearAndFree() { return vector.clearAndFree(); }
 
     template<typename U> bool append(U&& item) { return vector.append(mozilla::Forward<U>(item)); }
 
