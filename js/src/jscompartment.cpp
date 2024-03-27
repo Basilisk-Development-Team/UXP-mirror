@@ -968,6 +968,7 @@ void
 JSCompartment::purge()
 {
     dtoaCache.purge();
+    newProxyCache.purge();
     promiseLookup.purge();
     lastCachedNativeIterator = nullptr;
 }
