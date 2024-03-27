@@ -31,6 +31,9 @@ GetGCObjectKind(const Class* clasp)
 {
     if (clasp == FunctionClassPtr)
         return AllocKind::FUNCTION;
+
+    MOZ_ASSERT(!clasp->isProxy(), "Proxies should use GetProxyGCObjectKind");
+
     uint32_t nslots = JSCLASS_RESERVED_SLOTS(clasp);
     if (clasp->flags & JSCLASS_HAS_PRIVATE)
         nslots++;
