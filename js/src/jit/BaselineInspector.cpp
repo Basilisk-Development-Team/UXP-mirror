@@ -1002,17 +1002,6 @@ BaselineInspector::expectedPropertyAccessInputType(jsbytecode* pc)
           case ICStub::GetProp_Generic:
             return MIRType::Value;
 
-          case ICStub::GetElem_Arguments:
-            // Either an object or magic arguments.
-            return MIRType::Value;
-
-          case ICStub::GetElem_String:
-          case ICStub::GetElem_Dense:
-          case ICStub::GetElem_TypedArray:
-          case ICStub::GetElem_UnboxedArray:
-            stubType = MIRType::Object;
-            break;
-
           case ICStub::CacheIR_Monitored:
             stubType = GetCacheIRExpectedInputType(stub->toCacheIR_Monitored());
             if (stubType == MIRType::Value)
