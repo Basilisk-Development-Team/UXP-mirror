@@ -474,7 +474,8 @@ size_t sCustomIteratorCount = 0;
 static inline bool
 GetCustomIterator(JSContext* cx, HandleObject obj, unsigned flags, MutableHandleObject objp)
 {
-    JS_CHECK_RECURSION(cx, return false);
+    if (!CheckRecursionLimit(cx))
+        return false;
 
     RootedValue rval(cx);
     /* Check whether we have a valid __iterator__ method. */
@@ -1538,7 +1539,8 @@ js::IteratorMore(JSContext* cx, HandleObject iterobj, MutableHandleValue rval)
     }
 
     // We're reentering below and can call anything.
-    JS_CHECK_RECURSION(cx, return false);
+    if (!CheckRecursionLimit(cx))
+        return false;
 
     // Call the iterator object's .next method.
     if (!GetProperty(cx, iterobj, iterobj, cx->names().next, rval))

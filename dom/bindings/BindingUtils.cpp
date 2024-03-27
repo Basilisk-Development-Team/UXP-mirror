@@ -2118,7 +2118,10 @@ ReparentWrapper(JSContext* aCx, JS::Handle<JSObject*> aObjArg, ErrorResult& aErr
   // the untrusted script limit, which is not strictly necessary since no
   // actual script should run.
   // TODO: Make sure to retain 'onerror' if bug 1342439 lands.
-  JS_CHECK_RECURSION_CONSERVATIVE(aCx, aError.StealExceptionFromJSContext(aCx); return);
+  if (!js::CheckRecursionLimitConservative(aCx)) {
+    aError.StealExceptionFromJSContext(aCx);
+    return;
+  }
 
   JS::Rooted<JSObject*> aObj(aCx, aObjArg);
   const DOMJSClass* domClass = GetDOMClass(aObj);

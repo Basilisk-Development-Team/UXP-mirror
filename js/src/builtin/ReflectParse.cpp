@@ -2507,7 +2507,9 @@ ASTSerializer::classDefinition(ClassNode* pn, bool expr, MutableHandleValue dst)
 bool
 ASTSerializer::statement(ParseNode* pn, MutableHandleValue dst)
 {
-    JS_CHECK_RECURSION(cx, return false);
+    if (!CheckRecursionLimit(cx))
+        return false;
+
     switch (pn->getKind()) {
       case PNK_FUNCTION:
       case PNK_VAR:
@@ -3047,7 +3049,9 @@ ASTSerializer::generatorExpression(ParseNode* pn, MutableHandleValue dst)
 bool
 ASTSerializer::expression(ParseNode* pn, MutableHandleValue dst)
 {
-    JS_CHECK_RECURSION(cx, return false);
+    if (!CheckRecursionLimit(cx))
+        return false;
+
     switch (pn->getKind()) {
       case PNK_FUNCTION:
       {
@@ -3735,7 +3739,9 @@ ASTSerializer::objectPattern(ListNode* obj, MutableHandleValue dst)
 bool
 ASTSerializer::pattern(ParseNode* pn, MutableHandleValue dst)
 {
-    JS_CHECK_RECURSION(cx, return false);
+    if (!CheckRecursionLimit(cx))
+        return false;
+
     switch (pn->getKind()) {
       case PNK_OBJECT:
         return objectPattern(&pn->as<ListNode>(), dst);

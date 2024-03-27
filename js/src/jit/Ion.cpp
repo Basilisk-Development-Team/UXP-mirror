@@ -2729,7 +2729,8 @@ jit::CanEnterUsingFastInvoke(JSContext* cx, HandleScript script, uint32_t numAct
 static JitExecStatus
 EnterIon(JSContext* cx, EnterJitData& data)
 {
-    JS_CHECK_RECURSION(cx, return JitExec_Aborted);
+    if (!CheckRecursionLimit(cx))
+        return JitExec_Aborted;
     MOZ_ASSERT(jit::IsIonEnabled(cx));
     MOZ_ASSERT(!data.osrFrame);
 
@@ -2863,7 +2864,8 @@ jit::IonCannon(JSContext* cx, RunState& state)
 JitExecStatus
 jit::FastInvoke(JSContext* cx, HandleFunction fun, CallArgs& args)
 {
-    JS_CHECK_RECURSION(cx, return JitExec_Error);
+    if (!CheckRecursionLimit(cx))
+        return JitExec_Error;
 
     RootedScript script(cx, fun->nonLazyScript());
 

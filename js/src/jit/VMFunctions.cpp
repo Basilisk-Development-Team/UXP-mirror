@@ -123,6 +123,18 @@ InvokeFunctionShuffleNewTarget(JSContext* cx, HandleObject obj, uint32_t numActu
     return InvokeFunction(cx, obj, true, false, numActualArgs, argv, rval);
 }
 
+#ifdef JS_SIMULATOR
+static bool
+CheckSimulatorRecursionLimitWithExtra(JSContext* cx, uint32_t extra)
+{
+    if (cx->simulator()->overRecursedWithExtra(extra)) {
+        ReportOverRecursed(cx);
+        return false;
+    }
+    return true;
+}
+#endif
+
 bool
 CheckOverRecursed(JSContext* cx)
 {
@@ -131,9 +143,11 @@ CheckOverRecursed(JSContext* cx)
     //  - jitStackLimit was set to UINTPTR_MAX by JSRuntime::requestInterrupt
     //    and we need to call JSRuntime::handleInterrupt.
 #ifdef JS_SIMULATOR
-    JS_CHECK_SIMULATOR_RECURSION_WITH_EXTRA(cx, 0, return false);
+    if (!CheckSimulatorRecursionLimitWithExtra(cx, 0))
+        return false;
 #else
-    JS_CHECK_RECURSION(cx, return false);
+    if (!CheckRecursionLimit(cx))
+        return false;
 #endif
     return cx->handleInterrupt();
 }
@@ -161,9 +175,11 @@ CheckOverRecursedWithExtra(JSContext* cx, BaselineFrame* frame,
     if (earlyCheck) {
 #ifdef JS_SIMULATOR
         (void)checkSp;
-        JS_CHECK_SIMULATOR_RECURSION_WITH_EXTRA(cx, extra, frame->setOverRecursed());
+        if (!CheckSimulatorRecursionLimitWithExtra(cx, extra))
+            frame->setOverRecursed();
 #else
-        JS_CHECK_RECURSION_WITH_SP(cx, checkSp, frame->setOverRecursed());
+        if (!CheckRecursionLimitWithStackPointer(cx, checkSp))
+            frame->setOverRecursed();
 #endif
         return true;
     }
@@ -174,9 +190,11 @@ CheckOverRecursedWithExtra(JSContext* cx, BaselineFrame* frame,
         return false;
 
 #ifdef JS_SIMULATOR
-    JS_CHECK_SIMULATOR_RECURSION_WITH_EXTRA(cx, extra, return false);
+    if (!CheckSimulatorRecursionLimitWithExtra(cx, extra))
+        return false;
 #else
-    JS_CHECK_RECURSION_WITH_SP(cx, checkSp, return false);
+    if (!CheckRecursionLimitWithStackPointer(cx, checkSp))
+        return false;
 #endif
 
     return cx->handleInterrupt();
