@@ -1058,7 +1058,8 @@ BytecodeEmitter::strictifySetNameOp(JSOp op)
 bool
 BytecodeEmitter::checkSideEffects(ParseNode* pn, bool* answer)
 {
-    JS_CHECK_RECURSION(cx, return false);
+    if (!CheckRecursionLimit(cx))
+        return false;
 
  restart:
 
@@ -7359,7 +7360,8 @@ BytecodeEmitter::emitOptionalCalleeAndThis(
     CallOrNewEmitter& cone,
     OptionalEmitter& oe)
 {
-    JS_CHECK_RECURSION(cx, return false);
+    if (!CheckRecursionLimit(cx))
+        return false;
 
     switch (calleeNode->getKind()) {
       case PNK_NAME: {
@@ -9187,7 +9189,8 @@ bool
 BytecodeEmitter::emitTree(ParseNode* pn, ValueUsage valueUsage /* = ValueUsage::WantValue */,
                           EmitLineNumberNote emitLineNote /* = EMIT_LINENOTE */)
 {
-    JS_CHECK_RECURSION(cx, return false);
+    if (!CheckRecursionLimit(cx))
+        return false;
 
     EmitLevelManager elm(this);
 
@@ -9709,7 +9712,8 @@ BytecodeEmitter::emitOptionalTree(
     OptionalEmitter& oe,
     ValueUsage valueUsage /* = ValueUsage::WantValue */)
 {
-    JS_CHECK_RECURSION(cx, return false);
+    if (!CheckRecursionLimit(cx))
+        return false;
 
     ParseNodeKind kind = pn->getKind();
     switch (kind) {

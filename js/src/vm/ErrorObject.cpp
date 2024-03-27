@@ -666,7 +666,8 @@ js::ErrorObject::setStack_impl(JSContext* cx, const CallArgs& args)
 static bool
 exn_toSource(JSContext* cx, unsigned argc, Value* vp)
 {
-    JS_CHECK_RECURSION(cx, return false);
+    if (!CheckRecursionLimit(cx))
+        return false;
     CallArgs args = CallArgsFromVp(argc, vp);
 
     RootedObject obj(cx, ToObject(cx, args.thisv()));
