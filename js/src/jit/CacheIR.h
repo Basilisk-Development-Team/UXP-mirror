@@ -144,6 +144,7 @@ enum class CacheKind : uint8_t
     _(GuardNoDetachedTypedObjects)        \
     _(GuardMagicValue)                    \
     _(GuardFrameHasNoArgumentsObject)     \
+    _(GuardNoDenseElements)               \
     _(GuardNoUnboxedExpando)              \
     _(GuardAndLoadUnboxedExpando)         \
     _(LoadObject)                         \
@@ -159,6 +160,7 @@ enum class CacheKind : uint8_t
     _(LoadUnboxedPropertyResult)          \
     _(LoadTypedObjectResult)              \
     _(LoadDenseElementResult)             \
+    _(LoadDenseElementHoleResult)         \
     _(LoadUnboxedArrayElementResult)      \
     _(LoadTypedElementResult)             \
     _(LoadInt32ArrayLengthResult)         \
@@ -451,6 +453,9 @@ class MOZ_RAII CacheIRWriter : public JS::CustomAutoRooter
     void loadFrameArgumentResult(Int32OperandId index) {
         writeOpWithOperandId(CacheOp::LoadFrameArgumentResult, index);
     }
+    void guardNoDenseElements(ObjOperandId obj) {
+        writeOpWithOperandId(CacheOp::GuardNoDenseElements, obj);
+    }
     void guardNoUnboxedExpando(ObjOperandId obj) {
         writeOpWithOperandId(CacheOp::GuardNoUnboxedExpando, obj);
     }
@@ -533,6 +538,10 @@ class MOZ_RAII CacheIRWriter : public JS::CustomAutoRooter
     }
     void loadDenseElementResult(ObjOperandId obj, Int32OperandId index) {
         writeOpWithOperandId(CacheOp::LoadDenseElementResult, obj);
+        writeOperandId(index);
+    }
+    void loadDenseElementHoleResult(ObjOperandId obj, Int32OperandId index) {
+        writeOpWithOperandId(CacheOp::LoadDenseElementHoleResult, obj);
         writeOperandId(index);
     }
     void loadUnboxedArrayElementResult(ObjOperandId obj, Int32OperandId index, JSValueType elementType) {
@@ -682,6 +691,7 @@ class MOZ_RAII GetPropIRGenerator
     bool tryAttachArgumentsObjectArg(HandleObject obj, ObjOperandId objId, ValOperandId indexId);
 
     bool tryAttachDenseElement(HandleObject obj, ObjOperandId objId, ValOperandId indexId);
+    bool tryAttachDenseElementHole(HandleObject obj, ObjOperandId objId, ValOperandId indexId);
     bool tryAttachUnboxedArrayElement(HandleObject obj, ObjOperandId objId, ValOperandId indexId);
     bool tryAttachTypedElement(HandleObject obj, ObjOperandId objId, ValOperandId indexId);
 
