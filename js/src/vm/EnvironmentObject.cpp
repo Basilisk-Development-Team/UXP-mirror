@@ -26,6 +26,7 @@
 #include "jsobjinlines.h"
 #include "jsscriptinlines.h"
 
+#include "vm/NativeObject-inl.h"
 #include "vm/Stack-inl.h"
 
 using namespace js;
@@ -142,7 +143,7 @@ CallObject::create(JSContext* cx, HandleShape shape, HandleObjectGroup group)
     kind = gc::GetBackgroundAllocKind(kind);
 
     JSObject* obj;
-    JS_TRY_VAR_OR_RETURN_NULL(cx, obj, JSObject::create(cx, kind, gc::DefaultHeap, shape, group));
+    JS_TRY_VAR_OR_RETURN_NULL(cx, obj, NativeObject::create(cx, kind, gc::DefaultHeap, shape, group));
 
     return &obj->as<CallObject>();
 }
@@ -159,7 +160,7 @@ CallObject::createSingleton(JSContext* cx, HandleShape shape)
         return nullptr;
 
     JSObject* obj;
-    JS_TRY_VAR_OR_RETURN_NULL(cx, obj, JSObject::create(cx, kind, gc::TenuredHeap, shape, group));
+    JS_TRY_VAR_OR_RETURN_NULL(cx, obj, NativeObject::create(cx, kind, gc::TenuredHeap, shape, group));
 
     MOZ_ASSERT(obj->isSingleton(),
                "group created inline above must be a singleton");
@@ -189,7 +190,7 @@ CallObject::createTemplateObject(JSContext* cx, HandleScript script, HandleObjec
     kind = gc::GetBackgroundAllocKind(kind);
 
     JSObject* obj;
-    JS_TRY_VAR_OR_RETURN_NULL(cx, obj, JSObject::create(cx, kind, heap, shape, group));
+    JS_TRY_VAR_OR_RETURN_NULL(cx, obj, NativeObject::create(cx, kind, heap, shape, group));
 
     CallObject* callObj = &obj->as<CallObject>();
     callObj->initEnclosingEnvironment(enclosing);
@@ -320,7 +321,7 @@ VarEnvironmentObject::create(JSContext* cx, HandleShape shape, HandleObject encl
     kind = gc::GetBackgroundAllocKind(kind);
 
     JSObject* obj;
-    JS_TRY_VAR_OR_RETURN_NULL(cx, obj, JSObject::create(cx, kind, heap, shape, group));
+    JS_TRY_VAR_OR_RETURN_NULL(cx, obj, NativeObject::create(cx, kind, heap, shape, group));
 
     VarEnvironmentObject* env = &obj->as<VarEnvironmentObject>();
     MOZ_ASSERT(!env->inDictionaryMode());
@@ -435,7 +436,7 @@ ModuleEnvironmentObject::create(JSContext* cx, HandleModuleObject module)
     kind = gc::GetBackgroundAllocKind(kind);
 
     JSObject* obj;
-    JS_TRY_VAR_OR_RETURN_NULL(cx, obj, JSObject::create(cx, kind, TenuredHeap, shape, group));
+    JS_TRY_VAR_OR_RETURN_NULL(cx, obj, NativeObject::create(cx, kind, TenuredHeap, shape, group));
 
     RootedModuleEnvironmentObject env(cx, &obj->as<ModuleEnvironmentObject>());
 
@@ -840,7 +841,7 @@ LexicalEnvironmentObject::createTemplateObject(JSContext* cx, HandleShape shape,
     allocKind = GetBackgroundAllocKind(allocKind);
 
     JSObject* obj;
-    JS_TRY_VAR_OR_RETURN_NULL(cx, obj, JSObject::create(cx, allocKind, heap, shape, group));
+    JS_TRY_VAR_OR_RETURN_NULL(cx, obj, NativeObject::create(cx, allocKind, heap, shape, group));
 
     LexicalEnvironmentObject* env = &obj->as<LexicalEnvironmentObject>();
     MOZ_ASSERT(!env->inDictionaryMode());

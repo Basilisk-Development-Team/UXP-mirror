@@ -482,6 +482,10 @@ class NativeObject : public ShapedObject
 
     inline bool isInWholeCellBuffer() const;
 
+    static inline JS::Result<NativeObject*, JS::OOM&>
+    create(JSContext* cx, js::gc::AllocKind kind, js::gc::InitialHeap heap,
+           js::HandleShape shape, js::HandleObjectGroup group);
+
     static inline NativeObject*
     createWithTemplate(JSContext* cx, js::gc::InitialHeap heap, HandleObject templateObject);
 
