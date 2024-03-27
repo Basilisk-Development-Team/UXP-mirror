@@ -2325,6 +2325,12 @@ MacroAssembler::icBuildOOLFakeExitFrame(void* fakeReturnAddr, AfterICSaveLive& a
     return buildOOLFakeExitFrame(fakeReturnAddr);
 }
 
+bool
+MacroAssembler::icBuildOOLFakeExitFrame(void* fakeReturnAddr, AutoSaveLiveRegisters& save)
+{
+    return buildOOLFakeExitFrame(fakeReturnAddr);
+}
+
 void
 MacroAssembler::icRestoreLive(LiveRegisterSet& liveRegs, AfterICSaveLive& aic)
 {

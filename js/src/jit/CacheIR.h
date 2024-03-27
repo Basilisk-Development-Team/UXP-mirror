@@ -42,6 +42,14 @@ namespace jit {
 // share both the IR and JitCode between CacheIR stubs. This HashMap owns the
 // stubInfo (it uses UniquePtr), so once there are no references left to the
 // shared stub code, we can also free the CacheIRStubInfo.
+//
+// Ion stubs
+// ---------
+// Unlike Baseline stubs, Ion stubs do not share stub code, and data stored in
+// the IonICStub is baked into JIT code. This is one of the reasons Ion stubs
+// are faster than Baseline stubs. Also note that Ion ICs contain more state
+// (see IonGetPropertyIC for example) and use dynamic input/output registers,
+// so sharing stub code for Ion would be much more difficult.
 
 // An OperandId represents either a cache input or a value returned by a
 // CacheIR instruction. Most code should use the ValOperandId and ObjOperandId
@@ -368,13 +376,23 @@ class MOZ_RAII CacheIRWriter : public JS::CustomAutoRooter
         return currentInstruction > operandLastUsed_[operandId];
     }
     const uint8_t* codeStart() const {
+        MOZ_ASSERT(!failed());
         return buffer_.buffer();
     }
     const uint8_t* codeEnd() const {
+        MOZ_ASSERT(!failed());
         return buffer_.buffer() + buffer_.length();
     }
     uint32_t codeLength() const {
+        MOZ_ASSERT(!failed());
         return buffer_.length();
+    }
+
+    // This should not be used when compiling Baseline code, as Baseline code
+    // shouldn't bake in stub values.
+    StubField readStubFieldForIon(size_t i, StubField::Type type) const {
+        MOZ_ASSERT(stubFields_[i].type() == type);
+        return stubFields_[i];
     }
 
     ObjOperandId guardIsObject(ValOperandId val) {
@@ -661,7 +679,6 @@ class MOZ_RAII GetPropIRGenerator
     jsbytecode* pc_;
     HandleValue val_;
     HandleValue idVal_;
-    MutableHandleValue res_;
     ICStubEngine engine_;
     CacheKind cacheKind_;
     bool* isTemporarilyUnoptimizable_;
@@ -700,6 +717,10 @@ class MOZ_RAII GetPropIRGenerator
         return ValOperandId(1);
     }
 
+    // No pc if idempotent, as there can be multiple bytecode locations
+    // due to GVN.
+    bool idempotent() const { return pc_ == nullptr; }
+
     // If this is a GetElem cache, emit instructions to guard the incoming Value
     // matches |id|.
     void maybeEmitIdGuard(jsid id);
@@ -710,9 +731,10 @@ class MOZ_RAII GetPropIRGenerator
   public:
     GetPropIRGenerator(JSContext* cx, jsbytecode* pc, ICStubEngine engine, CacheKind cacheKind,
                        bool* isTemporarilyUnoptimizable,
-                       HandleValue val, HandleValue idVal, MutableHandleValue res);
+                       HandleValue val, HandleValue idVal);
 
     bool tryAttachStub();
+    bool tryAttachIdempotentStub();
 
     bool shouldUnlinkPreliminaryObjectStubs() const {
         return preliminaryObjectAction_ == PreliminaryObjectAction::Unlink;

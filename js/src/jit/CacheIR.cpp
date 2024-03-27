@@ -20,14 +20,12 @@ using mozilla::Maybe;
 GetPropIRGenerator::GetPropIRGenerator(JSContext* cx, jsbytecode* pc, ICStubEngine engine,
                                        CacheKind cacheKind,
                                        bool* isTemporarilyUnoptimizable,
-                                       HandleValue val, HandleValue idVal,
-                                       MutableHandleValue res)
+                                       HandleValue val, HandleValue idVal)
   : writer(cx),
     cx_(cx),
     pc_(pc),
     val_(val),
     idVal_(idVal),
-    res_(res),
     engine_(engine),
     cacheKind_(cacheKind),
     isTemporarilyUnoptimizable_(isTemporarilyUnoptimizable),
@@ -46,9 +44,41 @@ EmitLoadSlotResult(CacheIRWriter& writer, ObjOperandId holderOp, NativeObject* h
     }
 }
 
+enum class ProxyStubType {
+    None,
+    DOMShadowed,
+    DOMUnshadowed,
+    Generic
+};
+
+static ProxyStubType
+GetProxyStubType(JSContext* cx, HandleObject obj, HandleId id)
+{
+    if (!obj->is<ProxyObject>())
+        return ProxyStubType::None;
+
+    if (!IsCacheableDOMProxy(obj))
+        return ProxyStubType::Generic;
+
+    DOMProxyShadowsResult shadows = GetDOMProxyShadowsCheck()(cx, obj, id);
+    if (shadows == ShadowCheckFailed) {
+        cx->clearPendingException();
+        return ProxyStubType::None;
+    }
+
+    if (DOMProxyIsShadowing(shadows))
+        return ProxyStubType::DOMShadowed;
+
+    MOZ_ASSERT(shadows == DoesntShadow || shadows == DoesntShadowUnique);
+    return ProxyStubType::DOMUnshadowed;
+}
+
 bool
 GetPropIRGenerator::tryAttachStub()
 {
+    // Idempotent ICs should call tryAttachIdempotentStub instead.
+    MOZ_ASSERT(!idempotent());
+
     AutoAssertNoPendingException aanpe(cx_);
 
     ValOperandId valId(writer.setInputOperandId(0));
@@ -129,6 +159,32 @@ GetPropIRGenerator::tryAttachStub()
     return false;
 }
 
+bool
+GetPropIRGenerator::tryAttachIdempotentStub()
+{
+    // For idempotent ICs, only attach stubs for plain data properties.
+    // This ensures (1) the lookup has no side-effects and (2) Ion has complete
+    // static type information and we don't have to monitor the result. Because
+    // of (2), we don't support for instance missing properties or array
+    // lengths, as TI does not account for these cases.
+
+    MOZ_ASSERT(idempotent());
+
+    RootedObject obj(cx_, &val_.toObject());
+    RootedId id(cx_, NameToId(idVal_.toString()->asAtom().asPropertyName()));
+
+    ValOperandId valId(writer.setInputOperandId(0));
+    ObjOperandId objId = writer.guardIsObject(valId);
+    if (tryAttachNative(obj, objId, id))
+        return true;
+
+    // Also support native data properties on DOMProxy prototypes.
+    if (GetProxyStubType(cx_, obj, id) == ProxyStubType::DOMUnshadowed)
+        return tryAttachDOMProxyUnshadowed(obj, objId, id);
+
+    return false;
+}
+
 static bool
 IsCacheableNoProperty(JSContext* cx, JSObject* obj, JSObject* holder, Shape* shape, jsid id,
                       jsbytecode* pc)
@@ -137,6 +193,12 @@ IsCacheableNoProperty(JSContext* cx, JSObject* obj, JSObject* holder, Shape* sha
         return false;
 
     MOZ_ASSERT(!holder);
+
+    if (!pc) {
+        // This is an idempotent IC, don't attach a missing-property stub.
+        // See tryAttachStub.
+        return false;
+    }
 
     // If we're doing a name lookup, we have to throw a ReferenceError.
     if (*pc == JSOP_GETXPROP)
@@ -175,15 +237,20 @@ CanAttachNativeGetProp(JSContext* cx, HandleObject obj, HandleId id,
     }
     shape.set(prop.maybeShape());
 
-    if (IsCacheableGetPropReadSlotForIonOrCacheIR(obj, holder, prop) ||
-        IsCacheableNoProperty(cx, obj, holder, shape, id, pc))
-    {
+    if (IsCacheableGetPropReadSlotForIonOrCacheIR(obj, holder, prop))
         return CanAttachReadSlot;
-    }
+
+    // Idempotent ICs only support plain data properties, see
+    // tryAttachIdempotentStub.
+    if (!pc)
+        return CanAttachNone;
+
+    if (IsCacheableNoProperty(cx, obj, holder, shape, id, pc))
+        return CanAttachReadSlot;
 
     if (IsCacheableGetPropCallScripted(obj, holder, shape, isTemporarilyUnoptimizable)) {
         // See bug 1226816.
-        if (engine == ICStubEngine::Baseline)
+        if (engine != ICStubEngine::IonSharedIC)
             return CanAttachCallGetter;
     }
 
@@ -354,6 +421,10 @@ GetPropIRGenerator::tryAttachNative(HandleObject obj, ObjOperandId objId, Handle
 
     NativeGetPropCacheability type = CanAttachNativeGetProp(cx_, obj, id, &holder, &shape, pc_,
                                                             engine_, isTemporarilyUnoptimizable_);
+
+    MOZ_ASSERT_IF(idempotent(),
+                  type == CanAttachNone || (type == CanAttachReadSlot && holder));
+
     switch (type) {
       case CanAttachNone:
         return false;
@@ -512,6 +583,10 @@ GetPropIRGenerator::tryAttachDOMProxyUnshadowed(HandleObject obj, ObjOperandId o
     NativeGetPropCacheability canCache = CanAttachNativeGetProp(cx_, checkObj, id, &holder, &shape,
                                                                 pc_, engine_,
                                                                 isTemporarilyUnoptimizable_);
+
+    MOZ_ASSERT_IF(idempotent(),
+                  canCache == CanAttachNone || (canCache == CanAttachReadSlot && holder));
+
     if (canCache == CanAttachNone)
         return false;
 
@@ -554,24 +629,19 @@ GetPropIRGenerator::tryAttachDOMProxyUnshadowed(HandleObject obj, ObjOperandId o
 bool
 GetPropIRGenerator::tryAttachProxy(HandleObject obj, ObjOperandId objId, HandleId id)
 {
-    if (!obj->is<ProxyObject>())
+    switch (GetProxyStubType(cx_, obj, id)) {
+      case ProxyStubType::None:
         return false;
 
-    // Skim off DOM proxies.
-    if (IsCacheableDOMProxy(obj)) {
-        DOMProxyShadowsResult shadows = GetDOMProxyShadowsCheck()(cx_, obj, id);
-        if (shadows == ShadowCheckFailed) {
-            cx_->clearPendingException();
-            return false;
-        }
-        if (DOMProxyIsShadowing(shadows))
-            return tryAttachDOMProxyShadowed(obj, objId, id);
-
-        MOZ_ASSERT(shadows == DoesntShadow || shadows == DoesntShadowUnique);
+      case ProxyStubType::DOMShadowed:
+        return tryAttachDOMProxyShadowed(obj, objId, id);
+      case ProxyStubType::DOMUnshadowed:
         return tryAttachDOMProxyUnshadowed(obj, objId, id);
+      case ProxyStubType::Generic:
+        return tryAttachGenericProxy(obj, objId, id);
     }
 
-    return tryAttachGenericProxy(obj, objId, id);
+    MOZ_CRASH("Unexpected ProxyStubType");
 }
 
 bool
@@ -1040,6 +1110,16 @@ GetPropIRGenerator::tryAttachTypedElement(HandleObject obj, ObjOperandId objId,
         return false;
     }
 
+    if (idVal_.toNumber() < 0 || floor(idVal_.toNumber()) != idVal_.toNumber())
+        return false;
+
+    // Ensure the index is in-bounds so the element type gets monitored.
+    if (obj->is<TypedArrayObject>() &&
+        idVal_.toNumber() >= double(obj->as<TypedArrayObject>().length()))
+    {
+        return false;
+    }
+
     // Don't attach typed object stubs if the underlying storage could be
     // detached, as the stub will always bail out.
     if (IsPrimitiveArrayTypedObject(obj) && cx_->compartment()->detachedTypedObjects)
@@ -1053,7 +1133,13 @@ GetPropIRGenerator::tryAttachTypedElement(HandleObject obj, ObjOperandId objId,
 
     Int32OperandId int32IndexId = writer.guardIsInt32(indexId);
     writer.loadTypedElementResult(objId, int32IndexId, layout, TypedThingElementType(obj));
-    writer.returnFromIC();
+
+    // Reading from Uint32Array may produce an int32 now but a double value
+    // later, so ensure we monitor the result.
+    if (TypedThingElementType(obj) == Scalar::Type::Uint32)
+        writer.typeMonitorResult();
+    else
+        writer.returnFromIC();
     return true;
 }
 
