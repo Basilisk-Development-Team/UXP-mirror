@@ -219,6 +219,12 @@ class CFGTry : public CFGControlInstruction
     CFG_CONTROL_HEADER(Try)
     TRIVIAL_CFG_NEW_WRAPPERS
 
+    static CFGTry* CopyWithNewTargets(TempAllocator& alloc, CFGTry* old,
+                                      CFGBlock* tryBlock, CFGBlock* merge)
+    {
+        return new(alloc) CFGTry(tryBlock, old->catchStartPc(), merge);
+    }
+
     size_t numSuccessors() const final override {
         return mergePoint_ ? 2 : 1;
     }
@@ -374,6 +380,8 @@ class CFGCompare : public CFGAryControlInstruction<2>
     }
 };
 
+enum class CFGTestKind { Coalesce, ToBoolean, ToBooleanAndPop };
+
 /**
  * CFGTest
  *
@@ -382,28 +390,28 @@ class CFGCompare : public CFGAryControlInstruction<2>
  * IFNEQ JUMP succ2
  *
  */
-class CFGTest : public CFGAryControlInstruction<2>
-{
-    // By default the condition gets popped. This variable
-    // keeps track if we want to keep the condition.
-    bool keepCondition_;
+class CFGTest : public CFGAryControlInstruction<2> {
+  CFGTestKind kind_;
 
-    CFGTest(CFGBlock* succ1, CFGBlock* succ2)
-      : keepCondition_(false)
-    {
-        replaceSuccessor(0, succ1);
-        replaceSuccessor(1, succ2);
-    }
-    CFGTest(CFGBlock* succ1, CFGBlock* succ2, bool keepCondition)
-      : keepCondition_(keepCondition)
-    {
-        replaceSuccessor(0, succ1);
-        replaceSuccessor(1, succ2);
-    }
+  CFGTest(CFGBlock* succ1, CFGBlock* succ2)
+      : kind_(CFGTestKind::ToBooleanAndPop) {
+    replaceSuccessor(0, succ1);
+    replaceSuccessor(1, succ2);
+  }
+  CFGTest(CFGBlock* succ1, CFGBlock* succ2, CFGTestKind kind) : kind_(kind) {
+    replaceSuccessor(0, succ1);
+    replaceSuccessor(1, succ2);
+  }
 
   public:
     CFG_CONTROL_HEADER(Test);
     TRIVIAL_CFG_NEW_WRAPPERS
+
+    static CFGTest* CopyWithNewTargets(TempAllocator& alloc, CFGTest* old,
+                                       CFGBlock* succ1, CFGBlock* succ2)
+    {
+        return new(alloc) CFGTest(succ1, succ2, old->getKind());
+    }
 
     CFGBlock* trueBranch() const {
         return getSuccessor(0);
@@ -411,12 +419,8 @@ class CFGTest : public CFGAryControlInstruction<2>
     CFGBlock* falseBranch() const {
         return getSuccessor(1);
     }
-    void keepCondition() {
-        keepCondition_ = true;
-    }
-    bool mustKeepCondition() const {
-        return keepCondition_;
-    }
+
+    CFGTestKind getKind() const { return kind_; }
 };
 
 /**
@@ -482,7 +486,7 @@ class CFGUnaryControlInstruction : public CFGAryControlInstruction<1>
  */
 class CFGGoto : public CFGUnaryControlInstruction
 {
-    size_t popAmount_;
+    const size_t popAmount_;
 
     explicit CFGGoto(CFGBlock* block)
       : CFGUnaryControlInstruction(block),
@@ -497,6 +501,11 @@ class CFGGoto : public CFGUnaryControlInstruction
   public:
     CFG_CONTROL_HEADER(Goto);
     TRIVIAL_CFG_NEW_WRAPPERS
+
+    static CFGGoto* CopyWithNewTargets(TempAllocator& alloc, CFGGoto* old, CFGBlock* block)
+    {
+        return new(alloc) CFGGoto(block, old->popAmount());
+    }
 
     size_t popAmount() const {
         return popAmount_;
@@ -520,6 +529,11 @@ class CFGBackEdge : public CFGUnaryControlInstruction
   public:
     CFG_CONTROL_HEADER(BackEdge);
     TRIVIAL_CFG_NEW_WRAPPERS
+
+    static CFGBackEdge* CopyWithNewTargets(TempAllocator& alloc, CFGBackEdge* old, CFGBlock* block)
+    {
+       return new(alloc) CFGBackEdge(block);
+    }
 };
 
 /**
@@ -554,6 +568,13 @@ class CFGLoopEntry : public CFGUnaryControlInstruction
   public:
     CFG_CONTROL_HEADER(LoopEntry);
     TRIVIAL_CFG_NEW_WRAPPERS
+
+    static CFGLoopEntry* CopyWithNewTargets(TempAllocator& alloc, CFGLoopEntry* old,
+                                            CFGBlock* loopEntry)
+    {
+        return new(alloc) CFGLoopEntry(loopEntry, old->canOsr(), old->stackPhiCount(),
+                                       old->loopStopPc());
+    }
 
     void setCanOsr() {
         canOsr_ = true;

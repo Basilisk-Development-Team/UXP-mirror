@@ -101,19 +101,18 @@ ControlFlowGraph::init(TempAllocator& alloc, const CFGBlockVector& blocks)
         switch (ins->type()) {
           case CFGControlInstruction::Type_Goto: {
             CFGBlock* successor = &blocks_[ins->getSuccessor(0)->id()];
-            copy = CFGGoto::New(alloc, successor, ins->toGoto()->popAmount());
+            copy = CFGGoto::CopyWithNewTargets(alloc, ins->toGoto(), successor);
             break;
           }
           case CFGControlInstruction::Type_BackEdge: {
             CFGBlock* successor = &blocks_[ins->getSuccessor(0)->id()];
-            copy = CFGBackEdge::New(alloc, successor);
+            copy = CFGBackEdge::CopyWithNewTargets(alloc, ins->toBackEdge(), successor);
             break;
           }
           case CFGControlInstruction::Type_LoopEntry: {
             CFGLoopEntry* old = ins->toLoopEntry();
             CFGBlock* successor = &blocks_[ins->getSuccessor(0)->id()];
-            copy = CFGLoopEntry::New(alloc, successor, old->canOsr(), old->stackPhiCount(),
-                                     old->loopStopPc());
+            copy = CFGLoopEntry::CopyWithNewTargets(alloc, old, successor);
             break;
           }
           case CFGControlInstruction::Type_Throw: {
@@ -124,7 +123,7 @@ ControlFlowGraph::init(TempAllocator& alloc, const CFGBlockVector& blocks)
             CFGTest* old = ins->toTest();
             CFGBlock* trueBranch = &blocks_[old->trueBranch()->id()];
             CFGBlock* falseBranch = &blocks_[old->falseBranch()->id()];
-            copy = CFGTest::New(alloc, trueBranch, falseBranch, old->mustKeepCondition());
+            copy = CFGTest::CopyWithNewTargets(alloc, old, trueBranch, falseBranch);
             break;
           }
           case CFGControlInstruction::Type_Compare: {
@@ -148,7 +147,7 @@ ControlFlowGraph::init(TempAllocator& alloc, const CFGBlockVector& blocks)
             CFGBlock* merge = nullptr;
             if (old->numSuccessors() == 2)
                 merge = &blocks_[old->afterTryCatchBlock()->id()];
-            copy = CFGTry::New(alloc, tryBlock, old->catchStartPc(), merge);
+            copy = CFGTry::CopyWithNewTargets(alloc, old, tryBlock, merge);
             break;
           }
           case CFGControlInstruction::Type_TableSwitch: {
@@ -304,9 +303,19 @@ ControlFlowGenerator::snoopControlFlow(JSOp op)
             // while (cond) { }
             return processWhileOrForInLoop(sn);
 
+          case SRC_OPTCHAIN:
+            // These notes exist only for the benefit of CFG (ie. this function) and
+            // don't need any special handling. The associated GOTOs are all simple 
+            // unconditional near jumps, not loops etc.
+            break;
+          
+          case SRC_LOGICASSIGN:
+            // Not implemented yet.
+            return ControlStatus::Abort;
+
           default:
-            // Hard assert for now - make an error later.
-            MOZ_CRASH("unknown goto case");
+            // Not implemented yet.
+            return ControlStatus::Abort;
         }
         break;
       }
@@ -339,6 +348,7 @@ ControlFlowGenerator::snoopControlFlow(JSOp op)
         return processTry();
 
       case JSOP_OPTIMIZE_SPREADCALL:
+      case JSOP_THROWMSG:
         // Not implemented yet.
         return ControlStatus::Abort;
 
@@ -937,7 +947,7 @@ ControlFlowGenerator::processWhileOrForInLoop(jssrcnote* sn)
 
     size_t stackPhiCount;
     if (SN_TYPE(sn) == SRC_FOR_OF)
-        stackPhiCount = 2;
+        stackPhiCount = 3;
     else if (SN_TYPE(sn) == SRC_FOR_IN)
         stackPhiCount = 1;
     else
@@ -1291,7 +1301,7 @@ ControlFlowGenerator::processCondSwitchCase(CFGState& state)
         current->setStopPc(pc);
 
         return processCondSwitchDefault(state);
-   }
+    }
 
     CFGBlock* nextBlock = CFGBlock::New(alloc(), GetNextPc(pc));
     current->setStopIns(CFGCompare::NewFalseBranchIsNextCompare(alloc(), emptyBlock, nextBlock));
@@ -2128,17 +2138,27 @@ ControlFlowGenerator::processLogical(JSOp op)
     CFGBlock* evalLhs = CFGBlock::New(alloc(), joinStart);
     CFGBlock* evalRhs = CFGBlock::New(alloc(), rhsStart);
 
-    CFGTest* test = (op == JSOP_AND)
-                  ? CFGTest::New(alloc(), evalRhs, evalLhs)
-                  : CFGTest::New(alloc(), evalLhs, evalRhs);
-    test->keepCondition();
+    CFGTest* test;
+    switch (op) {
+      case JSOP_AND:
+        test = CFGTest::New(alloc(), evalRhs, evalLhs, CFGTestKind::ToBoolean);
+        break;
+      case JSOP_OR:
+        test = CFGTest::New(alloc(), evalLhs, evalRhs, CFGTestKind::ToBoolean);
+        break;
+      case JSOP_COALESCE:
+        test = CFGTest::New(alloc(), evalLhs, evalRhs, CFGTestKind::Coalesce);
+        break;
+      default:
+        MOZ_CRASH("Unexpected op code");
+    }
     current->setStopIns(test);
     current->setStopPc(pc);
 
     // Create the rhs block.
-    if (!cfgStack_.append(CFGState::Logical(joinStart, evalLhs)))
+    if (!cfgStack_.append(CFGState::Logical(joinStart, evalLhs))) {
         return ControlStatus::Error;
-
+    }
     if (!addBlock(evalLhs))
         return ControlStatus::Error;
 
