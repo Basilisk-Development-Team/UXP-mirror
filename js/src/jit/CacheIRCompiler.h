@@ -29,6 +29,7 @@ namespace jit {
     _(GuardNoDetachedTypedObjects)        \
     _(GuardNoDenseElements)               \
     _(LoadProto)                          \
+    _(LoadEnclosingEnvironment)           \
     _(LoadDOMExpandoValue)                \
     _(LoadUndefinedResult)                \
     _(LoadInt32ArrayLengthResult)         \
@@ -252,7 +253,11 @@ class MOZ_RAII CacheRegisterAllocator
         writer_(writer)
     {}
 
-    [[nodiscard]] bool init(const AllocatableGeneralRegisterSet& available);
+    [[nodiscard]] bool init();
+ 
+    void initAvailableRegs(const AllocatableGeneralRegisterSet& available) {
+        availableRegs_ = available;
+    }
 
     void initAvailableRegsAfterSpill();
 
