@@ -661,7 +661,9 @@ void PostWriteBarrier(JSRuntime* rt, JSObject* obj);
 void PostWriteElementBarrier(JSRuntime* rt, JSObject* obj, int32_t index);
 void PostGlobalWriteBarrier(JSRuntime* rt, JSObject* obj);
 
-uint32_t GetIndexFromString(JSString* str);
+// If |str| is an index in the range [0, INT32_MAX], return it. If the string
+// is not an index in this range, return -1.
+int32_t GetIndexFromString(JSString* str);
 
 [[nodiscard]] bool
 DebugPrologue(JSContext* cx, BaselineFrame* frame, jsbytecode* pc, bool* mustReturn);
