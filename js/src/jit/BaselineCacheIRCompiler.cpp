@@ -8,6 +8,7 @@
 #include "jit/CacheIR.h"
 #include "jit/Linker.h"
 #include "jit/SharedICHelpers.h"
+#include "proxy/Proxy.h"
 
 #include "jit/MacroAssembler-inl.h"
 
