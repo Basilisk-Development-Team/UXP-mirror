@@ -442,10 +442,6 @@ ICTypeUpdate_ObjectGroup::Compiler::generateStubCode(MacroAssembler& masm)
     return true;
 }
 
-typedef bool (*DoCallNativeGetterFn)(JSContext*, HandleFunction, HandleObject, MutableHandleValue);
-static const VMFunction DoCallNativeGetterInfo =
-    FunctionInfo<DoCallNativeGetterFn>(DoCallNativeGetter, "DoCallNativeGetter");
-
 //
 // ToBool_Fallback
 //
@@ -941,7 +937,7 @@ DoGetElemFallback(JSContext* cx, BaselineFrame* frame, ICGetElem_Fallback* stub_
     bool isTemporarilyUnoptimizable = false;
     if (!attached && !JitOptions.disableCacheIR) {
         ICStubEngine engine = ICStubEngine::Baseline;
-        GetPropIRGenerator gen(cx, pc, engine, CacheKind::GetElem, &isTemporarilyUnoptimizable,
+        GetPropIRGenerator gen(cx, pc, CacheKind::GetElem, engine, &isTemporarilyUnoptimizable,
                                lhs, rhs, CanAttachGetter::Yes);
         if (gen.tryAttachStub()) {
             ICStub* newStub = AttachBaselineCacheIRStub(cx, gen.writerRef(), gen.cacheKind(),
@@ -2351,311 +2347,6 @@ ICIn_Dense::Compiler::generateStubCode(MacroAssembler& masm)
     return true;
 }
 
-// Try to update existing SetProp setter call stubs for the given holder in
-// place with a new shape and setter.
-static bool
-UpdateExistingSetPropCallStubs(ICSetProp_Fallback* fallbackStub,
-                               ICStub::Kind kind,
-                               NativeObject* holder,
-                               JSObject* receiver,
-                               JSFunction* setter)
-{
-    MOZ_ASSERT(kind == ICStub::SetProp_CallScripted ||
-               kind == ICStub::SetProp_CallNative);
-    MOZ_ASSERT(holder);
-    MOZ_ASSERT(receiver);
-
-    bool isOwnSetter = (holder == receiver);
-    bool foundMatchingStub = false;
-    ReceiverGuard receiverGuard(receiver);
-    for (ICStubConstIterator iter = fallbackStub->beginChainConst(); !iter.atEnd(); iter++) {
-        if (iter->kind() == kind) {
-            ICSetPropCallSetter* setPropStub = static_cast<ICSetPropCallSetter*>(*iter);
-            if (setPropStub->holder() == holder && setPropStub->isOwnSetter() == isOwnSetter) {
-                // If this is an own setter, update the receiver guard as well,
-                // since that's the shape we'll be guarding on. Furthermore,
-                // isOwnSetter() relies on holderShape_ and receiverGuard_ being
-                // the same shape.
-                if (isOwnSetter)
-                    setPropStub->receiverGuard().update(receiverGuard);
-
-                MOZ_ASSERT(setPropStub->holderShape() != holder->lastProperty() ||
-                           !setPropStub->receiverGuard().matches(receiverGuard),
-                           "Why didn't we end up using this stub?");
-
-                // We want to update the holder shape to match the new one no
-                // matter what, even if the receiver shape is different.
-                setPropStub->holderShape() = holder->lastProperty();
-
-                // Make sure to update the setter, since a shape change might
-                // have changed which setter we want to use.
-                setPropStub->setter() = setter;
-                if (setPropStub->receiverGuard().matches(receiverGuard))
-                    foundMatchingStub = true;
-            }
-        }
-    }
-
-    return foundMatchingStub;
-}
-
-// Attach an optimized stub for a GETGNAME/CALLGNAME slot-read op.
-static bool
-TryAttachGlobalNameValueStub(JSContext* cx, HandleScript script, jsbytecode* pc,
-                             ICGetName_Fallback* stub,
-                             Handle<LexicalEnvironmentObject*> globalLexical,
-                             HandlePropertyName name, bool* attached)
-{
-    MOZ_ASSERT(globalLexical->isGlobal());
-    MOZ_ASSERT(!*attached);
-
-    RootedId id(cx, NameToId(name));
-
-    // The property must be found, and it must be found as a normal data property.
-    RootedShape shape(cx, globalLexical->lookup(cx, id));
-    RootedNativeObject current(cx, globalLexical);
-    while (true) {
-        shape = current->lookup(cx, id);
-        if (shape)
-            break;
-        if (current == globalLexical) {
-            current = &globalLexical->global();
-        } else {
-            JSObject* proto = current->staticPrototype();
-            if (!proto || !proto->is<NativeObject>())
-                return true;
-            current = &proto->as<NativeObject>();
-        }
-    }
-
-    // Instantiate this global property, for use during Ion compilation.
-    if (IsIonEnabled(cx))
-        EnsureTrackPropertyTypes(cx, current, id);
-
-    if (shape->hasDefaultGetter() && shape->hasSlot()) {
-
-        // TODO: if there's a previous stub discard it, or just update its Shape + slot?
-
-        ICStub* monitorStub = stub->fallbackMonitorStub()->firstMonitorStub();
-        ICStub* newStub;
-        if (current == globalLexical) {
-            MOZ_ASSERT(shape->slot() >= current->numFixedSlots());
-            uint32_t slot = shape->slot() - current->numFixedSlots();
-
-            JitSpew(JitSpew_BaselineIC, "  Generating GetName(GlobalName lexical) stub");
-            ICGetName_GlobalLexical::Compiler compiler(cx, monitorStub, slot);
-            newStub = compiler.getStub(compiler.getStubSpace(script));
-        } else {
-            bool isFixedSlot;
-            uint32_t offset;
-            GetFixedOrDynamicSlotOffset(shape, &isFixedSlot, &offset);
-
-            // Check the prototype chain from the global to the current
-            // prototype. Ignore the global lexical scope as it doesn' figure
-            // into the prototype chain. We guard on the global lexical
-            // scope's shape independently.
-            if (!IsCacheableGetPropReadSlot(&globalLexical->global(), current, shape))
-                return true;
-
-            JitSpew(JitSpew_BaselineIC, "  Generating GetName(GlobalName non-lexical) stub");
-            ICGetPropNativeCompiler compiler(cx, ICStub::GetName_Global,
-                                             ICStubCompiler::Engine::Baseline, monitorStub,
-                                             globalLexical, current, name, isFixedSlot, offset,
-                                             /* inputDefinitelyObject = */ true);
-            newStub = compiler.getStub(compiler.getStubSpace(script));
-        }
-        if (!newStub)
-            return false;
-
-        stub->addNewStub(newStub);
-        *attached = true;
-    }
-    return true;
-}
-
-// Attach an optimized stub for a GETGNAME/CALLGNAME getter op.
-static bool
-TryAttachGlobalNameAccessorStub(JSContext* cx, HandleScript script, jsbytecode* pc,
-                                ICGetName_Fallback* stub,
-                                Handle<LexicalEnvironmentObject*> globalLexical,
-                                HandlePropertyName name, bool* attached,
-                                bool* isTemporarilyUnoptimizable)
-{
-    MOZ_ASSERT(globalLexical->isGlobal());
-    RootedId id(cx, NameToId(name));
-
-    // There must not be a shadowing binding on the global lexical scope.
-    if (globalLexical->lookup(cx, id))
-        return true;
-
-    RootedGlobalObject global(cx, &globalLexical->global());
-
-    // The property must be found, and it must be found as a normal data property.
-    RootedShape shape(cx);
-    RootedNativeObject current(cx, global);
-    while (true) {
-        shape = current->lookup(cx, id);
-        if (shape)
-            break;
-        JSObject* proto = current->staticPrototype();
-        if (!proto || !proto->is<NativeObject>())
-            return true;
-        current = &proto->as<NativeObject>();
-    }
-
-    // Instantiate this global property, for use during Ion compilation.
-    if (IsIonEnabled(cx))
-        EnsureTrackPropertyTypes(cx, current, id);
-
-    // Try to add a getter stub. We don't handle scripted getters yet; if this
-    // changes we need to make sure IonBuilder::getPropTryCommonGetter (which
-    // requires a Baseline stub) handles non-outerized this objects correctly.
-    bool isScripted;
-    if (IsCacheableGetPropCall(cx, global, current, shape, &isScripted, isTemporarilyUnoptimizable) &&
-        !isScripted)
-    {
-        ICStub* monitorStub = stub->fallbackMonitorStub()->firstMonitorStub();
-        RootedFunction getter(cx, &shape->getterObject()->as<JSFunction>());
-
-        // The CallNativeGlobal stub needs to generate 3 shape checks:
-        //
-        // 1. The global lexical scope shape check.
-        // 2. The global object shape check.
-        // 3. The holder shape check.
-        //
-        // 1 is done as the receiver check, as for GETNAME the global lexical scope is in the
-        // receiver position. 2 is done as a manual check that other GetProp stubs don't do. 3 is
-        // done as the holder check per normal.
-        //
-        // In the case the holder is the global object, check 2 is redundant but is not yet
-        // optimized away.
-        JitSpew(JitSpew_BaselineIC, "  Generating GetName(GlobalName/NativeGetter) stub");
-        if (UpdateExistingGetPropCallStubs(stub, ICStub::GetProp_CallNativeGlobal, current,
-                                           globalLexical, getter))
-        {
-            *attached = true;
-            return true;
-        }
-        ICGetPropCallNativeCompiler compiler(cx, ICStub::GetProp_CallNativeGlobal,
-                                             ICStubCompiler::Engine::Baseline,
-                                             monitorStub, globalLexical, current,
-                                             getter, script->pcToOffset(pc),
-                                             /* inputDefinitelyObject = */ true);
-
-        ICStub* newStub = compiler.getStub(compiler.getStubSpace(script));
-        if (!newStub)
-            return false;
-
-        stub->addNewStub(newStub);
-        *attached = true;
-    }
-    return true;
-}
-
-static bool
-TryAttachEnvNameStub(JSContext* cx, HandleScript script, ICGetName_Fallback* stub,
-                     HandleObject initialEnvChain, HandlePropertyName name, bool* attached)
-{
-    MOZ_ASSERT(!*attached);
-
-    Rooted<ShapeVector> shapes(cx, ShapeVector(cx));
-    RootedId id(cx, NameToId(name));
-    RootedObject envChain(cx, initialEnvChain);
-
-    Shape* shape = nullptr;
-    while (envChain) {
-        if (!shapes.append(envChain->maybeShape()))
-            return false;
-
-        if (envChain->is<GlobalObject>()) {
-            shape = envChain->as<GlobalObject>().lookup(cx, id);
-            if (shape)
-                break;
-            return true;
-        }
-
-        if (!envChain->is<EnvironmentObject>() || envChain->is<WithEnvironmentObject>())
-            return true;
-
-        // Check for an 'own' property on the env. There is no need to
-        // check the prototype as non-with scopes do not inherit properties
-        // from any prototype.
-        shape = envChain->as<NativeObject>().lookup(cx, id);
-        if (shape)
-            break;
-
-        envChain = envChain->enclosingEnvironment();
-    }
-
-    // We don't handle getters here. When this changes, we need to make sure
-    // IonBuilder::getPropTryCommonGetter (which requires a Baseline stub to
-    // work) handles non-outerized this objects correctly.
-
-    if (!IsCacheableGetPropReadSlot(envChain, envChain, shape))
-        return true;
-
-    bool isFixedSlot;
-    uint32_t offset;
-    GetFixedOrDynamicSlotOffset(shape, &isFixedSlot, &offset);
-
-    ICStub* monitorStub = stub->fallbackMonitorStub()->firstMonitorStub();
-    ICStub* newStub;
-
-    switch (shapes.length()) {
-      case 1: {
-        ICGetName_Env<0>::Compiler compiler(cx, monitorStub, Move(shapes.get()), isFixedSlot,
-                                            offset);
-        newStub = compiler.getStub(compiler.getStubSpace(script));
-        break;
-      }
-      case 2: {
-        ICGetName_Env<1>::Compiler compiler(cx, monitorStub, Move(shapes.get()), isFixedSlot,
-                                            offset);
-        newStub = compiler.getStub(compiler.getStubSpace(script));
-        break;
-      }
-      case 3: {
-        ICGetName_Env<2>::Compiler compiler(cx, monitorStub, Move(shapes.get()), isFixedSlot,
-                                            offset);
-        newStub = compiler.getStub(compiler.getStubSpace(script));
-        break;
-      }
-      case 4: {
-        ICGetName_Env<3>::Compiler compiler(cx, monitorStub, Move(shapes.get()), isFixedSlot,
-                                            offset);
-        newStub = compiler.getStub(compiler.getStubSpace(script));
-        break;
-      }
-      case 5: {
-        ICGetName_Env<4>::Compiler compiler(cx, monitorStub, Move(shapes.get()), isFixedSlot,
-                                            offset);
-        newStub = compiler.getStub(compiler.getStubSpace(script));
-        break;
-      }
-      case 6: {
-        ICGetName_Env<5>::Compiler compiler(cx, monitorStub, Move(shapes.get()), isFixedSlot,
-                                            offset);
-        newStub = compiler.getStub(compiler.getStubSpace(script));
-        break;
-      }
-      case 7: {
-        ICGetName_Env<6>::Compiler compiler(cx, monitorStub, Move(shapes.get()), isFixedSlot,
-                                            offset);
-        newStub = compiler.getStub(compiler.getStubSpace(script));
-        break;
-      }
-      default:
-        return true;
-    }
-
-    if (!newStub)
-        return false;
-
-    stub->addNewStub(newStub);
-    *attached = true;
-    return true;
-}
-
 static bool
 DoGetNameFallback(JSContext* cx, BaselineFrame* frame, ICGetName_Fallback* stub_,
                   HandleObject envChain, MutableHandleValue res)
@@ -2682,12 +2373,16 @@ DoGetNameFallback(JSContext* cx, BaselineFrame* frame, ICGetName_Fallback* stub_
         attached = true;
     }
 
-    if (!attached && IsGlobalOp(JSOp(*pc)) && !script->hasNonSyntacticScope()) {
-        if (!TryAttachGlobalNameAccessorStub(cx, script, pc, stub,
-                                             envChain.as<LexicalEnvironmentObject>(),
-                                             name, &attached, &isTemporarilyUnoptimizable))
-        {
-            return false;
+    if (!attached && !JitOptions.disableCacheIR) {
+        ICStubEngine engine = ICStubEngine::Baseline;
+        GetNameIRGenerator gen(cx, pc, script, envChain, name);
+        if (gen.tryAttachStub()) {
+            ICStub* newStub = AttachBaselineCacheIRStub(cx, gen.writerRef(), gen.cacheKind(),
+                                                        engine, info.outerScript(cx), stub);
+            if (newStub) {
+                JitSpew(JitSpew_BaselineIC, "  Attached CacheIR stub");
+                attached = true;
+            }
         }
     }
 
@@ -2710,19 +2405,8 @@ DoGetNameFallback(JSContext* cx, BaselineFrame* frame, ICGetName_Fallback* stub_
     // Add a type monitor stub for the resulting value.
     if (!stub->addMonitorStubForValue(cx, &info, res))
         return false;
-    if (attached)
-        return true;
 
-    if (IsGlobalOp(JSOp(*pc)) && !script->hasNonSyntacticScope()) {
-        Handle<LexicalEnvironmentObject*> globalLexical = envChain.as<LexicalEnvironmentObject>();
-        if (!TryAttachGlobalNameValueStub(cx, script, pc, stub, globalLexical, name, &attached))
-            return false;
-    } else {
-        if (!TryAttachEnvNameStub(cx, script, stub, envChain, name, &attached))
-            return false;
-    }
-
-    if (!attached && !isTemporarilyUnoptimizable)
+    if (!attached)
         stub->noteUnoptimizableAccess();
     return true;
 }
@@ -2745,83 +2429,6 @@ ICGetName_Fallback::Compiler::generateStubCode(MacroAssembler& masm)
     pushStubPayload(masm, R0.scratchReg());
 
     return tailCallVM(DoGetNameFallbackInfo, masm);
-}
-
-bool
-ICGetName_GlobalLexical::Compiler::generateStubCode(MacroAssembler& masm)
-{
-    MOZ_ASSERT(engine_ == Engine::Baseline);
-
-    Label failure;
-    Register obj = R0.scratchReg();
-    Register scratch = R1.scratchReg();
-
-    // There's no need to guard on the shape. Lexical bindings are
-    // non-configurable, and this stub cannot be shared across globals.
-
-    // Load dynamic slot.
-    masm.loadPtr(Address(obj, NativeObject::offsetOfSlots()), obj);
-    masm.load32(Address(ICStubReg, ICGetName_GlobalLexical::offsetOfSlot()), scratch);
-    masm.loadValue(BaseIndex(obj, scratch, TimesEight), R0);
-
-    // Enter type monitor IC to type-check result.
-    EmitEnterTypeMonitorIC(masm);
-
-    // Failure case - jump to next stub
-    masm.bind(&failure);
-    EmitStubGuardFailure(masm);
-    return true;
-}
-
-template <size_t NumHops>
-bool
-ICGetName_Env<NumHops>::Compiler::generateStubCode(MacroAssembler& masm)
-{
-    MOZ_ASSERT(engine_ == Engine::Baseline);
-
-    Label failure;
-    AllocatableGeneralRegisterSet regs(availableGeneralRegs(1));
-    Register obj = R0.scratchReg();
-    Register walker = regs.takeAny();
-    Register scratch = regs.takeAny();
-
-    // Use a local to silence Clang tautological-compare warning if NumHops is 0.
-    size_t numHops = NumHops;
-
-    for (size_t index = 0; index < NumHops + 1; index++) {
-        Register scope = index ? walker : obj;
-
-        // Shape guard.
-        masm.loadPtr(Address(ICStubReg, ICGetName_Env::offsetOfShape(index)), scratch);
-        masm.branchTestObjShape(Assembler::NotEqual, scope, scratch, &failure);
-
-        if (index < numHops) {
-            masm.extractObject(Address(scope, EnvironmentObject::offsetOfEnclosingEnvironment()),
-                               walker);
-        }
-    }
-
-    Register scope = NumHops ? walker : obj;
-
-    if (!isFixedSlot_) {
-        masm.loadPtr(Address(scope, NativeObject::offsetOfSlots()), walker);
-        scope = walker;
-    }
-
-    masm.load32(Address(ICStubReg, ICGetName_Env::offsetOfOffset()), scratch);
-
-    // GETNAME needs to check for uninitialized lexicals.
-    BaseIndex slot(scope, scratch, TimesOne);
-    masm.branchTestMagic(Assembler::Equal, slot, &failure);
-    masm.loadValue(slot, R0);
-
-    // Enter type monitor IC to type-check result.
-    EmitEnterTypeMonitorIC(masm);
-
-    // Failure case - jump to next stub
-    masm.bind(&failure);
-    EmitStubGuardFailure(masm);
-    return true;
 }
 
 //
@@ -3046,6 +2653,54 @@ TryAttachSetValuePropStub(JSContext* cx, HandleScript script, jsbytecode* pc, IC
     }
 
     return true;
+}
+
+// Try to update existing SetProp setter call stubs for the given holder in
+// place with a new shape and setter.
+static bool
+UpdateExistingSetPropCallStubs(ICSetProp_Fallback* fallbackStub,
+                               ICStub::Kind kind,
+                               NativeObject* holder,
+                               JSObject* receiver,
+                               JSFunction* setter)
+{
+    MOZ_ASSERT(kind == ICStub::SetProp_CallScripted ||
+               kind == ICStub::SetProp_CallNative);
+    MOZ_ASSERT(holder);
+    MOZ_ASSERT(receiver);
+
+    bool isOwnSetter = (holder == receiver);
+    bool foundMatchingStub = false;
+    ReceiverGuard receiverGuard(receiver);
+    for (ICStubConstIterator iter = fallbackStub->beginChainConst(); !iter.atEnd(); iter++) {
+        if (iter->kind() == kind) {
+            ICSetPropCallSetter* setPropStub = static_cast<ICSetPropCallSetter*>(*iter);
+            if (setPropStub->holder() == holder && setPropStub->isOwnSetter() == isOwnSetter) {
+                // If this is an own setter, update the receiver guard as well,
+                // since that's the shape we'll be guarding on. Furthermore,
+                // isOwnSetter() relies on holderShape_ and receiverGuard_ being
+                // the same shape.
+                if (isOwnSetter)
+                    setPropStub->receiverGuard().update(receiverGuard);
+
+                MOZ_ASSERT(setPropStub->holderShape() != holder->lastProperty() ||
+                           !setPropStub->receiverGuard().matches(receiverGuard),
+                           "Why didn't we end up using this stub?");
+
+                // We want to update the holder shape to match the new one no
+                // matter what, even if the receiver shape is different.
+                setPropStub->holderShape() = holder->lastProperty();
+
+                // Make sure to update the setter, since a shape change might
+                // have changed which setter we want to use.
+                setPropStub->setter() = setter;
+                if (setPropStub->receiverGuard().matches(receiverGuard))
+                    foundMatchingStub = true;
+            }
+        }
+    }
+
+    return foundMatchingStub;
 }
 
 // Attach an optimized property set stub for a SETPROP/SETGNAME/SETNAME op on
@@ -6943,24 +6598,6 @@ ICIn_Dense::ICIn_Dense(JitCode* stubCode, HandleShape shape)
     shape_(shape)
 { }
 
-ICGetName_GlobalLexical::ICGetName_GlobalLexical(JitCode* stubCode, ICStub* firstMonitorStub,
-                                                 uint32_t slot)
-  : ICMonitoredStub(GetName_GlobalLexical, stubCode, firstMonitorStub),
-    slot_(slot)
-{ }
-
-template <size_t NumHops>
-ICGetName_Env<NumHops>::ICGetName_Env(JitCode* stubCode, ICStub* firstMonitorStub,
-                                      Handle<ShapeVector> shapes, uint32_t offset)
-  : ICMonitoredStub(GetStubKind(), stubCode, firstMonitorStub),
-    offset_(offset)
-{
-    JS_STATIC_ASSERT(NumHops <= MAX_HOPS);
-    MOZ_ASSERT(shapes.length() == NumHops + 1);
-    for (size_t i = 0; i < NumHops + 1; i++)
-        shapes_[i].init(shapes[i]);
-}
-
 ICGetIntrinsic_Constant::ICGetIntrinsic_Constant(JitCode* stubCode, const Value& value)
   : ICStub(GetIntrinsic_Constant, stubCode),
     value_(value)
@@ -6968,23 +6605,6 @@ ICGetIntrinsic_Constant::ICGetIntrinsic_Constant(JitCode* stubCode, const Value&
 
 ICGetIntrinsic_Constant::~ICGetIntrinsic_Constant()
 { }
-
-ICGetName_Global::ICGetName_Global(JitCode* stubCode, ICStub* firstMonitorStub,
-                                   ReceiverGuard guard, uint32_t offset,
-                                   JSObject* holder, Shape* holderShape, Shape* globalShape)
-  : ICGetPropNativePrototypeStub(GetName_Global, stubCode, firstMonitorStub, guard, offset,
-                                 holder, holderShape),
-    globalShape_(globalShape)
-{ }
-
-/* static */ ICGetName_Global*
-ICGetName_Global::Clone(JSContext* cx, ICStubSpace* space, ICStub* firstMonitorStub,
-                        ICGetName_Global& other)
-{
-    return New<ICGetName_Global>(cx, space, other.jitCode(), firstMonitorStub,
-                                 other.receiverGuard(), other.offset(),
-                                 other.holder(), other.holderShape(), other.globalShape());
-}
 
 ICInstanceOf_Function::ICInstanceOf_Function(JitCode* stubCode, Shape* shape,
                                              JSObject* prototypeObj, uint32_t slot)

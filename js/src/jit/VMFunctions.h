@@ -812,6 +812,11 @@ ProxyGetPropertyByValue(JSContext* cx, HandleObject proxy, HandleValue idVal,
                         MutableHandleValue vp);
 
 [[nodiscard]] bool
+CallNativeGetter(JSContext* cx, HandleFunction callee, HandleObject obj,
+                 MutableHandleValue result);
+
+
+[[nodiscard]] bool
 EqualStringsHelper(JSString* str1, JSString* str2);
 
 [[nodiscard]] bool

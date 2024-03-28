@@ -309,9 +309,8 @@ CacheRegisterAllocator::allocateValueRegister(MacroAssembler& masm)
 }
 
 bool
-CacheRegisterAllocator::init(const AllocatableGeneralRegisterSet& available)
+CacheRegisterAllocator::init()
 {
-    availableRegs_ = available;
     if (!origInputLocations_.resize(writer_.numInputOperands()))
         return false;
     if (!operandLocations_.resize(writer_.numOperandIds()))
@@ -1265,6 +1264,15 @@ CacheIRCompiler::emitLoadProto()
     Register obj = allocator.useRegister(masm, reader.objOperandId());
     Register reg = allocator.defineRegister(masm, reader.objOperandId());
     masm.loadObjProto(obj, reg);
+    return true;
+}
+
+bool
+CacheIRCompiler::emitLoadEnclosingEnvironment()
+{
+    Register obj = allocator.useRegister(masm, reader.objOperandId());
+    Register reg = allocator.defineRegister(masm, reader.objOperandId());
+    masm.extractObject(Address(obj, EnvironmentObject::offsetOfEnclosingEnvironment()), reg);
     return true;
 }
 

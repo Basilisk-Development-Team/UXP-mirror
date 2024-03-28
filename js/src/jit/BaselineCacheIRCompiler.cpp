@@ -410,9 +410,9 @@ BaselineCacheIRCompiler::emitCallScriptedGetterResult()
 }
 
 
-typedef bool (*DoCallNativeGetterFn)(JSContext*, HandleFunction, HandleObject, MutableHandleValue);
-static const VMFunction DoCallNativeGetterInfo =
-    FunctionInfo<DoCallNativeGetterFn>(DoCallNativeGetter, "DoCallNativeGetter");
+typedef bool (*CallNativeGetterFn)(JSContext*, HandleFunction, HandleObject, MutableHandleValue);
+static const VMFunction CallNativeGetterInfo =
+    FunctionInfo<CallNativeGetterFn>(CallNativeGetter, "CallNativeGetter");
 
 bool
 BaselineCacheIRCompiler::emitCallNativeGetterResult()
@@ -434,7 +434,7 @@ BaselineCacheIRCompiler::emitCallNativeGetterResult()
     masm.Push(obj);
     masm.Push(scratch);
 
-    if (!callVM(masm, DoCallNativeGetterInfo))
+    if (!callVM(masm, CallNativeGetterInfo))
         return false;
 
     stubFrame.leave(masm);
@@ -598,6 +598,52 @@ BaselineCacheIRCompiler::emitLoadFrameArgumentResult()
 }
 
 bool
+BaselineCacheIRCompiler::emitLoadEnvironmentFixedSlotResult()
+{
+    AutoOutputRegister output(*this);
+    Register obj = allocator.useRegister(masm, reader.objOperandId());
+    AutoScratchRegisterMaybeOutput scratch(allocator, masm, output);
+
+    FailurePath* failure;
+    if (!addFailurePath(&failure))
+        return false;
+
+    masm.load32(stubAddress(reader.stubOffset()), scratch);
+    BaseIndex slot(obj, scratch, TimesOne);
+
+    // Check for uninitialized lexicals.
+    masm.branchTestMagic(Assembler::Equal, slot, failure->label());
+
+    // Load the value.
+    masm.loadValue(slot, output.valueReg());
+    return true;
+}
+
+bool
+BaselineCacheIRCompiler::emitLoadEnvironmentDynamicSlotResult()
+{
+    AutoOutputRegister output(*this);
+    Register obj = allocator.useRegister(masm, reader.objOperandId());
+    AutoScratchRegister scratch(allocator, masm);
+    AutoScratchRegisterMaybeOutput scratch2(allocator, masm, output);
+
+    FailurePath* failure;
+    if (!addFailurePath(&failure))
+        return false;
+
+    masm.load32(stubAddress(reader.stubOffset()), scratch);
+    masm.loadPtr(Address(obj, NativeObject::offsetOfSlots()), scratch2);
+
+    // Check for uninitialized lexicals.
+    BaseIndex slot(scratch2, scratch, TimesOne);
+    masm.branchTestMagic(Assembler::Equal, slot, failure->label());
+
+    // Load the value.
+    masm.loadValue(slot, output.valueReg());
+    return true;
+}
+
+bool
 BaselineCacheIRCompiler::emitTypeMonitorResult()
 {
     allocator.discardStack(masm);
@@ -680,19 +726,37 @@ BaselineCacheIRCompiler::emitGuardDOMExpandoGeneration()
 bool
 BaselineCacheIRCompiler::init(CacheKind kind)
 {
-    size_t numInputs = writer_.numInputOperands();
-    if (!allocator.init(ICStubCompiler::availableGeneralRegs(numInputs)))
+    if (!allocator.init())
         return false;
 
     // Baseline ICs monitor values when needed, so returning doubles is fine.
     allowDoubleResult_.emplace(true);
 
-    if (numInputs >= 1) {
+    size_t numInputs = writer_.numInputOperands();
+    AllocatableGeneralRegisterSet available(ICStubCompiler::availableGeneralRegs(numInputs));
+
+    switch (kind) {
+      case CacheKind::GetProp:
+        MOZ_ASSERT(numInputs == 1);
         allocator.initInputLocation(0, R0);
-        if (numInputs >= 2)
-            allocator.initInputLocation(1, R1);
+        break;
+      case CacheKind::GetElem:
+        MOZ_ASSERT(numInputs == 2);
+        allocator.initInputLocation(0, R0);
+        allocator.initInputLocation(1, R1);
+        break;
+      case CacheKind::GetName:
+        MOZ_ASSERT(numInputs == 1);
+        allocator.initInputLocation(0, R0.scratchReg(), JSVAL_TYPE_OBJECT);
+#if defined(JS_NUNBOX32)
+        // availableGeneralRegs can't know that GetName is only using
+        // the payloadReg and not typeReg on x86.
+        available.add(R0.typeReg());
+#endif
+        break;
     }
 
+    allocator.initAvailableRegs(available);
     outputUnchecked_.emplace(R0);
     return true;
 }
@@ -715,7 +779,8 @@ jit::AttachBaselineCacheIRStub(JSContext* cx, const CacheIRWriter& writer,
     // unlimited number of stubs.
     MOZ_ASSERT(stub->numOptimizedStubs() < MaxOptimizedCacheIRStubs);
 
-    MOZ_ASSERT(kind == CacheKind::GetProp || kind == CacheKind::GetElem);
+    MOZ_ASSERT(kind == CacheKind::GetProp || kind == CacheKind::GetElem ||
+               kind == CacheKind::GetName, "sizeof needs to change for SetProp!");
     uint32_t stubDataOffset = sizeof(ICCacheIR_Monitored);
 
     JitCompartment* jitCompartment = cx->compartment()->jitCompartment();

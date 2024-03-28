@@ -320,6 +320,9 @@ IonCacheIRCompiler::callVM(MacroAssembler& masm, const VMFunction& fun)
 bool
 IonCacheIRCompiler::init()
 {
+    if (!allocator.init())
+        return false;
+
     size_t numInputs = writer_.numInputOperands();
 
     AllocatableGeneralRegisterSet available;
@@ -341,9 +344,6 @@ IonCacheIRCompiler::init()
 
         allowDoubleResult_.emplace(ic->allowDoubleResult());
 
-        if (!allocator.init(available))
-            return false;
-
         MOZ_ASSERT(numInputs == 1 || numInputs == 2);
 
         allocator.initInputLocation(0, ic->object(), JSVAL_TYPE_OBJECT);
@@ -353,6 +353,7 @@ IonCacheIRCompiler::init()
         MOZ_CRASH("Invalid cache");
     }
 
+    allocator.initAvailableRegs(available);
     allocator.initAvailableRegsAfterSpill();
     return true;
 }
@@ -797,6 +798,18 @@ IonCacheIRCompiler::emitLoadFrameNumActualArgsResult()
 
 bool
 IonCacheIRCompiler::emitLoadFrameArgumentResult()
+{
+    MOZ_CRASH("Baseline-specific op");
+}
+
+bool
+IonCacheIRCompiler::emitLoadEnvironmentFixedSlotResult()
+{
+    MOZ_CRASH("Baseline-specific op");
+}
+
+bool
+IonCacheIRCompiler::emitLoadEnvironmentDynamicSlotResult()
 {
     MOZ_CRASH("Baseline-specific op");
 }
