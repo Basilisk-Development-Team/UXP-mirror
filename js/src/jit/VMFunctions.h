@@ -807,13 +807,6 @@ ThrowObjectCoercible(JSContext* cx, HandleValue v);
 BaselineGetFunctionThis(JSContext* cx, BaselineFrame* frame, MutableHandleValue res);
 
 [[nodiscard]] bool
-ProxyGetProperty(JSContext* cx, HandleObject proxy, HandleId id, MutableHandleValue vp);
-
-[[nodiscard]] bool
-ProxyGetPropertyByValue(JSContext* cx, HandleObject proxy, HandleValue idVal,
-                        MutableHandleValue vp);
-
-[[nodiscard]] bool
 CallNativeGetter(JSContext* cx, HandleFunction callee, HandleObject obj,
                  MutableHandleValue result);
 
