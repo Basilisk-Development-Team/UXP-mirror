@@ -669,7 +669,7 @@ BaselineCacheIRCompiler::emitLoadObject()
 }
 
 bool
-BaselineCacheIRCompiler::emitGuardDOMExpandoObject()
+BaselineCacheIRCompiler::emitGuardDOMExpandoMissingOrGuardShape()
 {
     ValueOperand val = allocator.useValueRegister(masm, reader.valOperandId());
     AutoScratchRegister shapeScratch(allocator, masm);
@@ -683,6 +683,7 @@ BaselineCacheIRCompiler::emitGuardDOMExpandoObject()
     Label done;
     masm.branchTestUndefined(Assembler::Equal, val, &done);
 
+    masm.debugAssertIsObject(val);
     masm.loadPtr(shapeAddr, shapeScratch);
     masm.unboxObject(val, objScratch);
     masm.branchTestObjShape(Assembler::NotEqual, objScratch, shapeScratch, failure->label());
@@ -692,7 +693,7 @@ BaselineCacheIRCompiler::emitGuardDOMExpandoObject()
 }
 
 bool
-BaselineCacheIRCompiler::emitGuardDOMExpandoGeneration()
+BaselineCacheIRCompiler::emitLoadDOMExpandoValueGuardGeneration()
 {
     Register obj = allocator.useRegister(masm, reader.objOperandId());
     Address expandoAndGenerationAddr(stubAddress(reader.stubOffset()));
