@@ -863,7 +863,7 @@ IonCacheIRCompiler::emitLoadObject()
 }
 
 bool
-IonCacheIRCompiler::emitGuardDOMExpandoObject()
+IonCacheIRCompiler::emitGuardDOMExpandoMissingOrGuardShape()
 {
     ValueOperand val = allocator.useValueRegister(masm, reader.valOperandId());
     Shape* shape = shapeStubField(reader.stubOffset());
@@ -877,6 +877,7 @@ IonCacheIRCompiler::emitGuardDOMExpandoObject()
     Label done;
     masm.branchTestUndefined(Assembler::Equal, val, &done);
 
+    masm.debugAssertIsObject(val);
     masm.unboxObject(val, objScratch);
     masm.branchTestObjShape(Assembler::NotEqual, objScratch, shape, failure->label());
 
@@ -885,7 +886,7 @@ IonCacheIRCompiler::emitGuardDOMExpandoObject()
 }
 
 bool
-IonCacheIRCompiler::emitGuardDOMExpandoGeneration()
+IonCacheIRCompiler::emitLoadDOMExpandoValueGuardGeneration()
 {
     Register obj = allocator.useRegister(masm, reader.objOperandId());
     ExpandoAndGeneration* expandoAndGeneration =
