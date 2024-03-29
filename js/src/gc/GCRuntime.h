@@ -748,14 +748,6 @@ class GCRuntime
 
     void setFullCompartmentChecks(bool enable);
 
-    bool isManipulatingDeadZones() { return manipulatingDeadZones; }
-    void setManipulatingDeadZones(bool value) { manipulatingDeadZones = value; }
-    unsigned objectsMarkedInDeadZonesCount() { return objectsMarkedInDeadZones; }
-    void incObjectsMarkedInDeadZone() {
-        MOZ_ASSERT(manipulatingDeadZones);
-        ++objectsMarkedInDeadZones;
-    }
-
     JS::Zone* getCurrentZoneGroup() { return currentZoneGroup; }
     void setFoundBlackGrayEdges(TenuredCell& target) {
         AutoEnterOOMUnsafeRegion oomUnsafe;
@@ -1196,23 +1188,6 @@ class GCRuntime
      * Whether compacting GC can is enabled globally.
      */
     ActiveThreadData<bool> compactingEnabled;
-
-    /*
-     * This is true if we are in the middle of a brain transplant (e.g.,
-     * JS_TransplantObject) or some other operation that can manipulate
-     * dead zones.
-     */
-    bool manipulatingDeadZones;
-
-    /*
-     * This field is incremented each time we mark an object inside a
-     * zone with no incoming cross-compartment pointers. Typically if
-     * this happens it signals that an incremental GC is marking too much
-     * stuff. At various times we check this counter and, if it has changed, we
-     * run an immediate, non-incremental GC to clean up the dead
-     * zones. This should happen very rarely.
-     */
-    unsigned objectsMarkedInDeadZones;
 
     ActiveThreadData<bool> poked;
 
