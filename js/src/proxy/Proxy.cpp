@@ -295,7 +295,7 @@ Proxy::hasOwn(JSContext* cx, HandleObject proxy, HandleId id, bool* bp)
     return handler->hasOwn(cx, proxy, id, bp);
 }
 
-static Value
+static MOZ_ALWAYS_INLINE Value
 ValueToWindowProxyIfWindow(const Value& v)
 {
     if (v.isObject())
