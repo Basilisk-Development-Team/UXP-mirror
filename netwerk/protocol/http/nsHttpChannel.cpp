@@ -201,9 +201,9 @@ IsInSubpathOfAppCacheManifest(nsIApplicationCache *cache, nsACString const& uriS
 // We only treat 3xx responses as redirects if they have a Location header and
 // the status code is in a whitelist.
 bool
-WillRedirect(nsHttpResponseHead * response)
+nsHttpChannel::WillRedirect(nsHttpResponseHead * response)
 {
-    return nsHttpChannel::IsRedirectStatus(response->Status()) &&
+    return IsRedirectStatus(response->Status()) &&
            response->HasHeader(nsHttp::Location);
 }
 
