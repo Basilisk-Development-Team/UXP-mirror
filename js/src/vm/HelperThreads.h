@@ -18,6 +18,7 @@
 #include "mozilla/TimeStamp.h"
 #include "mozilla/Variant.h"
 
+#include "jsapi.h"
 #include "jscntxt.h"
 
 #include "frontend/TokenStream.h"
