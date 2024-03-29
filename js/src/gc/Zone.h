@@ -415,7 +415,12 @@ struct Zone : public JS::shadow::Zone,
 
 
     bool triggerGCForTooMuchMalloc() {
-        return runtimeFromAnyThread()->gc.triggerZoneGC(this, JS::gcreason::TOO_MUCH_MALLOC);
+        JSRuntime* rt = runtimeFromAnyThread();
+
+        if (CurrentThreadCanAccessRuntime(rt))
+            return rt->gc.triggerZoneGC(this, JS::gcreason::TOO_MUCH_MALLOC);
+        else
+            return false;
     }
 
     void resetGCMallocBytes() { gcMallocCounter.reset(); }
