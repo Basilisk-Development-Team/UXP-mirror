@@ -706,6 +706,10 @@ js::XDRScript(XDRState<mode>* xdr, HandleScope scriptEnclosingScope,
             return false;
     }
 
+    // If XDR operation fails, we must call jsscript::freeScriptData in order
+    // to neuter the script. Various things that iterate raw scripts in a GC
+    // arena use the presense of this data to detect if initialization is
+    // complete.
     jsbytecode* code = script->code();
     if (!xdr->codeBytes(code, length) || !xdr->codeBytes(code + length, nsrcnotes)) {
         return false;
@@ -724,7 +728,6 @@ js::XDRScript(XDRState<mode>* xdr, HandleScope scriptEnclosingScope,
         }
     }
 
-    scriptDataGuard.release();
     if (mode == XDR_DECODE) {
         if (!script->shareScriptData(cx))
             return false;
@@ -985,6 +988,7 @@ js::XDRScript(XDRState<mode>* xdr, HandleScope scriptEnclosingScope,
             Debugger::onNewScript(cx, script);
     }
 
+    scriptDataGuard.release();
     return true;
 }
 
