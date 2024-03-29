@@ -709,9 +709,6 @@ struct JSContext : public JS::RootingContext,
      */
     js::ThreadLocalData<bool> asyncCallIsExplicit;
 
-    /* Whether this context has JS frames on the stack. */
-    bool currentlyRunning() const;
-
     bool currentlyRunningInInterpreter() const {
         return activation()->isInterpreter();
     }
