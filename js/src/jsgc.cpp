@@ -895,8 +895,6 @@ GCRuntime::GCRuntime(JSRuntime* rt) :
     defaultTimeBudget_((int64_t) SliceBudget::UnlimitedTimeBudget),
     incrementalAllowed(true),
     compactingEnabled(true),
-    manipulatingDeadZones(false),
-    objectsMarkedInDeadZones(0),
     poked(false),
     fullCompartmentChecks(false),
     mallocBytesUntilGC(0),
