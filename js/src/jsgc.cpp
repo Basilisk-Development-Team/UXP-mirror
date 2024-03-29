@@ -858,7 +858,6 @@ GCRuntime::GCRuntime(JSRuntime* rt) :
     marker(rt),
     usage(nullptr),
     mMemProfiler(rt),
-    maxMallocBytes(0),
     nextCellUniqueId_(LargestTaggedNullCellPointer + 1), // Ensure disjoint from null tagged pointers.
     numArenasFreeCommitted(0),
     verifyPreData(nullptr),
@@ -897,8 +896,6 @@ GCRuntime::GCRuntime(JSRuntime* rt) :
     compactingEnabled(true),
     poked(false),
     fullCompartmentChecks(false),
-    mallocBytesUntilGC(0),
-    mallocGCTriggered(false),
     alwaysPreserveCode(false),
 #ifdef DEBUG
     arenasEmptyAtShutdown(true),
@@ -1138,7 +1135,7 @@ GCRuntime::getParameter(JSGCParamKey key, const AutoLockGC& lock)
       case JSGC_MAX_BYTES:
         return uint32_t(tunables.gcMaxBytes());
       case JSGC_MAX_MALLOC_BYTES:
-        return maxMallocBytes;
+        return mallocCounter.maxBytes();
       case JSGC_BYTES:
         return uint32_t(usage.gcBytes());
       case JSGC_MODE:
@@ -1417,38 +1414,17 @@ js::RemoveRawValueRoot(JSContext* cx, Value* vp)
 void
 GCRuntime::setMaxMallocBytes(size_t value)
 {
-    /*
-     * For compatibility treat any value that exceeds PTRDIFF_T_MAX to
-     * mean that value.
-     */
-    maxMallocBytes = (ptrdiff_t(value) >= 0) ? value : size_t(-1) >> 1;
-    resetMallocBytes();
+    mallocCounter.setMax(value);
     for (ZonesIter zone(rt, WithAtoms); !zone.done(); zone.next())
         zone->setGCMaxMallocBytes(value);
 }
 
 void
-GCRuntime::resetMallocBytes()
-{
-    mallocBytesUntilGC = ptrdiff_t(maxMallocBytes);
-    mallocGCTriggered = false;
-}
-
-void
 GCRuntime::updateMallocCounter(JS::Zone* zone, size_t nbytes)
 {
-    mallocBytesUntilGC -= ptrdiff_t(nbytes);
-    if (MOZ_UNLIKELY(isTooMuchMalloc()))
-        onTooMuchMalloc();
-    else if (zone)
+    bool triggered = mallocCounter.update(this, nbytes);
+    if (!triggered && zone)
         zone->updateMallocCounter(nbytes);
-}
-
-void
-GCRuntime::onTooMuchMalloc()
-{
-    if (!mallocGCTriggered)
-        mallocGCTriggered = triggerGC(JS::gcreason::TOO_MUCH_MALLOC);
 }
 
 double
@@ -5979,7 +5955,7 @@ GCRuntime::gcCycle(bool nonincrementalByAPI, SliceBudget& budget, JS::gcreason::
 
     /* Clear gcMallocBytes for all zones. */
     for (ZonesIter zone(rt, WithAtoms); !zone.done(); zone.next())
-        zone->resetGCMallocBytes();
+        zone->resetAllMallocBytes();
 
     resetMallocBytes();
 
@@ -7177,7 +7153,8 @@ static bool
 ZoneGCAllocTriggerGetter(JSContext* cx, unsigned argc, Value* vp)
 {
     CallArgs args = CallArgsFromVp(argc, vp);
-    args.rval().setNumber(double(cx->zone()->threshold.allocTrigger(cx->runtime()->gc.schedulingState.inHighFrequencyGCMode())));
+    bool highFrequency = cx->runtime()->gc.schedulingState.inHighFrequencyGCMode();
+    args.rval().setNumber(double(cx->zone()->threshold.allocTrigger(highFrequency)));
     return true;
 }
 
@@ -7185,7 +7162,7 @@ static bool
 ZoneMallocBytesGetter(JSContext* cx, unsigned argc, Value* vp)
 {
     CallArgs args = CallArgsFromVp(argc, vp);
-    args.rval().setNumber(double(cx->zone()->gcMallocBytes));
+    args.rval().setNumber(double(cx->zone()->GCMallocBytes()));
     return true;
 }
 
@@ -7193,7 +7170,7 @@ static bool
 ZoneMaxMallocGetter(JSContext* cx, unsigned argc, Value* vp)
 {
     CallArgs args = CallArgsFromVp(argc, vp);
-    args.rval().setNumber(double(cx->zone()->gcMaxMallocBytes));
+    args.rval().setNumber(double(cx->zone()->GCMaxMallocBytes()));
     return true;
 }
 
