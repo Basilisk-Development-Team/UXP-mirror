@@ -313,7 +313,6 @@ main_deunified_sources = [
     'vm/HelperThreads.cpp',
     'vm/Id.cpp',
     'vm/Initialization.cpp',
-    'vm/Interpreter.cpp',
     'vm/JSONParser.cpp',
     'vm/MemoryMetrics.cpp',
     'vm/NativeObject.cpp',
@@ -403,6 +402,7 @@ SOURCES += [
     'jsmath.cpp',
     'jsutil.cpp',
     'vm/BigIntType.cpp',
+    'vm/Interpreter.cpp',
 ]
 
 if CONFIG['JS_POSIX_NSPR']:
