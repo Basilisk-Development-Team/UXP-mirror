@@ -1534,3 +1534,240 @@ IRGenerator::maybeGuardInt32Index(const Value& index, ValOperandId indexId,
 
     return false;
 }
+
+SetPropIRGenerator::SetPropIRGenerator(JSContext* cx, jsbytecode* pc, CacheKind cacheKind,
+                                       bool* isTemporarilyUnoptimizable, HandleValue lhsVal,
+                                       HandleValue idVal, HandleValue rhsVal)
+  : IRGenerator(cx, pc, cacheKind),
+    lhsVal_(lhsVal),
+    idVal_(idVal),
+    rhsVal_(rhsVal),
+    isTemporarilyUnoptimizable_(isTemporarilyUnoptimizable),
+    preliminaryObjectAction_(PreliminaryObjectAction::None),
+    updateStubGroup_(cx),
+    updateStubId_(cx, JSID_EMPTY),
+    needUpdateStub_(false)
+{}
+
+bool
+SetPropIRGenerator::tryAttachStub()
+{
+    AutoAssertNoPendingException aanpe(cx_);
+
+    ValOperandId lhsValId(writer.setInputOperandId(0));
+    ValOperandId rhsValId(writer.setInputOperandId(1));
+
+    RootedId id(cx_);
+    bool nameOrSymbol;
+    if (!ValueToNameOrSymbolId(cx_, idVal_, &id, &nameOrSymbol)) {
+        cx_->clearPendingException();
+        return false;
+    }
+
+    if (lhsVal_.isObject()) {
+        RootedObject obj(cx_, &lhsVal_.toObject());
+
+        ObjOperandId objId = writer.guardIsObject(lhsValId);
+        if (nameOrSymbol) {
+            if (tryAttachNativeSetSlot(obj, objId, id, rhsValId))
+                return true;
+            if (tryAttachUnboxedExpandoSetSlot(obj, objId, id, rhsValId))
+                return true;
+            if (tryAttachUnboxedProperty(obj, objId, id, rhsValId))
+                return true;
+            if (tryAttachTypedObjectProperty(obj, objId, id, rhsValId))
+                return true;
+        }
+        return false;
+    }
+
+    return false;
+}
+
+static void
+EmitStoreSlotAndReturn(CacheIRWriter& writer, ObjOperandId objId, NativeObject* nobj, Shape* shape,
+                       ValOperandId rhsId)
+{
+    if (nobj->isFixedSlot(shape->slot())) {
+        size_t offset = NativeObject::getFixedSlotOffset(shape->slot());
+        writer.storeFixedSlot(objId, offset, rhsId);
+    } else {
+        size_t offset = nobj->dynamicSlotIndex(shape->slot()) * sizeof(Value);
+        writer.storeDynamicSlot(objId, offset, rhsId);
+    }
+    writer.returnFromIC();
+}
+
+static Shape*
+LookupShapeForSetSlot(NativeObject* obj, jsid id)
+{
+    Shape* shape = obj->lookupPure(id);
+    if (shape && shape->hasSlot() && shape->hasDefaultSetter() && shape->writable())
+        return shape;
+    return nullptr;
+}
+
+bool
+SetPropIRGenerator::tryAttachNativeSetSlot(HandleObject obj, ObjOperandId objId, HandleId id,
+                                           ValOperandId rhsId)
+{
+    if (!obj->isNative())
+        return false;
+
+    RootedShape propShape(cx_, LookupShapeForSetSlot(&obj->as<NativeObject>(), id));
+    if (!propShape)
+        return false;
+
+    RootedObjectGroup group(cx_, JSObject::getGroup(cx_, obj));
+    if (!group) {
+        cx_->recoverFromOutOfMemory();
+        return false;
+    }
+
+    // For some property writes, such as the initial overwrite of global
+    // properties, TI will not mark the property as having been
+    // overwritten. Don't attach a stub in this case, so that we don't
+    // execute another write to the property without TI seeing that write.
+    EnsureTrackPropertyTypes(cx_, obj, id);
+    if (!PropertyHasBeenMarkedNonConstant(obj, id)) {
+        *isTemporarilyUnoptimizable_ = true;
+        return false;
+    }
+
+    // For Baseline, we have to guard on both the shape and group, because the
+    // type update IC applies to a single group. When we port the Ion IC, we can
+    // do a bit better and avoid the group guard if we don't have to guard on
+    // the property types.
+    NativeObject* nobj = &obj->as<NativeObject>();
+    writer.guardGroup(objId, nobj->group());
+    writer.guardShape(objId, nobj->lastProperty());
+
+    if (IsPreliminaryObject(obj))
+        preliminaryObjectAction_ = PreliminaryObjectAction::NotePreliminary;
+    else
+        preliminaryObjectAction_ = PreliminaryObjectAction::Unlink;
+
+    setUpdateStubInfo(nobj->group(), id);
+    EmitStoreSlotAndReturn(writer, objId, nobj, propShape, rhsId);
+    return true;
+}
+
+bool
+SetPropIRGenerator::tryAttachUnboxedExpandoSetSlot(HandleObject obj, ObjOperandId objId,
+                                                   HandleId id, ValOperandId rhsId)
+{
+    if (!obj->is<UnboxedPlainObject>())
+        return false;
+
+    UnboxedExpandoObject* expando = obj->as<UnboxedPlainObject>().maybeExpando();
+    if (!expando)
+        return false;
+
+    Shape* propShape = LookupShapeForSetSlot(expando, id);
+    if (!propShape)
+        return false;
+
+    writer.guardGroup(objId, obj->group());
+    ObjOperandId expandoId = writer.guardAndLoadUnboxedExpando(objId);
+    writer.guardShape(expandoId, expando->lastProperty());
+
+    // Property types must be added to the unboxed object's group, not the
+    // expando's group (it has unknown properties).
+    setUpdateStubInfo(obj->group(), id);
+    EmitStoreSlotAndReturn(writer, expandoId, expando, propShape, rhsId);
+    return true;
+}
+
+static void
+EmitGuardUnboxedPropertyType(CacheIRWriter& writer, JSValueType propType, ValOperandId valId)
+{
+    if (propType == JSVAL_TYPE_OBJECT) {
+        // Unboxed objects store NullValue as nullptr object.
+        writer.guardIsObjectOrNull(valId);
+    } else {
+        writer.guardType(valId, propType);
+    }
+}
+
+bool
+SetPropIRGenerator::tryAttachUnboxedProperty(HandleObject obj, ObjOperandId objId, HandleId id,
+                                             ValOperandId rhsId)
+{
+    if (!obj->is<UnboxedPlainObject>() || !cx_->runtime()->jitSupportsFloatingPoint)
+        return false;
+
+    const UnboxedLayout::Property* property = obj->as<UnboxedPlainObject>().layout().lookup(id);
+    if (!property)
+        return false;
+
+    writer.guardGroup(objId, obj->group());
+    EmitGuardUnboxedPropertyType(writer, property->type, rhsId);
+    writer.storeUnboxedProperty(objId, property->type,
+                                UnboxedPlainObject::offsetOfData() + property->offset,
+                                rhsId);
+    writer.returnFromIC();
+
+    setUpdateStubInfo(obj->group(), id);
+    preliminaryObjectAction_ = PreliminaryObjectAction::Unlink;
+    return true;
+}
+
+bool
+SetPropIRGenerator::tryAttachTypedObjectProperty(HandleObject obj, ObjOperandId objId, HandleId id,
+                                                 ValOperandId rhsId)
+{
+    if (!obj->is<TypedObject>() || !cx_->runtime()->jitSupportsFloatingPoint)
+        return false;
+
+    if (cx_->compartment()->detachedTypedObjects)
+        return false;
+
+    if (!obj->as<TypedObject>().typeDescr().is<StructTypeDescr>())
+        return false;
+
+    StructTypeDescr* structDescr = &obj->as<TypedObject>().typeDescr().as<StructTypeDescr>();
+    size_t fieldIndex;
+    if (!structDescr->fieldIndex(id, &fieldIndex))
+        return false;
+
+    TypeDescr* fieldDescr = &structDescr->fieldDescr(fieldIndex);
+    if (!fieldDescr->is<SimpleTypeDescr>())
+        return false;
+
+    uint32_t fieldOffset = structDescr->fieldOffset(fieldIndex);
+    TypedThingLayout layout = GetTypedThingLayout(obj->getClass());
+
+    writer.guardNoDetachedTypedObjects();
+    writer.guardShape(objId, obj->as<TypedObject>().shape());
+    writer.guardGroup(objId, obj->group());
+
+    setUpdateStubInfo(obj->group(), id);
+
+    // Scalar types can always be stored without a type update stub.
+    if (fieldDescr->is<ScalarTypeDescr>()) {
+        Scalar::Type type = fieldDescr->as<ScalarTypeDescr>().type();
+        writer.storeTypedObjectScalarProperty(objId, fieldOffset, layout, type, rhsId);
+        writer.returnFromIC();
+        return true;
+    }
+
+    // For reference types, guard on the RHS type first, so that
+    // StoreTypedObjectReferenceProperty is infallible.
+    ReferenceTypeDescr::Type type = fieldDescr->as<ReferenceTypeDescr>().type();
+    switch (type) {
+      case ReferenceTypeDescr::TYPE_ANY:
+        break;
+      case ReferenceTypeDescr::TYPE_OBJECT:
+        writer.guardIsObjectOrNull(rhsId);
+        break;
+      case ReferenceTypeDescr::TYPE_STRING:
+        writer.guardType(rhsId, JSVAL_TYPE_STRING);
+        break;
+    }
+
+    writer.storeTypedObjectReferenceProperty(objId, fieldOffset, layout, type, rhsId);
+    writer.returnFromIC();
+    return true;
+}
+
+

@@ -816,6 +816,36 @@ IonCacheIRCompiler::emitLoadEnvironmentDynamicSlotResult()
 }
 
 bool
+IonCacheIRCompiler::emitStoreFixedSlot()
+{
+    MOZ_CRASH("Baseline-specific op");
+}
+
+bool
+IonCacheIRCompiler::emitStoreDynamicSlot()
+{
+    MOZ_CRASH("Baseline-specific op");
+}
+
+bool
+IonCacheIRCompiler::emitStoreUnboxedProperty()
+{
+    MOZ_CRASH("Baseline-specific op");
+}
+
+bool
+IonCacheIRCompiler::emitStoreTypedObjectReferenceProperty()
+{
+    MOZ_CRASH("Baseline-specific op");
+}
+
+bool
+IonCacheIRCompiler::emitStoreTypedObjectScalarProperty()
+{
+    MOZ_CRASH("Baseline-specific op");
+}
+
+bool
 IonCacheIRCompiler::emitLoadTypedObjectResult()
 {
     AutoOutputRegister output(*this);

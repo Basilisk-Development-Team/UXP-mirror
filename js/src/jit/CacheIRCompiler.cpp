@@ -59,6 +59,42 @@ CacheRegisterAllocator::useValueRegister(MacroAssembler& masm, ValOperandId op)
     MOZ_CRASH();
 }
 
+ValueOperand
+CacheRegisterAllocator::useFixedValueRegister(MacroAssembler& masm, ValOperandId valId,
+                                              ValueOperand reg)
+{
+    allocateFixedValueRegister(masm, reg);
+
+    OperandLocation& loc = operandLocations_[valId.id()];
+    switch (loc.kind()) {
+      case OperandLocation::ValueReg:
+        masm.moveValue(loc.valueReg(), reg);
+        MOZ_ASSERT(!currentOpRegs_.aliases(loc.valueReg()), "Register shouldn't be in use");
+        availableRegs_.add(loc.valueReg());
+        break;
+      case OperandLocation::ValueStack:
+        popValue(masm, &loc, reg);
+        break;
+      case OperandLocation::Constant:
+        masm.moveValue(loc.constant(), reg);
+        break;
+      case OperandLocation::PayloadReg:
+        masm.tagValue(loc.payloadType(), loc.payloadReg(), reg);
+        MOZ_ASSERT(!currentOpRegs_.has(loc.payloadReg()), "Register shouldn't be in use");
+        availableRegs_.add(loc.payloadReg());
+        break;
+      case OperandLocation::PayloadStack:
+        popPayload(masm, &loc, reg.scratchReg());
+        masm.tagValue(loc.payloadType(), reg.scratchReg(), reg);
+        break;
+      case OperandLocation::Uninitialized:
+        MOZ_CRASH();
+    }
+
+    loc.setValueReg(reg);
+    return reg;
+}
+
 Register
 CacheRegisterAllocator::useRegister(MacroAssembler& masm, TypedOperandId typedId)
 {
@@ -1003,6 +1039,26 @@ CacheIRCompiler::emitGuardIsObject()
 }
 
 bool
+CacheIRCompiler::emitGuardIsObjectOrNull()
+{
+    ValOperandId inputId = reader.valOperandId();
+    JSValueType knownType = allocator.knownType(inputId);
+    if (knownType == JSVAL_TYPE_OBJECT || knownType == JSVAL_TYPE_NULL)
+        return true;
+
+    ValueOperand input = allocator.useValueRegister(masm, inputId);
+    FailurePath* failure;
+    if (!addFailurePath(&failure))
+        return false;
+
+    Label done;
+    masm.branchTestObject(Assembler::Equal, input, &done);
+    masm.branchTestNull(Assembler::NotEqual, input, failure->label());
+    masm.bind(&done);
+    return true;
+}
+
+bool
 CacheIRCompiler::emitGuardIsString()
 {
     ValOperandId inputId = reader.valOperandId();
@@ -1104,6 +1160,9 @@ CacheIRCompiler::emitGuardType()
         break;
       case JSVAL_TYPE_SYMBOL:
         masm.branchTestSymbol(Assembler::NotEqual, input, failure->label());
+        break;
+      case JSVAL_TYPE_INT32:
+        masm.branchTestInt32(Assembler::NotEqual, input, failure->label());
         break;
       case JSVAL_TYPE_DOUBLE:
         masm.branchTestNumber(Assembler::NotEqual, input, failure->label());
