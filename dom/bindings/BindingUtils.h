@@ -1559,7 +1559,7 @@ template<class T>
 inline void
 UpdateWrapper(T* p, nsWrapperCache* cache, JSObject* obj, const JSObject* old)
 {
-  JS::AutoAssertGCCallback inCallback(obj);
+  JS::AutoAssertGCCallback inCallback;
   cache->UpdateWrapper(obj, old);
 }
 
@@ -1567,7 +1567,7 @@ template<class T>
 inline void
 UpdateWrapper(T* p, void*, JSObject* obj, const JSObject* old)
 {
-  JS::AutoAssertGCCallback inCallback(obj);
+  JS::AutoAssertGCCallback inCallback;
   nsWrapperCache* cache;
   CallQueryInterface(p, &cache);
   UpdateWrapper(p, cache, obj, old);
