@@ -131,6 +131,7 @@ public:
     nsresult OnPush(const nsACString &uri, Http2PushedStreamWrapper *pushedStream);
 
     static bool IsRedirectStatus(uint32_t status);
+    static bool WillRedirect(nsHttpResponseHead * response);
 
 
     // Methods HttpBaseChannel didn't implement for us or that we override.

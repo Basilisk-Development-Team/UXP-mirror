@@ -312,6 +312,7 @@ main_deunified_sources = [
     'vm/GlobalObject.cpp',
     'vm/HelperThreads.cpp',
     'vm/Id.cpp',
+    'vm/Initialization.cpp',
     'vm/Interpreter.cpp',
     'vm/JSONParser.cpp',
     'vm/MemoryMetrics.cpp',
@@ -383,8 +384,8 @@ main_deunified_sources = [
 # template instantiations.
 # jsdtoa.cpp cannot be built in unified mode because we want to suppress
 # compiler warnings in third-party dtoa.c.
-# jsmath.cpp cannot be built in unified mode because it needs to pull rand_s
-# from <stdlib.h> on Windows through a preprocessor define.
+# jsmath.cpp cannot be built in unified mode because it needs to re-#define the
+# RtlGenRandom declaration's calling convention in <ntsecapi.h> on Windows.
 # jsutil.cpp cannot be built in unified mode because it is needed for
 # check-vanilla-allocations.
 # StoreBuffer.cpp cannot be built in unified because its template
@@ -402,7 +403,6 @@ SOURCES += [
     'jsmath.cpp',
     'jsutil.cpp',
     'vm/BigIntType.cpp',
-    'vm/Initialization.cpp',
 ]
 
 if CONFIG['JS_POSIX_NSPR']:
@@ -572,14 +572,14 @@ elif CONFIG['JS_CODEGEN_MIPS32'] or CONFIG['JS_CODEGEN_MIPS64']:
             ]
 
 if CONFIG['OS_ARCH'] == 'WINNT':
-    SOURCES += [
+    UNIFIED_SOURCES += [
         'threading/windows/ConditionVariable.cpp',
         'threading/windows/MutexImpl.cpp',
         'threading/windows/Thread.cpp',
     ]
     # _CRT_RAND_S must be #defined before #including stdlib.h to get rand_s()
 else:
-    SOURCES += [
+    UNIFIED_SOURCES += [
         'threading/posix/ConditionVariable.cpp',
         'threading/posix/MutexImpl.cpp',
         'threading/posix/Thread.cpp',
