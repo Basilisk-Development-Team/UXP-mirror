@@ -792,7 +792,7 @@ bool ObjectIsConstructor(JSObject* obj);
 ThrowRuntimeLexicalError(JSContext* cx, unsigned errorNumber);
 
 [[nodiscard]] bool
-ThrowReadOnlyError(JSContext* cx, int32_t index);
+ThrowReadOnlyError(JSContext* cx, HandleObject obj, int32_t index);
 
 [[nodiscard]] bool
 BaselineThrowUninitializedThis(JSContext* cx, BaselineFrame* frame);
