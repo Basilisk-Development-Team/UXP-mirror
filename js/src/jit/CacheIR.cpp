@@ -683,6 +683,9 @@ GetPropIRGenerator::tryAttachDOMProxyUnshadowed(HandleObject obj, ObjOperandId o
     MOZ_ASSERT(IsCacheableDOMProxy(obj));
 
     RootedObject checkObj(cx_, obj->staticPrototype());
+	if (!checkObj)
+        return false;
+
     RootedNativeObject holder(cx_);
     RootedShape shape(cx_);
 
