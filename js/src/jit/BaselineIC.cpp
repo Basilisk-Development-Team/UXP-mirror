@@ -280,16 +280,59 @@ DoTypeUpdateFallback(JSContext* cx, BaselineFrame* frame, ICUpdatedStub* stub, H
     RootedObject obj(cx, &objval.toObject());
     RootedId id(cx);
 
-    switch(stub->kind()) {
+    switch (stub->kind()) {
+      case ICStub::CacheIR_Updated: {
+        id = stub->toCacheIR_Updated()->updateStubId();
+        MOZ_ASSERT(id != JSID_EMPTY);
+
+        // The group should match the object's group, except when the object is
+        // an unboxed expando object: in that case, the group is the group of
+        // the unboxed object.
+        RootedObjectGroup group(cx, stub->toCacheIR_Updated()->updateStubGroup());
+#ifdef DEBUG
+        if (obj->is<UnboxedExpandoObject>())
+            MOZ_ASSERT(group->clasp() == &UnboxedPlainObject::class_);
+        else
+            MOZ_ASSERT(obj->group() == group);
+#endif
+
+        // If we're storing null/undefined to a typed object property, check if
+        // we want to include it in this property's type information.
+        if (MOZ_UNLIKELY(obj->is<TypedObject>()) && value.isNullOrUndefined()) {
+            StructTypeDescr* structDescr = &obj->as<TypedObject>().typeDescr().as<StructTypeDescr>();
+            size_t fieldIndex;
+            MOZ_ALWAYS_TRUE(structDescr->fieldIndex(id, &fieldIndex));
+
+            TypeDescr* fieldDescr = &structDescr->fieldDescr(fieldIndex);
+            ReferenceTypeDescr::Type type = fieldDescr->as<ReferenceTypeDescr>().type();
+            if (type == ReferenceTypeDescr::TYPE_ANY) {
+                // Ignore undefined values, which are included implicitly in type
+                // information for this property.
+                if (value.isUndefined())
+                    break;
+            } else {
+                MOZ_ASSERT(type == ReferenceTypeDescr::TYPE_OBJECT);
+
+                // Ignore null values being written here. Null is included
+                // implicitly in type information for this property. Note that
+                // non-object, non-null values are not possible here, these
+                // should have been filtered out by the IR emitter.
+                if (value.isNull())
+                    break;
+            }
+        }
+
+        JSObject* maybeSingleton = obj->isSingleton() ? obj.get() : nullptr;
+        AddTypePropertyId(cx, group, maybeSingleton, id, value);
+        break;
+      }
       case ICStub::SetElem_DenseOrUnboxedArray:
       case ICStub::SetElem_DenseOrUnboxedArrayAdd: {
         id = JSID_VOID;
         AddTypePropertyId(cx, obj, id, value);
         break;
       }
-      case ICStub::SetProp_Native:
-      case ICStub::SetProp_NativeAdd:
-      case ICStub::SetProp_Unboxed: {
+      case ICStub::SetProp_NativeAdd: {
         MOZ_ASSERT(obj->isNative());
         jsbytecode* pc = stub->getChainFallback()->icEntry()->pc(script);
         if (*pc == JSOP_SETALIASEDVAR || *pc == JSOP_INITALIASEDLEXICAL)
@@ -297,25 +340,6 @@ DoTypeUpdateFallback(JSContext* cx, BaselineFrame* frame, ICUpdatedStub* stub, H
         else
             id = NameToId(script->getName(pc));
         AddTypePropertyId(cx, obj, id, value);
-        break;
-      }
-      case ICStub::SetProp_TypedObject: {
-        MOZ_ASSERT(obj->is<TypedObject>());
-        jsbytecode* pc = stub->getChainFallback()->icEntry()->pc(script);
-        id = NameToId(script->getName(pc));
-        if (stub->toSetProp_TypedObject()->isObjectReference()) {
-            // Ignore all values being written except plain objects. Null
-            // is included implicitly in type information for this property,
-            // and non-object non-null values will cause the stub to fail to
-            // match shortly and we will end up doing the assignment in the VM.
-            if (value.isObject())
-                AddTypePropertyId(cx, obj, id, value);
-        } else {
-            // Ignore undefined values, which are included implicitly in type
-            // information for this property.
-            if (!value.isUndefined())
-                AddTypePropertyId(cx, obj, id, value);
-        }
         break;
       }
       default:
@@ -706,23 +730,6 @@ LastPropertyForSetProp(JSObject* obj)
     }
 
     return nullptr;
-}
-
-static bool
-IsCacheableSetPropWriteSlot(JSObject* obj, Shape* oldShape, Shape* propertyShape)
-{
-    // Object shape must not have changed during the property set.
-    if (LastPropertyForSetProp(obj) != oldShape)
-        return false;
-
-    if (!propertyShape->hasSlot() ||
-        !propertyShape->hasDefaultSetter() ||
-        !propertyShape->writable())
-    {
-        return false;
-    }
-
-    return true;
 }
 
 static bool
@@ -1436,9 +1443,8 @@ BaselineScript::noteArrayWriteHole(uint32_t pcOffset)
 // SetElem_DenseOrUnboxedArray
 //
 
-template <typename T>
 void
-EmitUnboxedPreBarrierForBaseline(MacroAssembler &masm, T address, JSValueType type)
+EmitUnboxedPreBarrierForBaseline(MacroAssembler &masm, const BaseIndex& address, JSValueType type)
 {
     if (type == JSVAL_TYPE_OBJECT)
         EmitPreBarrier(masm, address, MIRType::Object);
@@ -1502,7 +1508,7 @@ ICSetElem_DenseOrUnboxedArray::Compiler::generateStubCode(MacroAssembler& masm)
         saveRegs.add(R0);
         saveRegs.addUnchecked(obj);
         saveRegs.add(ICStubReg);
-        emitPostWriteBarrierSlot(masm, obj, R1, scratchReg, saveRegs);
+        BaselineEmitPostWriteBarrierSlot(masm, obj, R1, scratchReg, saveRegs, cx);
 
         masm.Pop(R1);
     }
@@ -1710,7 +1716,7 @@ ICSetElemDenseOrUnboxedArrayAddCompiler::generateStubCode(MacroAssembler& masm)
         saveRegs.add(R0);
         saveRegs.addUnchecked(obj);
         saveRegs.add(ICStubReg);
-        emitPostWriteBarrierSlot(masm, obj, R1, scratchReg, saveRegs);
+        BaselineEmitPostWriteBarrierSlot(masm, obj, R1, scratchReg, saveRegs, cx);
 
         masm.Pop(R1);
     }
@@ -1842,13 +1848,11 @@ ICSetElemDenseOrUnboxedArrayAddCompiler::generateStubCode(MacroAssembler& masm)
 // SetElem_TypedArray
 //
 
-// Write an arbitrary value to a typed array or typed object address at dest.
-// If the value could not be converted to the appropriate format, jump to
-// failure or failureModifiedScratch.
-template <typename T>
-static void
-StoreToTypedArray(JSContext* cx, MacroAssembler& masm, Scalar::Type type, Address value, T dest,
-                  Register scratch, Label* failure, Label* failureModifiedScratch)
+template <typename S, typename T>
+void
+BaselineStoreToTypedArray(JSContext* cx, MacroAssembler& masm, Scalar::Type type, const S& value,
+                          const T& dest, Register scratch, Label* failure,
+                          Label* failureModifiedScratch)
 {
     Label done;
 
@@ -1910,6 +1914,16 @@ StoreToTypedArray(JSContext* cx, MacroAssembler& masm, Scalar::Type type, Addres
 
     masm.bind(&done);
 }
+
+template void
+BaselineStoreToTypedArray(JSContext* cx, MacroAssembler& masm, Scalar::Type type,
+                          const ValueOperand& value, const Address& dest, Register scratch,
+                          Label* failure, Label* failureModifiedScratch);
+
+template void
+BaselineStoreToTypedArray(JSContext* cx, MacroAssembler& masm, Scalar::Type type,
+                          const Address& value, const BaseIndex& dest, Register scratch,
+                          Label* failure, Label* failureModifiedScratch);
 
 bool
 ICSetElem_TypedArray::Compiler::generateStubCode(MacroAssembler& masm)
@@ -1973,8 +1987,8 @@ ICSetElem_TypedArray::Compiler::generateStubCode(MacroAssembler& masm)
     Register secondScratch = regs.takeAny();
 
     Label failureModifiedSecondScratch;
-    StoreToTypedArray(cx, masm, type_, value, dest,
-                      secondScratch, &failure, &failureModifiedSecondScratch);
+    BaselineStoreToTypedArray(cx, masm, type_, value, dest,
+                              secondScratch, &failure, &failureModifiedSecondScratch);
     EmitReturnFromIC(masm);
 
     if (failureModifiedSecondScratch.used()) {
@@ -2617,41 +2631,6 @@ TryAttachSetValuePropStub(JSContext* cx, HandleScript script, jsbytecode* pc, IC
         return true;
     }
 
-    if (IsCacheableSetPropWriteSlot(obj, oldShape, shape)) {
-        // For some property writes, such as the initial overwrite of global
-        // properties, TI will not mark the property as having been
-        // overwritten. Don't attach a stub in this case, so that we don't
-        // execute another write to the property without TI seeing that write.
-        EnsureTrackPropertyTypes(cx, obj, id);
-        if (!PropertyHasBeenMarkedNonConstant(obj, id)) {
-            *attached = true;
-            return true;
-        }
-
-        bool isFixedSlot;
-        uint32_t offset;
-        GetFixedOrDynamicSlotOffset(shape, &isFixedSlot, &offset);
-
-        JitSpew(JitSpew_BaselineIC, "  Generating SetProp(NativeObject.PROP) stub");
-        MOZ_ASSERT(LastPropertyForSetProp(obj) == oldShape,
-                   "Should this really be a SetPropWriteSlot?");
-        ICSetProp_Native::Compiler compiler(cx, obj, isFixedSlot, offset);
-        ICSetProp_Native* newStub = compiler.getStub(compiler.getStubSpace(script));
-        if (!newStub)
-            return false;
-        if (!newStub->addUpdateStubForValue(cx, script, obj, id, rhs))
-            return false;
-
-        if (IsPreliminaryObject(obj))
-            newStub->notePreliminaryObject();
-        else
-            StripPreliminaryObjectStubs(cx, stub);
-
-        stub->addNewStub(newStub);
-        *attached = true;
-        return true;
-    }
-
     return true;
 }
 
@@ -2783,84 +2762,8 @@ TryAttachSetAccessorPropStub(JSContext* cx, HandleScript script, jsbytecode* pc,
 }
 
 static bool
-TryAttachUnboxedSetPropStub(JSContext* cx, HandleScript script,
-                            ICSetProp_Fallback* stub, HandleId id,
-                            HandleObject obj, HandleValue rhs, bool* attached)
-{
-    MOZ_ASSERT(!*attached);
-
-    if (!cx->runtime()->jitSupportsFloatingPoint)
-        return true;
-
-    if (!obj->is<UnboxedPlainObject>())
-        return true;
-
-    const UnboxedLayout::Property* property = obj->as<UnboxedPlainObject>().layout().lookup(id);
-    if (!property)
-        return true;
-
-    ICSetProp_Unboxed::Compiler compiler(cx, obj->group(),
-                                         property->offset + UnboxedPlainObject::offsetOfData(),
-                                         property->type);
-    ICUpdatedStub* newStub = compiler.getStub(compiler.getStubSpace(script));
-    if (!newStub)
-        return false;
-    if (compiler.needsUpdateStubs() && !newStub->addUpdateStubForValue(cx, script, obj, id, rhs))
-        return false;
-
-    stub->addNewStub(newStub);
-
-    StripPreliminaryObjectStubs(cx, stub);
-
-    *attached = true;
-    return true;
-}
-
-static bool
-TryAttachTypedObjectSetPropStub(JSContext* cx, HandleScript script,
-                                ICSetProp_Fallback* stub, HandleId id,
-                                HandleObject obj, HandleValue rhs, bool* attached)
-{
-    MOZ_ASSERT(!*attached);
-
-    if (!cx->runtime()->jitSupportsFloatingPoint)
-        return true;
-
-    if (!obj->is<TypedObject>())
-        return true;
-
-    if (!obj->as<TypedObject>().typeDescr().is<StructTypeDescr>())
-        return true;
-    Rooted<StructTypeDescr*> structDescr(cx);
-    structDescr = &obj->as<TypedObject>().typeDescr().as<StructTypeDescr>();
-
-    size_t fieldIndex;
-    if (!structDescr->fieldIndex(id, &fieldIndex))
-        return true;
-
-    Rooted<TypeDescr*> fieldDescr(cx, &structDescr->fieldDescr(fieldIndex));
-    if (!fieldDescr->is<SimpleTypeDescr>())
-        return true;
-
-    uint32_t fieldOffset = structDescr->fieldOffset(fieldIndex);
-
-    ICSetProp_TypedObject::Compiler compiler(cx, obj->maybeShape(), obj->group(), fieldOffset,
-                                             &fieldDescr->as<SimpleTypeDescr>());
-    ICUpdatedStub* newStub = compiler.getStub(compiler.getStubSpace(script));
-    if (!newStub)
-        return false;
-    if (compiler.needsUpdateStubs() && !newStub->addUpdateStubForValue(cx, script, obj, id, rhs))
-        return false;
-
-    stub->addNewStub(newStub);
-
-    *attached = true;
-    return true;
-}
-
-static bool
-DoSetPropFallback(JSContext* cx, BaselineFrame* frame, ICSetProp_Fallback* stub_,
-                  HandleValue lhs, HandleValue rhs, MutableHandleValue res)
+DoSetPropFallback(JSContext* cx, BaselineFrame* frame, ICSetProp_Fallback* stub_, Value* stack,
+                  HandleValue lhs, HandleValue rhs)
 {
     // This fallback stub may trigger debug mode toggling.
     DebugModeOSRVolatileStub<ICSetProp_Fallback*> stub(frame, stub_);
@@ -2919,6 +2822,31 @@ DoSetPropFallback(JSContext* cx, BaselineFrame* frame, ICSetProp_Fallback* stub_
         return false;
     }
 
+    if (!attached &&
+        stub->numOptimizedStubs() < ICSetProp_Fallback::MAX_OPTIMIZED_STUBS &&
+        !JitOptions.disableCacheIR)
+    {
+        RootedValue idVal(cx, StringValue(name));
+        SetPropIRGenerator gen(cx, pc, CacheKind::SetProp, &isTemporarilyUnoptimizable,
+                               lhs, idVal, rhs);
+        if (gen.tryAttachStub()) {
+            ICStub* newStub = AttachBaselineCacheIRStub(cx, gen.writerRef(), gen.cacheKind(),
+                                                        ICStubEngine::Baseline, frame->script(), stub);
+            if (newStub) {
+                JitSpew(JitSpew_BaselineIC, "  Attached CacheIR stub");
+                attached = true;
+
+                newStub->toCacheIR_Updated()->updateStubGroup() = gen.updateStubGroup();
+                newStub->toCacheIR_Updated()->updateStubId() = gen.updateStubId();
+
+                if (gen.shouldNotePreliminaryObjectStub())
+                    newStub->toCacheIR_Updated()->notePreliminaryObject();
+                else if (gen.shouldUnlinkPreliminaryObjectStubs())
+                    StripPreliminaryObjectStubs(cx, stub);
+            }
+        }
+    }
+
     if (op == JSOP_INITPROP ||
         op == JSOP_INITLOCKEDPROP ||
         op == JSOP_INITHIDDENPROP)
@@ -2953,8 +2881,9 @@ DoSetPropFallback(JSContext* cx, BaselineFrame* frame, ICSetProp_Fallback* stub_
         }
     }
 
-    // Leave the RHS on the stack.
-    res.set(rhs);
+    // Overwrite the LHS on the stack (pushed for the decompiler) with the RHS.
+    MOZ_ASSERT(stack[1] == lhs);
+    stack[1] = rhs;
 
     // Check if debug mode toggling made the stub invalid.
     if (stub.invalid())
@@ -2975,24 +2904,6 @@ DoSetPropFallback(JSContext* cx, BaselineFrame* frame, ICSetProp_Fallback* stub_
     if (attached)
         return true;
 
-    if (!attached &&
-        lhs.isObject() &&
-        !TryAttachUnboxedSetPropStub(cx, script, stub, id, obj, rhs, &attached))
-    {
-        return false;
-    }
-    if (attached)
-        return true;
-
-    if (!attached &&
-        lhs.isObject() &&
-        !TryAttachTypedObjectSetPropStub(cx, script, stub, id, obj, rhs, &attached))
-    {
-        return false;
-    }
-    if (attached)
-        return true;
-
     MOZ_ASSERT(!attached);
     if (!isTemporarilyUnoptimizable)
         stub->noteUnoptimizableAccess();
@@ -3000,11 +2911,11 @@ DoSetPropFallback(JSContext* cx, BaselineFrame* frame, ICSetProp_Fallback* stub_
     return true;
 }
 
-typedef bool (*DoSetPropFallbackFn)(JSContext*, BaselineFrame*, ICSetProp_Fallback*,
-                                    HandleValue, HandleValue, MutableHandleValue);
+typedef bool (*DoSetPropFallbackFn)(JSContext*, BaselineFrame*, ICSetProp_Fallback*, Value*,
+                                    HandleValue, HandleValue);
 static const VMFunction DoSetPropFallbackInfo =
     FunctionInfo<DoSetPropFallbackFn>(DoSetPropFallback, "DoSetPropFallback", TailCall,
-                                      PopValues(2));
+                                      PopValues(1));
 
 bool
 ICSetProp_Fallback::Compiler::generateStubCode(MacroAssembler& masm)
@@ -3015,12 +2926,21 @@ ICSetProp_Fallback::Compiler::generateStubCode(MacroAssembler& masm)
     EmitRestoreTailCallReg(masm);
 
     // Ensure stack is fully synced for the expression decompiler.
-    masm.pushValue(R0);
+    // Overwrite the RHS value on top of the stack with the object, then push
+    // the RHS in R1 on top of that.
+    masm.storeValue(R0, Address(masm.getStackPointer(), 0));
     masm.pushValue(R1);
 
     // Push arguments.
     masm.pushValue(R1);
     masm.pushValue(R0);
+
+    // Push pointer to stack values, so that the stub can overwrite the object
+    // (pushed for the decompiler) with the RHS.
+    masm.computeEffectiveAddress(Address(masm.getStackPointer(), 2 * sizeof(Value)),
+                                 R0.scratchReg());
+    masm.push(R0.scratchReg());
+
     masm.push(ICStubReg);
     pushStubPayload(masm, R0.scratchReg());
 
@@ -3043,8 +2963,6 @@ ICSetProp_Fallback::Compiler::generateStubCode(MacroAssembler& masm)
 
     leaveStubFrame(masm, true);
 
-    // Retrieve the stashed initial argument from the caller's frame before returning
-    EmitUnstowICValues(masm, 1);
     EmitReturnFromIC(masm);
 
     return true;
@@ -3082,79 +3000,6 @@ GuardGroupAndShapeMaybeUnboxedExpando(MacroAssembler& masm, JSObject* obj,
     } else {
         masm.branchTestObjShape(Assembler::NotEqual, object, scratch, failure);
     }
-}
-
-bool
-ICSetProp_Native::Compiler::generateStubCode(MacroAssembler& masm)
-{
-    MOZ_ASSERT(engine_ == Engine::Baseline);
-
-    Label failure;
-
-    // Guard input is an object.
-    masm.branchTestObject(Assembler::NotEqual, R0, &failure);
-    Register objReg = masm.extractObject(R0, ExtractTemp0);
-
-    AllocatableGeneralRegisterSet regs(availableGeneralRegs(2));
-    Register scratch = regs.takeAny();
-
-    GuardGroupAndShapeMaybeUnboxedExpando(masm, obj_, objReg, scratch,
-                                          ICSetProp_Native::offsetOfGroup(),
-                                          ICSetProp_Native::offsetOfShape(),
-                                          &failure);
-
-    // Stow both R0 and R1 (object and value).
-    EmitStowICValues(masm, 2);
-
-    // Type update stub expects the value to check in R0.
-    masm.moveValue(R1, R0);
-
-    // Call the type-update stub.
-    if (!callTypeUpdateIC(masm, sizeof(Value)))
-        return false;
-
-    // Unstow R0 and R1 (object and key)
-    EmitUnstowICValues(masm, 2);
-
-    regs.add(R0);
-    regs.takeUnchecked(objReg);
-
-    Register holderReg;
-    if (obj_->is<UnboxedPlainObject>()) {
-        // We are loading off the expando object, so use that for the holder.
-        holderReg = regs.takeAny();
-        masm.loadPtr(Address(objReg, UnboxedPlainObject::offsetOfExpando()), holderReg);
-        if (!isFixedSlot_)
-            masm.loadPtr(Address(holderReg, NativeObject::offsetOfSlots()), holderReg);
-    } else if (isFixedSlot_) {
-        holderReg = objReg;
-    } else {
-        holderReg = regs.takeAny();
-        masm.loadPtr(Address(objReg, NativeObject::offsetOfSlots()), holderReg);
-    }
-
-    // Perform the store.
-    masm.load32(Address(ICStubReg, ICSetProp_Native::offsetOfOffset()), scratch);
-    EmitPreBarrier(masm, BaseIndex(holderReg, scratch, TimesOne), MIRType::Value);
-    masm.storeValue(R1, BaseIndex(holderReg, scratch, TimesOne));
-    if (holderReg != objReg)
-        regs.add(holderReg);
-    if (cx->nursery().exists()) {
-        Register scr = regs.takeAny();
-        LiveGeneralRegisterSet saveRegs;
-        saveRegs.add(R1);
-        emitPostWriteBarrierSlot(masm, objReg, R1, scr, saveRegs);
-        regs.add(scr);
-    }
-
-    // The RHS has to be in R0.
-    masm.moveValue(R1, R0);
-    EmitReturnFromIC(masm);
-
-    // Failure case - jump to next stub
-    masm.bind(&failure);
-    EmitStubGuardFailure(masm);
-    return true;
 }
 
 ICUpdatedStub*
@@ -3302,204 +3147,14 @@ ICSetPropNativeAddCompiler::generateStubCode(MacroAssembler& masm)
         Register scr = regs.takeAny();
         LiveGeneralRegisterSet saveRegs;
         saveRegs.add(R1);
-        emitPostWriteBarrierSlot(masm, objReg, R1, scr, saveRegs);
+        BaselineEmitPostWriteBarrierSlot(masm, objReg, R1, scr, saveRegs, cx);
     }
 
-    // The RHS has to be in R0.
-    masm.moveValue(R1, R0);
     EmitReturnFromIC(masm);
 
     // Failure case - jump to next stub
     masm.bind(&failureUnstow);
     EmitUnstowICValues(masm, 2);
-
-    masm.bind(&failure);
-    EmitStubGuardFailure(masm);
-    return true;
-}
-
-bool
-ICSetProp_Unboxed::Compiler::generateStubCode(MacroAssembler& masm)
-{
-    MOZ_ASSERT(engine_ == Engine::Baseline);
-
-    Label failure;
-
-    // Guard input is an object.
-    masm.branchTestObject(Assembler::NotEqual, R0, &failure);
-
-    AllocatableGeneralRegisterSet regs(availableGeneralRegs(2));
-    Register scratch = regs.takeAny();
-
-    // Unbox and group guard.
-    Register object = masm.extractObject(R0, ExtractTemp0);
-    masm.loadPtr(Address(ICStubReg, ICSetProp_Unboxed::offsetOfGroup()), scratch);
-    masm.branchPtr(Assembler::NotEqual, Address(object, JSObject::offsetOfGroup()), scratch,
-                   &failure);
-
-    if (needsUpdateStubs()) {
-        // Stow both R0 and R1 (object and value).
-        EmitStowICValues(masm, 2);
-
-        // Move RHS into R0 for TypeUpdate check.
-        masm.moveValue(R1, R0);
-
-        // Call the type update stub.
-        if (!callTypeUpdateIC(masm, sizeof(Value)))
-            return false;
-
-        // Unstow R0 and R1 (object and key)
-        EmitUnstowICValues(masm, 2);
-
-        // The TypeUpdate IC may have smashed object. Rederive it.
-        masm.unboxObject(R0, object);
-
-        // Trigger post barriers here on the values being written. Fields which
-        // objects can be written to also need update stubs.
-        LiveGeneralRegisterSet saveRegs;
-        saveRegs.add(R0);
-        saveRegs.add(R1);
-        saveRegs.addUnchecked(object);
-        saveRegs.add(ICStubReg);
-        emitPostWriteBarrierSlot(masm, object, R1, scratch, saveRegs);
-    }
-
-    // Compute the address being written to.
-    masm.load32(Address(ICStubReg, ICSetProp_Unboxed::offsetOfFieldOffset()), scratch);
-    BaseIndex address(object, scratch, TimesOne);
-
-    EmitUnboxedPreBarrierForBaseline(masm, address, fieldType_);
-    masm.storeUnboxedProperty(address, fieldType_,
-                              ConstantOrRegister(TypedOrValueRegister(R1)), &failure);
-
-    // The RHS has to be in R0.
-    masm.moveValue(R1, R0);
-
-    EmitReturnFromIC(masm);
-
-    masm.bind(&failure);
-    EmitStubGuardFailure(masm);
-    return true;
-}
-
-bool
-ICSetProp_TypedObject::Compiler::generateStubCode(MacroAssembler& masm)
-{
-    MOZ_ASSERT(engine_ == Engine::Baseline);
-
-    Label failure;
-
-    CheckForTypedObjectWithDetachedStorage(cx, masm, &failure);
-
-    // Guard input is an object.
-    masm.branchTestObject(Assembler::NotEqual, R0, &failure);
-
-    AllocatableGeneralRegisterSet regs(availableGeneralRegs(2));
-    Register scratch = regs.takeAny();
-
-    // Unbox and shape guard.
-    Register object = masm.extractObject(R0, ExtractTemp0);
-    masm.loadPtr(Address(ICStubReg, ICSetProp_TypedObject::offsetOfShape()), scratch);
-    masm.branchTestObjShape(Assembler::NotEqual, object, scratch, &failure);
-
-    // Guard that the object group matches.
-    masm.loadPtr(Address(ICStubReg, ICSetProp_TypedObject::offsetOfGroup()), scratch);
-    masm.branchPtr(Assembler::NotEqual, Address(object, JSObject::offsetOfGroup()), scratch,
-                   &failure);
-
-    if (needsUpdateStubs()) {
-        // Stow both R0 and R1 (object and value).
-        EmitStowICValues(masm, 2);
-
-        // Move RHS into R0 for TypeUpdate check.
-        masm.moveValue(R1, R0);
-
-        // Call the type update stub.
-        if (!callTypeUpdateIC(masm, sizeof(Value)))
-            return false;
-
-        // Unstow R0 and R1 (object and key)
-        EmitUnstowICValues(masm, 2);
-
-        // We may have clobbered object in the TypeUpdate IC. Rederive it.
-        masm.unboxObject(R0, object);
-
-        // Trigger post barriers here on the values being written. Descriptors
-        // which can write objects also need update stubs.
-        LiveGeneralRegisterSet saveRegs;
-        saveRegs.add(R0);
-        saveRegs.add(R1);
-        saveRegs.addUnchecked(object);
-        saveRegs.add(ICStubReg);
-        emitPostWriteBarrierSlot(masm, object, R1, scratch, saveRegs);
-    }
-
-    // Save the rhs on the stack so we can get a second scratch register.
-    Label failurePopRHS;
-    masm.pushValue(R1);
-    regs = availableGeneralRegs(1);
-    regs.takeUnchecked(object);
-    regs.take(scratch);
-    Register secondScratch = regs.takeAny();
-
-    // Get the object's data pointer.
-    LoadTypedThingData(masm, layout_, object, scratch);
-
-    // Compute the address being written to.
-    masm.load32(Address(ICStubReg, ICSetProp_TypedObject::offsetOfFieldOffset()), secondScratch);
-    masm.addPtr(secondScratch, scratch);
-
-    Address dest(scratch, 0);
-    Address value(masm.getStackPointer(), 0);
-
-    if (fieldDescr_->is<ScalarTypeDescr>()) {
-        Scalar::Type type = fieldDescr_->as<ScalarTypeDescr>().type();
-        StoreToTypedArray(cx, masm, type, value, dest,
-                          secondScratch, &failurePopRHS, &failurePopRHS);
-        masm.popValue(R1);
-    } else {
-        ReferenceTypeDescr::Type type = fieldDescr_->as<ReferenceTypeDescr>().type();
-
-        masm.popValue(R1);
-
-        switch (type) {
-          case ReferenceTypeDescr::TYPE_ANY:
-            EmitPreBarrier(masm, dest, MIRType::Value);
-            masm.storeValue(R1, dest);
-            break;
-
-          case ReferenceTypeDescr::TYPE_OBJECT: {
-            EmitPreBarrier(masm, dest, MIRType::Object);
-            Label notObject;
-            masm.branchTestObject(Assembler::NotEqual, R1, &notObject);
-            Register rhsObject = masm.extractObject(R1, ExtractTemp0);
-            masm.storePtr(rhsObject, dest);
-            EmitReturnFromIC(masm);
-            masm.bind(&notObject);
-            masm.branchTestNull(Assembler::NotEqual, R1, &failure);
-            masm.storePtr(ImmWord(0), dest);
-            break;
-          }
-
-          case ReferenceTypeDescr::TYPE_STRING: {
-            EmitPreBarrier(masm, dest, MIRType::String);
-            masm.branchTestString(Assembler::NotEqual, R1, &failure);
-            Register rhsString = masm.extractString(R1, ExtractTemp0);
-            masm.storePtr(rhsString, dest);
-            break;
-          }
-
-          default:
-            MOZ_CRASH();
-        }
-    }
-
-    // The RHS has to be in R0.
-    masm.moveValue(R1, R0);
-    EmitReturnFromIC(masm);
-
-    masm.bind(&failurePopRHS);
-    masm.popValue(R1);
 
     masm.bind(&failure);
     EmitStubGuardFailure(masm);
@@ -3598,7 +3253,6 @@ ICSetProp_CallScripted::Compiler::generateStubCode(MacroAssembler& masm)
     // Do not care about return value from function. The original RHS should be returned
     // as the result of this operation.
     EmitUnstowICValues(masm, 2);
-    masm.moveValue(R1, R0);
     EmitReturnFromIC(masm);
 
     // Leave stub frame and go to next stub.
@@ -3692,7 +3346,6 @@ ICSetProp_CallNative::Compiler::generateStubCode(MacroAssembler& masm)
     // Do not care about return value from function. The original RHS should be returned
     // as the result of this operation.
     EmitUnstowICValues(masm, 2);
-    masm.moveValue(R1, R0);
     EmitReturnFromIC(masm);
 
     // Unstow R0 and R1
@@ -6613,28 +6266,6 @@ ICInstanceOf_Function::ICInstanceOf_Function(JitCode* stubCode, Shape* shape,
     prototypeObj_(prototypeObj),
     slot_(slot)
 { }
-
-ICSetProp_Native::ICSetProp_Native(JitCode* stubCode, ObjectGroup* group, Shape* shape,
-                                   uint32_t offset)
-  : ICUpdatedStub(SetProp_Native, stubCode),
-    group_(group),
-    shape_(shape),
-    offset_(offset)
-{ }
-
-ICSetProp_Native*
-ICSetProp_Native::Compiler::getStub(ICStubSpace* space)
-{
-    RootedObjectGroup group(cx, JSObject::getGroup(cx, obj_));
-    if (!group)
-        return nullptr;
-
-    RootedShape shape(cx, LastPropertyForSetProp(obj_));
-    ICSetProp_Native* stub = newStub<ICSetProp_Native>(space, getStubCode(), group, shape, offset_);
-    if (!stub || !stub->initUpdatingChain(cx, space))
-        return nullptr;
-    return stub;
-}
 
 ICSetProp_NativeAdd::ICSetProp_NativeAdd(JitCode* stubCode, ObjectGroup* group,
                                          size_t protoChainDepth,
