@@ -188,6 +188,7 @@ enum class CacheKind : uint8_t
     _(LoadUnboxedArrayLengthResult)       \
     _(LoadArgumentsObjectArgResult)       \
     _(LoadArgumentsObjectLengthResult)    \
+    _(LoadFunctionLengthResult)           \
     _(LoadStringCharResult)               \
     _(LoadStringLengthResult)             \
     _(LoadFrameCalleeResult)              \
@@ -281,6 +282,7 @@ enum class GuardClassKind : uint8_t
     MappedArguments,
     UnmappedArguments,
     WindowProxy,
+    JSFunction,
 };
 
 // Class to record CacheIR + some additional metadata for code generation.
@@ -631,6 +633,12 @@ class MOZ_RAII CacheIRWriter : public JS::CustomAutoRooter
     void loadUnboxedArrayLengthResult(ObjOperandId obj) {
         writeOpWithOperandId(CacheOp::LoadUnboxedArrayLengthResult, obj);
     }
+    void loadArgumentsObjectLengthResult(ObjOperandId obj) {
+        writeOpWithOperandId(CacheOp::LoadArgumentsObjectLengthResult, obj);
+    }
+    void loadFunctionLengthResult(ObjOperandId obj) {
+        writeOpWithOperandId(CacheOp::LoadFunctionLengthResult, obj);
+    }
     void loadArgumentsObjectArgResult(ObjOperandId obj, Int32OperandId index) {
         writeOpWithOperandId(CacheOp::LoadArgumentsObjectArgResult, obj);
         writeOperandId(index);
@@ -654,9 +662,6 @@ class MOZ_RAII CacheIRWriter : public JS::CustomAutoRooter
         writeOperandId(index);
         buffer_.writeByte(uint32_t(layout));
         buffer_.writeByte(uint32_t(elementType));
-    }
-    void loadArgumentsObjectLengthResult(ObjOperandId obj) {
-        writeOpWithOperandId(CacheOp::LoadArgumentsObjectLengthResult, obj);
     }
     void loadStringLengthResult(StringOperandId str) {
         writeOpWithOperandId(CacheOp::LoadStringLengthResult, str);
@@ -806,6 +811,7 @@ class MOZ_RAII GetPropIRGenerator : public IRGenerator
     bool tryAttachObjectLength(HandleObject obj, ObjOperandId objId, HandleId id);
     bool tryAttachModuleNamespace(HandleObject obj, ObjOperandId objId, HandleId id);
     bool tryAttachWindowProxy(HandleObject obj, ObjOperandId objId, HandleId id);
+    bool tryAttachFunction(HandleObject obj, ObjOperandId objId, HandleId id);
 
     bool tryAttachGenericProxy(HandleObject obj, ObjOperandId objId, HandleId id);
     bool tryAttachDOMProxyExpando(HandleObject obj, ObjOperandId objId, HandleId id);
