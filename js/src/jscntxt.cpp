@@ -1342,12 +1342,6 @@ JSContext::isThrowingDebuggeeWouldRun()
            unwrappedException().toObject().as<ErrorObject>().type() == JSEXN_DEBUGGEEWOULDRUN;
 }
 
-bool
-JSContext::currentlyRunning() const
-{
-    return !!activation();
-}
-
 static bool
 ComputeIsJITBroken()
 {
