@@ -38,9 +38,6 @@ JS::Zone::Zone(JSRuntime* rt, ZoneGroup* group)
     gcWeakKeys_(group, SystemAllocPolicy(), rt->randomHashCodeScrambler()),
     gcZoneGroupEdges_(group),
     typeDescrObjects_(group, this, SystemAllocPolicy()),
-    gcMallocBytes(0),
-    gcMaxMallocBytes(0),
-    gcMallocGCTriggered(false),
     markedAtoms_(group),
     atomCache_(group),
     externalStringCache_(group),
@@ -70,6 +67,7 @@ JS::Zone::Zone(JSRuntime* rt, ZoneGroup* group)
     AutoLockGC lock(rt);
     threshold.updateAfterGC(8192, GC_NORMAL, rt->gc.tunables, rt->gc.schedulingState, lock);
     setGCMaxMallocBytes(rt->gc.maxMallocBytesAllocated() * 0.9);
+    jitCodeCounter.setMax(jit::MaxCodeBytesPerProcess * 0.8);
 }
 
 Zone::~Zone()
@@ -106,33 +104,6 @@ Zone::setNeedsIncrementalBarrier(bool needs)
                   !runtimeFromActiveCooperatingThread()->hasHelperThreadZones());
     MOZ_ASSERT_IF(needs, canCollect());
     needsIncrementalBarrier_ = needs;
-}
-
-void
-Zone::resetGCMallocBytes()
-{
-    gcMallocBytes = ptrdiff_t(gcMaxMallocBytes);
-    gcMallocGCTriggered = false;
-}
-
-void
-Zone::setGCMaxMallocBytes(size_t value)
-{
-    /*
-     * For compatibility treat any value that exceeds PTRDIFF_T_MAX to
-     * mean that value.
-     */
-    gcMaxMallocBytes = (ptrdiff_t(value) >= 0) ? value : size_t(-1) >> 1;
-    resetGCMallocBytes();
-}
-
-void
-Zone::onTooMuchMalloc()
-{
-    if (!gcMallocGCTriggered) {
-        GCRuntime& gc = runtimeFromAnyThread()->gc;
-        gcMallocGCTriggered = gc.triggerZoneGC(this, JS::gcreason::TOO_MUCH_MALLOC);
-    }
 }
 
 void

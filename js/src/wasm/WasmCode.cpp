@@ -83,6 +83,8 @@ AllocateCodeSegment(JSContext* cx, uint32_t totalLength)
         return nullptr;
     }
 
+    cx->zone()->updateJitCodeMallocBytes(totalLength);
+
     wasmCodeAllocations++;
     return (uint8_t*)p;
 }
