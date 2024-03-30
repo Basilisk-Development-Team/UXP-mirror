@@ -31,6 +31,14 @@ CacheRegisterAllocator::useValueRegister(MacroAssembler& masm, ValOperandId op)
         return reg;
       }
 
+     case OperandLocation::BaselineFrame: {
+        ValueOperand reg = allocateValueRegister(masm);
+        Address addr = addressOf(masm, loc.baselineFrameSlot());
+        masm.loadValue(addr, reg);
+        loc.setValueReg(reg);
+        return reg;
+      }
+
       case OperandLocation::Constant: {
         ValueOperand reg = allocateValueRegister(masm);
         masm.moveValue(loc.constant(), reg);
@@ -75,6 +83,11 @@ CacheRegisterAllocator::useFixedValueRegister(MacroAssembler& masm, ValOperandId
       case OperandLocation::ValueStack:
         popValue(masm, &loc, reg);
         break;
+      case OperandLocation::BaselineFrame: {
+        Address addr = addressOf(masm, loc.baselineFrameSlot());
+        masm.loadValue(addr, reg);
+        break;
+      }
       case OperandLocation::Constant:
         masm.moveValue(loc.constant(), reg);
         break;
@@ -140,6 +153,14 @@ CacheRegisterAllocator::useRegister(MacroAssembler& masm, TypedOperandId typedId
         loc.setPayloadReg(reg, typedId.type());
         return reg;
       }
+
+      case OperandLocation::BaselineFrame: {
+        Register reg = allocateRegister(masm);
+        Address addr = addressOf(masm, loc.baselineFrameSlot());
+        masm.unboxNonDouble(addr, reg);
+        loc.setPayloadReg(reg, typedId.type());
+        return reg;
+      };
 	
 
       case OperandLocation::Constant: {
@@ -205,6 +226,7 @@ CacheRegisterAllocator::freeDeadOperandRegisters()
           case OperandLocation::Uninitialized:
           case OperandLocation::PayloadStack:
           case OperandLocation::ValueStack:
+          case OperandLocation::BaselineFrame:
           case OperandLocation::Constant:
             break;
         }
@@ -383,6 +405,7 @@ CacheRegisterAllocator::inputRegisterSet() const
             continue;
           case OperandLocation::PayloadStack:
           case OperandLocation::ValueStack:
+          case OperandLocation::BaselineFrame:
           case OperandLocation::Constant:
             continue;
           case OperandLocation::Uninitialized:
@@ -402,6 +425,7 @@ CacheRegisterAllocator::knownType(ValOperandId val) const
     switch (loc.kind()) {
       case OperandLocation::ValueReg:
       case OperandLocation::ValueStack:
+      case OperandLocation::BaselineFrame:
         return JSVAL_TYPE_UNKNOWN;
 
       case OperandLocation::PayloadStack:
@@ -537,6 +561,7 @@ OperandLocation::aliasesReg(const OperandLocation& other) const
         return aliasesReg(other.valueReg());
       case PayloadStack:
       case ValueStack:
+      case BaselineFrame:
       case Constant:
         return false;
       case Uninitialized:
@@ -588,6 +613,7 @@ CacheRegisterAllocator::restoreInputState(MacroAssembler& masm, bool shouldDisca
                 popValue(masm, &cur, dest.valueReg());
                 continue;
               case OperandLocation::Constant:
+              case OperandLocation::BaselineFrame:
               case OperandLocation::Uninitialized:
                 break;
             }
@@ -615,10 +641,13 @@ CacheRegisterAllocator::restoreInputState(MacroAssembler& masm, bool shouldDisca
                                     dest.payloadReg());
                 continue;
               case OperandLocation::Constant:
+              case OperandLocation::BaselineFrame:
               case OperandLocation::Uninitialized:
                 break;
             }
-        } else if (dest.kind() == OperandLocation::Constant) {
+        } else if (dest.kind() == OperandLocation::Constant ||
+                   dest.kind() == OperandLocation::BaselineFrame)
+        {
             // Nothing to do.
             continue;
         }
@@ -947,6 +976,8 @@ OperandLocation::operator==(const OperandLocation& other) const
         return payloadStack() == other.payloadStack() && payloadType() == other.payloadType();
       case ValueStack:
         return valueStack() == other.valueStack();
+      case BaselineFrame:
+        return baselineFrameSlot() == other.baselineFrameSlot();
       case Constant:
         return constant() == other.constant();
     }

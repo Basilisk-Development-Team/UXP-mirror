@@ -19,6 +19,13 @@ using mozilla::Maybe;
 
 class AutoStubFrame;
 
+Address
+CacheRegisterAllocator::addressOf(MacroAssembler& masm, BaselineFrameSlot slot) const
+{
+    uint32_t offset = stackPushed_ + ICStackValueOffset + slot.slot() * sizeof(JS::Value);
+    return Address(masm.getStackPointer(), offset);
+}
+
 // BaselineCacheIRCompiler compiles CacheIR to BaselineIC native code.
 class MOZ_RAII BaselineCacheIRCompiler : public CacheIRCompiler
 {
@@ -1253,7 +1260,11 @@ BaselineCacheIRCompiler::init(CacheKind kind)
     allowDoubleResult_.emplace(true);
 
     size_t numInputs = writer_.numInputOperands();
-    AllocatableGeneralRegisterSet available(ICStubCompiler::availableGeneralRegs(numInputs));
+
+    // Baseline passes the first 2 inputs in R0/R1, other Values are stored on
+    // the stack.
+    size_t numInputsInRegs = std::min(numInputs, size_t(2));
+    AllocatableGeneralRegisterSet available(ICStubCompiler::availableGeneralRegs(numInputsInRegs));
 
     switch (kind) {
       case CacheKind::GetProp:
@@ -1265,6 +1276,12 @@ BaselineCacheIRCompiler::init(CacheKind kind)
         MOZ_ASSERT(numInputs == 2);
         allocator.initInputLocation(0, R0);
         allocator.initInputLocation(1, R1);
+        break;
+      case CacheKind::SetElem:
+        MOZ_ASSERT(numInputs == 3);
+        allocator.initInputLocation(0, R0);
+        allocator.initInputLocation(1, R1);
+        allocator.initInputLocation(2, BaselineFrameSlot(0));
         break;
       case CacheKind::GetName:
         MOZ_ASSERT(numInputs == 1);
@@ -1312,6 +1329,7 @@ jit::AttachBaselineCacheIRStub(JSContext* cx, const CacheIRWriter& writer,
         stubKind = CacheIRStubKind::Monitored;
         break;
       case CacheKind::SetProp:
+      case CacheKind::SetElem:
         stubDataOffset = sizeof(ICCacheIR_Updated);
         stubKind = CacheIRStubKind::Updated;
         break;
