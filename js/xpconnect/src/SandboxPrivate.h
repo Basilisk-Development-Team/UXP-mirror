@@ -42,9 +42,9 @@ public:
         return GetWrapper();
     }
 
-    void ForgetGlobalObject()
+    void ForgetGlobalObject(JSObject* obj)
     {
-        ClearWrapper();
+        ClearWrapper(obj);
     }
 
     virtual JSObject* WrapObject(JSContext* cx, JS::Handle<JSObject*> aGivenProto) override

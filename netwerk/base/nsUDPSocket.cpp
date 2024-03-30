@@ -28,6 +28,7 @@
 #include "nsIDNSRecord.h"
 #include "nsIDNSService.h"
 #include "nsICancelable.h"
+#include "nsWrapperCacheInlines.h"
 
 namespace mozilla {
 namespace net {

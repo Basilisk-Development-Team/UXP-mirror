@@ -915,6 +915,9 @@ public:
     SweepAllWrappedNativeTearOffs();
 
     static void
+    UpdateWeakPointersInAllScopesAfterGC(XPCJSContext* cx);
+
+    void
     UpdateWeakPointersAfterGC(XPCJSContext* cx);
 
     static void
@@ -1539,6 +1542,9 @@ public:
 
     JSObject*
     GetJSProtoObject() const { return mJSProtoObject; }
+
+    JSObject*
+    GetJSProtoObjectPreserveColor() const { return mJSProtoObject.unbarrieredGet(); }
 
     nsIClassInfo*
     GetClassInfo()     const {return mClassInfo;}

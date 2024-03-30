@@ -146,6 +146,8 @@ public:
         mTable.Remove(wrapper->GetIdentityObject());
     }
 
+    inline void Clear() { mTable.Clear(); }
+
     inline uint32_t Count() { return mTable.EntryCount(); }
 
     PLDHashTable::Iterator Iter() { return mTable.Iter(); }
@@ -364,6 +366,8 @@ public:
         NS_PRECONDITION(info,"bad param");
         mTable.Remove(info);
     }
+
+    inline void Clear() { mTable.Clear(); }
 
     inline uint32_t Count() { return mTable.EntryCount(); }
 
