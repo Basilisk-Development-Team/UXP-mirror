@@ -809,6 +809,10 @@ BaselineGetFunctionThis(JSContext* cx, BaselineFrame* frame, MutableHandleValue 
 [[nodiscard]] bool
 CallNativeGetter(JSContext* cx, HandleFunction callee, HandleObject obj,
                  MutableHandleValue result);
+				 
+[[nodiscard]] bool
+CallNativeSetter(JSContext* cx, HandleFunction callee, HandleObject obj,
+                 HandleValue rhs);
 
 
 [[nodiscard]] bool

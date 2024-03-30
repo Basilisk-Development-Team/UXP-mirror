@@ -37,6 +37,7 @@ class MOZ_RAII BaselineCacheIRCompiler : public CacheIRCompiler
                                        Register scratch, LiveGeneralRegisterSet saveRegs);
 
     [[nodiscard]] bool emitStoreSlotShared(bool isFixed);
+    [[nodiscard]] bool emitAddAndStoreSlotShared(bool isFixed);
 
   public:
     friend class AutoStubFrame;
@@ -765,6 +766,88 @@ BaselineCacheIRCompiler::emitStoreDynamicSlot()
 }
 
 bool
+BaselineCacheIRCompiler::emitAddAndStoreSlotShared(bool isFixed)
+{
+    ObjOperandId objId = reader.objOperandId();
+    Address offsetAddr = stubAddress(reader.stubOffset());
+
+    // Allocate the fixed registers first. These need to be fixed for
+    // callTypeUpdateIC.
+    AutoStubFrame stubFrame(*this);
+    AutoScratchRegister scratch(allocator, masm, R1.scratchReg());
+    ValueOperand val = allocator.useFixedValueRegister(masm, reader.valOperandId(), R0);
+
+    Register obj = allocator.useRegister(masm, objId);
+    bool changeGroup = reader.readBool();
+    Address newGroupAddr = stubAddress(reader.stubOffset());
+    Address newShapeAddr = stubAddress(reader.stubOffset());
+
+    LiveGeneralRegisterSet saveRegs;
+    saveRegs.add(obj);
+    saveRegs.add(val);
+    if (!callTypeUpdateIC(stubFrame, obj, val, scratch, saveRegs))
+        return false;
+
+    if (changeGroup) {
+        // Changing object's group from a partially to fully initialized group,
+        // per the acquired properties analysis. Only change the group if the
+        // old group still has a newScript. This only applies to PlainObjects.
+        Label noGroupChange;
+        masm.loadPtr(Address(obj, JSObject::offsetOfGroup()), scratch);
+        masm.branchPtr(Assembler::Equal,
+                       Address(scratch, ObjectGroup::offsetOfAddendum()),
+                       ImmWord(0),
+                       &noGroupChange);
+
+        // Reload the new group from the cache.
+        masm.loadPtr(newGroupAddr, scratch);
+
+        Address groupAddr(obj, JSObject::offsetOfGroup());
+        EmitPreBarrier(masm, groupAddr, MIRType::ObjectGroup);
+        masm.storePtr(scratch, groupAddr);
+
+        masm.bind(&noGroupChange);
+    }
+
+    // Update the object's shape.
+    Address shapeAddr(obj, ShapedObject::offsetOfShape());
+    masm.loadPtr(newShapeAddr, scratch);
+    EmitPreBarrier(masm, shapeAddr, MIRType::Shape);
+    masm.storePtr(scratch, shapeAddr);
+
+    // Perform the store. No pre-barrier required since this is a new
+    // initialization.
+    masm.load32(offsetAddr, scratch);
+    if (isFixed) {
+        BaseIndex slot(obj, scratch, TimesOne);
+        masm.storeValue(val, slot);
+    } else {
+        // To avoid running out of registers on x86, use ICStubReg as scratch.
+        // We don't need it anymore.
+        Register slots = ICStubReg;
+        masm.loadPtr(Address(obj, NativeObject::offsetOfSlots()), slots);
+        BaseIndex slot(slots, scratch, TimesOne);
+        masm.storeValue(val, slot);
+    }
+
+    if (cx_->nursery().exists())
+        BaselineEmitPostWriteBarrierSlot(masm, obj, val, scratch, LiveGeneralRegisterSet(), cx_);
+    return true;
+}
+
+bool
+BaselineCacheIRCompiler::emitAddAndStoreFixedSlot()
+{
+    return emitAddAndStoreSlotShared(true);
+}
+
+bool
+BaselineCacheIRCompiler::emitAddAndStoreDynamicSlot()
+{
+    return emitAddAndStoreSlotShared(false);
+}
+
+bool
 BaselineCacheIRCompiler::emitStoreUnboxedProperty()
 {
     ObjOperandId objId = reader.objOperandId();
@@ -892,6 +975,116 @@ BaselineCacheIRCompiler::emitStoreTypedObjectScalarProperty()
     BaselineStoreToTypedArray(cx_, masm, type, val, dest, scratch2,
                               failure->label(), failure->label());
 
+    return true;
+}
+
+
+typedef bool (*CallNativeSetterFn)(JSContext*, HandleFunction, HandleObject, HandleValue);
+static const VMFunction CallNativeSetterInfo =
+    FunctionInfo<CallNativeSetterFn>(CallNativeSetter, "CallNativeSetter");
+
+bool
+BaselineCacheIRCompiler::emitCallNativeSetter()
+{
+    AutoStubFrame stubFrame(*this);
+
+    Register obj = allocator.useRegister(masm, reader.objOperandId());
+    Address setterAddr(stubAddress(reader.stubOffset()));
+    ValueOperand val = allocator.useValueRegister(masm, reader.valOperandId());
+
+    AutoScratchRegister scratch(allocator, masm);
+
+    allocator.discardStack(masm);
+
+    stubFrame.enter(masm, scratch);
+
+    // Load the callee in the scratch register.
+    masm.loadPtr(setterAddr, scratch);
+
+    masm.Push(val);
+    masm.Push(obj);
+    masm.Push(scratch);
+
+    if (!callVM(masm, CallNativeSetterInfo))
+        return false;
+
+    stubFrame.leave(masm);
+    return true;
+}
+
+bool
+BaselineCacheIRCompiler::emitCallScriptedSetter()
+{
+    AutoStubFrame stubFrame(*this);
+
+    // We don't have many registers available on x86, so we use a single
+    // scratch register.
+    AutoScratchRegisterExcluding scratch(allocator, masm, ArgumentsRectifierReg);
+
+    Register obj = allocator.useRegister(masm, reader.objOperandId());
+    Address setterAddr(stubAddress(reader.stubOffset()));
+    ValueOperand val = allocator.useValueRegister(masm, reader.valOperandId());
+
+    // First, ensure our setter is non-lazy and has JIT code.
+    {
+        FailurePath* failure;
+        if (!addFailurePath(&failure))
+            return false;
+
+        masm.loadPtr(setterAddr, scratch);
+        masm.branchIfFunctionHasNoScript(scratch, failure->label());
+        masm.loadPtr(Address(scratch, JSFunction::offsetOfNativeOrScript()), scratch);
+        masm.loadBaselineOrIonRaw(scratch, scratch, failure->label());
+    }
+
+    allocator.discardStack(masm);
+
+    stubFrame.enter(masm, scratch);
+
+    // Align the stack such that the JitFrameLayout is aligned on
+    // JitStackAlignment.
+    masm.alignJitStackBasedOnNArgs(1);
+
+    // Setter is called with 1 argument, and |obj| as thisv. Note that we use
+    // Push, not push, so that callJit will align the stack properly on ARM.
+    masm.Push(val);
+    masm.Push(TypedOrValueRegister(MIRType::Object, AnyRegister(obj)));
+
+    // Now that the object register is no longer needed, use it as second
+    // scratch.
+    Register scratch2 = obj;
+    EmitBaselineCreateStubFrameDescriptor(masm, scratch2, JitFrameLayout::Size());
+    masm.Push(Imm32(1));  // ActualArgc
+
+    // Push callee.
+    masm.loadPtr(setterAddr, scratch);
+    masm.Push(scratch);
+
+    // Push frame descriptor.
+    masm.Push(scratch2);
+
+    // Load callee->nargs in scratch2 and the JIT code in scratch.
+    Label noUnderflow;
+    masm.load16ZeroExtend(Address(scratch, JSFunction::offsetOfNargs()), scratch2);
+    masm.loadPtr(Address(scratch, JSFunction::offsetOfNativeOrScript()), scratch);
+    masm.loadBaselineOrIonRaw(scratch, scratch, nullptr);
+
+    // Handle arguments underflow.
+    masm.branch32(Assembler::BelowOrEqual, scratch2, Imm32(1), &noUnderflow);
+    {
+        // Call the arguments rectifier.
+        MOZ_ASSERT(ArgumentsRectifierReg != scratch);
+
+        JitCode* argumentsRectifier = cx_->runtime()->jitRuntime()->getArgumentsRectifier();
+        masm.movePtr(ImmGCPtr(argumentsRectifier), scratch);
+        masm.loadPtr(Address(scratch, JitCode::offsetOfCode()), scratch);
+        masm.movePtr(ImmWord(1), ArgumentsRectifierReg);
+    }
+
+    masm.bind(&noUnderflow);
+    masm.callJit(scratch);
+
+    stubFrame.leave(masm, true);
     return true;
 }
 
@@ -1098,7 +1291,7 @@ jit::AttachBaselineCacheIRStub(JSContext* cx, const CacheIRWriter& writer,
             if (!writer.stubDataEqualsMaybeUpdate(otherStub->stubDataStart()))
                 continue;
             break;
-           }
+          }
           case CacheIRStubKind::Updated: {
             if (!iter->isCacheIR_Updated())
                 continue;
@@ -1177,6 +1370,27 @@ ICCacheIR_Monitored::Clone(JSContext* cx, ICStubSpace* space, ICStub* firstMonit
 
     ICCacheIR_Monitored* res = new(newStub) ICCacheIR_Monitored(other.jitCode(), firstMonitorStub,
                                                                 stubInfo);
+    stubInfo->copyStubData(&other, res);
+    return res;
+}
+
+
+/* static */ ICCacheIR_Updated*
+ICCacheIR_Updated::Clone(JSContext* cx, ICStubSpace* space, ICStub* firstMonitorStub,
+                         ICCacheIR_Updated& other)
+{
+    const CacheIRStubInfo* stubInfo = other.stubInfo();
+    MOZ_ASSERT(stubInfo->makesGCCalls());
+
+    size_t bytesNeeded = stubInfo->stubDataOffset() + stubInfo->stubDataSize();
+    void* newStub = space->alloc(bytesNeeded);
+    if (!newStub)
+        return nullptr;
+
+    ICCacheIR_Updated* res = new(newStub) ICCacheIR_Updated(other.jitCode(), stubInfo);
+    res->updateStubGroup() = other.updateStubGroup();
+    res->updateStubId() = other.updateStubId();
+
     stubInfo->copyStubData(&other, res);
     return res;
 }
