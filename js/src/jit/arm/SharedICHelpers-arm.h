@@ -149,22 +149,6 @@ EmitBaselineCallVM(JitCode* target, MacroAssembler& masm)
     masm.call(target);
 }
 
-inline void
-EmitIonCallVM(JitCode* target, size_t stackSlots, MacroAssembler& masm)
-{
-    uint32_t descriptor = MakeFrameDescriptor(masm.framePushed(), JitFrame_IonStub,
-                                              ExitFrameLayout::Size());
-    masm.Push(Imm32(descriptor));
-    masm.callJit(target);
-
-    // Remove rest of the frame left on the stack. We remove the return address
-    // which is implicitly popped when returning.
-    size_t framePop = sizeof(ExitFrameLayout) - sizeof(void*);
-
-    // Pop arguments from framePushed.
-    masm.implicitPop(stackSlots * sizeof(void*) + framePop);
-}
-
 // Size of vales pushed by EmitEnterStubFrame.
 static const uint32_t STUB_FRAME_SIZE = 4 * sizeof(void*);
 static const uint32_t STUB_FRAME_SAVED_STUB_OFFSET = sizeof(void*);
@@ -199,20 +183,6 @@ EmitBaselineEnterStubFrame(MacroAssembler& masm, Register scratch)
 }
 
 inline void
-EmitIonEnterStubFrame(MacroAssembler& masm, Register scratch)
-{
-    MOZ_ASSERT(ICTailCallReg == lr);
-
-    // In arm the link register contains the return address,
-    // but in jit frames we expect it to be on the stack. As a result
-    // push the link register (which is actually part of the previous frame.
-    // Therefore using push instead of Push).
-    masm.push(ICTailCallReg);
-
-    masm.Push(ICStubReg);
-}
-
-inline void
 EmitBaselineLeaveStubFrame(MacroAssembler& masm, bool calledIntoIon = false)
 {
     ScratchRegisterScope scratch(masm);
@@ -237,13 +207,6 @@ EmitBaselineLeaveStubFrame(MacroAssembler& masm, bool calledIntoIon = false)
 
     // Discard the frame descriptor.
     masm.Pop(scratch);
-}
-
-inline void
-EmitIonLeaveStubFrame(MacroAssembler& masm)
-{
-    masm.Pop(ICStubReg);
-    masm.pop(ICTailCallReg); // See EmitIonEnterStubFrame for explanation on pop/Pop.
 }
 
 inline void

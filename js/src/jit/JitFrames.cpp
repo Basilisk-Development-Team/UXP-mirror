@@ -1237,12 +1237,12 @@ UpdateIonJSFrameForMinorGC(JSTracer* trc, const JitFrameIterator& frame)
 }
 
 static void
-MarkJitStubFrame(JSTracer* trc, const JitFrameIterator& frame)
+MarkBaselineStubFrame(JSTracer* trc, const JitFrameIterator& frame)
 {
     // Mark the ICStub pointer stored in the stub frame. This is necessary
     // so that we don't destroy the stub code after unlinking the stub.
 
-    MOZ_ASSERT(frame.type() == JitFrame_IonStub || frame.type() == JitFrame_BaselineStub);
+    MOZ_ASSERT(frame.type() == JitFrame_BaselineStub);
     JitStubFrameLayout* layout = (JitStubFrameLayout*)frame.fp();
 
     if (ICStub* stub = layout->maybeStubPtr()) {
@@ -1505,8 +1505,7 @@ MarkJitActivation(JSTracer* trc, const JitActivationIterator& activations)
             MarkIonJSFrame(trc, frames);
             break;
           case JitFrame_BaselineStub:
-          case JitFrame_IonStub:
-            MarkJitStubFrame(trc, frames);
+            MarkBaselineStubFrame(trc, frames);
             break;
           case JitFrame_Bailout:
             MarkBailoutFrame(trc, frames);
@@ -1579,7 +1578,7 @@ GetPcScript(JSContext* cx, JSScript** scriptRes, jsbytecode** pcRes)
         if (it.isBaselineStub()) {
             ++it;
             MOZ_ASSERT(it.isBaselineJS());
-        } else if (it.isIonStub() || it.isIonICCall()) {
+        } else if (it.isIonICCall()) {
             ++it;
             MOZ_ASSERT(it.isIonJS());
         }
@@ -2748,10 +2747,6 @@ JitFrameIterator::dump() const
         }
         break;
       }
-      case JitFrame_IonStub:
-        fprintf(stderr, " Ion stub frame\n");
-        fprintf(stderr, "  Frame size: %u\n", unsigned(current()->prevFrameLocalSize()));
-        break;
       case JitFrame_Rectifier:
         fprintf(stderr, " Rectifier frame\n");
         fprintf(stderr, "  Frame size: %u\n", unsigned(current()->prevFrameLocalSize()));

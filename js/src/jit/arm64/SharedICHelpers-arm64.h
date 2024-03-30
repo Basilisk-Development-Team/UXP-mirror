@@ -136,12 +136,6 @@ EmitBaselineCallVM(JitCode* target, MacroAssembler& masm)
     masm.call(target);
 }
 
-inline void
-EmitIonCallVM(JitCode* target, size_t stackSlots, MacroAssembler& masm)
-{
-    MOZ_CRASH("Not implemented yet.");
-}
-
 // Size of values pushed by EmitEnterStubFrame.
 static const uint32_t STUB_FRAME_SIZE = 4 * sizeof(void*);
 static const uint32_t STUB_FRAME_SAVED_STUB_OFFSET = sizeof(void*);
@@ -172,12 +166,6 @@ EmitBaselineEnterStubFrame(MacroAssembler& masm, Register scratch)
 }
 
 inline void
-EmitIonEnterStubFrame(MacroAssembler& masm, Register scratch)
-{
-    MOZ_CRASH("Not implemented yet.");
-}
-
-inline void
 EmitBaselineLeaveStubFrame(MacroAssembler& masm, bool calledIntoIon = false)
 {
     vixl::UseScratchRegisterScope temps(&masm.asVIXL());
@@ -200,12 +188,6 @@ EmitBaselineLeaveStubFrame(MacroAssembler& masm, bool calledIntoIon = false)
 
     // Stack should remain 16-byte aligned.
     masm.checkStackAlignment();
-}
-
-inline void
-EmitIonLeaveStubFrame(MacroAssembler& masm)
-{
-    MOZ_CRASH("Not implemented yet.");
 }
 
 inline void
