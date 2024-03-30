@@ -1632,6 +1632,8 @@ SetPropIRGenerator::tryAttachStub()
                 return true;
             if (tryAttachUnboxedProperty(obj, objId, id, rhsValId))
                 return true;
+            if (tryAttachSetter(obj, objId, id, rhsValId))
+                return true;
             if (tryAttachTypedObjectProperty(obj, objId, id, rhsValId))
                 return true;
         }
@@ -1824,6 +1826,216 @@ SetPropIRGenerator::tryAttachTypedObjectProperty(HandleObject obj, ObjOperandId 
 
     writer.storeTypedObjectReferenceProperty(objId, fieldOffset, layout, type, rhsId);
     writer.returnFromIC();
+    return true;
+}
+
+static void
+EmitCallSetterResultNoGuards(CacheIRWriter& writer, JSObject* obj, JSObject* holder,
+                             Shape* shape, ObjOperandId objId, ValOperandId rhsId)
+{
+    if (IsCacheableSetPropCallNative(obj, holder, shape)) {
+        JSFunction* target = &shape->setterValue().toObject().as<JSFunction>();
+        MOZ_ASSERT(target->isNative());
+        writer.callNativeSetter(objId, target, rhsId);
+        writer.returnFromIC();
+        return;
+    }
+
+    MOZ_ASSERT(IsCacheableSetPropCallScripted(obj, holder, shape));
+
+    JSFunction* target = &shape->setterValue().toObject().as<JSFunction>();
+    MOZ_ASSERT(target->hasJITCode());
+    writer.callScriptedSetter(objId, target, rhsId);
+    writer.returnFromIC();
+}
+
+bool
+SetPropIRGenerator::tryAttachSetter(HandleObject obj, ObjOperandId objId, HandleId id,
+                                    ValOperandId rhsId)
+{
+    PropertyResult prop;
+    JSObject* holder;
+    if (!LookupPropertyPure(cx_, obj, id, &holder, &prop))
+        return false;
+
+    if (prop.isNonNativeProperty())
+        return false;
+
+    Shape* shape = prop.maybeShape();
+    if (!IsCacheableSetPropCallScripted(obj, holder, shape, isTemporarilyUnoptimizable_) &&
+        !IsCacheableSetPropCallNative(obj, holder, shape))
+    {
+        return false;
+    }
+
+    Maybe<ObjOperandId> expandoId;
+    TestMatchingReceiver(writer, obj, shape, objId, &expandoId);
+
+    if (obj != holder) {
+        GeneratePrototypeGuards(writer, obj, holder, objId);
+
+        // Guard on the holder's shape.
+        ObjOperandId holderId = writer.loadObject(holder);
+        writer.guardShape(holderId, holder->as<NativeObject>().lastProperty());
+    }
+
+    EmitCallSetterResultNoGuards(writer, obj, holder, shape, objId, rhsId);
+    return true;
+}
+
+bool
+SetPropIRGenerator::tryAttachAddSlotStub(HandleObjectGroup oldGroup, HandleShape oldShape)
+{
+    AutoAssertNoPendingException aanpe(cx_);
+
+    ValOperandId lhsValId(writer.setInputOperandId(0));
+    ValOperandId rhsValId(writer.setInputOperandId(1));
+
+    RootedId id(cx_);
+    bool nameOrSymbol;
+    if (!ValueToNameOrSymbolId(cx_, idVal_, &id, &nameOrSymbol)) {
+        cx_->clearPendingException();
+        return false;
+    }
+
+    if (!lhsVal_.isObject() || !nameOrSymbol)
+        return false;
+
+    RootedObject obj(cx_, &lhsVal_.toObject());
+
+    PropertyResult prop;
+    JSObject* holder;
+    if (!LookupPropertyPure(cx_, obj, id, &holder, &prop))
+        return false;
+    if (obj != holder)
+        return false;
+
+    Shape* propShape = nullptr;
+    NativeObject* holderOrExpando = nullptr;
+
+    if (obj->isNative()) {
+        propShape = prop.shape();
+        holderOrExpando = &obj->as<NativeObject>();
+    } else {
+        if (!obj->is<UnboxedPlainObject>())
+            return false;
+        UnboxedExpandoObject* expando = obj->as<UnboxedPlainObject>().maybeExpando();
+        if (!expando)
+            return false;
+        propShape = expando->lookupPure(id);
+        if (!propShape)
+            return false;
+        holderOrExpando = expando;
+    }
+
+    MOZ_ASSERT(propShape);
+
+    // The property must be the last added property of the object.
+    if (holderOrExpando->lastProperty() != propShape)
+        return false;
+
+    // Object must be extensible, oldShape must be immediate parent of
+    // current shape.
+    if (!obj->nonProxyIsExtensible() || propShape->previous() != oldShape)
+        return false;
+
+    // Basic shape checks.
+    if (propShape->inDictionary() ||
+        !propShape->hasSlot() ||
+        !propShape->hasDefaultSetter() ||
+        !propShape->writable())
+    {
+        return false;
+    }
+
+    // Watch out for resolve or addProperty hooks.
+    if (ClassMayResolveId(cx_->names(), obj->getClass(), id, obj) ||
+        obj->getClass()->getAddProperty())
+    {
+        return false;
+    }
+
+    // Walk up the object prototype chain and ensure that all prototypes are
+    // native, and that all prototypes have no setter defined on the property.
+    for (JSObject* proto = obj->staticPrototype(); proto; proto = proto->staticPrototype()) {
+        if (!proto->isNative())
+            return false;
+
+        // If prototype defines this property in a non-plain way, don't optimize.
+        Shape* protoShape = proto->as<NativeObject>().lookup(cx_, id);
+        if (protoShape && !protoShape->hasDefaultSetter())
+            return false;
+
+        // Otherwise, if there's no such property, watch out for a resolve hook
+        // that would need to be invoked and thus prevent inlining of property
+        // addition.
+        if (ClassMayResolveId(cx_->names(), proto->getClass(), id, proto))
+            return false;
+    }
+
+    // Only optimize if the dynamic slots didn't change. TODO: bug 1091978.
+    if (NativeObject::dynamicSlotsCount(propShape) != NativeObject::dynamicSlotsCount(oldShape))
+        return false;
+
+    // Don't attach if we are adding a property to an object which the new
+    // script properties analysis hasn't been performed for yet, as there
+    // may be a shape change required here afterwards.
+    if (oldGroup->newScript() && !oldGroup->newScript()->analyzed()) {
+        *isTemporarilyUnoptimizable_ = true;
+        return false;
+    }
+
+    ObjOperandId objId = writer.guardIsObject(lhsValId);
+    writer.guardGroup(objId, oldGroup);
+
+    // Shape guard the holder.
+    ObjOperandId holderId = objId;
+    if (!obj->isNative()) {
+        MOZ_ASSERT(obj->as<UnboxedPlainObject>().maybeExpando());
+        holderId = writer.guardAndLoadUnboxedExpando(objId);
+    }
+    writer.guardShape(holderId, oldShape);
+
+    // Shape guard the objects on the proto chain.
+    JSObject* lastObj = obj;
+    ObjOperandId lastObjId = objId;
+    while (true) {
+        // Guard on the proto if the shape does not imply the proto. Singleton
+        // objects always trigger a shape change when the proto changes, so we
+        // don't need a guard in that case.
+        bool guardProto = lastObj->hasUncacheableProto() && !lastObj->isSingleton();
+
+        lastObj = lastObj->staticPrototype();
+        if (!lastObj)
+            break;
+
+        lastObjId = writer.loadProto(lastObjId);
+        if (guardProto)
+            writer.guardSpecificObject(lastObjId, lastObj);
+        writer.guardShape(lastObjId, lastObj->as<NativeObject>().shape());
+    }
+
+    ObjectGroup* newGroup = obj->group();
+
+    // Check if we have to change the object's group. If we're adding an
+    // unboxed expando property, we pass the expando object to AddAndStore*Slot.
+    // That's okay because we only have to do a group change if the object is a
+    // PlainObject.
+    bool changeGroup = oldGroup != newGroup;
+    MOZ_ASSERT_IF(changeGroup, obj->is<PlainObject>());
+
+    if (holderOrExpando->isFixedSlot(propShape->slot())) {
+        size_t offset = NativeObject::getFixedSlotOffset(propShape->slot());
+        writer.addAndStoreFixedSlot(holderId, offset, rhsValId, propShape,
+                                    changeGroup, newGroup);
+    } else {
+        size_t offset = holderOrExpando->dynamicSlotIndex(propShape->slot()) * sizeof(Value);
+        writer.addAndStoreDynamicSlot(holderId, offset, rhsValId, propShape,
+                                      changeGroup, newGroup);
+    }
+    writer.returnFromIC();
+
+    setUpdateStubInfo(oldGroup, id);
     return true;
 }
 

@@ -969,6 +969,9 @@ class ICCacheIR_Updated : public ICUpdatedStub
         updateStubId_(JSID_EMPTY)
     {}
 
+    static ICCacheIR_Updated* Clone(JSContext* cx, ICStubSpace* space, ICStub* firstMonitorStub,
+                                    ICCacheIR_Updated& other);
+
     GCPtrObjectGroup& updateStubGroup() {
         return updateStubGroup_;
    }
@@ -2283,11 +2286,6 @@ UpdateExistingGetPropCallStubs(ICFallbackStub* fallbackStub,
 [[nodiscard]] bool
 CheckHasNoSuchProperty(JSContext* cx, JSObject* obj, jsid id,
                        JSObject** lastProto = nullptr, size_t* protoChainDepthOut = nullptr);
-
-void
-GuardReceiverObject(MacroAssembler& masm, ReceiverGuard guard,
-                    Register object, Register scratch,
-                    size_t receiverGuardOffset, Label* failure);
 
 [[nodiscard]] bool
 GetProtoShapes(JSObject* obj, size_t protoChainDepth, MutableHandle<ShapeVector> shapes);
