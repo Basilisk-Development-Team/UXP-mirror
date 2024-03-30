@@ -554,25 +554,20 @@ ICStubCompiler::callVM(const VMFunction& fun, MacroAssembler& masm)
         return false;
 
     MOZ_ASSERT(fun.expectTailCall == NonTailCall);
-    if (engine_ == Engine::Baseline)
-        EmitBaselineCallVM(code, masm);
-    else
-        EmitIonCallVM(code, fun.explicitStackSlots(), masm);
+    MOZ_ASSERT(engine_ == Engine::Baseline);
+
+    EmitBaselineCallVM(code, masm);
     return true;
 }
 
 void
 ICStubCompiler::enterStubFrame(MacroAssembler& masm, Register scratch)
 {
-    if (engine_ == Engine::Baseline) {
-        EmitBaselineEnterStubFrame(masm, scratch);
+    MOZ_ASSERT(engine_ == Engine::Baseline);
+    EmitBaselineEnterStubFrame(masm, scratch);
 #ifdef DEBUG
-        framePushedAtEnterStubFrame_ = masm.framePushed();
+    framePushedAtEnterStubFrame_ = masm.framePushed();
 #endif
-    } else {
-        EmitIonEnterStubFrame(masm, scratch);
-    }
-
     MOZ_ASSERT(!inStubFrame_);
     inStubFrame_ = true;
 
@@ -587,17 +582,14 @@ ICStubCompiler::leaveStubFrame(MacroAssembler& masm, bool calledIntoIon)
     MOZ_ASSERT(entersStubFrame_ && inStubFrame_);
     inStubFrame_ = false;
 
-    if (engine_ == Engine::Baseline) {
+    MOZ_ASSERT(engine_ == Engine::Baseline);
 #ifdef DEBUG
-        masm.setFramePushed(framePushedAtEnterStubFrame_);
-        if (calledIntoIon)
-            masm.adjustFrame(sizeof(intptr_t)); // Calls into ion have this extra.
+    masm.setFramePushed(framePushedAtEnterStubFrame_);
+    if (calledIntoIon)
+        masm.adjustFrame(sizeof(intptr_t)); // Calls into ion have this extra.
 #endif
 
-        EmitBaselineLeaveStubFrame(masm, calledIntoIon);
-    } else {
-        EmitIonLeaveStubFrame(masm);
-    }
+    EmitBaselineLeaveStubFrame(masm, calledIntoIon);
 }
 
 void
@@ -2083,7 +2075,7 @@ ComputeGetPropResult(JSContext* cx, BaselineFrame* frame, JSOp op, HandlePropert
 {
     // Handle arguments.length and arguments.callee on optimized arguments, as
     // it is not an object.
-    if (frame && val.isMagic(JS_OPTIMIZED_ARGUMENTS) && IsOptimizedArguments(frame, val)) {
+    if (val.isMagic(JS_OPTIMIZED_ARGUMENTS) && IsOptimizedArguments(frame, val)) {
         if (op == JSOP_LENGTH) {
             res.setInt32(frame->numActualArgs());
         } else {
@@ -2108,17 +2100,16 @@ ComputeGetPropResult(JSContext* cx, BaselineFrame* frame, JSOp op, HandlePropert
 }
 
 static bool
-DoGetPropFallback(JSContext* cx, void* payload, ICGetProp_Fallback* stub_,
+DoGetPropFallback(JSContext* cx, BaselineFrame* frame, ICGetProp_Fallback* stub_,
                   MutableHandleValue val, MutableHandleValue res)
 {
-    SharedStubInfo info(cx, payload, stub_->icEntry());
-    ICStubCompiler::Engine engine = info.engine();
+    SharedStubInfo info(cx, frame, stub_->icEntry());
     HandleScript script = info.innerScript();
 
     // This fallback stub may trigger debug mode toggling.
-    DebugModeOSRVolatileStub<ICGetProp_Fallback*> stub(engine, info.maybeFrame(), stub_);
+    DebugModeOSRVolatileStub<ICGetProp_Fallback*> stub(frame, stub_);
 
-    jsbytecode* pc = info.pc();
+    jsbytecode* pc = stub_->icEntry()->pc(script);
     JSOp op = JSOp(*pc);
     FallbackICSpew(cx, stub, "GetProp(%s)", CodeName[op]);
 
@@ -2138,11 +2129,12 @@ DoGetPropFallback(JSContext* cx, void* payload, ICGetProp_Fallback* stub_,
     bool attached = false;
     if (stub->state().canAttachStub()) {
         RootedValue idVal(cx, StringValue(name));
-        GetPropIRGenerator gen(cx, script, pc, CacheKind::GetProp, engine, stub->state().mode(),
+        GetPropIRGenerator gen(cx, script, pc, CacheKind::GetProp, stub->state().mode(),
                                &isTemporarilyUnoptimizable, val, idVal, CanAttachGetter::Yes);
         if (gen.tryAttachStub()) {
             ICStub* newStub = AttachBaselineCacheIRStub(cx, gen.writerRef(), gen.cacheKind(),
-                                                        engine, info.outerScript(cx), stub);
+                                                        ICStubEngine::Baseline, script,
+                                                        stub);
             if (newStub) {
                 JitSpew(JitSpew_BaselineIC, "  Attached CacheIR stub");
                 if (gen.shouldNotePreliminaryObjectStub())
@@ -2155,7 +2147,7 @@ DoGetPropFallback(JSContext* cx, void* payload, ICGetProp_Fallback* stub_,
             stub->state().trackNotAttached();
     }
 
-    if (!ComputeGetPropResult(cx, info.maybeFrame(), op, name, val, res))
+    if (!ComputeGetPropResult(cx, frame, op, name, val, res))
         return false;
 
     TypeScript::Monitor(cx, script, pc, res);
@@ -2178,7 +2170,7 @@ DoGetPropFallback(JSContext* cx, void* payload, ICGetProp_Fallback* stub_,
     return true;
 }
 
-typedef bool (*DoGetPropFallbackFn)(JSContext*, void*, ICGetProp_Fallback*,
+typedef bool (*DoGetPropFallbackFn)(JSContext*, BaselineFrame*, ICGetProp_Fallback*,
                                     MutableHandleValue, MutableHandleValue);
 static const VMFunction DoGetPropFallbackInfo =
     FunctionInfo<DoGetPropFallbackFn>(DoGetPropFallback, "DoGetPropFallback", TailCall,
@@ -2197,7 +2189,7 @@ ICGetProp_Fallback::Compiler::generateStubCode(MacroAssembler& masm)
     // Push arguments.
     masm.pushValue(R0);
     masm.push(ICStubReg);
-    pushStubPayload(masm, R0.scratchReg());
+    masm.pushBaselineFramePtr(BaselineFrameReg, R0.scratchReg());
 
     if (!tailCallVM(DoGetPropFallbackInfo, masm))
         return false;

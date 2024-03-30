@@ -132,28 +132,6 @@ EmitBaselineCallVM(JitCode* target, MacroAssembler& masm)
     masm.call(target);
 }
 
-inline void
-EmitIonCallVM(JitCode* target, size_t stackSlots, MacroAssembler& masm)
-{
-    // Stubs often use the return address. Which is actually accounted by the
-    // caller of the stub. Though in the stubcode we fake that is part of the
-    // stub. In order to make it possible to pop it. As a result we have to
-    // fix it here, by subtracting it. Else it would be counted twice.
-    uint32_t framePushed = masm.framePushed() - sizeof(void*);
-
-    uint32_t descriptor = MakeFrameDescriptor(framePushed, JitFrame_IonStub,
-                                              ExitFrameLayout::Size());
-    masm.Push(Imm32(descriptor));
-    masm.call(target);
-
-    // Remove rest of the frame left on the stack. We remove the return address
-    // which is implicitly poped when returning.
-    size_t framePop = sizeof(ExitFrameLayout) - sizeof(void*);
-
-    // Pop arguments from framePushed.
-    masm.implicitPop(stackSlots * sizeof(void*) + framePop);
-}
-
 // Size of vales pushed by EmitEnterStubFrame.
 static const uint32_t STUB_FRAME_SIZE = 4 * sizeof(void*);
 static const uint32_t STUB_FRAME_SAVED_STUB_OFFSET = sizeof(void*);
@@ -161,13 +139,23 @@ static const uint32_t STUB_FRAME_SAVED_STUB_OFFSET = sizeof(void*);
 inline void
 EmitBaselineEnterStubFrame(MacroAssembler& masm, Register)
 {
-    EmitRestoreTailCallReg(masm);
-
     ScratchRegisterScope scratch(masm);
 
-    // Compute frame size.
+    // Compute frame size. Because the return address is still on the stack,
+    // this is:
+    //
+    //   BaselineFrameReg
+    //   + BaselineFrame::FramePointerOffset
+    //   - BaselineStackReg
+    //   - sizeof(return address)
+    //
+    // The two constants cancel each other out, so we can just calculate
+    // BaselineFrameReg - BaselineStackReg.
+
+    static_assert(BaselineFrame::FramePointerOffset == sizeof(void*),
+                  "FramePointerOffset must be the same as the return address size");
+
     masm.movq(BaselineFrameReg, scratch);
-    masm.addq(Imm32(BaselineFrame::FramePointerOffset), scratch);
     masm.subq(BaselineStackReg, scratch);
 
     masm.store32(scratch, Address(BaselineFrameReg, BaselineFrame::reverseOffsetOfFrameSize()));
@@ -175,22 +163,17 @@ EmitBaselineEnterStubFrame(MacroAssembler& masm, Register)
     // Note: when making changes here,  don't forget to update STUB_FRAME_SIZE
     // if needed.
 
-    // Push frame descriptor and return address.
+    // Push the return address that's currently on top of the stack.
+    masm.Push(Operand(BaselineStackReg, 0));
+
+    // Replace the original return address with the frame descriptor.
     masm.makeFrameDescriptor(scratch, JitFrame_BaselineJS, BaselineStubFrameLayout::Size());
-    masm.Push(scratch);
-    masm.Push(ICTailCallReg);
+    masm.storePtr(scratch, Address(BaselineStackReg, sizeof(uintptr_t)));
 
     // Save old frame pointer, stack pointer and stub reg.
     masm.Push(ICStubReg);
     masm.Push(BaselineFrameReg);
     masm.mov(BaselineStackReg, BaselineFrameReg);
-}
-
-inline void
-EmitIonEnterStubFrame(MacroAssembler& masm, Register)
-{
-    masm.loadPtr(Address(masm.getStackPointer(), 0), ICTailCallReg);
-    masm.Push(ICStubReg);
 }
 
 inline void
@@ -212,18 +195,11 @@ EmitBaselineLeaveStubFrame(MacroAssembler& masm, bool calledIntoIon = false)
     masm.Pop(BaselineFrameReg);
     masm.Pop(ICStubReg);
 
-    // Pop return address.
-    masm.Pop(ICTailCallReg);
-
-    // Overwrite frame descriptor with return address, so that the stack matches
-    // the state before entering the stub frame.
-    masm.storePtr(ICTailCallReg, Address(BaselineStackReg, 0));
-}
-
-inline void
-EmitIonLeaveStubFrame(MacroAssembler& masm)
-{
-    masm.Pop(ICStubReg);
+    // The return address is on top of the stack, followed by the frame
+    // descriptor. Use a pop instruction to overwrite the frame descriptor
+    // with the return address. Note that pop increments the stack pointer
+    // before computing the address.
+    masm.Pop(Operand(BaselineStackReg, 0));
 }
 
 inline void
