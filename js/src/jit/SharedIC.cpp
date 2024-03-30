@@ -268,33 +268,6 @@ ICStub::trace(JSTracer* trc)
         TraceEdge(trc, &callStub->expectedStr(), "baseline-callstringsplit-str");
         break;
       }
-      case ICStub::SetElem_DenseOrUnboxedArray: {
-        ICSetElem_DenseOrUnboxedArray* setElemStub = toSetElem_DenseOrUnboxedArray();
-        TraceNullableEdge(trc, &setElemStub->shape(), "baseline-getelem-dense-shape");
-        TraceEdge(trc, &setElemStub->group(), "baseline-setelem-dense-group");
-        break;
-      }
-      case ICStub::SetElem_DenseOrUnboxedArrayAdd: {
-        ICSetElem_DenseOrUnboxedArrayAdd* setElemStub = toSetElem_DenseOrUnboxedArrayAdd();
-        TraceEdge(trc, &setElemStub->group(), "baseline-setelem-denseadd-group");
-
-        JS_STATIC_ASSERT(ICSetElem_DenseOrUnboxedArrayAdd::MAX_PROTO_CHAIN_DEPTH == 4);
-
-        switch (setElemStub->protoChainDepth()) {
-          case 0: setElemStub->toImpl<0>()->traceShapes(trc); break;
-          case 1: setElemStub->toImpl<1>()->traceShapes(trc); break;
-          case 2: setElemStub->toImpl<2>()->traceShapes(trc); break;
-          case 3: setElemStub->toImpl<3>()->traceShapes(trc); break;
-          case 4: setElemStub->toImpl<4>()->traceShapes(trc); break;
-          default: MOZ_CRASH("Invalid proto stub.");
-        }
-        break;
-      }
-      case ICStub::SetElem_TypedArray: {
-        ICSetElem_TypedArray* setElemStub = toSetElem_TypedArray();
-        TraceEdge(trc, &setElemStub->shape(), "baseline-setelem-typedarray-shape");
-        break;
-      }
       case ICStub::TypeMonitor_SingleObject: {
         ICTypeMonitor_SingleObject* monitorStub = toTypeMonitor_SingleObject();
         TraceEdge(trc, &monitorStub->object(), "baseline-monitor-singleton");
@@ -583,17 +556,6 @@ ICStubCompiler::callVM(const VMFunction& fun, MacroAssembler& masm)
     return true;
 }
 
-bool
-ICStubCompiler::callTypeUpdateIC(MacroAssembler& masm, uint32_t objectOffset)
-{
-    JitCode* code = cx->runtime()->jitRuntime()->getVMWrapper(DoTypeUpdateFallbackInfo);
-    if (!code)
-        return false;
-
-    EmitCallTypeUpdateIC(masm, code, objectOffset);
-    return true;
-}
-
 void
 ICStubCompiler::enterStubFrame(MacroAssembler& masm, Register scratch)
 {
@@ -661,6 +623,9 @@ BaselineEmitPostWriteBarrierSlot(MacroAssembler& masm, Register obj, ValueOperan
                                  Register scratch, LiveGeneralRegisterSet saveRegs,
                                  JSContext* cx)
 {
+    if (!cx->nursery().exists())
+        return;
+
     Label skipBarrier;
     masm.branchPtrInNurseryChunk(Assembler::Equal, obj, scratch, &skipBarrier);
     masm.branchValueIsNurseryObject(Assembler::NotEqual, val, scratch, &skipBarrier);
