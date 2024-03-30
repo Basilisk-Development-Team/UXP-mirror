@@ -1286,6 +1286,36 @@ IonCacheIRCompiler::emitStoreTypedObjectScalarProperty()
 }
 
 bool
+IonCacheIRCompiler::emitStoreDenseElement()
+{
+    MOZ_CRASH("Baseline-specific op");
+}
+
+bool
+IonCacheIRCompiler::emitStoreDenseElementHole()
+{
+    MOZ_CRASH("Baseline-specific op");
+}
+
+bool
+IonCacheIRCompiler::emitStoreTypedElement()
+{
+    MOZ_CRASH("Baseline-specific op");
+}
+
+bool
+IonCacheIRCompiler::emitStoreUnboxedArrayElement()
+{
+    MOZ_CRASH("Baseline-specific op");
+}
+
+bool
+IonCacheIRCompiler::emitStoreUnboxedArrayElementHole()
+{
+    MOZ_CRASH("Baseline-specific op");
+}
+
+bool
 IonCacheIRCompiler::emitCallNativeSetter()
 {
     AutoSaveLiveRegisters save(*this);
