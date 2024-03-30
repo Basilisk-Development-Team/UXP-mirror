@@ -1312,6 +1312,19 @@ GetPropIRGenerator::tryAttachProxyElement(HandleObject obj, ObjOperandId objId)
 }
 
 void
+IRGenerator::emitIdGuard(ValOperandId valId, jsid id)
+{
+    if (JSID_IS_SYMBOL(id)) {
+        SymbolOperandId symId = writer.guardIsSymbol(valId);
+        writer.guardSpecificSymbol(symId, JSID_TO_SYMBOL(id));
+    } else {
+        MOZ_ASSERT(JSID_IS_ATOM(id));
+        StringOperandId strId = writer.guardIsString(valId);
+        writer.guardSpecificAtom(strId, JSID_TO_ATOM(id));
+    }
+}
+
+void
 GetPropIRGenerator::maybeEmitIdGuard(jsid id)
 {
     if (cacheKind_ == CacheKind::GetProp) {
@@ -1321,16 +1334,19 @@ GetPropIRGenerator::maybeEmitIdGuard(jsid id)
     }
 
     MOZ_ASSERT(cacheKind_ == CacheKind::GetElem);
+    emitIdGuard(getElemKeyValueId(), id);
+}
 
-    ValOperandId valId = getElemKeyValueId();
-    if (JSID_IS_SYMBOL(id)) {
-        SymbolOperandId symId = writer.guardIsSymbol(valId);
-        writer.guardSpecificSymbol(symId, JSID_TO_SYMBOL(id));
-    } else {
-        MOZ_ASSERT(JSID_IS_ATOM(id));
-        StringOperandId strId = writer.guardIsString(valId);
-        writer.guardSpecificAtom(strId, JSID_TO_ATOM(id));
+void
+SetPropIRGenerator::maybeEmitIdGuard(jsid id)
+{
+    if (cacheKind_ == CacheKind::SetProp) {
+        // Constant PropertyName, no guards necessary.
+        MOZ_ASSERT(&idVal_.toString()->asAtom() == JSID_TO_ATOM(id));
+        return;
     }
+    MOZ_ASSERT(cacheKind_ == CacheKind::SetElem);
+    emitIdGuard(setElemKeyValueId(), id);
 }
 
 GetNameIRGenerator::GetNameIRGenerator(JSContext* cx, jsbytecode* pc, HandleScript script,
@@ -1611,8 +1627,16 @@ SetPropIRGenerator::tryAttachStub()
 {
     AutoAssertNoPendingException aanpe(cx_);
 
-    ValOperandId lhsValId(writer.setInputOperandId(0));
-    ValOperandId rhsValId(writer.setInputOperandId(1));
+    ValOperandId objValId(writer.setInputOperandId(0));
+    ValOperandId rhsValId;
+    if (cacheKind_ == CacheKind::SetProp) {
+        rhsValId = ValOperandId(writer.setInputOperandId(1));
+    } else {
+        MOZ_ASSERT(cacheKind_ == CacheKind::SetElem);
+        MOZ_ASSERT(setElemKeyValueId().id() == 1);
+        writer.setInputOperandId(1);
+        rhsValId = ValOperandId(writer.setInputOperandId(2));
+    }
 
     RootedId id(cx_);
     bool nameOrSymbol;
@@ -1624,7 +1648,7 @@ SetPropIRGenerator::tryAttachStub()
     if (lhsVal_.isObject()) {
         RootedObject obj(cx_, &lhsVal_.toObject());
 
-        ObjOperandId objId = writer.guardIsObject(lhsValId);
+        ObjOperandId objId = writer.guardIsObject(objValId);
         if (nameOrSymbol) {
             if (tryAttachNativeSetSlot(obj, objId, id, rhsValId))
                 return true;
@@ -1695,6 +1719,8 @@ SetPropIRGenerator::tryAttachNativeSetSlot(HandleObject obj, ObjOperandId objId,
         return false;
     }
 
+    maybeEmitIdGuard(id);
+
     // For Baseline, we have to guard on both the shape and group, because the
     // type update IC applies to a single group. When we port the Ion IC, we can
     // do a bit better and avoid the group guard if we don't have to guard on
@@ -1728,6 +1754,7 @@ SetPropIRGenerator::tryAttachUnboxedExpandoSetSlot(HandleObject obj, ObjOperandI
     if (!propShape)
         return false;
 
+    maybeEmitIdGuard(id);
     writer.guardGroup(objId, obj->group());
     ObjOperandId expandoId = writer.guardAndLoadUnboxedExpando(objId);
     writer.guardShape(expandoId, expando->lastProperty());
@@ -1761,6 +1788,7 @@ SetPropIRGenerator::tryAttachUnboxedProperty(HandleObject obj, ObjOperandId objI
     if (!property)
         return false;
 
+    maybeEmitIdGuard(id);
     writer.guardGroup(objId, obj->group());
     EmitGuardUnboxedPropertyType(writer, property->type, rhsId);
     writer.storeUnboxedProperty(objId, property->type,
@@ -1798,6 +1826,7 @@ SetPropIRGenerator::tryAttachTypedObjectProperty(HandleObject obj, ObjOperandId 
     uint32_t fieldOffset = structDescr->fieldOffset(fieldIndex);
     TypedThingLayout layout = GetTypedThingLayout(obj->getClass());
 
+    maybeEmitIdGuard(id);
     writer.guardNoDetachedTypedObjects();
     writer.guardShape(objId, obj->as<TypedObject>().shape());
     writer.guardGroup(objId, obj->group());
@@ -1855,6 +1884,11 @@ bool
 SetPropIRGenerator::tryAttachSetter(HandleObject obj, ObjOperandId objId, HandleId id,
                                     ValOperandId rhsId)
 {
+    // Don't attach a setter stub for ops like JSOP_INITELEM.
+    if (IsPropertyInitOp(JSOp(*pc_)))
+        return false;
+    MOZ_ASSERT(IsPropertySetOp(JSOp(*pc_)));
+
     PropertyResult prop;
     JSObject* holder;
     if (!LookupPropertyPure(cx_, obj, id, &holder, &prop))
@@ -1869,6 +1903,8 @@ SetPropIRGenerator::tryAttachSetter(HandleObject obj, ObjOperandId objId, Handle
     {
         return false;
     }
+
+    maybeEmitIdGuard(id);
 
     Maybe<ObjOperandId> expandoId;
     TestMatchingReceiver(writer, obj, shape, objId, &expandoId);
@@ -1892,6 +1928,7 @@ SetPropIRGenerator::tryAttachSetArrayLength(HandleObject obj, ObjOperandId objId
     if (!obj->is<ArrayObject>() || !JSID_IS_ATOM(id, cx_->names().length))
         return false;
 
+    maybeEmitIdGuard(id);
     writer.guardClass(objId, GuardClassKind::Array);
     writer.callSetArrayLength(objId, IsStrictSetPC(pc_), rhsId);
     writer.returnFromIC();
@@ -1903,8 +1940,16 @@ SetPropIRGenerator::tryAttachAddSlotStub(HandleObjectGroup oldGroup, HandleShape
 {
     AutoAssertNoPendingException aanpe(cx_);
 
-    ValOperandId lhsValId(writer.setInputOperandId(0));
-    ValOperandId rhsValId(writer.setInputOperandId(1));
+    ValOperandId objValId(writer.setInputOperandId(0));
+    ValOperandId rhsValId;
+    if (cacheKind_ == CacheKind::SetProp) {
+        rhsValId = ValOperandId(writer.setInputOperandId(1));
+    } else {
+        MOZ_ASSERT(cacheKind_ == CacheKind::SetElem);
+        MOZ_ASSERT(setElemKeyValueId().id() == 1);
+        writer.setInputOperandId(1);
+        rhsValId = ValOperandId(writer.setInputOperandId(2));
+    }
 
     RootedId id(cx_);
     bool nameOrSymbol;
@@ -1996,7 +2041,8 @@ SetPropIRGenerator::tryAttachAddSlotStub(HandleObjectGroup oldGroup, HandleShape
         return false;
     }
 
-    ObjOperandId objId = writer.guardIsObject(lhsValId);
+    ObjOperandId objId = writer.guardIsObject(objValId);
+    maybeEmitIdGuard(id);
     writer.guardGroup(objId, oldGroup);
 
     // Shape guard the holder.
