@@ -216,14 +216,7 @@ struct Zone : public JS::shadow::Zone,
 
     void notifyObservingDebuggers();
 
-    enum GCState {
-        NoGC,
-        Mark,
-        MarkGray,
-        Sweep,
-        Finished,
-        Compact
-    };
+
     void setGCState(GCState state) {
         MOZ_ASSERT(CurrentThreadIsHeapBusy());
         MOZ_ASSERT_IF(state != NoGC, canCollect());
@@ -255,15 +248,6 @@ struct Zone : public JS::shadow::Zone,
         return needsIncrementalBarrier() ||
                (gcState_ == Mark || gcState_ == MarkGray);
     }
-
-    GCState gcState() const { return gcState_; }
-    bool wasGCStarted() const { return gcState_ != NoGC; }
-    bool isGCMarkingBlack() const { return gcState_ == Mark; }
-    bool isGCMarkingGray() const { return gcState_ == MarkGray; }
-    bool isGCSweeping() const { return gcState_ == Sweep; }
-    bool isGCFinished() const { return gcState_ == Finished; }
-    bool isGCCompacting() const { return gcState_ == Compact; }
-    bool isGCSweepingOrCompacting() const { return gcState_ == Sweep || gcState_ == Compact; }
 
     // Get a number that is incremented whenever this zone is collected, and
     // possibly at other times too.
@@ -637,7 +621,6 @@ struct Zone : public JS::shadow::Zone,
   private:
     js::ZoneGroupData<js::jit::JitZone*> jitZone_;
 
-    js::UnprotectedData<GCState> gcState_;
     js::ActiveThreadData<bool> gcScheduled_;
     js::ZoneGroupData<bool> gcPreserveCode_;
     js::ZoneGroupData<bool> keepShapeTables_;

@@ -115,20 +115,30 @@ namespace shadow {
 
 struct Zone
 {
+  enum GCState : uint8_t {
+        NoGC,
+        Mark,
+        MarkGray,
+        Sweep,
+        Finished,
+        Compact
+    };
+
   protected:
     JSRuntime* const runtime_;
     JSTracer* const barrierTracer_;     // A pointer to the JSRuntime's |gcMarker|.
 
-  public:
-
     uint32_t needsIncrementalBarrier_;
+    GCState gcState_;
 
     Zone(JSRuntime* runtime, JSTracer* barrierTracerArg)
       : runtime_(runtime),
         barrierTracer_(barrierTracerArg),
-        needsIncrementalBarrier_(0)
-    {}
-
+		needsIncrementalBarrier_(0),
+        gcState_(NoGC)
+     {}
+ 
+  public:
     bool needsIncrementalBarrier() const {
         return needsIncrementalBarrier_;
     }
@@ -149,6 +159,15 @@ struct Zone
     JSRuntime* runtimeFromAnyThread() const {
         return runtime_;
     }
+
+    GCState gcState() const { return gcState_; }
+    bool wasGCStarted() const { return gcState_ != NoGC; }
+    bool isGCMarkingBlack() const { return gcState_ == Mark; }
+    bool isGCMarkingGray() const { return gcState_ == MarkGray; }
+    bool isGCSweeping() const { return gcState_ == Sweep; }
+    bool isGCFinished() const { return gcState_ == Finished; }
+    bool isGCCompacting() const { return gcState_ == Compact; }
+    bool isGCSweepingOrCompacting() const { return gcState_ == Sweep || gcState_ == Compact; }
 
     static MOZ_ALWAYS_INLINE JS::shadow::Zone* asShadowZone(JS::Zone* zone) {
         return reinterpret_cast<JS::shadow::Zone*>(zone);

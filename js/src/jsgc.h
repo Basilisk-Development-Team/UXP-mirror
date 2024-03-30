@@ -813,7 +813,6 @@ class ArenaLists
     inline void queueForForegroundSweep(FreeOp* fop, const FinalizePhase& phase);
     inline void queueForBackgroundSweep(FreeOp* fop, const FinalizePhase& phase);
 
-    inline void finalizeNow(FreeOp* fop, AllocKind thingKind, Arena** empty = nullptr);
     inline void queueForForegroundSweep(FreeOp* fop, AllocKind thingKind);
     inline void queueForBackgroundSweep(FreeOp* fop, AllocKind thingKind);
     inline void mergeSweptArenas(AllocKind thingKind);

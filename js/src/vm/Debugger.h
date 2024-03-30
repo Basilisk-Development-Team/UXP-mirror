@@ -583,7 +583,6 @@ class Debugger : private mozilla::LinkedListElement<Debugger>
     friend struct js::GCManagedDeletePolicy<Debugger>;
 
     void traceForMovingGC(JSTracer* trc);
-    static void finalize(FreeOp* fop, JSObject* obj);
     void traceCrossCompartmentEdges(JSTracer* tracer);
 
     static const ClassOps classOps_;

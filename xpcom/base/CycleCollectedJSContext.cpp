@@ -1303,7 +1303,7 @@ CycleCollectedJSContext::JSObjectsTenured()
 
   for (auto iter = mNurseryObjects.Iter(); !iter.Done(); iter.Next()) {
     nsWrapperCache* cache = iter.Get();
-    JSObject* wrapper = cache->GetWrapperPreserveColor();
+    JSObject* wrapper = cache->GetWrapperMaybeDead();
     MOZ_ASSERT(wrapper);
     if (!JS::ObjectIsTenured(wrapper)) {
       MOZ_ASSERT(!cache->PreservingWrapper());
@@ -1327,8 +1327,8 @@ CycleCollectedJSContext::NurseryWrapperAdded(nsWrapperCache* aCache)
 {
   MOZ_ASSERT(mJSContext);
   MOZ_ASSERT(aCache);
-  MOZ_ASSERT(aCache->GetWrapperPreserveColor());
-  MOZ_ASSERT(!JS::ObjectIsTenured(aCache->GetWrapperPreserveColor()));
+  MOZ_ASSERT(aCache->GetWrapperMaybeDead());
+  MOZ_ASSERT(!JS::ObjectIsTenured(aCache->GetWrapperMaybeDead()));
   mNurseryObjects.InfallibleAppend(aCache);
 }
 

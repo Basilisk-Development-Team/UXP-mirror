@@ -594,15 +594,15 @@ XPCWrappedNative::Destroy()
         delete mScriptableInfo;
         mScriptableInfo = nullptr;
     }
-
+#ifdef DEBUG
+    // Check that this object has already been swept from the map.
     XPCWrappedNativeScope* scope = GetScope();
     if (scope) {
         Native2WrappedNativeMap* map = scope->GetWrappedNativeMap();
 
-        // Post-1.9 we should not remove this wrapper from the map if it is
-        // uninitialized.
-        map->Remove(this);
+        MOZ_ASSERT(map->Find(GetIdentityObject()) != this);
     }
+#endif
 
     if (mIdentity) {
         XPCJSContext* cx = GetContext();
@@ -909,7 +909,7 @@ XPCWrappedNative::FlatJSObjectFinalized()
     nsWrapperCache* cache = nullptr;
     CallQueryInterface(mIdentity, &cache);
     if (cache)
-        cache->ClearWrapper();
+        cache->ClearWrapper(mFlatJSObject.unbarrieredGetPtr());
 
     mFlatJSObject = nullptr;
     mFlatJSObject.unsetFlags(FLAT_JS_OBJECT_VALID);
