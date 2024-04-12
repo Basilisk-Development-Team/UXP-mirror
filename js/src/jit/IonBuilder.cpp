@@ -7543,12 +7543,7 @@ IonBuilder::jsop_getname(PropertyName* name)
         object = current->pop();
     }
 
-    MGetNameCache* ins;
-    if (JSOp(*GetNextPc(pc)) == JSOP_TYPEOF)
-        ins = MGetNameCache::New(alloc(), object, name, MGetNameCache::NAMETYPEOF);
-    else
-        ins = MGetNameCache::New(alloc(), object, name, MGetNameCache::NAME);
-
+    MGetNameCache* ins = MGetNameCache::New(alloc(), object);
     current->add(ins);
     current->push(ins);
 

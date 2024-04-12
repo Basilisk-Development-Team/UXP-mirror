@@ -29,8 +29,7 @@ class LInstruction;
 
 #define IONCACHE_KIND_LIST(_)                                   \
     _(GetProperty)                                              \
-    _(BindName)                                                 \
-    _(Name)
+    _(BindName)
 
 // Forward declarations of Cache kinds.
 #define FORWARD_DECLARE(kind) class kind##IC;
@@ -610,62 +609,6 @@ class BindNameIC : public IonCache
 
     static JSObject*
     update(JSContext* cx, HandleScript outerScript, size_t cacheIndex, HandleObject envChain);
-};
-
-class NameIC : public IonCache
-{
-  protected:
-    // Registers live after the cache, excluding output registers. The initial
-    // value of these registers must be preserved by the cache.
-    LiveRegisterSet liveRegs_;
-
-    bool typeOf_;
-    Register environmentChain_;
-    PropertyName* name_;
-    TypedOrValueRegister output_;
-
-  public:
-    NameIC(LiveRegisterSet liveRegs, bool typeOf,
-           Register envChain, PropertyName* name,
-           TypedOrValueRegister output)
-      : liveRegs_(liveRegs),
-        typeOf_(typeOf),
-        environmentChain_(envChain),
-        name_(name),
-        output_(output)
-    {
-    }
-
-    CACHE_HEADER(Name)
-
-    Register environmentChainReg() const {
-        return environmentChain_;
-    }
-    HandlePropertyName name() const {
-        return HandlePropertyName::fromMarkedLocation(&name_);
-    }
-    TypedOrValueRegister outputReg() const {
-        return output_;
-    }
-    bool isTypeOf() const {
-        return typeOf_;
-    }
-
-    [[nodiscard]] bool attachReadSlot(JSContext* cx, HandleScript outerScript, IonScript* ion,
-                                      HandleObject envChain, HandleObject holderBase,
-                                      HandleNativeObject holder, Handle<PropertyResult> prop);
-
-    [[nodiscard]] bool attachCallGetter(JSContext* cx, HandleScript outerScript, IonScript* ion,
-                                        HandleObject envChain, HandleObject obj,
-                                        HandleObject holder, HandleShape shape,
-                                        void* returnAddr);
-
-    [[nodiscard]] bool attachTypeOfNoProperty(JSContext* cx, HandleScript outerScript,
-                                              IonScript* ion, HandleObject envChain);
-
-    [[nodiscard]] static bool
-    update(JSContext* cx, HandleScript outerScript, size_t cacheIndex, HandleObject envChain,
-           MutableHandleValue vp);
 };
 
 #undef CACHE_HEADER
