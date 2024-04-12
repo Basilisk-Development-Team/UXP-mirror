@@ -192,6 +192,8 @@ extern const char* CacheKindNames[];
     _(CallNativeSetter)                   \
     _(CallScriptedSetter)                 \
     _(CallSetArrayLength)                 \
+    _(CallProxySet)                       \
+    _(CallProxySetByValue)                \
                                           \
     /* The *Result ops load a value into the cache's result register. */ \
     _(LoadFixedSlotResult)                \
@@ -690,6 +692,18 @@ class MOZ_RAII CacheIRWriter : public JS::CustomAutoRooter
         buffer_.writeByte(uint32_t(strict));
         writeOperandId(rhs);
     }
+    void callProxySet(ObjOperandId obj, jsid id, ValOperandId rhs, bool strict) {
+        writeOpWithOperandId(CacheOp::CallProxySet, obj);
+        writeOperandId(rhs);
+        addStubField(uintptr_t(JSID_BITS(id)), StubField::Type::Id);
+        buffer_.writeByte(uint32_t(strict));
+    }
+    void callProxySetByValue(ObjOperandId obj, ValOperandId id, ValOperandId rhs, bool strict) {
+        writeOpWithOperandId(CacheOp::CallProxySetByValue, obj);
+        writeOperandId(id);
+        writeOperandId(rhs);
+        buffer_.writeByte(uint32_t(strict));
+    }
 
     void loadBooleanResult(bool val) {
         writeOp(CacheOp::LoadBooleanResult);
@@ -1054,6 +1068,15 @@ class MOZ_RAII SetPropIRGenerator : public IRGenerator
 
     bool tryAttachSetArrayLength(HandleObject obj, ObjOperandId objId, HandleId id,
                                  ValOperandId rhsId);
+
+    bool tryAttachGenericProxy(HandleObject obj, ObjOperandId objId, HandleId id,
+                               ValOperandId rhsId, bool handleDOMProxies);
+    bool tryAttachDOMProxyShadowed(HandleObject obj, ObjOperandId objId, HandleId id,
+                                   ValOperandId rhsId);
+    bool tryAttachDOMProxyUnshadowed(HandleObject obj, ObjOperandId objId, HandleId id,
+                                     ValOperandId rhsId);
+    bool tryAttachProxy(HandleObject obj, ObjOperandId objId, HandleId id, ValOperandId rhsId);
+    bool tryAttachProxyElement(HandleObject obj, ObjOperandId objId, ValOperandId rhsId);
 
     void trackAttached(const char* name);
 
