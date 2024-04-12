@@ -36,6 +36,7 @@ namespace jit {
     _(GetProp_Fallback)                          \
     _(GetProp_Generic)                           \
                                                  \
+    _(CacheIR_Regular)                           \
     _(CacheIR_Monitored)                         \
     _(CacheIR_Updated)                           \
                                                  \
