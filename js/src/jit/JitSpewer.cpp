@@ -28,6 +28,8 @@
 #include "vm/HelperThreads.h"
 #include "vm/MutexIDs.h"
 
+#include "jscompartmentinlines.h"
+
 #ifndef JIT_SPEW_DIR
 # if defined(_WIN32)
 #  define JIT_SPEW_DIR ""

@@ -156,7 +156,9 @@ extern const char* CacheKindNames[];
     _(GuardGroup)                         \
     _(GuardProto)                         \
     _(GuardClass)                         \
+    _(GuardCompartment)                   \
     _(GuardIsProxy)                       \
+    _(GuardIsCrossCompartmentWrapper)     \
     _(GuardNotDOMProxy)                   \
     _(GuardSpecificObject)                \
     _(GuardSpecificAtom)                  \
@@ -171,6 +173,7 @@ extern const char* CacheKindNames[];
     _(LoadObject)                         \
     _(LoadProto)                          \
     _(LoadEnclosingEnvironment)           \
+    _(LoadWrapperTarget)                  \
 	                                      \
 	/* See CacheIR.cpp 'DOM proxies' comment. */ \
     _(LoadDOMExpandoValue)                \
@@ -220,7 +223,8 @@ extern const char* CacheKindNames[];
     _(LoadBooleanResult)                  \
                                           \
     _(TypeMonitorResult)                  \
-    _(ReturnFromIC)
+    _(ReturnFromIC)                       \
+    _(WrapResult)
 
 enum class CacheOp {
 #define DEFINE_OP(op) op,
@@ -477,6 +481,9 @@ class MOZ_RAII CacheIRWriter : public JS::CustomAutoRooter
     void guardIsProxy(ObjOperandId obj) {
         writeOpWithOperandId(CacheOp::GuardIsProxy, obj);
     }
+    void guardIsCrossCompartmentWrapper(ObjOperandId obj) {
+        writeOpWithOperandId(CacheOp::GuardIsCrossCompartmentWrapper, obj);
+    }
     void guardNotDOMProxy(ObjOperandId obj) {
         writeOpWithOperandId(CacheOp::GuardNotDOMProxy, obj);
     }
@@ -495,6 +502,14 @@ class MOZ_RAII CacheIRWriter : public JS::CustomAutoRooter
     void guardMagicValue(ValOperandId val, JSWhyMagic magic) {
         writeOpWithOperandId(CacheOp::GuardMagicValue, val);
         buffer_.writeByte(uint32_t(magic));
+    }
+    void guardCompartment(ObjOperandId obj, JSCompartment* compartment) {
+        writeOpWithOperandId(CacheOp::GuardCompartment, obj);
+        // Add a reference to the compartment's global to keep it alive.
+        addStubField(uintptr_t(compartment->maybeGlobal()), StubField::Type::JSObject);
+        // Use RawWord, because compartments never move and it can't be GCed.
+        addStubField(uintptr_t(compartment), StubField::Type::RawWord);
+
     }
     void guardNoDetachedTypedObjects() {
         writeOp(CacheOp::GuardNoDetachedTypedObjects);
@@ -548,6 +563,13 @@ class MOZ_RAII CacheIRWriter : public JS::CustomAutoRooter
     ObjOperandId loadEnclosingEnvironment(ObjOperandId obj) {
         ObjOperandId res(nextOperandId_++);
         writeOpWithOperandId(CacheOp::LoadEnclosingEnvironment, obj);
+        writeOperandId(res);
+        return res;
+    }
+
+    ObjOperandId loadWrapperTarget(ObjOperandId obj) {
+        ObjOperandId res(nextOperandId_++);
+        writeOpWithOperandId(CacheOp::LoadWrapperTarget, obj);
         writeOperandId(res);
         return res;
     }
@@ -775,6 +797,9 @@ class MOZ_RAII CacheIRWriter : public JS::CustomAutoRooter
     void returnFromIC() {
         writeOp(CacheOp::ReturnFromIC);
     }
+    void wrapResult() {
+        writeOp(CacheOp::WrapResult);
+    }
 };
 
 class CacheIRStubInfo;
@@ -897,6 +922,7 @@ class MOZ_RAII GetPropIRGenerator : public IRGenerator
     bool tryAttachObjectLength(HandleObject obj, ObjOperandId objId, HandleId id);
     bool tryAttachModuleNamespace(HandleObject obj, ObjOperandId objId, HandleId id);
     bool tryAttachWindowProxy(HandleObject obj, ObjOperandId objId, HandleId id);
+    bool tryAttachCrossCompartmentWrapper(HandleObject obj, ObjOperandId objId, HandleId id);
     bool tryAttachFunction(HandleObject obj, ObjOperandId objId, HandleId id);
 
     bool tryAttachGenericProxy(HandleObject obj, ObjOperandId objId, HandleId id);
