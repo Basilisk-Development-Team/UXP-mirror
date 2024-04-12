@@ -792,8 +792,8 @@ DoGetElemFallback(JSContext* cx, BaselineFrame* frame, ICGetElem_Fallback* stub_
     bool isTemporarilyUnoptimizable = false;
     if (!attached && !JitOptions.disableCacheIR) {
         ICStubEngine engine = ICStubEngine::Baseline;
-        GetPropIRGenerator gen(cx, pc, CacheKind::GetElem, engine, &isTemporarilyUnoptimizable,
-                               lhs, rhs, CanAttachGetter::Yes);
+        GetPropIRGenerator gen(cx, script, pc, CacheKind::GetElem, engine,
+                               &isTemporarilyUnoptimizable, lhs, rhs, CanAttachGetter::Yes);
         if (gen.tryAttachStub()) {
             ICStub* newStub = AttachBaselineCacheIRStub(cx, gen.writerRef(), gen.cacheKind(),
                                                         engine, info.outerScript(cx), stub);
@@ -1082,7 +1082,7 @@ DoSetElemFallback(JSContext* cx, BaselineFrame* frame, ICSetElem_Fallback* stub_
     if (stub->numOptimizedStubs() < ICSetElem_Fallback::MAX_OPTIMIZED_STUBS &&
         !JitOptions.disableCacheIR)
     {
-        SetPropIRGenerator gen(cx, pc, CacheKind::SetElem, &isTemporarilyUnoptimizable,
+        SetPropIRGenerator gen(cx, script, pc, CacheKind::SetElem, &isTemporarilyUnoptimizable,
                                objv, index, rhs);
         if (gen.tryAttachStub()) {
             ICStub* newStub = AttachBaselineCacheIRStub(cx, gen.writerRef(), gen.cacheKind(),
@@ -1165,7 +1165,7 @@ DoSetElemFallback(JSContext* cx, BaselineFrame* frame, ICSetElem_Fallback* stub_
     }
 
     if (!JitOptions.disableCacheIR) {
-        SetPropIRGenerator gen(cx, pc, CacheKind::SetElem, &isTemporarilyUnoptimizable,
+        SetPropIRGenerator gen(cx, script, pc, CacheKind::SetElem, &isTemporarilyUnoptimizable,
                                objv, index, rhs);
         if (gen.tryAttachAddSlotStub(oldGroup, oldShape)) {
             ICStub* newStub = AttachBaselineCacheIRStub(cx, gen.writerRef(), gen.cacheKind(),
@@ -1177,6 +1177,8 @@ DoSetElemFallback(JSContext* cx, BaselineFrame* frame, ICSetElem_Fallback* stub_
                 newStub->toCacheIR_Updated()->updateStubId() = gen.updateStubId();
                 return true;
             }
+        } else {
+            gen.trackNotAttached();
         }
     }
 
@@ -1938,15 +1940,16 @@ DoInFallback(JSContext* cx, BaselineFrame* frame, ICIn_Fallback* stub_,
     if (stub->numOptimizedStubs() >= ICIn_Fallback::MAX_OPTIMIZED_STUBS)
         attached = true;
 
+    RootedScript script(cx, frame->script());
     RootedObject obj(cx, &objValue.toObject());
-    jsbytecode* pc = stub->icEntry()->pc(frame->script());
+    jsbytecode* pc = stub->icEntry()->pc(script);
 
     if (!attached && !JitOptions.disableCacheIR) {
         ICStubEngine engine = ICStubEngine::Baseline;
-        InIRGenerator gen(cx, pc, key, obj);
+        InIRGenerator gen(cx, script, pc, key, obj);
         if (gen.tryAttachStub()) {
             ICStub* newStub = AttachBaselineCacheIRStub(cx, gen.writerRef(), gen.cacheKind(),
-                                                        engine, frame->script(), stub);
+                                                        engine, script, stub);
             if (newStub) {
                 JitSpew(JitSpew_BaselineIC, "  Attached CacheIR stub");
                 attached = true;
@@ -2015,7 +2018,7 @@ DoGetNameFallback(JSContext* cx, BaselineFrame* frame, ICGetName_Fallback* stub_
 
     if (!attached && !JitOptions.disableCacheIR) {
         ICStubEngine engine = ICStubEngine::Baseline;
-        GetNameIRGenerator gen(cx, pc, script, envChain, name);
+        GetNameIRGenerator gen(cx, script, pc, envChain, name);
         if (gen.tryAttachStub()) {
             ICStub* newStub = AttachBaselineCacheIRStub(cx, gen.writerRef(), gen.cacheKind(),
                                                         engine, info.outerScript(cx), stub);
@@ -2247,7 +2250,7 @@ DoSetPropFallback(JSContext* cx, BaselineFrame* frame, ICSetProp_Fallback* stub_
         !JitOptions.disableCacheIR)
     {
         RootedValue idVal(cx, StringValue(name));
-        SetPropIRGenerator gen(cx, pc, CacheKind::SetProp, &isTemporarilyUnoptimizable,
+        SetPropIRGenerator gen(cx, script, pc, CacheKind::SetProp, &isTemporarilyUnoptimizable,
                                lhs, idVal, rhs);
         if (gen.tryAttachStub()) {
             ICStub* newStub = AttachBaselineCacheIRStub(cx, gen.writerRef(), gen.cacheKind(),
@@ -2316,7 +2319,7 @@ DoSetPropFallback(JSContext* cx, BaselineFrame* frame, ICSetProp_Fallback* stub_
         !JitOptions.disableCacheIR)
     {
         RootedValue idVal(cx, StringValue(name));
-        SetPropIRGenerator gen(cx, pc, CacheKind::SetProp, &isTemporarilyUnoptimizable,
+        SetPropIRGenerator gen(cx, script, pc, CacheKind::SetProp, &isTemporarilyUnoptimizable,
                                lhs, idVal, rhs);
         if (gen.tryAttachAddSlotStub(oldGroup, oldShape)) {
             ICStub* newStub = AttachBaselineCacheIRStub(cx, gen.writerRef(), gen.cacheKind(),
@@ -2327,6 +2330,8 @@ DoSetPropFallback(JSContext* cx, BaselineFrame* frame, ICSetProp_Fallback* stub_
                 newStub->toCacheIR_Updated()->updateStubGroup() = gen.updateStubGroup();
                 newStub->toCacheIR_Updated()->updateStubId() = gen.updateStubId();
             }
+        } else {
+            gen.trackNotAttached();
         }
     }
 
