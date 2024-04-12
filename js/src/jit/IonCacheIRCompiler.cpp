@@ -423,6 +423,9 @@ IonCacheIRCompiler::init()
         MOZ_CRASH("Invalid cache");
     }
 
+    if (liveRegs_)
+        liveFloatRegs_ = LiveFloatRegisterSet(liveRegs_->fpus());
+
     allocator.initAvailableRegs(available);
     allocator.initAvailableRegsAfterSpill();
     return true;
@@ -598,7 +601,7 @@ IonCacheIRCompiler::emitGuardSpecificAtom()
 
     // We have a non-atomized string with the same length. Call a helper
     // function to do the comparison.
-    LiveRegisterSet volatileRegs(RegisterSet::Volatile());
+    LiveRegisterSet volatileRegs(GeneralRegisterSet::Volatile(), liveVolatileFloatRegs());
     masm.PushRegsInMask(volatileRegs);
 
     masm.setupUnalignedABICall(scratch);
