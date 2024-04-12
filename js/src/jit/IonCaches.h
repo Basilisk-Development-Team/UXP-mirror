@@ -29,7 +29,6 @@ class LInstruction;
 
 #define IONCACHE_KIND_LIST(_)                                   \
     _(GetProperty)                                              \
-    _(SetProperty)                                              \
     _(BindName)                                                 \
     _(Name)
 
@@ -576,158 +575,6 @@ class GetPropertyIC : public IonCache
                                      HandleObject obj, HandleValue id, MutableHandleValue vp);
 };
 
-class SetPropertyIC : public IonCache
-{
-  protected:
-    // Registers live after the cache, excluding output registers. The initial
-    // value of these registers must be preserved by the cache.
-    LiveRegisterSet liveRegs_;
-
-    Register object_;
-    Register temp_;
-    Register tempToUnboxIndex_;
-    FloatRegister tempDouble_;
-    FloatRegister tempFloat32_;
-    ConstantOrRegister id_;
-    ConstantOrRegister value_;
-    bool strict_ : 1;
-    bool needsTypeBarrier_ : 1;
-    bool guardHoles_ : 1;
-
-    bool hasGenericProxyStub_ : 1;
-    bool hasDenseStub_ : 1;
-
-    void emitIdGuard(MacroAssembler& masm, jsid id, Label* fail);
-
-  public:
-    SetPropertyIC(LiveRegisterSet liveRegs, Register object, Register temp, Register tempToUnboxIndex,
-                  FloatRegister tempDouble, FloatRegister tempFloat32,
-                  const ConstantOrRegister& id, const ConstantOrRegister& value,
-                  bool strict, bool needsTypeBarrier, bool guardHoles)
-      : liveRegs_(liveRegs),
-        object_(object),
-        temp_(temp),
-        tempToUnboxIndex_(tempToUnboxIndex),
-        tempDouble_(tempDouble),
-        tempFloat32_(tempFloat32),
-        id_(id),
-        value_(value),
-        strict_(strict),
-        needsTypeBarrier_(needsTypeBarrier),
-        guardHoles_(guardHoles),
-        hasGenericProxyStub_(false),
-        hasDenseStub_(false)
-    {
-    }
-
-    CACHE_HEADER(SetProperty)
-
-    void reset(ReprotectCode reprotect);
-
-    Register object() const {
-        return object_;
-    }
-    Register temp() const {
-        return temp_;
-    }
-    Register tempToUnboxIndex() const {
-        return tempToUnboxIndex_;
-    }
-    FloatRegister tempDouble() const {
-        return tempDouble_;
-    }
-    FloatRegister tempFloat32() const {
-        return tempFloat32_;
-    }
-    ConstantOrRegister id() const {
-        return id_;
-    }
-    ConstantOrRegister value() const {
-        return value_;
-    }
-    bool strict() const {
-        return strict_;
-    }
-    bool needsTypeBarrier() const {
-        return needsTypeBarrier_;
-    }
-    bool guardHoles() const {
-        return guardHoles_;
-    }
-    bool hasGenericProxyStub() const {
-        return hasGenericProxyStub_;
-    }
-
-    bool hasDenseStub() const {
-        return hasDenseStub_;
-    }
-    void setHasDenseStub() {
-        MOZ_ASSERT(!hasDenseStub());
-        hasDenseStub_ = true;
-    }
-
-    enum NativeSetPropCacheability {
-        CanAttachNone,
-        CanAttachSetSlot,
-        MaybeCanAttachAddSlot,
-        CanAttachCallSetter
-    };
-
-    [[nodiscard]] bool attachSetSlot(JSContext* cx, HandleScript outerScript, IonScript* ion,
-                                     HandleObject obj, HandleShape shape, bool checkTypeset);
-
-    [[nodiscard]] bool attachCallSetter(JSContext* cx, HandleScript outerScript, IonScript* ion,
-                                        HandleObject obj, HandleObject holder, HandleShape shape,
-                                        void* returnAddr);
-
-    [[nodiscard]] bool attachAddSlot(JSContext* cx, HandleScript outerScript, IonScript* ion,
-                                     HandleObject obj, HandleId id, HandleShape oldShape,
-                                     HandleObjectGroup oldGroup, bool checkTypeset);
-
-    [[nodiscard]] bool attachGenericProxy(JSContext* cx, HandleScript outerScript, IonScript* ion,
-                                          HandleId id, void* returnAddr);
-
-    [[nodiscard]] bool attachDOMProxyShadowed(JSContext* cx, HandleScript outerScript,
-                                              IonScript* ion, HandleObject obj, HandleId id,
-                                              void* returnAddr);
-
-    [[nodiscard]] bool attachDOMProxyUnshadowed(JSContext* cx, HandleScript outerScript,
-                                                IonScript* ion, HandleObject obj, HandleId id,
-                                                void* returnAddr);
-
-    [[nodiscard]] static bool update(JSContext* cx, HandleScript outerScript, size_t cacheIndex,
-                                     HandleObject obj, HandleValue idval, HandleValue value);
-
-    [[nodiscard]] bool tryAttachNative(JSContext* cx, HandleScript outerScript, IonScript* ion,
-                                       HandleObject obj, HandleId id, bool* emitted,
-                                       bool* tryNativeAddSlot);
-
-    [[nodiscard]] bool tryAttachUnboxed(JSContext* cx, HandleScript outerScript, IonScript* ion,
-                                        HandleObject obj, HandleId id, bool* emitted);
-
-    [[nodiscard]] bool tryAttachUnboxedExpando(JSContext* cx, HandleScript outerScript,
-                                               IonScript* ion, HandleObject obj, HandleId id,
-                                               bool* emitted);
-
-    [[nodiscard]] bool tryAttachProxy(JSContext* cx, HandleScript outerScript, IonScript* ion,
-                                      HandleObject obj, HandleId id, bool* emitted);
-
-    [[nodiscard]] bool tryAttachStub(JSContext* cx, HandleScript outerScript, IonScript* ion,
-                                     HandleObject obj, HandleValue idval, HandleValue value,
-                                     MutableHandleId id, bool* emitted, bool* tryNativeAddSlot);
-
-    [[nodiscard]] bool tryAttachAddSlot(JSContext* cx, HandleScript outerScript, IonScript* ion,
-                                        HandleObject obj, HandleId id, HandleObjectGroup oldGroup,
-                                        HandleShape oldShape, bool tryNativeAddSlot, bool* emitted);
-
-    [[nodiscard]] bool tryAttachDenseElement(JSContext* cx, HandleScript outerScript, IonScript* ion,
-                                             HandleObject obj, const Value& idval, bool* emitted);
-
-    [[nodiscard]] bool tryAttachTypedArrayElement(JSContext* cx, HandleScript outerScript,
-                                                  IonScript* ion, HandleObject obj,
-                                                  HandleValue idval, HandleValue val, bool* emitted);
-};
-
 class BindNameIC : public IonCache
 {
   protected:
@@ -853,6 +700,9 @@ bool ValueToNameOrSymbolId(JSContext* cx, HandleValue idval, MutableHandleId id,
                            bool* nameOrSymbol);
 
 void* GetReturnAddressToIonCode(JSContext* cx);
+
+void EmitIonStoreDenseElement(MacroAssembler& masm, const ConstantOrRegister& value,
+                              Register elements, BaseObjectElementIndex target);
 
 } // namespace jit
 } // namespace js

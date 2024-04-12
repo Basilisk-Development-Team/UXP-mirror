@@ -1052,6 +1052,15 @@ CanOptimizeDenseOrUnboxedArraySetElem(JSObject* obj, uint32_t index,
     return true;
 }
 
+static void
+SetUpdateStubData(ICCacheIR_Updated* stub, const PropertyTypeCheckInfo* info)
+{
+    if (info->isSet()) {
+        stub->updateStubGroup() = info->group();
+        stub->updateStubId() = info->id();
+    }
+}
+
 static bool
 DoSetElemFallback(JSContext* cx, BaselineFrame* frame, ICSetElem_Fallback* stub_, Value* stack,
                   HandleValue objv, HandleValue index, HandleValue rhs)
@@ -1091,10 +1100,7 @@ DoSetElemFallback(JSContext* cx, BaselineFrame* frame, ICSetElem_Fallback* stub_
                 JitSpew(JitSpew_BaselineIC, "  Attached CacheIR stub");
                 attached = true;
 
-                if (gen.needUpdateStub()) {
-                    newStub->toCacheIR_Updated()->updateStubGroup() = gen.updateStubGroup();
-                    newStub->toCacheIR_Updated()->updateStubId() = gen.updateStubId();
-                }
+                SetUpdateStubData(newStub->toCacheIR_Updated(), gen.typeCheckInfo());
 
                 if (gen.shouldNotePreliminaryObjectStub())
                     newStub->toCacheIR_Updated()->notePreliminaryObject();
@@ -1173,8 +1179,7 @@ DoSetElemFallback(JSContext* cx, BaselineFrame* frame, ICSetElem_Fallback* stub_
             if (newStub) {
                 JitSpew(JitSpew_BaselineIC, "  Attached CacheIR stub");
                 attached = true;
-                newStub->toCacheIR_Updated()->updateStubGroup() = gen.updateStubGroup();
-                newStub->toCacheIR_Updated()->updateStubId() = gen.updateStubId();
+                SetUpdateStubData(newStub->toCacheIR_Updated(), gen.typeCheckInfo());
                 return true;
             }
         } else {
@@ -1349,8 +1354,9 @@ BaselineScript::noteArrayWriteHole(uint32_t pcOffset)
 // SetElem_DenseOrUnboxedArray
 //
 
+template <typename T>
 void
-EmitUnboxedPreBarrierForBaseline(MacroAssembler &masm, const BaseIndex& address, JSValueType type)
+EmitICUnboxedPreBarrier(MacroAssembler& masm, const T& address, JSValueType type)
 {
     if (type == JSVAL_TYPE_OBJECT)
         EmitPreBarrier(masm, address, MIRType::Object);
@@ -1359,6 +1365,12 @@ EmitUnboxedPreBarrierForBaseline(MacroAssembler &masm, const BaseIndex& address,
     else
         MOZ_ASSERT(!UnboxedTypeNeedsPreBarrier(type));
 }
+
+template void
+EmitICUnboxedPreBarrier(MacroAssembler& masm, const Address& address, JSValueType type);
+
+template void
+EmitICUnboxedPreBarrier(MacroAssembler& masm, const BaseIndex& address, JSValueType type);
 
 bool
 ICSetElem_DenseOrUnboxedArray::Compiler::generateStubCode(MacroAssembler& masm)
@@ -1493,7 +1505,7 @@ ICSetElem_DenseOrUnboxedArray::Compiler::generateStubCode(MacroAssembler& masm)
         // Compute the address being written to.
         BaseIndex address(scratchReg, key, ScaleFromElemWidth(UnboxedTypeSize(unboxedType_)));
 
-        EmitUnboxedPreBarrierForBaseline(masm, address, unboxedType_);
+        EmitICUnboxedPreBarrier(masm, address, unboxedType_);
 
         Address valueAddr(masm.getStackPointer(), ICStackValueOffset + sizeof(Value));
         masm.Push(R0);
@@ -1756,9 +1768,8 @@ ICSetElemDenseOrUnboxedArrayAddCompiler::generateStubCode(MacroAssembler& masm)
 
 template <typename S, typename T>
 void
-BaselineStoreToTypedArray(JSContext* cx, MacroAssembler& masm, Scalar::Type type, const S& value,
-                          const T& dest, Register scratch, Label* failure,
-                          Label* failureModifiedScratch)
+StoreToTypedArray(JSContext* cx, MacroAssembler& masm, Scalar::Type type, const S& value,
+                  const T& dest, Register scratch, Label* failure, Label* failureModifiedScratch)
 {
     Label done;
 
@@ -1822,12 +1833,12 @@ BaselineStoreToTypedArray(JSContext* cx, MacroAssembler& masm, Scalar::Type type
 }
 
 template void
-BaselineStoreToTypedArray(JSContext* cx, MacroAssembler& masm, Scalar::Type type,
+StoreToTypedArray(JSContext* cx, MacroAssembler& masm, Scalar::Type type,
                           const ValueOperand& value, const Address& dest, Register scratch,
                           Label* failure, Label* failureModifiedScratch);
 
 template void
-BaselineStoreToTypedArray(JSContext* cx, MacroAssembler& masm, Scalar::Type type,
+StoreToTypedArray(JSContext* cx, MacroAssembler& masm, Scalar::Type type,
                           const Address& value, const BaseIndex& dest, Register scratch,
                           Label* failure, Label* failureModifiedScratch);
 
@@ -1893,8 +1904,8 @@ ICSetElem_TypedArray::Compiler::generateStubCode(MacroAssembler& masm)
     Register secondScratch = regs.takeAny();
 
     Label failureModifiedSecondScratch;
-    BaselineStoreToTypedArray(cx, masm, type_, value, dest,
-                              secondScratch, &failure, &failureModifiedSecondScratch);
+    StoreToTypedArray(cx, masm, type_, value, dest,
+                      secondScratch, &failure, &failureModifiedSecondScratch);
     EmitReturnFromIC(masm);
 
     if (failureModifiedSecondScratch.used()) {
@@ -2259,10 +2270,7 @@ DoSetPropFallback(JSContext* cx, BaselineFrame* frame, ICSetProp_Fallback* stub_
                 JitSpew(JitSpew_BaselineIC, "  Attached CacheIR stub");
                 attached = true;
 
-                if (gen.needUpdateStub()) {
-                    newStub->toCacheIR_Updated()->updateStubGroup() = gen.updateStubGroup();
-                    newStub->toCacheIR_Updated()->updateStubId() = gen.updateStubId();
-                }
+                SetUpdateStubData(newStub->toCacheIR_Updated(), gen.typeCheckInfo());
 
                 if (gen.shouldNotePreliminaryObjectStub())
                     newStub->toCacheIR_Updated()->notePreliminaryObject();
@@ -2327,8 +2335,7 @@ DoSetPropFallback(JSContext* cx, BaselineFrame* frame, ICSetProp_Fallback* stub_
             if (newStub) {
                 JitSpew(JitSpew_BaselineIC, "  Attached CacheIR stub");
                 attached = true;
-                newStub->toCacheIR_Updated()->updateStubGroup() = gen.updateStubGroup();
-                newStub->toCacheIR_Updated()->updateStubId() = gen.updateStubId();
+                SetUpdateStubData(newStub->toCacheIR_Updated(), gen.typeCheckInfo());
             }
         } else {
             gen.trackNotAttached();

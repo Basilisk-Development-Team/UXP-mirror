@@ -947,7 +947,7 @@ BaselineCacheIRCompiler::emitStoreUnboxedProperty()
 
     // Note that the storeUnboxedProperty call here is infallible, as the
     // IR emitter is responsible for guarding on |val|'s type.
-    EmitUnboxedPreBarrierForBaseline(masm, fieldAddr, fieldType);
+    EmitICUnboxedPreBarrier(masm, fieldAddr, fieldType);
     masm.storeUnboxedProperty(fieldAddr, fieldType,
                               ConstantOrRegister(TypedOrValueRegister(val)),
                               /* failure = */ nullptr);
@@ -991,31 +991,7 @@ BaselineCacheIRCompiler::emitStoreTypedObjectReferenceProperty()
     // scratch. It won't be used after this.
     Register scratch2 = ICStubReg;
 
-    switch (type) {
-      case ReferenceTypeDescr::TYPE_ANY:
-        EmitPreBarrier(masm, dest, MIRType::Value);
-        masm.storeValue(val, dest);
-        break;
-
-      case ReferenceTypeDescr::TYPE_OBJECT: {
-        EmitPreBarrier(masm, dest, MIRType::Object);
-        Label isNull, done;
-        masm.branchTestObject(Assembler::NotEqual, val, &isNull);
-        masm.unboxObject(val, scratch2);
-        masm.storePtr(scratch2, dest);
-        masm.jump(&done);
-        masm.bind(&isNull);
-        masm.storePtr(ImmWord(0), dest);
-        masm.bind(&done);
-        break;
-      }
-
-      case ReferenceTypeDescr::TYPE_STRING:
-        EmitPreBarrier(masm, dest, MIRType::String);
-        masm.unboxString(val, scratch2);
-        masm.storePtr(scratch2, dest);
-        break;
-    }
+    emitStoreTypedObjectReferenceProp(val, type, dest, scratch2);
 
     if (type != ReferenceTypeDescr::TYPE_STRING)
         BaselineEmitPostWriteBarrierSlot(masm, obj, val, scratch1, LiveGeneralRegisterSet(), cx_);
@@ -1043,8 +1019,8 @@ BaselineCacheIRCompiler::emitStoreTypedObjectScalarProperty()
     masm.addPtr(offsetAddr, scratch1);
     Address dest(scratch1, 0);
 
-    BaselineStoreToTypedArray(cx_, masm, type, val, dest, scratch2,
-                              failure->label(), failure->label());
+    StoreToTypedArray(cx_, masm, type, val, dest, scratch2,
+                      failure->label(), failure->label());
 
     return true;
 }

@@ -41,9 +41,10 @@ IonIC::scratchRegisterForEntryJump()
         TypedOrValueRegister output = asGetPropertyIC()->output();
         return output.hasValue() ? output.valueReg().scratchReg() : output.typedReg().gpr();
       }
-      case CacheKind::GetName:
       case CacheKind::SetProp:
       case CacheKind::SetElem:
+       return asSetPropertyIC()->temp();
+      case CacheKind::GetName:
       case CacheKind::In:
         MOZ_CRASH("Baseline-specific for now");
     }
@@ -121,7 +122,8 @@ IonGetPropertyIC::update(JSContext* cx, HandleScript outerScript, IonGetProperty
 			 HandleValue val, HandleValue idVal, MutableHandleValue res)
 {
     // Override the return value if we are invalidated (bug 728188).
-    AutoDetectInvalidation adi(cx, res, outerScript->ionScript());
+    IonScript* ionScript = outerScript->ionScript();
+    AutoDetectInvalidation adi(cx, res, ionScript);
 
     // If the IC is idempotent, we will redo the op in the interpreter.
     if (ic->idempotent())
@@ -143,8 +145,7 @@ IonGetPropertyIC::update(JSContext* cx, HandleScript outerScript, IonGetProperty
                                    &isTemporarilyUnoptimizable,
                                    val, idVal, canAttachGetter);
             if (ic->idempotent() ? gen.tryAttachIdempotentStub() : gen.tryAttachStub()) {
-                attached = ic->attachCacheIRStub(cx, gen.writerRef(), gen.cacheKind(),
-                                                 outerScript);
+                attached = ic->attachCacheIRStub(cx, gen.writerRef(), gen.cacheKind(), ionScript);
             }
         }
         ic->maybeDisable(cx->zone(), attached);
@@ -189,6 +190,74 @@ IonGetPropertyIC::update(JSContext* cx, HandleScript outerScript, IonGetProperty
 
     return true;
 
+}
+
+/* static */ bool
+IonSetPropertyIC::update(JSContext* cx, HandleScript outerScript, IonSetPropertyIC* ic,
+			 HandleObject obj, HandleValue idVal, HandleValue rhs)
+{
+    RootedShape oldShape(cx);
+    RootedObjectGroup oldGroup(cx);
+    IonScript* ionScript = outerScript->ionScript();
+
+    bool attached = false;
+    if (!JitOptions.disableCacheIR && ic->canAttachStub()) {
+        oldShape = obj->maybeShape();
+        oldGroup = JSObject::getGroup(cx, obj);
+        if (!oldGroup)
+            return false;
+        if (obj->is<UnboxedPlainObject>()) {
+            MOZ_ASSERT(!oldShape);
+            if (UnboxedExpandoObject* expando = obj->as<UnboxedPlainObject>().maybeExpando())
+                oldShape = expando->lastProperty();
+        }
+
+        RootedValue objv(cx, ObjectValue(*obj));
+        RootedScript script(cx, ic->script());
+        jsbytecode* pc = ic->pc();
+        bool isTemporarilyUnoptimizable;
+        SetPropIRGenerator gen(cx, script, pc, ic->kind(), &isTemporarilyUnoptimizable,
+                               objv, idVal, rhs, ic->needsTypeBarrier(), ic->guardHoles());
+        if (gen.tryAttachStub()) {
+            attached = ic->attachCacheIRStub(cx, gen.writerRef(), gen.cacheKind(),
+                                             ionScript, gen.typeCheckInfo());
+        }
+    }
+
+    if (ic->kind() == CacheKind::SetElem) {
+        if (!SetObjectElement(cx, obj, idVal, rhs, ic->strict()))
+            return false;
+    } else {
+        MOZ_ASSERT(ic->kind() == CacheKind::SetProp);
+
+        jsbytecode* pc = ic->pc();
+        if (*pc == JSOP_INITGLEXICAL) {
+            RootedScript script(cx, ic->script());
+            MOZ_ASSERT(!script->hasNonSyntacticScope());
+            InitGlobalLexicalOperation(cx, &cx->global()->lexicalEnvironment(), script, pc, rhs);
+        } else {
+            RootedPropertyName name(cx, idVal.toString()->asAtom().asPropertyName());
+            if (!SetProperty(cx, obj, name, rhs, ic->strict(), pc))
+                return false;
+        }
+    }
+
+    if (!attached && !JitOptions.disableCacheIR && ic->canAttachStub()) {
+        RootedValue objv(cx, ObjectValue(*obj));
+        RootedScript script(cx, ic->script());
+        jsbytecode* pc = ic->pc();
+        bool isTemporarilyUnoptimizable;
+        SetPropIRGenerator gen(cx, script, pc, ic->kind(), &isTemporarilyUnoptimizable,
+                               objv, idVal, rhs, ic->needsTypeBarrier(), ic->guardHoles());
+        if (gen.tryAttachAddSlotStub(oldGroup, oldShape)) {
+            attached = ic->attachCacheIRStub(cx, gen.writerRef(), gen.cacheKind(),
+                                             ionScript, gen.typeCheckInfo());
+        } else {
+            gen.trackNotAttached();
+        }
+    }
+
+    return true;
 }
 
 uint8_t*
