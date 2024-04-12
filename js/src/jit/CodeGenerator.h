@@ -419,7 +419,6 @@ class CodeGenerator final : public CodeGeneratorSpecific
     void visitSetPropertyCache(LSetPropertyCache* ins);
     void visitGetNameCache(LGetNameCache* ins);
 
-    void visitGetPropertyIC(OutOfLineUpdateCache* ool, DataPtr<GetPropertyIC>& ic);
     void visitBindNameIC(OutOfLineUpdateCache* ool, DataPtr<BindNameIC>& ic);
 
     void visitAssertRangeI(LAssertRangeI* ins);
