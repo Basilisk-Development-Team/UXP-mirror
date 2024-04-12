@@ -1913,17 +1913,17 @@ IsCacheableDOMProxy(JSObject* obj)
 
 struct IonOsrTempData;
 
-void EmitUnboxedPreBarrierForBaseline(MacroAssembler &masm, const BaseIndex& address,
-                                      JSValueType type);
+template <typename T>
+void EmitICUnboxedPreBarrier(MacroAssembler &masm, const T& address, JSValueType type);
 
 // Write an arbitrary value to a typed array or typed object address at dest.
 // If the value could not be converted to the appropriate format, jump to
 // failure or failureModifiedScratch.
 template <typename S, typename T>
 void
-BaselineStoreToTypedArray(JSContext* cx, MacroAssembler& masm, Scalar::Type type, const S& value,
-                          const T& dest, Register scratch, Label* failure,
-                          Label* failureModifiedScratch);
+StoreToTypedArray(JSContext* cx, MacroAssembler& masm, Scalar::Type type, const S& value,
+                  const T& dest, Register scratch, Label* failure,
+                  Label* failureModifiedScratch);
 
 } // namespace jit
 } // namespace js
