@@ -455,7 +455,7 @@ class MDefinition : public MNode
     }
 
   protected:
-    virtual void setBlock(MBasicBlock* block) {
+    void setBlock(MBasicBlock* block) {
         block_ = block;
     }
 
@@ -9591,18 +9591,6 @@ class InlinePropertyTable : public TempObject
     bool appendRoots(MRootList& roots) const;
 };
 
-class CacheLocationList : public InlineConcatList<CacheLocationList>
-{
-  public:
-    CacheLocationList()
-      : pc(nullptr),
-        script(nullptr)
-    { }
-
-    jsbytecode* pc;
-    JSScript* script;
-};
-
 class MGetPropertyCache
   : public MBinaryInstruction,
     public MixPolicy<BoxExceptPolicy<0, MIRType::Object>, CacheIdPolicy<1>>::Data
@@ -9610,15 +9598,12 @@ class MGetPropertyCache
     bool idempotent_ : 1;
     bool monitoredResult_ : 1;
 
-    CacheLocationList location_;
-
     InlinePropertyTable* inlinePropertyTable_;
 
     MGetPropertyCache(MDefinition* obj, MDefinition* id, bool monitoredResult)
       : MBinaryInstruction(obj, id),
         idempotent_(false),
         monitoredResult_(monitoredResult),
-        location_(),
         inlinePropertyTable_(nullptr)
     {
         setResultType(MIRType::Value);
@@ -9658,9 +9643,6 @@ class MGetPropertyCache
     bool monitoredResult() const {
         return monitoredResult_;
     }
-    CacheLocationList& location() {
-        return location_;
-    }
 
     bool congruentTo(const MDefinition* ins) const override {
         if (!idempotent_)
@@ -9678,9 +9660,6 @@ class MGetPropertyCache
         }
         return AliasSet::Store(AliasSet::Any);
     }
-
-    void setBlock(MBasicBlock* block) override;
-    [[nodiscard]] bool updateForReplacement(MDefinition* ins) override;
 
     bool allowDoubleResult() const;
 
