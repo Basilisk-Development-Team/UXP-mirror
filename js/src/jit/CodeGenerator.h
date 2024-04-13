@@ -454,10 +454,10 @@ class CodeGenerator final : public CodeGeneratorSpecific
     }
 
   private:
-    void addGetPropertyCache(LInstruction* ins, LiveRegisterSet liveRegs,
-                             TypedOrValueRegister value, const ConstantOrRegister& id,
-                             TypedOrValueRegister output, Register maybeTemp, bool monitoredResult,
-                             bool allowDoubleResult, jsbytecode* profilerLeavePc);
+    void addGetPropertyCache(LInstruction* ins, LiveRegisterSet liveRegs, Register objReg,
+                             const ConstantOrRegister& id, TypedOrValueRegister output,
+                             Register maybeTemp, bool monitoredResult, bool allowDoubleResult,
+                             jsbytecode* profilerLeavePc);
     void addSetPropertyCache(LInstruction* ins, LiveRegisterSet liveRegs, Register objReg,
                              Register temp, FloatRegister tempDouble,
                              FloatRegister tempF32, const ConstantOrRegister& id,

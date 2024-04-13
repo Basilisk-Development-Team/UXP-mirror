@@ -3641,8 +3641,7 @@ LIRGenerator::visitCallGetIntrinsicValue(MCallGetIntrinsicValue* ins)
 void
 LIRGenerator::visitGetPropertyCache(MGetPropertyCache* ins)
 {
-    MDefinition* value = ins->value();
-    MOZ_ASSERT(value->type() == MIRType::Object || value->type() == MIRType::Value);
+    MOZ_ASSERT(ins->object()->type() == MIRType::Object);
 
     MDefinition* id = ins->idval();
     MOZ_ASSERT(id->type() == MIRType::String ||
@@ -3669,14 +3668,14 @@ LIRGenerator::visitGetPropertyCache(MGetPropertyCache* ins)
 
     if (ins->type() == MIRType::Value) {
         LGetPropertyCacheV* lir =
-            new(alloc()) LGetPropertyCacheV(useBoxOrTyped(value),
+            new(alloc()) LGetPropertyCacheV(useRegister(ins->object()),
                                             useBoxOrTypedOrConstant(id, useConstId),
                                             maybeTemp);
         defineBox(lir, ins);
         assignSafepoint(lir, ins);
     } else {
         LGetPropertyCacheT* lir =
-            new(alloc()) LGetPropertyCacheT(useBoxOrTyped(value),
+            new(alloc()) LGetPropertyCacheT(useRegister(ins->object()),
                                             useBoxOrTypedOrConstant(id, useConstId),
                                             maybeTemp);
         define(lir, ins);

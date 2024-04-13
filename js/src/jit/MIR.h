@@ -9593,7 +9593,7 @@ class InlinePropertyTable : public TempObject
 
 class MGetPropertyCache
   : public MBinaryInstruction,
-    public MixPolicy<BoxExceptPolicy<0, MIRType::Object>, CacheIdPolicy<1>>::Data
+    public MixPolicy<ObjectPolicy<0>, CacheIdPolicy<1>>::Data
 {
     bool idempotent_ : 1;
     bool monitoredResult_ : 1;
@@ -9617,7 +9617,7 @@ class MGetPropertyCache
   public:
     INSTRUCTION_HEADER(GetPropertyCache)
     TRIVIAL_NEW_WRAPPERS
-    NAMED_OPERANDS((0, value), (1, idval))
+    NAMED_OPERANDS((0, object), (1, idval))
 
     InlinePropertyTable* initInlinePropertyTable(TempAllocator& alloc, jsbytecode* pc) {
         MOZ_ASSERT(inlinePropertyTable_ == nullptr);
