@@ -10918,6 +10918,15 @@ IonBuilder::getPropTryCommonGetter(bool* emitted, MDefinition* obj, PropertyName
                 if (!obj)
                     return false;
             }
+        } else if (inspector->megamorphicGetterSetterFunction(pc, /* isGetter = */ true,
+                                                              &commonGetter))
+        {
+            // Try to use TI to guard on this getter.
+            if (!testCommonGetterSetter(objTypes, name, /* isGetter = */ true,
+                                        commonGetter, &guard))
+            {
+                return true;
+            }
         } else {
             // The Baseline IC didn't have any information we can use.
             return true;
@@ -11480,6 +11489,15 @@ IonBuilder::setPropTryCommonSetter(bool* emitted, MDefinition* obj,
                                                     isOwnProperty);
                 if (!obj)
                     return false;
+            }
+        } else if (inspector->megamorphicGetterSetterFunction(pc, /* isGetter = */ false,
+                                                              &commonSetter))
+        {
+            // Try to use TI to guard on this setter.
+            if (!testCommonGetterSetter(objTypes, name, /* isGetter = */ false,
+                                       commonSetter, &guard))
+            {
+                return true;
             }
         } else {
             // The Baseline IC didn't have any information we can use.

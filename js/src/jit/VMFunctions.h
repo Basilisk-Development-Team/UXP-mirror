@@ -824,6 +824,20 @@ EqualStringsHelper(JSString* str1, JSString* str2);
 [[nodiscard]] bool
 CheckIsCallable(JSContext* cx, HandleValue v, CheckIsCallableKind kind);
 
+template <bool HandleMissing>
+bool
+GetNativeDataProperty(JSContext* cx, JSObject* obj, PropertyName* name, Value* vp);
+
+template <bool HandleMissing>
+bool
+GetNativeDataPropertyByValue(JSContext* cx, JSObject* obj, Value* vp);
+
+bool
+SetNativeDataProperty(JSContext* cx, JSObject* obj, PropertyName* name, Value* val);
+
+bool
+ObjectHasGetterSetter(JSContext* cx, JSObject* obj, Shape* propShape);
+
 extern const VMFunction ToNumberInfo;
 extern const VMFunction ToNumericInfo;
 

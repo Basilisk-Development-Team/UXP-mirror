@@ -50,6 +50,7 @@ namespace jit {
     _(LoadDenseElementExistsResult)       \
     _(LoadUnboxedArrayElementResult)      \
     _(LoadTypedElementResult)             \
+    _(MegamorphicLoadSlotByValueResult)   \
     _(WrapResult)
 
 // Represents a Value on the Baseline frame's expression stack. Slot 0 is the

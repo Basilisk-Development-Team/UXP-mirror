@@ -134,6 +134,8 @@ class BaselineInspector
                                             JSFunction** commonGetter, Shape** globalShape,
                                             bool* isOwnProperty, ReceiverVector& receivers,
                                             ObjectGroupVector& convertUnboxedGroups);
+    [[nodiscard]] bool megamorphicGetterSetterFunction(jsbytecode* pc, bool isGetter,
+                                                       JSFunction** getterOrSetter);
     [[nodiscard]] bool commonSetPropFunction(jsbytecode* pc, JSObject** holder, Shape** holderShape,
                                             JSFunction** commonSetter, bool* isOwnProperty,
                                             ReceiverVector& receivers,
