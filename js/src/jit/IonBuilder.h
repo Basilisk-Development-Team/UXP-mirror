@@ -252,8 +252,10 @@ class IonBuilder
                                                          size_t fieldIndex);
     [[nodiscard]] bool getPropTryInnerize(bool* emitted, MDefinition* obj, PropertyName* name,
                                          TemporaryTypeSet* types);
-    [[nodiscard]] bool getPropAddCache(MDefinition* obj, PropertyName* name,
+    [[nodiscard]] bool getPropTryCache(bool* emitted, MDefinition* obj, PropertyName* name,
                                       BarrierKind barrier, TemporaryTypeSet* types);
+    [[nodiscard]] bool getPropTrySharedStub(bool* emitted, MDefinition* obj,
+                                           TemporaryTypeSet* types);
 
     // jsop_setprop() helpers.
     [[nodiscard]] bool setPropTryCommonSetter(bool* emitted, MDefinition* obj,

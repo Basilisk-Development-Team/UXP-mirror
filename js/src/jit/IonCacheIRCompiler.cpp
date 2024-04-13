@@ -380,7 +380,7 @@ IonCacheIRCompiler::init()
 
         MOZ_ASSERT(numInputs == 1 || numInputs == 2);
 
-        allocator.initInputLocation(0, ic->value());
+        allocator.initInputLocation(0, ic->object(), JSVAL_TYPE_OBJECT);
         if (numInputs > 1)
             allocator.initInputLocation(1, ic->id());
     break;

@@ -220,7 +220,7 @@ CodeGenerator::visitOutOfLineCache(OutOfLineUpdateCache* ool)
 }
 
 
-typedef bool (*IonGetPropertyICFn)(JSContext*, HandleScript, IonGetPropertyIC*, HandleValue, HandleValue,
+typedef bool (*IonGetPropertyICFn)(JSContext*, HandleScript, IonGetPropertyIC*, HandleObject, HandleValue,
                                    MutableHandleValue);
 static const VMFunction IonGetPropertyICInfo =
     FunctionInfo<IonGetPropertyICFn>(IonGetPropertyIC::update, "IonGetPropertyIC::update");
@@ -255,7 +255,7 @@ CodeGenerator::visitOutOfLineICFallback(OutOfLineICFallback* ool)
         saveLive(lir);
 
         pushArg(getPropIC->id());
-        pushArg(getPropIC->value());
+        pushArg(getPropIC->object());
         icInfo_[cacheInfoIndex].icOffsetForPush = pushArgWithPatch(ImmWord(-1));
         pushArg(ImmGCPtr(gen->info().script()));
 
@@ -10161,11 +10161,10 @@ CodeGenerator::visitGetNameCache(LGetNameCache* ins)
 }
 
 void
-CodeGenerator::addGetPropertyCache(LInstruction* ins, LiveRegisterSet liveRegs,
-                                   TypedOrValueRegister value, const ConstantOrRegister& id,
-                                   TypedOrValueRegister output, Register maybeTemp,
-                                   bool monitoredResult, bool allowDoubleResult,
-                                   jsbytecode* profilerLeavePc)
+CodeGenerator::addGetPropertyCache(LInstruction* ins, LiveRegisterSet liveRegs, Register objReg,
+                                   const ConstantOrRegister& id, TypedOrValueRegister output,
+                                   Register maybeTemp, bool monitoredResult,
+                                   bool allowDoubleResult, jsbytecode* profilerLeavePc)
 {
 	CacheKind kind = CacheKind::GetElem;
     if (id.constant() && id.value().isString()) {
@@ -10174,7 +10173,7 @@ CodeGenerator::addGetPropertyCache(LInstruction* ins, LiveRegisterSet liveRegs,
         if (idString->isAtom() && !idString->asAtom().isIndex(&dummy))
             kind = CacheKind::GetProp;
     }
-    IonGetPropertyIC cache(kind, liveRegs, value, id, output, maybeTemp, monitoredResult,
+    IonGetPropertyIC cache(kind, liveRegs, objReg, id, output, maybeTemp, monitoredResult,
                            allowDoubleResult);
     addIC(ins, allocateIC(cache));
 }
@@ -10216,15 +10215,14 @@ void
 CodeGenerator::visitGetPropertyCacheV(LGetPropertyCacheV* ins)
 {
     LiveRegisterSet liveRegs = ins->safepoint()->liveRegs();
-    TypedOrValueRegister value =
-        toConstantOrRegister(ins, LGetPropertyCacheV::Value, ins->mir()->value()->type()).reg();
+    Register objReg = ToRegister(ins->getOperand(0));
     ConstantOrRegister id = toConstantOrRegister(ins, LGetPropertyCacheV::Id, ins->mir()->idval()->type());
     bool monitoredResult = ins->mir()->monitoredResult();
     TypedOrValueRegister output = TypedOrValueRegister(GetValueOutput(ins));
 
     Register maybeTemp = ins->temp()->isBogusTemp() ? InvalidReg : ToRegister(ins->temp());
 
-    addGetPropertyCache(ins, liveRegs, value, id, output, maybeTemp, monitoredResult,
+    addGetPropertyCache(ins, liveRegs, objReg, id, output, maybeTemp, monitoredResult,
                         ins->mir()->allowDoubleResult(), ins->mir()->profilerLeavePc());
 }
 
@@ -10232,15 +10230,14 @@ void
 CodeGenerator::visitGetPropertyCacheT(LGetPropertyCacheT* ins)
 {
     LiveRegisterSet liveRegs = ins->safepoint()->liveRegs();
-    TypedOrValueRegister value =
-        toConstantOrRegister(ins, LGetPropertyCacheV::Value, ins->mir()->value()->type()).reg();
+    Register objReg = ToRegister(ins->getOperand(0));
     ConstantOrRegister id = toConstantOrRegister(ins, LGetPropertyCacheT::Id, ins->mir()->idval()->type());
     bool monitoredResult = ins->mir()->monitoredResult();
     TypedOrValueRegister output(ins->mir()->type(), ToAnyRegister(ins->getDef(0)));
 
     Register maybeTemp = ins->temp()->isBogusTemp() ? InvalidReg : ToRegister(ins->temp());
 
-    addGetPropertyCache(ins, liveRegs, value, id, output, maybeTemp, monitoredResult,
+    addGetPropertyCache(ins, liveRegs, objReg, id, output, maybeTemp, monitoredResult,
                         ins->mir()->allowDoubleResult(), ins->mir()->profilerLeavePc());
 }
 
