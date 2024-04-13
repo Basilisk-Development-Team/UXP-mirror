@@ -1216,6 +1216,9 @@ class MOZ_RAII SetPropIRGenerator : public IRGenerator
     const PropertyTypeCheckInfo* typeCheckInfo() const {
         return &typeCheckInfo_;
     }
+    bool attachedTypedArrayOOBStub() const {
+        return attachedTypedArrayOOBStub_;
+    }
 };
 
 // InIRGenerator generates CacheIR for a In IC.
@@ -1239,10 +1242,6 @@ class MOZ_RAII InIRGenerator : public IRGenerator
                   HandleObject obj);
 
     bool tryAttachStub();
-
-    bool attachedTypedArrayOOBStub() const {
-        return attachedTypedArrayOOBStub_;
-    }
 };
 
 } // namespace jit

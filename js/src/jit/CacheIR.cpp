@@ -675,7 +675,7 @@ GetPropIRGenerator::tryAttachCrossCompartmentWrapper(HandleObject obj, ObjOperan
     RootedShape shape(cx_);
     RootedNativeObject holder(cx_);
     NativeGetPropCacheability canCache =
-        CanAttachNativeGetProp(cx_, unwrapped, id, &holder, &shape, pc_, canAttachGetter_,
+        CanAttachNativeGetProp(cx_, unwrapped, id, &holder, &shape, pc_, engine, canAttachGetter_,
                                isTemporarilyUnoptimizable_);
     if (canCache != CanAttachReadSlot)
         return false;
@@ -2023,8 +2023,8 @@ SetPropIRGenerator::SetPropIRGenerator(JSContext* cx, HandleScript script, jsbyt
     isTemporarilyUnoptimizable_(isTemporarilyUnoptimizable),
     typeCheckInfo_(cx, needsTypeBarrier),
     preliminaryObjectAction_(PreliminaryObjectAction::None),
-    maybeHasExtraIndexedProps_(maybeHasExtraIndexedProps)
     attachedTypedArrayOOBStub_(false),
+    maybeHasExtraIndexedProps_(maybeHasExtraIndexedProps)
 {}
 
 bool
@@ -2990,5 +2990,3 @@ SetPropIRGenerator::tryAttachAddSlotStub(HandleObjectGroup oldGroup, HandleShape
     typeCheckInfo_.set(oldGroup, id);
     return true;
 }
-
-
