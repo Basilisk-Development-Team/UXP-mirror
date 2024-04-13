@@ -1505,7 +1505,7 @@ ICSetElem_DenseOrUnboxedArray::Compiler::generateStubCode(MacroAssembler& masm)
         // Compute the address being written to.
         BaseIndex address(scratchReg, key, ScaleFromElemWidth(UnboxedTypeSize(unboxedType_)));
 
-        EmitUnboxedPreBarrierForBaseline(masm, address, unboxedType_);
+        EmitICUnboxedPreBarrier(masm, address, unboxedType_);
 
         Address valueAddr(masm.getStackPointer(), ICStackValueOffset + sizeof(Value));
         masm.Push(R0);
@@ -1904,8 +1904,8 @@ ICSetElem_TypedArray::Compiler::generateStubCode(MacroAssembler& masm)
     Register secondScratch = regs.takeAny();
 
     Label failureModifiedSecondScratch;
-    BaselineStoreToTypedArray(cx, masm, type_, value, dest,
-                              secondScratch, &failure, &failureModifiedSecondScratch);
+    StoreToTypedArray(cx, masm, type_, value, dest,
+                      secondScratch, &failure, &failureModifiedSecondScratch);
     EmitReturnFromIC(masm);
 
     if (failureModifiedSecondScratch.used()) {

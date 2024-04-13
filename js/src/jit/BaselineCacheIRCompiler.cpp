@@ -1019,7 +1019,8 @@ BaselineCacheIRCompiler::emitStoreTypedObjectScalarProperty()
     masm.addPtr(offsetAddr, scratch1);
     Address dest(scratch1, 0);
 
-    StoreToTypedArray(cx_, masm, type, val, dest, scratch2, failure->label());
+    StoreToTypedArray(cx_, masm, type, val, dest, scratch2,
+                      failure->label(), failure->label());
 
     return true;
 }
