@@ -780,17 +780,16 @@ class IonBuilder
                                      MBasicBlock* bottom);
     MDefinition* specializeInlinedReturn(MDefinition* rdef, MBasicBlock* exit);
 
-    [[nodiscard]] bool objectsHaveCommonPrototype(TemporaryTypeSet* types, PropertyName* name,
-                                                 bool isGetter, JSObject* foundProto,
-                                                 bool* guardGlobal);
+    [[nodiscard]] NativeObject* commonPrototypeWithGetterSetter(TemporaryTypeSet* types, PropertyName* name,
+                                                  bool isGetter, JSFunction* getterOrSetter,
+                                                  bool* guardGlobal);
     void freezePropertiesForCommonPrototype(TemporaryTypeSet* types, PropertyName* name,
                                             JSObject* foundProto, bool allowEmptyTypesForGlobal = false);
     /*
      * Callers must pass a non-null globalGuard if they pass a non-null globalShape.
      */
     [[nodiscard]] bool testCommonGetterSetter(TemporaryTypeSet* types, PropertyName* name,
-                                             bool isGetter, JSObject* foundProto,
-                                             Shape* lastProperty, JSFunction* getterOrSetter,
+                                             bool isGetter, JSFunction* getterOrSetter,
                                              MDefinition** guard, Shape* globalShape = nullptr,
                                              MDefinition** globalGuard = nullptr);
     [[nodiscard]] bool testShouldDOMCall(TypeSet* inTypes,
