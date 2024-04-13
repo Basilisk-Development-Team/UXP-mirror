@@ -876,7 +876,7 @@ BaselineCacheIRCompiler::emitStoreSlotShared(bool isFixed)
         EmitPreBarrier(masm, slot, MIRType::Value);
         masm.storeValue(val, slot);
     }
-    BaselineEmitPostWriteBarrierSlot(masm, obj, val, scratch, LiveGeneralRegisterSet(), cx_);
+    BaselineEmitPostWriteBarrierSlot(masm, obj, val, scratch1, LiveGeneralRegisterSet(), cx_);
     return true;
 }
 
@@ -988,7 +988,7 @@ BaselineCacheIRCompiler::emitAddAndStoreSlotShared(CacheOp op)
         BaseIndex slot(scratch2, scratch1, TimesOne);
         masm.storeValue(val, slot);
     }
-    BaselineEmitPostWriteBarrierSlot(masm, obj, val, scratch, LiveGeneralRegisterSet(), cx_);
+    BaselineEmitPostWriteBarrierSlot(masm, obj, val, scratch1, LiveGeneralRegisterSet(), cx_);
     return true;
 }
 
@@ -1367,7 +1367,7 @@ BaselineCacheIRCompiler::emitStoreTypedElement()
     masm.push(scratch2);
 
     Label fail;
-    BaselineStoreToTypedArray(cx_, masm, type, val, dest, scratch2, &fail);
+    StoreToTypedArray(cx_, masm, type, val, dest, scratch2, &fail);
     masm.pop(scratch2);
     masm.jump(&done);
 
@@ -1494,7 +1494,7 @@ BaselineCacheIRCompiler::emitStoreUnboxedArrayElementHole()
     masm.bind(&inBounds);
 
     BaseIndex element(scratch, index, ScaleFromElemWidth(UnboxedTypeSize(elementType)));
-    EmitUnboxedPreBarrierForBaseline(masm, element, elementType);
+    EmitICUnboxedPreBarrier(masm, element, elementType);
 
     // Note that the storeUnboxedProperty call here is infallible, as the
     // IR emitter is responsible for guarding on |val|'s type.
