@@ -17,7 +17,6 @@
 
 #include "jsprf.h"
 
-#include "jit/CacheIRSpewer.h"
 #include "jit/Ion.h"
 #include "jit/MIR.h"
 #include "jit/MIRGenerator.h"
@@ -553,9 +552,6 @@ jit::CheckLogging()
         EnableChannel(JitSpew_BaselineBailouts);
         EnableChannel(JitSpew_BaselineDebugModeOSR);
     }
-
-    if (ContainsFlag(env, "cacheir-logs"))
-        GetCacheIRSpewerSingleton().init();
 
     JitSpewPrinter().init(stderr);
 }
