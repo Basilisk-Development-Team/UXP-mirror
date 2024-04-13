@@ -1288,19 +1288,183 @@ IonCacheIRCompiler::emitStoreTypedObjectScalarProperty()
 bool
 IonCacheIRCompiler::emitStoreDenseElement()
 {
-    MOZ_CRASH("Baseline-specific op");
+    Register obj = allocator.useRegister(masm, reader.objOperandId());
+    Register index = allocator.useRegister(masm, reader.int32OperandId());
+    ConstantOrRegister val = allocator.useConstantOrRegister(masm, reader.valOperandId());
+
+    AutoScratchRegister scratch(allocator, masm);
+
+    FailurePath* failure;
+    if (!addFailurePath(&failure))
+        return false;
+
+    EmitCheckPropertyTypes(masm, typeCheckInfo_, obj, val, *liveRegs_, failure->label());
+
+    // Load obj->elements in scratch.
+    masm.loadPtr(Address(obj, NativeObject::offsetOfElements()), scratch);
+
+    // Bounds check.
+    Address initLength(scratch, ObjectElements::offsetOfInitializedLength());
+    masm.branch32(Assembler::BelowOrEqual, initLength, index, failure->label());
+
+    // Hole check.
+    BaseObjectElementIndex element(scratch, index);
+    masm.branchTestMagic(Assembler::Equal, element, failure->label());
+
+    EmitPreBarrier(masm, element, MIRType::Value);
+    EmitIonStoreDenseElement(masm, val, scratch, element);
+    return true;
 }
 
 bool
 IonCacheIRCompiler::emitStoreDenseElementHole()
 {
-    MOZ_CRASH("Baseline-specific op");
+    Register obj = allocator.useRegister(masm, reader.objOperandId());
+    Register index = allocator.useRegister(masm, reader.int32OperandId());
+    ConstantOrRegister val = allocator.useConstantOrRegister(masm, reader.valOperandId());
+
+    // handleAdd boolean is only relevant for Baseline. Ion ICs can always
+    // handle adds as we don't have to set any flags on the fallback stub to
+    // track this.
+    reader.readBool();
+
+    AutoScratchRegister scratch(allocator, masm);
+
+    FailurePath* failure;
+    if (!addFailurePath(&failure))
+        return false;
+
+    EmitCheckPropertyTypes(masm, typeCheckInfo_, obj, val, *liveRegs_, failure->label());
+
+    // Load obj->elements in scratch.
+    masm.loadPtr(Address(obj, NativeObject::offsetOfElements()), scratch);
+
+    Address initLength(scratch, ObjectElements::offsetOfInitializedLength());
+    BaseObjectElementIndex element(scratch, index);
+
+    Label inBounds, doStore;
+    masm.branch32(Assembler::Above, initLength, index, &inBounds);
+    masm.branch32(Assembler::NotEqual, initLength, index, failure->label());
+
+    // If index < capacity, we can add a dense element inline. If not we
+    // need to allocate more elements.
+    Label capacityOk;
+    Address capacity(scratch, ObjectElements::offsetOfCapacity());
+    masm.branch32(Assembler::Above, capacity, index, &capacityOk);
+
+    // Check for non-writable array length. We only have to do this if
+    // index >= capacity.
+    Address elementsFlags(scratch, ObjectElements::offsetOfFlags());
+    masm.branchTest32(Assembler::NonZero, elementsFlags,
+                      Imm32(ObjectElements::NONWRITABLE_ARRAY_LENGTH),
+                      failure->label());
+
+    LiveRegisterSet save(GeneralRegisterSet::Volatile(), liveVolatileFloatRegs());
+    save.takeUnchecked(scratch);
+    masm.PushRegsInMask(save);
+
+    masm.setupUnalignedABICall(scratch);
+    masm.loadJSContext(scratch);
+    masm.passABIArg(scratch);
+    masm.passABIArg(obj);
+    masm.callWithABI(JS_FUNC_TO_DATA_PTR(void*, NativeObject::addDenseElementDontReportOOM));
+    masm.mov(ReturnReg, scratch);
+
+    masm.PopRegsInMask(save);
+    masm.branchIfFalseBool(scratch, failure->label());
+
+    // Load the reallocated elements pointer.
+    masm.loadPtr(Address(obj, NativeObject::offsetOfElements()), scratch);
+
+    masm.bind(&capacityOk);
+
+    // Increment initLength.
+    masm.add32(Imm32(1), initLength);
+
+    // If length is now <= index, increment length too.
+    Label skipIncrementLength;
+    Address length(scratch, ObjectElements::offsetOfLength());
+    masm.branch32(Assembler::Above, length, index, &skipIncrementLength);
+    masm.add32(Imm32(1), length);
+    masm.bind(&skipIncrementLength);
+
+    // Skip EmitPreBarrier as the memory is uninitialized.
+    masm.jump(&doStore);
+
+    masm.bind(&inBounds);
+
+    EmitPreBarrier(masm, element, MIRType::Value);
+
+    masm.bind(&doStore);
+    EmitIonStoreDenseElement(masm, val, scratch, element);
+    return true;
 }
 
 bool
 IonCacheIRCompiler::emitStoreTypedElement()
 {
-    MOZ_CRASH("Baseline-specific op");
+    Register obj = allocator.useRegister(masm, reader.objOperandId());
+    Register index = allocator.useRegister(masm, reader.int32OperandId());
+    ConstantOrRegister val = allocator.useConstantOrRegister(masm, reader.valOperandId());
+
+    TypedThingLayout layout = reader.typedThingLayout();
+    Scalar::Type arrayType = reader.scalarType();
+    bool handleOOB = reader.readBool();
+
+    AutoScratchRegister scratch1(allocator, masm);
+
+    Maybe<AutoScratchRegister> scratch2;
+    if (arrayType != Scalar::Float32 && arrayType != Scalar::Float64)
+        scratch2.emplace(allocator, masm);
+
+    FailurePath* failure;
+    if (!addFailurePath(&failure))
+        return false;
+
+    // Bounds check.
+    Label done;
+    LoadTypedThingLength(masm, layout, obj, scratch1);
+    masm.branch32(Assembler::BelowOrEqual, scratch1, index, handleOOB ? &done : failure->label());
+
+    // Load the elements vector.
+    LoadTypedThingData(masm, layout, obj, scratch1);
+
+    BaseIndex dest(scratch1, index, ScaleFromElemWidth(Scalar::byteSize(arrayType)));
+
+    FloatRegister maybeTempDouble = ic_->asSetPropertyIC()->maybeTempDouble();
+    FloatRegister maybeTempFloat32 = ic_->asSetPropertyIC()->maybeTempFloat32();
+    MOZ_ASSERT(maybeTempDouble != InvalidFloatReg);
+    MOZ_ASSERT_IF(jit::hasUnaliasedDouble(), maybeTempFloat32 != InvalidFloatReg);
+
+    if (arrayType == Scalar::Float32) {
+        FloatRegister tempFloat = hasUnaliasedDouble() ? maybeTempFloat32 : maybeTempDouble;
+        if (!masm.convertConstantOrRegisterToFloat(cx_, val, tempFloat, failure->label()))
+            return false;
+        masm.storeToTypedFloatArray(arrayType, tempFloat, dest);
+    } else if (arrayType == Scalar::Float64) {
+        if (!masm.convertConstantOrRegisterToDouble(cx_, val, maybeTempDouble, failure->label()))
+            return false;
+        masm.storeToTypedFloatArray(arrayType, maybeTempDouble, dest);
+    } else {
+        Register valueToStore = scratch2.ref();
+        if (arrayType == Scalar::Uint8Clamped) {
+            if (!masm.clampConstantOrRegisterToUint8(cx_, val, maybeTempDouble, valueToStore,
+                                                     failure->label()))
+            {
+                return false;
+            }
+        } else {
+            if (!masm.truncateConstantOrRegisterToInt32(cx_, val, maybeTempDouble, valueToStore,
+                                                        failure->label()))
+            {
+                return false;
+            }
+        }
+        masm.storeToTypedIntArray(arrayType, valueToStore, dest);
+    }
+
+    masm.bind(&done);
+    return true;
 }
 
 bool
