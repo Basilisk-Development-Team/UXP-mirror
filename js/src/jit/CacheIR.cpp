@@ -2444,14 +2444,15 @@ SetPropIRGenerator::tryAttachSetDenseElement(HandleObject obj, ObjOperandId objI
     if (!nobj->containsDenseElement(index) || nobj->getElementsHeader()->isFrozen())
         return false;
 
-    writer.guardGroup(objId, nobj->group());
+    if (typeCheckInfo_.needsTypeBarrier())
+        writer.guardGroup(objId, nobj->group());
     writer.guardShape(objId, nobj->shape());
 
     writer.storeDenseElement(objId, indexId, rhsId);
     writer.returnFromIC();
 
     // Type inference uses JSID_VOID for the element types.
-    setUpdateStubInfo(nobj->group(), JSID_VOID);
+    typeCheckInfo_.set(nobj->group(), JSID_VOID);
 
     trackAttached("SetDenseElement");
     return true;
@@ -2560,7 +2561,8 @@ SetPropIRGenerator::tryAttachSetDenseElementHole(HandleObject obj, ObjOperandId 
     if (!CanAttachAddElement(nobj, IsPropertyInitOp(op)))
         return false;
 
-    writer.guardGroup(objId, nobj->group());
+    if (typeCheckInfo_.needsTypeBarrier())
+        writer.guardGroup(objId, nobj->group());
     writer.guardShape(objId, nobj->shape());
 
     // Also shape guard the proto chain, unless this is an INITELEM.
@@ -2571,7 +2573,7 @@ SetPropIRGenerator::tryAttachSetDenseElementHole(HandleObject obj, ObjOperandId 
     writer.returnFromIC();
 
     // Type inference uses JSID_VOID for the element types.
-    setUpdateStubInfo(nobj->group(), JSID_VOID);
+    typeCheckInfo_.set(nobj->group(), JSID_VOID);
 
     trackAttached(isAdd ? "AddDenseElement" : "StoreDenseElementHole");
     return true;
@@ -2600,7 +2602,7 @@ SetPropIRGenerator::tryAttachSetUnboxedArrayElement(HandleObject obj, ObjOperand
     writer.returnFromIC();
 
     // Type inference uses JSID_VOID for the element types.
-    setUpdateStubInfo(obj->group(), JSID_VOID);
+    typeCheckInfo_.set(obj->group(), JSID_VOID);
 
     trackAttached("SetUnboxedArrayElement");
     return true;
@@ -2693,9 +2695,9 @@ SetPropIRGenerator::tryAttachSetUnboxedArrayElementHole(HandleObject obj, ObjOpe
     writer.returnFromIC();
 
     // Type inference uses JSID_VOID for the element types.
-    setUpdateStubInfo(aobj->group(), JSID_VOID);
+    typeCheckInfo_.set(aobj->group(), JSID_VOID);
 
-        trackAttached("StoreUnboxedArrayElementHole");
+    trackAttached("StoreUnboxedArrayElementHole");
     return true;
 }
 
