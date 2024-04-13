@@ -540,14 +540,12 @@ js::GetOriginalEval(JSContext* cx, HandleObject scope, MutableHandleObject eval)
 }
 
 JS_FRIEND_API(void)
-js::SetReservedOrProxyPrivateSlotWithBarrier(JSObject* obj, size_t slot, const js::Value& value)
+js::SetReservedSlotWithBarrier(JSObject* obj, size_t slot, const js::Value& value)
 {
-    if (IsProxy(obj)) {
-        MOZ_ASSERT(slot == 0);
-        obj->as<ProxyObject>().setSameCompartmentPrivate(value);
-    } else {
+    if (IsProxy(obj))
+        obj->as<ProxyObject>().setReservedSlot(slot, value);
+    else
         obj->as<NativeObject>().setSlot(slot, value);
-    }
 }
 
 void
@@ -1255,15 +1253,13 @@ js::GetDOMCallbacks(JSContext* cx)
 }
 
 static const void* gDOMProxyHandlerFamily = nullptr;
-static uint32_t gDOMProxyExpandoSlot = 0;
 static DOMProxyShadowsCheck gDOMProxyShadowsCheck;
 
 JS_FRIEND_API(void)
-js::SetDOMProxyInformation(const void* domProxyHandlerFamily, uint32_t domProxyExpandoSlot,
+js::SetDOMProxyInformation(const void* domProxyHandlerFamily,
                            DOMProxyShadowsCheck domProxyShadowsCheck)
 {
     gDOMProxyHandlerFamily = domProxyHandlerFamily;
-    gDOMProxyExpandoSlot = domProxyExpandoSlot;
     gDOMProxyShadowsCheck = domProxyShadowsCheck;
 }
 
@@ -1271,12 +1267,6 @@ const void*
 js::GetDOMProxyHandlerFamily()
 {
     return gDOMProxyHandlerFamily;
-}
-
-uint32_t
-js::GetDOMProxyExpandoSlot()
-{
-    return gDOMProxyExpandoSlot;
 }
 
 DOMProxyShadowsCheck

@@ -748,7 +748,7 @@ GetPropIRGenerator::tryAttachDOMProxyExpando(HandleObject obj, ObjOperandId objI
 {
     MOZ_ASSERT(IsCacheableDOMProxy(obj));
 
-    RootedValue expandoVal(cx_, GetProxyExtra(obj, GetDOMProxyExpandoSlot()));
+    RootedValue expandoVal(cx_, GetProxyPrivate(obj));
     RootedObject expandoObj(cx_);
     ExpandoAndGeneration* expandoAndGeneration = nullptr;
     if (expandoVal.isObject()) {
@@ -831,7 +831,7 @@ CheckDOMProxyExpandoDoesNotShadow(CacheIRWriter& writer, JSObject* obj, jsid id,
 {
     MOZ_ASSERT(IsCacheableDOMProxy(obj));
 
-    Value expandoVal = GetProxyExtra(obj, GetDOMProxyExpandoSlot());
+    Value expandoVal = GetProxyPrivate(obj);
 
     ValOperandId expandoId;
     if (!expandoVal.isObject() && !expandoVal.isUndefined()) {
