@@ -80,9 +80,8 @@ class IonIC
     jsbytecode* pc_;
 
     CacheKind kind_;
-    uint8_t numStubs_;
     bool idempotent_ : 1;
-    bool disabled_ : 1;
+    ICState state_;
 
   protected:
     explicit IonIC(CacheKind kind)
@@ -93,9 +92,8 @@ class IonIC
         script_(nullptr),
         pc_(nullptr),
         kind_(kind),
-        numStubs_(0),
         idempotent_(false),
-        disabled_(false)
+        state_()
     {}
 
     void attachStub(IonICStub* newStub, JitCode* code);
@@ -113,19 +111,15 @@ class IonIC
 
     CodeLocationLabel rejoinLabel() const { return rejoinLabel_; }
 
-    static const size_t MAX_STUBS = 16;
-
-    bool canAttachStub() const { return numStubs_ < MAX_STUBS; }
-
-    void disable(Zone* zone) {
-        reset(zone);
-        disabled_ = true;
-    }
-
-    bool disabled() const { return disabled_; }
-
     // Discard all stubs.
+    void discardStubs(Zone* zone);
+
+    // Discard all stubs and reset the ICState.
     void reset(Zone* zone);
+
+    ICState& state() {
+        return state_;
+    }
 
     CacheKind kind() const { return kind_; }
     uint8_t** codeRawPtr() { return &codeRaw_; }
@@ -157,8 +151,8 @@ class IonIC
 
     void trace(JSTracer* trc);
 
-    bool attachCacheIRStub(JSContext* cx, const CacheIRWriter& writer, CacheKind kind,
-                           IonScript* ionScript,
+    void attachCacheIRStub(JSContext* cx, const CacheIRWriter& writer, CacheKind kind,
+                           IonScript* ionScript, bool* attached,
                            const PropertyTypeCheckInfo* typeCheckInfo = nullptr);
 };
 
@@ -170,9 +164,6 @@ class IonGetPropertyIC : public IonIC
     ConstantOrRegister id_;
     TypedOrValueRegister output_;
     Register maybeTemp_; // Might be InvalidReg.
-
-    static const size_t MAX_FAILED_UPDATES = 16;
-    uint16_t failedUpdates_;
 
     bool monitoredResult_ : 1;
     bool allowDoubleResult_ : 1;
@@ -187,7 +178,6 @@ class IonGetPropertyIC : public IonIC
         id_(id),
         output_(output),
         maybeTemp_(maybeTemp),
-        failedUpdates_(0),
         monitoredResult_(monitoredResult),
         allowDoubleResult_(allowDoubleResult)
     { }
@@ -199,8 +189,6 @@ class IonGetPropertyIC : public IonIC
     Register maybeTemp() const { return maybeTemp_; }
     LiveRegisterSet liveRegs() const { return liveRegs_; }
     bool allowDoubleResult() const { return allowDoubleResult_; }
-
-    void maybeDisable(Zone* zone, bool attached);
 
     static [[nodiscard]] bool update(JSContext* cx, HandleScript outerScript, IonGetPropertyIC* ic,
                                     HandleValue val, HandleValue idVal, MutableHandleValue res);

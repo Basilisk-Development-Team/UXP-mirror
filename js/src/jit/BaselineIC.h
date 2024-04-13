@@ -349,7 +349,6 @@ class ICGetElem_Fallback : public ICMonitoredFallbackStub
     static const uint16_t EXTRA_UNOPTIMIZABLE_ACCESS = 0x4;
 
   public:
-    static const uint32_t MAX_OPTIMIZED_STUBS = 16;
 
     void noteNonNativeAccess() {
         extra_ |= EXTRA_NON_NATIVE;
@@ -408,7 +407,6 @@ class ICSetElem_Fallback : public ICFallbackStub
     static const size_t HasTypedArrayOOBFlag = 0x2;
 
   public:
-    static const uint32_t MAX_OPTIMIZED_STUBS = 8;
 
     void noteHasDenseAdd() { extra_ |= HasDenseAddFlag; }
     bool hasDenseAdd() const { return extra_ & HasDenseAddFlag; }
@@ -443,7 +441,6 @@ class ICIn_Fallback : public ICFallbackStub
     { }
 
   public:
-    static const uint32_t MAX_OPTIMIZED_STUBS = 8;
 
     class Compiler : public ICStubCompiler {
       protected:
@@ -472,7 +469,6 @@ class ICGetName_Fallback : public ICMonitoredFallbackStub
     { }
 
   public:
-    static const uint32_t MAX_OPTIMIZED_STUBS = 8;
     static const size_t UNOPTIMIZABLE_ACCESS_BIT = 0;
 
     void noteUnoptimizableAccess() {
@@ -606,7 +602,6 @@ class ICSetProp_Fallback : public ICFallbackStub
     { }
 
   public:
-    static const uint32_t MAX_OPTIMIZED_STUBS = 8;
 
     static const size_t UNOPTIMIZABLE_ACCESS_BIT = 0;
     void noteUnoptimizableAccess() {
@@ -1617,7 +1612,6 @@ class ICRetSub_Fallback : public ICFallbackStub
     { }
 
   public:
-    static const uint32_t MAX_OPTIMIZED_STUBS = 8;
 
     class Compiler : public ICStubCompiler {
       protected:

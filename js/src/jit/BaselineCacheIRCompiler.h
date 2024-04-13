@@ -18,7 +18,7 @@ class ICStub;
 
 ICStub* AttachBaselineCacheIRStub(JSContext* cx, const CacheIRWriter& writer,
                                   CacheKind kind, ICStubEngine engine, JSScript* outerScript,
-                                  ICFallbackStub* stub);
+                                  ICFallbackStub* stub, bool* attached);
 
 } // namespace jit
 } // namespace js
