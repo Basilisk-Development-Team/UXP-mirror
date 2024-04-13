@@ -1596,8 +1596,7 @@ SetNativeDataProperty(JSContext* cx, JSObject* obj, PropertyName* name, Value* v
     if (!shape ||
         !shape->hasSlot() ||
         !shape->hasDefaultSetter() ||
-        !shape->writable() ||
-        nobj->watched())
+        !shape->writable())
     {
         return false;
     }

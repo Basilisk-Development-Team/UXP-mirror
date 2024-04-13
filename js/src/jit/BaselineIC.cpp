@@ -778,7 +778,7 @@ DoGetElemFallback(JSContext* cx, BaselineFrame* frame, ICGetElem_Fallback* stub_
                                &isTemporarilyUnoptimizable, lhs, rhs, CanAttachGetter::Yes);
         if (gen.tryAttachStub()) {
             ICStub* newStub = AttachBaselineCacheIRStub(cx, gen.writerRef(), gen.cacheKind(),
-                                                        engine, info.outerScript(cx), stub);
+                                                        engine, info.outerScript(cx), stub, &attached);
             if (newStub) {
                 JitSpew(JitSpew_BaselineIC, "  Attached CacheIR stub");
                 if (gen.shouldNotePreliminaryObjectStub())
@@ -987,7 +987,7 @@ DoSetElemFallback(JSContext* cx, BaselineFrame* frame, ICSetElem_Fallback* stub_
                                &isTemporarilyUnoptimizable, objv, index, rhs);
         if (gen.tryAttachAddSlotStub(oldGroup, oldShape)) {
             ICStub* newStub = AttachBaselineCacheIRStub(cx, gen.writerRef(), gen.cacheKind(),
-                                                        ICStubEngine::Baseline, frame->script(), stub);
+                                                        ICStubEngine::Baseline, frame->script(), stub, &attached);
             if (newStub) {
                 JitSpew(JitSpew_BaselineIC, "  Attached CacheIR stub");
                 SetUpdateStubData(newStub->toCacheIR_Updated(), gen.typeCheckInfo());
@@ -4434,16 +4434,6 @@ ICTypeUpdate_ObjectGroup::ICTypeUpdate_ObjectGroup(JitCode* stubCode, ObjectGrou
   : ICStub(TypeUpdate_ObjectGroup, stubCode),
     group_(group)
 { }
-
-ICSetElem_TypedArray::ICSetElem_TypedArray(JitCode* stubCode, Shape* shape, Scalar::Type type,
-                                           bool expectOutOfBounds)
-  : ICStub(SetElem_TypedArray, stubCode),
-    shape_(shape)
-{
-    extra_ = uint8_t(type);
-    MOZ_ASSERT(extra_ == type);
-    extra_ |= (static_cast<uint16_t>(expectOutOfBounds) << 8);
-}
 
 ICGetIntrinsic_Constant::ICGetIntrinsic_Constant(JitCode* stubCode, const Value& value)
   : ICStub(GetIntrinsic_Constant, stubCode),

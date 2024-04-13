@@ -1612,6 +1612,7 @@ class ICRetSub_Fallback : public ICFallbackStub
     { }
 
   public:
+    static const uint32_t MAX_OPTIMIZED_STUBS = 8;
 
     class Compiler : public ICStubCompiler {
       protected:

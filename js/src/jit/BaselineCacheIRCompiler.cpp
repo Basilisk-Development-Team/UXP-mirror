@@ -1078,10 +1078,6 @@ BaselineCacheIRCompiler::emitStoreTypedObjectReferenceProperty()
     masm.addPtr(offsetAddr, scratch1);
     Address dest(scratch1, 0);
 
-    // To avoid running out of registers on x86, use ICStubReg as second
-    // scratch. It won't be used after this.
-    Register scratch2 = ICStubReg;
-
     emitStoreTypedObjectReferenceProp(val, type, dest, scratch2);
 
     if (type != ReferenceTypeDescr::TYPE_STRING)
