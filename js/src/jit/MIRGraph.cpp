@@ -74,7 +74,7 @@ MIRGenerator::abortFmt(AbortReason r, const char* message, va_list ap)
 }
 
 mozilla::GenericErrorResult<AbortReason>
-+MIRGenerator::abort(AbortReason r, const char* message, ...)
+MIRGenerator::abort(AbortReason r, const char* message, ...)
 {
     va_list ap;
     va_start(ap, message);

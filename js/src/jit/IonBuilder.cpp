@@ -2038,7 +2038,7 @@ IonBuilder::inspectOpcode(JSOp op)
       case JSOP_SUPERCALL:
         if (op == JSOP_CALLITER) {
             if (!outermostBuilder()->iterators_.append(current->peek(-1)))
-                return false;
+                return abort(AbortReason::Alloc);
         }
         return jsop_call(GET_ARGC(pc), (JSOp)*pc == JSOP_NEW || (JSOp)*pc == JSOP_SUPERCALL,
                          (JSOp)*pc == JSOP_CALL_IGNORES_RV);
@@ -2510,7 +2510,7 @@ IonBuilder::detectAndOrStructure(MPhi* ins, bool* branchIsAnd)
     else
         return false;
 
-    return Ok();
+    return true;
 }
 
 AbortReasonOr<Ok>
@@ -2885,7 +2885,7 @@ IonBuilder::visitCompare(CFGCompare* compare)
     MDefinition* rhs = current->peek(-1);
 
     MDefinition* lhs = current->peek(-2);
-        return false;
+        return abort(AbortReason::Alloc);
 
     // Execute the compare operation.
     MOZ_TRY(jsop_compare(JSOP_STRICTEQ, lhs, rhs));
@@ -2894,9 +2894,11 @@ IonBuilder::visitCompare(CFGCompare* compare)
 
     // Create true and false branches.
 	MBasicBlock* ifTrue;
-    MOZ_TRY_VAR(ifTrue, newBlock(current, compare->trueBranch()->startPc(), compare->truePopAmount));
+    MOZ_TRY_VAR(ifTrue, newBlockPopN(current, compare->trueBranch()->startPc(),
+                                     compare->truePopAmount()));
     MBasicBlock* ifFalse;
-    MOZ_TRY_VAR(ifFalse, newBlock(current, compare->falseBranch()->startPc(), compare->falsePopAmount));
+    MOZ_TRY_VAR(ifFalse, newBlockPopN(current, compare->falseBranch()->startPc(),
+                                      compare->falsePopAmount()));
 
     blockWorklist[compare->trueBranch()->id()] = ifTrue;
     blockWorklist[compare->falseBranch()->id()] = ifFalse;
@@ -3331,7 +3333,7 @@ IonBuilder::binaryArithNumberSpecialization(MDefinition* left, MDefinition* righ
     return MIRType::Double;
 }
 
-MBinaryArithInstruction*
+AbortReasonOr<MBinaryArithInstruction*>
 IonBuilder::binaryArithEmitSpecialized(MDefinition::Opcode op, MIRType specialization, 
                                        MDefinition* left, MDefinition* right)
 {
@@ -3347,9 +3349,7 @@ IonBuilder::binaryArithEmitSpecialized(MDefinition::Opcode op, MIRType specializ
 
     MOZ_ASSERT(!ins->isEffectful());
     
-    if(!maybeInsertResume()) {
-        return nullptr;
-    }
+    MOZ_TRY(maybeInsertResume());
 
     return ins;
 }
@@ -3389,11 +3389,9 @@ IonBuilder::binaryArithTrySpecialized(bool* emitted, JSOp op, MDefinition* left,
 
     MDefinition::Opcode defOp = BinaryJSOpToMDefinition(op);
     MIRType specialization = binaryArithNumberSpecialization(left, right);
-    MBinaryArithInstruction* ins = binaryArithEmitSpecialized(defOp, specialization, left, right);
-
-    if(!ins) {
-        return false;
-    }
+    MBinaryArithInstruction* ins;
+    MOZ_TRY_VAR(ins,
+              binaryArithEmitSpecialized(defOp, specialization, left, right));
 
     // Relax int32 to double if, despite the fact that we have int32 operands and
     // we've never seen a double result, we know the result may overflow or be a
@@ -3425,9 +3423,7 @@ IonBuilder::binaryArithTrySpecializedOnBaselineInspector(bool* emitted, JSOp op,
     }
 
     MDefinition::Opcode defOp = BinaryJSOpToMDefinition(op);
-    if(!binaryArithEmitSpecialized(defOp, specialization, left, right)) {
-        return abort(AbortReason::Alloc);
-    }
+    MOZ_TRY(binaryArithEmitSpecialized(defOp, specialization, left, right));
 
     trackOptimizationSuccess();
     *emitted = true;
@@ -3568,7 +3564,7 @@ IonBuilder::jsop_pow()
     MPow* pow = MPow::New(alloc(), base, exponent, MIRType::Double);
     current->add(pow);
     current->push(pow);
-    return true;
+    return Ok();
 }
 
 AbortReasonOr<Ok>
@@ -3624,7 +3620,7 @@ IonBuilder::unaryArithConvertToBinary(JSOp op, MDefinition::Opcode* defOp)
     }
 }
 
-bool
+AbortReasonOr<Ok>
 IonBuilder::unaryArithTrySpecialized(bool* emitted, JSOp op, MDefinition* value)
 {
     MOZ_ASSERT(*emitted == false);
@@ -3636,22 +3632,20 @@ IonBuilder::unaryArithTrySpecialized(bool* emitted, JSOp op, MDefinition* value)
 
     if (!IsNumberType(value->type())) {
       trackOptimizationOutcome(TrackedOutcome::OperandNotNumber);
-      return true;
+      return Ok();
     }
 
     MDefinition::Opcode defOp;
     MDefinition* rhs = unaryArithConvertToBinary(op, &defOp);
     MIRType specialization = binaryArithNumberSpecialization(value, rhs);
-    if (!binaryArithEmitSpecialized(defOp, specialization, value, rhs)) {
-        return false;
-    }
+    MOZ_TRY(binaryArithEmitSpecialized(defOp, specialization, value, rhs));
 
     trackOptimizationSuccess();
     *emitted = true;
-    return true;
+    return Ok();
 }
 
-bool
+AbortReasonOr<Ok>
 IonBuilder::unaryArithTrySpecializedOnBaselineInspector(bool* emitted, JSOp op, MDefinition* value)
 {
     MOZ_ASSERT(*emitted == false);
@@ -3664,21 +3658,19 @@ IonBuilder::unaryArithTrySpecializedOnBaselineInspector(bool* emitted, JSOp op, 
     MIRType specialization = inspector->expectedBinaryArithSpecialization(pc);
     if (specialization == MIRType::None) {
       trackOptimizationOutcome(TrackedOutcome::SpeculationOnInputTypesFailed);
-      return true;
+      return Ok();
     }
 
     MDefinition::Opcode defOp;
     MDefinition* rhs = unaryArithConvertToBinary(op, &defOp);
-    if (!binaryArithEmitSpecialized(defOp, specialization, value, rhs)) {
-        return false;
-    }
+    MOZ_TRY(binaryArithEmitSpecialized(defOp, specialization, value, rhs));
 
     trackOptimizationSuccess();
     *emitted = true;
-    return true;
+    return Ok();
 }
 
-bool
+AbortReasonOr<Ok>
 IonBuilder::jsop_tonumeric()
 {
     MDefinition* peeked = current->peek(-1);
@@ -3686,13 +3678,13 @@ IonBuilder::jsop_tonumeric()
     if (IsNumericType(peeked->type())) {
         // Elide the ToNumeric as we already unboxed the value.
         peeked->setImplicitlyUsedUnchecked();
-        return true;
+        return Ok();
     }
 
     LifoAlloc* lifoAlloc = alloc().lifoAlloc();
     TemporaryTypeSet* types = lifoAlloc->new_<TemporaryTypeSet>();
     if (!types) {
-        return false;
+        return abort(AbortReason::Alloc);
     }
 
     types->addType(TypeSet::Int32Type(), lifoAlloc);
@@ -3703,7 +3695,7 @@ IonBuilder::jsop_tonumeric()
         peeked->resultTypeSet()->isSubset(types)) {
         // Elide the ToNumeric because the arg is already a boxed numeric.
         peeked->setImplicitlyUsedUnchecked();
-        return true;
+        return Ok();
     }
 
     // Otherwise, pop the value and add an MToNumeric.
@@ -3716,7 +3708,7 @@ IonBuilder::jsop_tonumeric()
     return resumeAfter(ins);
 }
 
-bool
+AbortReasonOr<Ok>
 IonBuilder::jsop_inc_or_dec(JSOp op)
 {
     bool emitted = false;
@@ -3726,19 +3718,15 @@ IonBuilder::jsop_inc_or_dec(JSOp op)
 
     trackTypeInfo(TrackedTypeSite::Operand, value->type(), value->resultTypeSet());
 
-    if (!unaryArithTrySpecialized(&emitted, op, value)) {
-        return false;
-    }
-    if (emitted) {
-      return true;
-    }
+    MOZ_TRY(unaryArithTrySpecialized(&emitted, op, value));
+  if (emitted) {
+    return Ok();
+  }
 
-    if (!unaryArithTrySpecializedOnBaselineInspector(&emitted, op, value)) {
-        return false;
-    }
-    if (emitted) {
-      return true;
-    }
+    MOZ_TRY(unaryArithTrySpecializedOnBaselineInspector(&emitted, op, value));
+  if (emitted) {
+    return Ok();
+  }
 
     trackOptimizationAttempt(TrackedStrategy::UnaryArith_InlineCache);
     trackOptimizationSuccess();
@@ -4797,6 +4785,7 @@ IonBuilder::inlineCalls(CallInfo& callInfo, const ObjectVector& targets, BoolVec
     if (useFallback) {
         // Generate fallback blocks, and set |current| to the fallback return block.
         if (maybeCache) {
+            MBasicBlock* fallbackTarget;
             MOZ_TRY(inlineObjectGroupFallback(callInfo, dispatchBlock,
                                               dispatch->toObjectGroupDispatch(),
                                               maybeCache, &fallbackTarget));
@@ -9489,13 +9478,13 @@ IonBuilder::jsop_checkisobj(uint8_t kind)
     return Ok();
 }
 
-bool
+AbortReasonOr<Ok>
 IonBuilder::jsop_checkiscallable(uint8_t kind)
 {
     MCheckIsCallable* check = MCheckIsCallable::New(alloc(), current->pop(), kind);
     current->add(check);
     current->push(check);
-    return true;
+    return Ok();
 }
 
 AbortReasonOr<Ok>
@@ -11452,7 +11441,7 @@ IonBuilder::setPropTryCommonSetter(bool* emitted, MDefinition* obj,
             }
         } else {
             // The Baseline IC didn't have any information we can use.
-            return true;
+            return Ok();
         }
     }
 
@@ -12058,7 +12047,7 @@ IonBuilder::jsop_setarg(uint32_t arg)
                                                 GET_ARGNO(pc), val);
         current->add(ins);
 		if (resumeAfter(ins))
-            return false;
+            return abort(AbortReason::Alloc);
         return Ok();
     }
 
@@ -12685,7 +12674,6 @@ IonBuilder::hasOnProtoChain(TypeSet::ObjectKey* key, JSObject* protoObject)
 
         if (proto == protoObject)
             return true;
-        }
 
         key = TypeSet::ObjectKey::get(proto);
     }
