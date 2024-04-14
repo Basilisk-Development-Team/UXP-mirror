@@ -298,7 +298,7 @@ class IonBuilder
     MIRType binaryArithNumberSpecialization(MDefinition* left, MDefinition* right);
     AbortReasonOr<Ok> binaryArithTryConcat(bool* emitted, JSOp op, MDefinition* left,
                                            MDefinition* right);
-    [[nodiscard]] MBinaryArithInstruction* binaryArithEmitSpecialized(MDefinition::Opcode op,
+    AbortReasonOr<MBinaryArithInstruction*> binaryArithEmitSpecialized(MDefinition::Opcode op,
                                                                      MIRType specialization,
                                                                      MDefinition* left,
                                                                      MDefinition* right);
@@ -315,8 +315,8 @@ class IonBuilder
 
     // jsop_inc_or_dec helpers.
     MDefinition* unaryArithConvertToBinary(JSOp op, MDefinition::Opcode* defOp);
-    [[nodiscard]] bool unaryArithTrySpecialized(bool* emitted, JSOp op, MDefinition* value);
-    [[nodiscard]] bool unaryArithTrySpecializedOnBaselineInspector(bool* emitted, JSOp op,
+    AbortReasonOr<Ok> unaryArithTrySpecialized(bool* emitted, JSOp op, MDefinition* value);
+    AbortReasonOr<Ok> unaryArithTrySpecializedOnBaselineInspector(bool* emitted, JSOp op,
                                                                   MDefinition* value);
 
     // jsop_pow helpers.
@@ -500,6 +500,8 @@ class IonBuilder
     AbortReasonOr<Ok> jsop_pow();
     AbortReasonOr<Ok> jsop_pos();
     AbortReasonOr<Ok> jsop_neg();
+    AbortReasonOr<Ok> jsop_tonumeric();
+    AbortReasonOr<Ok> jsop_inc_or_dec(JSOp op);
     AbortReasonOr<Ok> jsop_tostring();
     AbortReasonOr<Ok> jsop_setarg(uint32_t arg);
     AbortReasonOr<Ok> jsop_defvar(uint32_t index);
@@ -513,10 +515,10 @@ class IonBuilder
     AbortReasonOr<Ok> jsop_funapply(uint32_t argc);
     AbortReasonOr<Ok> jsop_funapplyarguments(uint32_t argc);
     AbortReasonOr<Ok> jsop_funapplyarray(uint32_t argc);
-    AbortReasonOr<Ok> jsop_call(uint32_t argc, bool constructing);
+    AbortReasonOr<Ok> jsop_call(uint32_t argc, bool constructing, bool ignoresReturnValue);
     AbortReasonOr<Ok> jsop_eval(uint32_t argc);
     AbortReasonOr<Ok> jsop_label();
-    AbortReasonOr<Ok> jsop_andor(JSOp op);
+    AbortReasonOr<Ok> jsop_logical(JSOp op);
     AbortReasonOr<Ok> jsop_dup2();
     AbortReasonOr<Ok> jsop_loophead(jsbytecode* pc);
     AbortReasonOr<Ok> jsop_compare(JSOp op);
@@ -575,6 +577,8 @@ class IonBuilder
     AbortReasonOr<Ok> jsop_globalthis();
     AbortReasonOr<Ok> jsop_typeof();
     AbortReasonOr<Ok> jsop_toasync();
+    AbortReasonOr<Ok> jsop_toasyncgen();
+    AbortReasonOr<Ok> jsop_toasynciter();
     AbortReasonOr<Ok> jsop_toid();
     AbortReasonOr<Ok> jsop_iter(uint8_t flags);
     AbortReasonOr<Ok> jsop_itermore();
@@ -587,6 +591,7 @@ class IonBuilder
     AbortReasonOr<Ok> jsop_debugger();
     AbortReasonOr<Ok> jsop_newtarget();
     AbortReasonOr<Ok> jsop_checkisobj(uint8_t kind);
+    AbortReasonOr<Ok> jsop_checkiscallable(uint8_t kind);
     AbortReasonOr<Ok> jsop_checkobjcoercible();
     AbortReasonOr<Ok> jsop_pushcallobj();
     AbortReasonOr<Ok> jsop_importmeta();
@@ -670,6 +675,7 @@ class IonBuilder
     InliningResult inlineRegExpSearcher(CallInfo& callInfo);
     InliningResult inlineRegExpTester(CallInfo& callInfo);
     InliningResult inlineIsRegExpObject(CallInfo& callInfo);
+    InliningResult inlineIsPossiblyWrappedRegExpObject(CallInfo& callInfo);
     InliningResult inlineRegExpPrototypeOptimizable(CallInfo& callInfo);
     InliningResult inlineRegExpInstanceOptimizable(CallInfo& callInfo);
     InliningResult inlineGetFirstDollarIndex(CallInfo& callInfo);
@@ -789,8 +795,7 @@ class IonBuilder
      * Callers must pass a non-null globalGuard if they pass a non-null globalShape.
      */
     bool testCommonGetterSetter(TemporaryTypeSet* types, PropertyName* name,
-                                bool isGetter, JSObject* foundProto,
-                                Shape* lastProperty, JSFunction* getterOrSetter,
+                                bool isGetter, JSFunction* getterOrSetter,
                                 MDefinition** guard, Shape* globalShape = nullptr,
                                 MDefinition** globalGuard = nullptr);
     AbortReasonOr<bool> testShouldDOMCall(TypeSet* inTypes,
