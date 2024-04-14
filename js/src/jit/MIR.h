@@ -4371,7 +4371,7 @@ class MInt64ToFloatingPoint
 class MToNumeric : public MUnaryInstruction, public BoxInputsPolicy::Data
 {
     MToNumeric(MDefinition* arg, TemporaryTypeSet* types)
-               : MUnaryInstruction(arg)
+               : MUnaryInstruction(classOpcode, arg)
     {
         MOZ_ASSERT(!IsNumericType(arg->type()),
                    "Unboxable definitions don't need ToNumeric");
@@ -5062,7 +5062,7 @@ class MSignExtendInt64
     Mode mode_;
 
     MSignExtendInt64(MDefinition* op, Mode mode)
-      : MUnaryInstruction(op), mode_(mode)
+      : MUnaryInstruction(classOpcode, op), mode_(mode)
     {
         setResultType(MIRType::Int64);
         setMovable();
@@ -7064,8 +7064,7 @@ class MRegExp : public MNullaryInstruction
 
     MRegExp(CompilerConstraintList* constraints, RegExpObject* source)
       : MNullaryInstruction(classOpcode),
-        source_(source),
-        mustClone_(true)
+        source_(source)
     {
         setResultType(MIRType::Object);
         setResultTypeSet(MakeSingletonTypeSet(constraints, source));
@@ -10808,7 +10807,7 @@ class MCallInitElementArray
     uint32_t index_;
 
     MCallInitElementArray(MDefinition* obj, uint32_t index, MDefinition* val)
-      : MTernaryInstruction(classOpcode),
+      : MAryInstruction(classOpcode),
         index_(index)
     {
         initOperand(0, obj);
@@ -12091,7 +12090,7 @@ class MIsNullOrUndefined
     public BoxInputsPolicy::Data
 {
     explicit MIsNullOrUndefined(MDefinition* object)
-      : MUnaryInstruction(object)
+      : MUnaryInstruction(classOpcode, object)
     {
         setResultType(MIRType::Boolean);
         setMovable();
@@ -12152,7 +12151,7 @@ class MGuardToClass
     const Class* class_;
 
     MGuardToClass(MDefinition* object, const Class* clasp, MIRType resultType)
-      : MUnaryInstruction(object)
+      : MUnaryInstruction(classOpcode, object)
       , class_(clasp)
     {
         MOZ_ASSERT(object->type() == MIRType::Object ||
@@ -12927,7 +12926,7 @@ class MWasmReturn
     public NoTypePolicy::Data
 {
     explicit MWasmReturn(MDefinition* ins, MDefinition* tlsPtr) {
-       : MAryControlInstruction(classOpcode)
+      : MAryControlInstruction(classOpcode),
         initOperand(0, ins);
         initOperand(1, tlsPtr);
     }
@@ -12942,7 +12941,7 @@ class MWasmReturnVoid
     public NoTypePolicy::Data
 {
     explicit MWasmReturnVoid(MDefinition* tlsPtr) {
-    	: MAryControlInstruction(classOpcode)
+      : MAryControlInstruction(classOpcode),
         initOperand(0, tlsPtr);
     }
 
