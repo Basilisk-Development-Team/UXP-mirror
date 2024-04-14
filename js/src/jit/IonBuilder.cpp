@@ -673,8 +673,6 @@ IonBuilder::analyzeNewLoopTypes(const CFGBlock* loopEntryBlock)
               case JSOP_DIV:
               case JSOP_MOD:
               case JSOP_NEG:
-              case JSOP_INC:
-              case JSOP_DEC:
                 type = inspector->expectedResultType(last);
                 break;
               case JSOP_BIGINT:
@@ -1819,10 +1817,6 @@ IonBuilder::inspectOpcode(JSOp op)
 
       case JSOP_NEG:
         return jsop_neg();
-
-      case JSOP_INC:
-      case JSOP_DEC:
-        return jsop_inc_or_dec(op);
 
       case JSOP_TOSTRING:
         return jsop_tostring();
@@ -3438,14 +3432,6 @@ IonBuilder::arithTrySharedStub(bool* emitted, JSOp op,
 
         stub = MUnarySharedStub::New(alloc(), right);
         break;
-      case JSOP_INC:
-        MOZ_ASSERT(op == JSOP_ADD && right->toConstant()->toInt32() == 1);
-        stub = MUnarySharedStub::New(alloc(), left);
-        break;
-      case JSOP_DEC:
-        MOZ_ASSERT(op == JSOP_SUB && right->toConstant()->toInt32() == 1);
-        stub = MUnarySharedStub::New(alloc(), left);
-        break;
       case JSOP_ADD:
       case JSOP_SUB:
       case JSOP_MUL:
@@ -3619,29 +3605,6 @@ IonBuilder::jsop_tonumeric()
 
     // toValue() is effectful, so add a resume point.
     return resumeAfter(ins);
-}
-
-AbortReasonOr<Ok>
-IonBuilder::jsop_inc_or_dec(JSOp op)
-{
-    // As above, pass constant without slot traffic.
-    MConstant* one = MConstant::New(alloc(), Int32Value(1));
-    current->add(one);
-
-    MDefinition* value = current->pop();
-
-    switch (op) {
-      case JSOP_INC:
-        op = JSOP_ADD;
-        break;
-      case JSOP_DEC:
-        op = JSOP_SUB;
-        break;
-      default:
-        MOZ_CRASH("jsop_inc_or_dec with bad op");
-    }
-
-    return jsop_binary_arith(op, value, one);
 }
 
 AbortReasonOr<Ok>
