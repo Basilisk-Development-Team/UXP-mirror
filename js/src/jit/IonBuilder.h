@@ -482,7 +482,6 @@ class IonBuilder
     AbortReasonOr<Ok> tryFoldInstanceOf(bool* emitted, MDefinition* lhs, JSObject* protoObject);
     AbortReasonOr<bool> hasOnProtoChain(TypeSet::ObjectKey* key, JSObject* protoObject);
 
-
     AbortReasonOr<Ok> jsop_add(MDefinition* left, MDefinition* right);
     AbortReasonOr<Ok> jsop_bitnot();
     AbortReasonOr<Ok> jsop_bitop(JSOp op);
@@ -491,7 +490,6 @@ class IonBuilder
     AbortReasonOr<Ok> jsop_pow();
     AbortReasonOr<Ok> jsop_pos();
     AbortReasonOr<Ok> jsop_neg();
-    AbortReasonOr<Ok> jsop_tonumeric();
     AbortReasonOr<Ok> jsop_tostring();
     AbortReasonOr<Ok> jsop_setarg(uint32_t arg);
     AbortReasonOr<Ok> jsop_defvar(uint32_t index);
