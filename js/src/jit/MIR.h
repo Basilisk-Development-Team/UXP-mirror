@@ -12853,7 +12853,7 @@ class MAsmJSAtomicBinopHeap
 class MWasmLoadGlobalVar : public MNullaryInstruction
 {
     MWasmLoadGlobalVar(MIRType type, unsigned globalDataOffset, bool isConstant)
-      : MUnaryInstruction(classOpcode),
+      : MNullaryInstruction(classOpcode),
         globalDataOffset_(globalDataOffset), isConstant_(isConstant)
     {
         MOZ_ASSERT(IsNumberType(type));
@@ -12925,8 +12925,9 @@ class MWasmReturn
   : public MAryControlInstruction<2, 0>,
     public NoTypePolicy::Data
 {
-    explicit MWasmReturn(MDefinition* ins, MDefinition* tlsPtr) {
-      : MAryControlInstruction(classOpcode),
+    explicit MWasmReturn(MDefinition* ins, MDefinition* tlsPtr)
+      : MAryControlInstruction(classOpcode)
+    {
         initOperand(0, ins);
         initOperand(1, tlsPtr);
     }
@@ -12940,8 +12941,9 @@ class MWasmReturnVoid
   : public MAryControlInstruction<1, 0>,
     public NoTypePolicy::Data
 {
-    explicit MWasmReturnVoid(MDefinition* tlsPtr) {
-      : MAryControlInstruction(classOpcode),
+    explicit MWasmReturnVoid(MDefinition* tlsPtr)
+      : MAryControlInstruction(classOpcode)
+    {
         initOperand(0, tlsPtr);
     }
 
