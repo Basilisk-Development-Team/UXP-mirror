@@ -71,11 +71,21 @@ class MIRGenerator
 
     // Set an error state and prints a message. Returns false so errors can be
     // propagated up.
-    bool abort(const char* message, ...) MOZ_FORMAT_PRINTF(2, 3); // always returns false
-    bool abortFmt(const char* message, va_list ap); // always returns false
+    mozilla::GenericErrorResult<AbortReason> abort(AbortReason r);
+    mozilla::GenericErrorResult<AbortReason>
+    abort(AbortReason r, const char* message, ...) MOZ_FORMAT_PRINTF(3, 4);
 
-    bool errored() const {
-        return error_;
+    mozilla::GenericErrorResult<AbortReason>
+    abortFmt(AbortReason r, const char* message, va_list ap);
+
+    // Collect the evaluation result of phases after IonBuilder, such that
+    // off-main-thread compilation can report what error got encountered.
+    void setOffThreadStatus(AbortReasonOr<Ok> result) {
+        MOZ_ASSERT(offThreadStatus_.isOk());
+        offThreadStatus_ = result;
+    }
+    AbortReasonOr<Ok> getOffThreadStatus() const {
+        return offThreadStatus_;
     }
 
     [[nodiscard]] bool instrumentedProfiling() {
@@ -109,13 +119,6 @@ class MIRGenerator
         cancelBuild_ = true;
     }
 
-    void disable() {
-        abortReason_ = AbortReason::Disable;
-    }
-    AbortReason abortReason() {
-        return abortReason_;
-    }
-
     bool compilingWasm() const {
         return info_->compilingWasm();
     }
@@ -145,7 +148,7 @@ class MIRGenerator
 
     typedef Vector<ObjectGroup*, 0, JitAllocPolicy> ObjectGroupVector;
 
-    // When abortReason() == AbortReason::PreliminaryObjects, all groups with
+    // When aborting with AbortReason::PreliminaryObjects, all groups with
     // preliminary objects which haven't been analyzed yet.
     const ObjectGroupVector& abortedPreliminaryGroups() const {
         return abortedPreliminaryGroups_;
@@ -159,10 +162,8 @@ class MIRGenerator
     const OptimizationInfo* optimizationInfo_;
     TempAllocator* alloc_;
     MIRGraph* graph_;
-    AbortReason abortReason_;
-    bool shouldForceAbort_; // Force AbortReason::Disable
+    AbortReasonOr<Ok> offThreadStatus_;
     ObjectGroupVector abortedPreliminaryGroups_;
-    bool error_;
     mozilla::Atomic<bool, mozilla::Relaxed> cancelBuild_;
 
     uint32_t wasmMaxStackArgBytes_;
@@ -180,13 +181,6 @@ class MIRGenerator
     void addAbortedPreliminaryGroup(ObjectGroup* group);
 
     uint32_t minWasmHeapLength_;
-
-    void setForceAbort() {
-        shouldForceAbort_ = true;
-    }
-    bool shouldForceAbort() {
-        return shouldForceAbort_;
-    }
 
 #if defined(JS_ION_PERF)
     WasmPerfSpewer wasmPerfSpewer_;

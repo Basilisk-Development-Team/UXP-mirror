@@ -24,10 +24,8 @@ MIRGenerator::MIRGenerator(CompileCompartment* compartment, const JitCompileOpti
     optimizationInfo_(optimizationInfo),
     alloc_(alloc),
     graph_(graph),
-    abortReason_(AbortReason::NoAbort),
-    shouldForceAbort_(false),
+    offThreadStatus_(Ok()),
     abortedPreliminaryGroups_(*alloc_),
-    error_(false),
     cancelBuild_(false),
     wasmMaxStackArgBytes_(0),
     performsCall_(false),
@@ -40,22 +38,49 @@ MIRGenerator::MIRGenerator(CompileCompartment* compartment, const JitCompileOpti
     gs_(alloc)
 { }
 
-bool
-MIRGenerator::abortFmt(const char* message, va_list ap)
+mozilla::GenericErrorResult<AbortReason>
+MIRGenerator::abort(AbortReason r)
 {
-    JitSpewVA(JitSpew_IonAbort, message, ap);
-    error_ = true;
-    return false;
+    if (JitSpewEnabled(JitSpew_IonAbort)) {
+        switch (r) {
+          case AbortReason::Alloc:
+            JitSpew(JitSpew_IonAbort, "AbortReason::Alloc");
+            break;
+          case AbortReason::Inlining:
+            JitSpew(JitSpew_IonAbort, "AbortReason::Inlining");
+            break;
+          case AbortReason::PreliminaryObjects:
+            JitSpew(JitSpew_IonAbort, "AbortReason::PreliminaryObjects");
+            break;
+          case AbortReason::Disable:
+            JitSpew(JitSpew_IonAbort, "AbortReason::Disable");
+            break;
+          case AbortReason::Error:
+            JitSpew(JitSpew_IonAbort, "AbortReason::Error");
+            break;
+          case AbortReason::NoAbort:
+            MOZ_CRASH("Abort with AbortReason::NoAbort");
+            break;
+        }
+    }
+    return Err(mozilla::Move(r));
 }
 
-bool
-MIRGenerator::abort(const char* message, ...)
+mozilla::GenericErrorResult<AbortReason>
+MIRGenerator::abortFmt(AbortReason r, const char* message, va_list ap)
+{
+    JitSpewVA(JitSpew_IonAbort, message, ap);
+    return Err(mozilla::Move(r));
+}
+
+mozilla::GenericErrorResult<AbortReason>
++MIRGenerator::abort(AbortReason r, const char* message, ...)
 {
     va_list ap;
     va_start(ap, message);
-    abortFmt(message, ap);
+    auto forward = abortFmt(r, message, ap);
     va_end(ap);
-    return false;
+    return forward;
 }
 
 void

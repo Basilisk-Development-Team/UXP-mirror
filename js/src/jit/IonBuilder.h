@@ -50,52 +50,58 @@ class IonBuilder
     // Callers of build() and buildInline() should always check whether the
     // call overrecursed, if false is returned.  Overrecursion is not
     // signaled as OOM and will not in general be caught by OOM paths.
-    [[nodiscard]] bool build();
-    [[nodiscard]] bool buildInline(IonBuilder* callerBuilder, MResumePoint* callerResumePoint,
+    AbortReasonOr<Ok> build();
+    AbortReasonOr<Ok> buildInline(IonBuilder* callerBuilder, MResumePoint* callerResumePoint,
                                   CallInfo& callInfo);
 
+    mozilla::GenericErrorResult<AbortReason> abort(AbortReason r);
+    mozilla::GenericErrorResult<AbortReason>
+    abort(AbortReason r, const char* message, ...) MOZ_FORMAT_PRINTF(3, 4);
+
   private:
-    [[nodiscard]] bool traverseBytecode();
-    [[nodiscard]] bool processIterators();
-    [[nodiscard]] bool inspectOpcode(JSOp op);
+    AbortReasonOr<Ok> traverseBytecode();
+    AbortReasonOr<Ok> processIterators();
+    AbortReasonOr<Ok> inspectOpcode(JSOp op);
     uint32_t readIndex(jsbytecode* pc);
     JSAtom* readAtom(jsbytecode* pc);
-    bool abort(const char* message, ...) MOZ_FORMAT_PRINTF(2, 3);
     void trackActionableAbort(const char* message);
     void spew(const char* message);
 
     JSFunction* getSingleCallTarget(TemporaryTypeSet* calleeTypes);
-    [[nodiscard]] bool getPolyCallTargets(TemporaryTypeSet* calleeTypes, bool constructing,
+    AbortReasonOr<Ok> getPolyCallTargets(TemporaryTypeSet* calleeTypes, bool constructing,
                                          ObjectVector& targets, uint32_t maxTargets);
 
-    [[nodiscard]] bool analyzeNewLoopTypes(const CFGBlock* loopEntryBlock);
+    AbortReasonOr<Ok> analyzeNewLoopTypes(const CFGBlock* loopEntryBlock);
 
-    MBasicBlock* newBlock(MBasicBlock* predecessor, jsbytecode* pc);
-    MBasicBlock* newBlock(MBasicBlock* predecessor, jsbytecode* pc, MResumePoint* priorResumePoint);
-    MBasicBlock* newBlockPopN(MBasicBlock* predecessor, jsbytecode* pc, uint32_t popped);
-    MBasicBlock* newBlockAfter(MBasicBlock* at, MBasicBlock* predecessor, jsbytecode* pc);
-    MBasicBlock* newOsrPreheader(MBasicBlock* header, jsbytecode* loopEntry,
-                                 jsbytecode* beforeLoopEntry);
-    MBasicBlock* newPendingLoopHeader(MBasicBlock* predecessor, jsbytecode* pc, bool osr, bool canOsr,
-                                      unsigned stackPhiCount);
-    MBasicBlock* newBlock(jsbytecode* pc) {
+    AbortReasonOr<MBasicBlock*> newBlock(MBasicBlock* predecessor, jsbytecode* pc);
+    AbortReasonOr<MBasicBlock*> newBlock(MBasicBlock* predecessor, jsbytecode* pc,
+                                         MResumePoint* priorResumePoint);
+    AbortReasonOr<MBasicBlock*> newBlockPopN(MBasicBlock* predecessor, jsbytecode* pc,
+                                             uint32_t popped);
+    AbortReasonOr<MBasicBlock*> newBlockAfter(MBasicBlock* at, MBasicBlock* predecessor,
+                                              jsbytecode* pc);
+    AbortReasonOr<MBasicBlock*> newOsrPreheader(MBasicBlock* header, jsbytecode* loopEntry,
+                                                jsbytecode* beforeLoopEntry);
+    AbortReasonOr<MBasicBlock*> newPendingLoopHeader(MBasicBlock* predecessor, jsbytecode* pc,
+                                                     bool osr, bool canOsr, unsigned stackPhiCount);
+    AbortReasonOr<MBasicBlock*> newBlock(jsbytecode* pc) {
         return newBlock(nullptr, pc);
     }
-    MBasicBlock* newBlockAfter(MBasicBlock* at, jsbytecode* pc) {
+    AbortReasonOr<MBasicBlock*> newBlockAfter(MBasicBlock* at, jsbytecode* pc) {
         return newBlockAfter(at, nullptr, pc);
     }
 
-    [[nodiscard]] bool visitBlock(const CFGBlock* hblock, MBasicBlock* mblock);
-    [[nodiscard]] bool visitControlInstruction(CFGControlInstruction* ins, bool* restarted);
-    [[nodiscard]] bool visitTest(CFGTest* test);
-    [[nodiscard]] bool visitCompare(CFGCompare* compare);
-    [[nodiscard]] bool visitLoopEntry(CFGLoopEntry* loopEntry);
-    [[nodiscard]] bool visitReturn(CFGControlInstruction* ins);
-    [[nodiscard]] bool visitGoto(CFGGoto* ins);
-    [[nodiscard]] bool visitBackEdge(CFGBackEdge* ins, bool* restarted);
-    [[nodiscard]] bool visitTry(CFGTry* test);
-    [[nodiscard]] bool visitThrow(CFGThrow* ins);
-    [[nodiscard]] bool visitTableSwitch(CFGTableSwitch* ins);
+    AbortReasonOr<Ok> visitBlock(const CFGBlock* hblock, MBasicBlock* mblock);
+    AbortReasonOr<Ok> visitControlInstruction(CFGControlInstruction* ins, bool* restarted);
+    AbortReasonOr<Ok> visitTest(CFGTest* test);
+    AbortReasonOr<Ok> visitCompare(CFGCompare* compare);
+    AbortReasonOr<Ok> visitLoopEntry(CFGLoopEntry* loopEntry);
+    AbortReasonOr<Ok> visitReturn(CFGControlInstruction* ins);
+    AbortReasonOr<Ok> visitGoto(CFGGoto* ins);
+    AbortReasonOr<Ok> visitBackEdge(CFGBackEdge* ins, bool* restarted);
+    AbortReasonOr<Ok> visitTry(CFGTry* test);
+    AbortReasonOr<Ok> visitThrow(CFGThrow* ins);
+    AbortReasonOr<Ok> visitTableSwitch(CFGTableSwitch* ins);
 
     // We want to make sure that our MTest instructions all check whether the
     // thing being tested might emulate undefined.  So we funnel their creation
@@ -107,32 +113,32 @@ class IonBuilder
 
     // Incorporates a type/typeSet into an OSR value for a loop, after the loop
     // body has been processed.
-    [[nodiscard]] bool addOsrValueTypeBarrier(uint32_t slot, MInstruction** def,
+    AbortReasonOr<Ok> addOsrValueTypeBarrier(uint32_t slot, MInstruction** def,
                                              MIRType type, TemporaryTypeSet* typeSet);
-    [[nodiscard]] bool maybeAddOsrTypeBarriers();
+    AbortReasonOr<Ok> maybeAddOsrTypeBarriers();
 
     // Restarts processing of a loop if the type information at its header was
     // incomplete.
-    bool restartLoop(const CFGBlock* header);
+    AbortReasonOr<Ok> restartLoop(const CFGBlock* header);
     bool initLoopEntry();
 
     // Please see the Big Honkin' Comment about how resume points work in
     // IonBuilder.cpp, near the definition for this function.
-    [[nodiscard]] bool resume(MInstruction* ins, jsbytecode* pc, MResumePoint::Mode mode);
-    [[nodiscard]] bool resumeAt(MInstruction* ins, jsbytecode* pc);
-    [[nodiscard]] bool resumeAfter(MInstruction* ins);
-    [[nodiscard]] bool maybeInsertResume();
+    AbortReasonOr<Ok> resume(MInstruction* ins, jsbytecode* pc, MResumePoint::Mode mode);
+    AbortReasonOr<Ok> resumeAt(MInstruction* ins, jsbytecode* pc);
+    AbortReasonOr<Ok> resumeAfter(MInstruction* ins);
+    AbortReasonOr<Ok> maybeInsertResume();
 
     bool blockIsOSREntry(const CFGBlock* block, const CFGBlock* predecessor);
 
     void insertRecompileCheck();
 
-    [[nodiscard]] bool initParameters();
+    AbortReasonOr<Ok> initParameters();
     void initLocals();
     void rewriteParameter(uint32_t slotIdx, MDefinition* param, int32_t argIndex);
-    [[nodiscard]] bool rewriteParameters();
-    [[nodiscard]] bool initEnvironmentChain(MDefinition* callee = nullptr);
-    [[nodiscard]] bool initArgumentsObject();
+    AbortReasonOr<Ok> rewriteParameters();
+    AbortReasonOr<Ok> initEnvironmentChain(MDefinition* callee = nullptr);
+    void initArgumentsObject();
     void pushConstant(const Value& v);
 
     MConstant* constant(const Value& v);
@@ -142,27 +148,27 @@ class IonBuilder
     MInstruction* setInitializedLength(MDefinition* obj, JSValueType unboxedType, size_t count);
 
     // Improve the type information at tests
-    [[nodiscard]] bool improveTypesAtTest(MDefinition* ins, bool trueBranch, MTest* test);
-    [[nodiscard]] bool improveTypesAtCompare(MCompare* ins, bool trueBranch, MTest* test);
-    [[nodiscard]] bool improveTypesAtNullOrUndefinedCompare(MCompare* ins, bool trueBranch,
+    AbortReasonOr<Ok> improveTypesAtTest(MDefinition* ins, bool trueBranch, MTest* test);
+    AbortReasonOr<Ok> improveTypesAtCompare(MCompare* ins, bool trueBranch, MTest* test);
+    AbortReasonOr<Ok> improveTypesAtNullOrUndefinedCompare(MCompare* ins, bool trueBranch,
                                                            MTest* test);
-    [[nodiscard]] bool improveTypesAtTypeOfCompare(MCompare* ins, bool trueBranch, MTest* test);
+    AbortReasonOr<Ok> improveTypesAtTypeOfCompare(MCompare* ins, bool trueBranch, MTest* test);
 
     // Used to detect triangular structure at test.
-    [[nodiscard]] bool detectAndOrStructure(MPhi* ins, bool* branchIsTrue);
-    [[nodiscard]] bool replaceTypeSet(MDefinition* subject, TemporaryTypeSet* type, MTest* test);
+    bool detectAndOrStructure(MPhi* ins, bool* branchIsTrue);
+    AbortReasonOr<Ok> replaceTypeSet(MDefinition* subject, TemporaryTypeSet* type, MTest* test);
 
     // Add a guard which ensure that the set of type which goes through this
     // generated code correspond to the observed types for the bytecode.
     MDefinition* addTypeBarrier(MDefinition* def, TemporaryTypeSet* observed,
                                 BarrierKind kind, MTypeBarrier** pbarrier = nullptr);
-    [[nodiscard]] bool pushTypeBarrier(MDefinition* def, TemporaryTypeSet* observed,
+    AbortReasonOr<Ok> pushTypeBarrier(MDefinition* def, TemporaryTypeSet* observed,
                                       BarrierKind kind);
 
     // As pushTypeBarrier, but will compute the needBarrier boolean itself based
     // on observed and the JSFunction that we're planning to call. The
     // JSFunction must be a DOM method or getter.
-    [[nodiscard]] bool pushDOMTypeBarrier(MInstruction* ins, TemporaryTypeSet* observed,
+    AbortReasonOr<Ok> pushDOMTypeBarrier(MInstruction* ins, TemporaryTypeSet* observed,
                                          JSFunction* func);
 
     // If definiteType is not known or def already has the right type, just
@@ -183,7 +189,7 @@ class IonBuilder
     MDefinition* createThisScriptedBaseline(MDefinition* callee);
     MDefinition* createThis(JSFunction* target, MDefinition* callee, MDefinition* newTarget);
     MInstruction* createNamedLambdaObject(MDefinition* callee, MDefinition* envObj);
-    MInstruction* createCallObject(MDefinition* callee, MDefinition* envObj);
+    AbortReasonOr<MInstruction*> createCallObject(MDefinition* callee, MDefinition* envObj);
 
     MDefinition* walkEnvironmentChain(unsigned hops);
 
@@ -204,13 +210,13 @@ class IonBuilder
     bool invalidatedIdempotentCache();
 
     bool hasStaticEnvironmentObject(EnvironmentCoordinate ec, JSObject** pcall);
-    [[nodiscard]] bool loadSlot(MDefinition* obj, size_t slot, size_t nfixed, MIRType rvalType,
+    AbortReasonOr<Ok> loadSlot(MDefinition* obj, size_t slot, size_t nfixed, MIRType rvalType,
                                BarrierKind barrier, TemporaryTypeSet* types);
-    [[nodiscard]] bool loadSlot(MDefinition* obj, Shape* shape, MIRType rvalType,
+    AbortReasonOr<Ok> loadSlot(MDefinition* obj, Shape* shape, MIRType rvalType,
                                BarrierKind barrier, TemporaryTypeSet* types);
-    [[nodiscard]] bool storeSlot(MDefinition* obj, size_t slot, size_t nfixed, MDefinition* value,
+    AbortReasonOr<Ok> storeSlot(MDefinition* obj, size_t slot, size_t nfixed, MDefinition* value,
                                 bool needsBarrier, MIRType slotType = MIRType::None);
-    [[nodiscard]] bool storeSlot(MDefinition* obj, Shape* shape, MDefinition* value,
+    AbortReasonOr<Ok> storeSlot(MDefinition* obj, Shape* shape, MDefinition* value,
                                 bool needsBarrier, MIRType slotType = MIRType::None);
     bool shouldAbortOnPreliminaryGroups(MDefinition *obj);
 
@@ -218,94 +224,94 @@ class IonBuilder
     MDefinition* maybeUnboxForPropertyAccess(MDefinition* def);
 
     // jsop_getprop() helpers.
-    [[nodiscard]] bool checkIsDefinitelyOptimizedArguments(MDefinition* obj, bool* isOptimizedArgs);
-    [[nodiscard]] bool getPropTryInferredConstant(bool* emitted, MDefinition* obj,
+    AbortReasonOr<Ok> checkIsDefinitelyOptimizedArguments(MDefinition* obj, bool* isOptimizedArgs);
+    AbortReasonOr<Ok> getPropTryInferredConstant(bool* emitted, MDefinition* obj,
                                                  PropertyName* name, TemporaryTypeSet* types);
-    [[nodiscard]] bool getPropTryArgumentsLength(bool* emitted, MDefinition* obj);
-    [[nodiscard]] bool getPropTryArgumentsCallee(bool* emitted, MDefinition* obj,
+    AbortReasonOr<Ok> getPropTryArgumentsLength(bool* emitted, MDefinition* obj);
+    AbortReasonOr<Ok> getPropTryArgumentsCallee(bool* emitted, MDefinition* obj,
                                                 PropertyName* name);
-    [[nodiscard]] bool getPropTryConstant(bool* emitted, MDefinition* obj, jsid id,
+    AbortReasonOr<Ok> getPropTryConstant(bool* emitted, MDefinition* obj, jsid id,
                                          TemporaryTypeSet* types);
-    [[nodiscard]] bool getPropTryNotDefined(bool* emitted, MDefinition* obj, jsid id,
+    AbortReasonOr<Ok> getPropTryNotDefined(bool* emitted, MDefinition* obj, jsid id,
                                            TemporaryTypeSet* types);
-    [[nodiscard]] bool getPropTryDefiniteSlot(bool* emitted, MDefinition* obj, PropertyName* name,
+    AbortReasonOr<Ok> getPropTryDefiniteSlot(bool* emitted, MDefinition* obj, PropertyName* name,
                                              BarrierKind barrier, TemporaryTypeSet* types);
-    [[nodiscard]] bool getPropTryModuleNamespace(bool* emitted, MDefinition* obj, PropertyName* name,
+    AbortReasonOr<Ok> getPropTryModuleNamespace(bool* emitted, MDefinition* obj, PropertyName* name,
                                                 BarrierKind barrier, TemporaryTypeSet* types);
-    [[nodiscard]] bool getPropTryUnboxed(bool* emitted, MDefinition* obj, PropertyName* name,
+    AbortReasonOr<Ok> getPropTryUnboxed(bool* emitted, MDefinition* obj, PropertyName* name,
                                         BarrierKind barrier, TemporaryTypeSet* types);
-    [[nodiscard]] bool getPropTryCommonGetter(bool* emitted, MDefinition* obj, PropertyName* name,
+    AbortReasonOr<Ok> getPropTryCommonGetter(bool* emitted, MDefinition* obj, PropertyName* name,
                                              TemporaryTypeSet* types, bool innerized = false);
-    [[nodiscard]] bool getPropTryInlineAccess(bool* emitted, MDefinition* obj, PropertyName* name,
+    AbortReasonOr<Ok> getPropTryInlineAccess(bool* emitted, MDefinition* obj, PropertyName* name,
                                              BarrierKind barrier, TemporaryTypeSet* types);
-    [[nodiscard]] bool getPropTryTypedObject(bool* emitted, MDefinition* obj, PropertyName* name);
-    [[nodiscard]] bool getPropTryScalarPropOfTypedObject(bool* emitted, MDefinition* typedObj,
+    AbortReasonOr<Ok> getPropTryTypedObject(bool* emitted, MDefinition* obj, PropertyName* name);
+    AbortReasonOr<Ok> getPropTryScalarPropOfTypedObject(bool* emitted, MDefinition* typedObj,
                                                         int32_t fieldOffset,
                                                         TypedObjectPrediction fieldTypeReprs);
-    [[nodiscard]] bool getPropTryReferencePropOfTypedObject(bool* emitted, MDefinition* typedObj,
+    AbortReasonOr<Ok> getPropTryReferencePropOfTypedObject(bool* emitted, MDefinition* typedObj,
                                                            int32_t fieldOffset,
                                                            TypedObjectPrediction fieldPrediction,
                                                            PropertyName* name);
-    [[nodiscard]] bool getPropTryComplexPropOfTypedObject(bool* emitted, MDefinition* typedObj,
+    AbortReasonOr<Ok> getPropTryComplexPropOfTypedObject(bool* emitted, MDefinition* typedObj,
                                                          int32_t fieldOffset,
                                                          TypedObjectPrediction fieldTypeReprs,
                                                          size_t fieldIndex);
-    [[nodiscard]] bool getPropTryInnerize(bool* emitted, MDefinition* obj, PropertyName* name,
+    AbortReasonOr<Ok> getPropTryInnerize(bool* emitted, MDefinition* obj, PropertyName* name,
                                          TemporaryTypeSet* types);
-    [[nodiscard]] bool getPropTryCache(bool* emitted, MDefinition* obj, PropertyName* name,
+    AbortReasonOr<Ok> getPropTryCache(bool* emitted, MDefinition* obj, PropertyName* name,
                                       BarrierKind barrier, TemporaryTypeSet* types);
-    [[nodiscard]] bool getPropTrySharedStub(bool* emitted, MDefinition* obj,
+    AbortReasonOr<Ok> getPropTrySharedStub(bool* emitted, MDefinition* obj,
                                            TemporaryTypeSet* types);
 
     // jsop_setprop() helpers.
-    [[nodiscard]] bool setPropTryCommonSetter(bool* emitted, MDefinition* obj,
+    AbortReasonOr<Ok> setPropTryCommonSetter(bool* emitted, MDefinition* obj,
                                              PropertyName* name, MDefinition* value);
-    [[nodiscard]] bool setPropTryCommonDOMSetter(bool* emitted, MDefinition* obj,
+    AbortReasonOr<Ok> setPropTryCommonDOMSetter(bool* emitted, MDefinition* obj,
                                                 MDefinition* value, JSFunction* setter,
                                                 TemporaryTypeSet* objTypes);
-    [[nodiscard]] bool setPropTryDefiniteSlot(bool* emitted, MDefinition* obj,
+    AbortReasonOr<Ok> setPropTryDefiniteSlot(bool* emitted, MDefinition* obj,
                                              PropertyName* name, MDefinition* value,
                                              bool barrier, TemporaryTypeSet* objTypes);
-    [[nodiscard]] bool setPropTryUnboxed(bool* emitted, MDefinition* obj,
+    AbortReasonOr<Ok> setPropTryUnboxed(bool* emitted, MDefinition* obj,
                                         PropertyName* name, MDefinition* value,
                                         bool barrier, TemporaryTypeSet* objTypes);
-    [[nodiscard]] bool setPropTryInlineAccess(bool* emitted, MDefinition* obj,
+    AbortReasonOr<Ok> setPropTryInlineAccess(bool* emitted, MDefinition* obj,
                                              PropertyName* name, MDefinition* value,
                                              bool barrier, TemporaryTypeSet* objTypes);
-    [[nodiscard]] bool setPropTryTypedObject(bool* emitted, MDefinition* obj,
+    AbortReasonOr<Ok> setPropTryTypedObject(bool* emitted, MDefinition* obj,
                                             PropertyName* name, MDefinition* value);
-    [[nodiscard]] bool setPropTryReferencePropOfTypedObject(bool* emitted, MDefinition* obj,
+    AbortReasonOr<Ok> setPropTryReferencePropOfTypedObject(bool* emitted, MDefinition* obj,
                                                            int32_t fieldOffset, MDefinition* value,
                                                            TypedObjectPrediction fieldPrediction,
                                                            PropertyName* name);
-    [[nodiscard]] bool setPropTryScalarPropOfTypedObject(bool* emitted,
+    AbortReasonOr<Ok> setPropTryScalarPropOfTypedObject(bool* emitted,
                                                         MDefinition* obj,
                                                         int32_t fieldOffset,
                                                         MDefinition* value,
                                                         TypedObjectPrediction fieldTypeReprs);
-    [[nodiscard]] bool setPropTryCache(bool* emitted, MDefinition* obj,
+    AbortReasonOr<Ok> setPropTryCache(bool* emitted, MDefinition* obj,
                                       PropertyName* name, MDefinition* value,
                                       bool barrier, TemporaryTypeSet* objTypes);
 
     // jsop_binary_arith helpers.
     MBinaryArithInstruction* binaryArithInstruction(JSOp op, MDefinition* left, MDefinition* right);
     MIRType binaryArithNumberSpecialization(MDefinition* left, MDefinition* right);
-    [[nodiscard]] bool binaryArithTryConcat(bool* emitted, JSOp op, MDefinition* left,
+    AbortReasonOr<Ok> binaryArithTryConcat(bool* emitted, JSOp op, MDefinition* left,
                                            MDefinition* right);
     [[nodiscard]] MBinaryArithInstruction* binaryArithEmitSpecialized(MDefinition::Opcode op,
                                                                      MIRType specialization,
                                                                      MDefinition* left,
                                                                      MDefinition* right);
-    [[nodiscard]] bool binaryArithTrySpecialized(bool* emitted, JSOp op, MDefinition* left,
+    AbortReasonOr<Ok> binaryArithTrySpecialized(bool* emitted, JSOp op, MDefinition* left,
                                                 MDefinition* right);
-    [[nodiscard]] bool binaryArithTrySpecializedOnBaselineInspector(bool* emitted, JSOp op,
+    AbortReasonOr<Ok> binaryArithTrySpecializedOnBaselineInspector(bool* emitted, JSOp op,
                                                                    MDefinition* left,
                                                                    MDefinition* right);
-    [[nodiscard]] bool arithTrySharedStub(bool* emitted, JSOp op, MDefinition* left,
+    AbortReasonOr<Ok> arithTrySharedStub(bool* emitted, JSOp op, MDefinition* left,
                                          MDefinition* right);
 
     // jsop_bitnot helpers.
-    [[nodiscard]] bool bitnotTrySpecialized(bool* emitted, MDefinition* input);
+    AbortReasonOr<Ok> bitnotTrySpecialized(bool* emitted, MDefinition* input);
 
     // jsop_inc_or_dec helpers.
     MDefinition* unaryArithConvertToBinary(JSOp op, MDefinition::Opcode* defOp);
@@ -314,137 +320,137 @@ class IonBuilder
                                                                   MDefinition* value);
 
     // jsop_pow helpers.
-    [[nodiscard]] bool powTrySpecialized(bool* emitted, MDefinition* base, MDefinition* power,
+    AbortReasonOr<Ok> powTrySpecialized(bool* emitted, MDefinition* base, MDefinition* power,
                                         MIRType outputType);
 
     // jsop_compare helpers.
-    [[nodiscard]] bool compareTrySpecialized(bool* emitted, JSOp op, MDefinition* left,
+    AbortReasonOr<Ok> compareTrySpecialized(bool* emitted, JSOp op, MDefinition* left,
                                             MDefinition* right);
-    [[nodiscard]] bool compareTryBitwise(bool* emitted, JSOp op, MDefinition* left,
+    AbortReasonOr<Ok> compareTryBitwise(bool* emitted, JSOp op, MDefinition* left,
                                         MDefinition* right);
-    [[nodiscard]] bool compareTrySpecializedOnBaselineInspector(bool* emitted, JSOp op,
+    AbortReasonOr<Ok> compareTrySpecializedOnBaselineInspector(bool* emitted, JSOp op,
                                                                MDefinition* left,
                                                                MDefinition* right);
-    [[nodiscard]] bool compareTrySharedStub(bool* emitted, JSOp op, MDefinition* left,
+    AbortReasonOr<Ok> compareTrySharedStub(bool* emitted, JSOp op, MDefinition* left,
                                            MDefinition* right);
 
     // jsop_newarray helpers.
-    [[nodiscard]] bool newArrayTrySharedStub(bool* emitted);
-    [[nodiscard]] bool newArrayTryTemplateObject(bool* emitted, JSObject* templateObject,
+    AbortReasonOr<Ok> newArrayTrySharedStub(bool* emitted);
+    AbortReasonOr<Ok> newArrayTryTemplateObject(bool* emitted, JSObject* templateObject,
                                                 uint32_t length);
-    [[nodiscard]] bool newArrayTryVM(bool* emitted, JSObject* templateObject, uint32_t length);
+    AbortReasonOr<Ok> newArrayTryVM(bool* emitted, JSObject* templateObject, uint32_t length);
 
     // jsop_newobject helpers.
-    [[nodiscard]] bool newObjectTrySharedStub(bool* emitted);
-    [[nodiscard]] bool newObjectTryTemplateObject(bool* emitted, JSObject* templateObject);
-    [[nodiscard]] bool newObjectTryVM(bool* emitted, JSObject* templateObject);
+    AbortReasonOr<Ok> newObjectTrySharedStub(bool* emitted);
+    AbortReasonOr<Ok> newObjectTryTemplateObject(bool* emitted, JSObject* templateObject);
+    AbortReasonOr<Ok> newObjectTryVM(bool* emitted, JSObject* templateObject);
 
     // jsop_in helpers.
-    [[nodiscard]] bool inTryDense(bool* emitted, MDefinition* obj, MDefinition* id);
-    [[nodiscard]] bool inTryFold(bool* emitted, MDefinition* obj, MDefinition* id);
+    AbortReasonOr<Ok> inTryDense(bool* emitted, MDefinition* obj, MDefinition* id);
+    AbortReasonOr<Ok> inTryFold(bool* emitted, MDefinition* obj, MDefinition* id);
 
     // binary data lookup helpers.
     TypedObjectPrediction typedObjectPrediction(MDefinition* typedObj);
     TypedObjectPrediction typedObjectPrediction(TemporaryTypeSet* types);
-    [[nodiscard]] bool typedObjectHasField(MDefinition* typedObj,
-                                          PropertyName* name,
-                                          size_t* fieldOffset,
-                                          TypedObjectPrediction* fieldTypeReprs,
-                                          size_t* fieldIndex);
+    bool typedObjectHasField(MDefinition* typedObj,
+                             PropertyName* name,
+                             size_t* fieldOffset,
+                             TypedObjectPrediction* fieldTypeReprs,
+                             size_t* fieldIndex);
     MDefinition* loadTypedObjectType(MDefinition* value);
-    void loadTypedObjectData(MDefinition* typedObj,
-                             MDefinition** owner,
-                             LinearSum* ownerOffset);
-    void loadTypedObjectElements(MDefinition* typedObj,
-                                 const LinearSum& byteOffset,
-                                 uint32_t scale,
-                                 MDefinition** ownerElements,
-                                 MDefinition** ownerScaledOffset,
-                                 int32_t* ownerByteAdjustment);
+    AbortReasonOr<Ok> loadTypedObjectData(MDefinition* typedObj,
+                                          MDefinition** owner,
+                                          LinearSum* ownerOffset);
+    AbortReasonOr<Ok> loadTypedObjectElements(MDefinition* typedObj,
+                                              const LinearSum& byteOffset,
+                                              uint32_t scale,
+                                              MDefinition** ownerElements,
+                                              MDefinition** ownerScaledOffset,
+                                              int32_t* ownerByteAdjustment);
     MDefinition* typeObjectForElementFromArrayStructType(MDefinition* typedObj);
     MDefinition* typeObjectForFieldFromStructType(MDefinition* type,
                                                   size_t fieldIndex);
-    [[nodiscard]] bool storeReferenceTypedObjectValue(MDefinition* typedObj,
-                                                     const LinearSum& byteOffset,
-                                                     ReferenceTypeDescr::Type type,
-                                                     MDefinition* value,
-                                                     PropertyName* name);
-    [[nodiscard]] bool storeScalarTypedObjectValue(MDefinition* typedObj,
+    AbortReasonOr<bool> storeReferenceTypedObjectValue(MDefinition* typedObj,
+                                                       const LinearSum& byteOffset,
+                                                       ReferenceTypeDescr::Type type,
+                                                       MDefinition* value,
+                                                       PropertyName* name);
+    AbortReasonOr<Ok> storeScalarTypedObjectValue(MDefinition* typedObj,
                                                   const LinearSum& byteOffset,
                                                   ScalarTypeDescr::Type type,
                                                   MDefinition* value);
-    [[nodiscard]] bool checkTypedObjectIndexInBounds(uint32_t elemSize,
-                                                    MDefinition* obj,
-                                                    MDefinition* index,
-                                                    TypedObjectPrediction objTypeDescrs,
-                                                    LinearSum* indexAsByteOffset);
-    [[nodiscard]] bool pushDerivedTypedObject(bool* emitted,
+    bool checkTypedObjectIndexInBounds(uint32_t elemSize,
+                                       MDefinition* obj,
+                                       MDefinition* index,
+                                       TypedObjectPrediction objTypeDescrs,
+                                       LinearSum* indexAsByteOffset);
+    AbortReasonOr<Ok> pushDerivedTypedObject(bool* emitted,
                                              MDefinition* obj,
                                              const LinearSum& byteOffset,
                                              TypedObjectPrediction derivedTypeDescrs,
                                              MDefinition* derivedTypeObj);
-    [[nodiscard]] bool pushScalarLoadFromTypedObject(MDefinition* obj,
+    AbortReasonOr<Ok> pushScalarLoadFromTypedObject(MDefinition* obj,
                                                     const LinearSum& byteoffset,
                                                     ScalarTypeDescr::Type type);
-    [[nodiscard]] bool pushReferenceLoadFromTypedObject(MDefinition* typedObj,
+    AbortReasonOr<Ok> pushReferenceLoadFromTypedObject(MDefinition* typedObj,
                                                        const LinearSum& byteOffset,
                                                        ReferenceTypeDescr::Type type,
                                                        PropertyName* name);
     JSObject* getStaticTypedArrayObject(MDefinition* obj, MDefinition* index);
 
     // jsop_setelem() helpers.
-    [[nodiscard]] bool setElemTryTypedArray(bool* emitted, MDefinition* object,
+    AbortReasonOr<Ok> setElemTryTypedArray(bool* emitted, MDefinition* object,
                                            MDefinition* index, MDefinition* value);
-    [[nodiscard]] bool setElemTryTypedObject(bool* emitted, MDefinition* obj,
+    AbortReasonOr<Ok> setElemTryTypedObject(bool* emitted, MDefinition* obj,
                                             MDefinition* index, MDefinition* value);
-    [[nodiscard]] bool setElemTryTypedStatic(bool* emitted, MDefinition* object,
+    AbortReasonOr<Ok> setElemTryTypedStatic(bool* emitted, MDefinition* object,
                                             MDefinition* index, MDefinition* value);
-    [[nodiscard]] bool setElemTryDense(bool* emitted, MDefinition* object,
+    AbortReasonOr<Ok> setElemTryDense(bool* emitted, MDefinition* object,
                                       MDefinition* index, MDefinition* value, bool writeHole);
-    [[nodiscard]] bool setElemTryArguments(bool* emitted, MDefinition* object,
+    AbortReasonOr<Ok> setElemTryArguments(bool* emitted, MDefinition* object,
                                           MDefinition* index, MDefinition* value);
-    [[nodiscard]] bool setElemTryCache(bool* emitted, MDefinition* object,
+    AbortReasonOr<Ok> setElemTryCache(bool* emitted, MDefinition* object,
                                       MDefinition* index, MDefinition* value);
-    [[nodiscard]] bool setElemTryReferenceElemOfTypedObject(bool* emitted,
+    AbortReasonOr<Ok> setElemTryReferenceElemOfTypedObject(bool* emitted,
                                                            MDefinition* obj,
                                                            MDefinition* index,
                                                            TypedObjectPrediction objPrediction,
                                                            MDefinition* value,
                                                            TypedObjectPrediction elemPrediction);
-    [[nodiscard]] bool setElemTryScalarElemOfTypedObject(bool* emitted,
+    AbortReasonOr<Ok> setElemTryScalarElemOfTypedObject(bool* emitted,
                                                         MDefinition* obj,
                                                         MDefinition* index,
                                                         TypedObjectPrediction objTypeReprs,
                                                         MDefinition* value,
                                                         TypedObjectPrediction elemTypeReprs,
                                                         uint32_t elemSize);
-    [[nodiscard]] bool initializeArrayElement(MDefinition* obj, size_t index, MDefinition* value,
+    AbortReasonOr<Ok> initializeArrayElement(MDefinition* obj, size_t index, MDefinition* value,
                                              JSValueType unboxedType,
                                              bool addResumePointAndIncrementInitializedLength);
 
     // jsop_getelem() helpers.
-    [[nodiscard]] bool getElemTryDense(bool* emitted, MDefinition* obj, MDefinition* index);
-    [[nodiscard]] bool getElemTryGetProp(bool* emitted, MDefinition* obj, MDefinition* index);
-    [[nodiscard]] bool getElemTryTypedStatic(bool* emitted, MDefinition* obj, MDefinition* index);
-    [[nodiscard]] bool getElemTryTypedArray(bool* emitted, MDefinition* obj, MDefinition* index);
-    [[nodiscard]] bool getElemTryTypedObject(bool* emitted, MDefinition* obj, MDefinition* index);
-    [[nodiscard]] bool getElemTryString(bool* emitted, MDefinition* obj, MDefinition* index);
-    [[nodiscard]] bool getElemTryArguments(bool* emitted, MDefinition* obj, MDefinition* index);
-    [[nodiscard]] bool getElemTryArgumentsInlined(bool* emitted, MDefinition* obj,
+    AbortReasonOr<Ok> getElemTryDense(bool* emitted, MDefinition* obj, MDefinition* index);
+    AbortReasonOr<Ok> getElemTryGetProp(bool* emitted, MDefinition* obj, MDefinition* index);
+    AbortReasonOr<Ok> getElemTryTypedStatic(bool* emitted, MDefinition* obj, MDefinition* index);
+    AbortReasonOr<Ok> getElemTryTypedArray(bool* emitted, MDefinition* obj, MDefinition* index);
+    AbortReasonOr<Ok> getElemTryTypedObject(bool* emitted, MDefinition* obj, MDefinition* index);
+    AbortReasonOr<Ok> getElemTryString(bool* emitted, MDefinition* obj, MDefinition* index);
+    AbortReasonOr<Ok> getElemTryArguments(bool* emitted, MDefinition* obj, MDefinition* index);
+    AbortReasonOr<Ok> getElemTryArgumentsInlined(bool* emitted, MDefinition* obj,
                                                  MDefinition* index);
-    [[nodiscard]] bool getElemTryCache(bool* emitted, MDefinition* obj, MDefinition* index);
-    [[nodiscard]] bool getElemTryScalarElemOfTypedObject(bool* emitted,
+    AbortReasonOr<Ok> getElemTryCache(bool* emitted, MDefinition* obj, MDefinition* index);
+    AbortReasonOr<Ok> getElemTryScalarElemOfTypedObject(bool* emitted,
                                                         MDefinition* obj,
                                                         MDefinition* index,
                                                         TypedObjectPrediction objTypeReprs,
                                                         TypedObjectPrediction elemTypeReprs,
                                                         uint32_t elemSize);
-    [[nodiscard]] bool getElemTryReferenceElemOfTypedObject(bool* emitted,
+    AbortReasonOr<Ok> getElemTryReferenceElemOfTypedObject(bool* emitted,
                                                            MDefinition* obj,
                                                            MDefinition* index,
                                                            TypedObjectPrediction objPrediction,
                                                            TypedObjectPrediction elemPrediction);
-    [[nodiscard]] bool getElemTryComplexElemOfTypedObject(bool* emitted,
+    AbortReasonOr<Ok> getElemTryComplexElemOfTypedObject(bool* emitted,
                                                          MDefinition* obj,
                                                          MDefinition* index,
                                                          TypedObjectPrediction objTypeReprs,
@@ -475,133 +481,126 @@ class IonBuilder
         return length;
     }
 
-    [[nodiscard]] bool improveThisTypesForCall();
+    AbortReasonOr<Ok> improveThisTypesForCall();
 
     MDefinition* getCallee();
     MDefinition* getAliasedVar(EnvironmentCoordinate ec);
-    MDefinition* addLexicalCheck(MDefinition* input);
+    AbortReasonOr<MDefinition*> addLexicalCheck(MDefinition* input);
 
     MDefinition* convertToBoolean(MDefinition* input);
 
-    [[nodiscard]] bool tryFoldInstanceOf(MDefinition* lhs, JSObject* protoObject);
-    [[nodiscard]] bool hasOnProtoChain(TypeSet::ObjectKey* key, JSObject* protoObject,
-                                      bool* hasOnProto);
+    AbortReasonOr<Ok> tryFoldInstanceOf(bool* emitted, MDefinition* lhs, JSObject* protoObject);
+    AbortReasonOr<bool> hasOnProtoChain(TypeSet::ObjectKey* key, JSObject* protoObject);
 
-    [[nodiscard]] bool jsop_add(MDefinition* left, MDefinition* right);
-    [[nodiscard]] bool jsop_bitnot();
-    [[nodiscard]] bool jsop_bitop(JSOp op);
-    [[nodiscard]] bool jsop_binary_arith(JSOp op);
-    [[nodiscard]] bool jsop_binary_arith(JSOp op, MDefinition* left, MDefinition* right);
-    [[nodiscard]] bool jsop_pow();
-    [[nodiscard]] bool jsop_pos();
-    [[nodiscard]] bool jsop_neg();
-    [[nodiscard]] bool jsop_tonumeric();
-    [[nodiscard]] bool jsop_inc_or_dec(JSOp op);
-    [[nodiscard]] bool jsop_tostring();
-    [[nodiscard]] bool jsop_setarg(uint32_t arg);
-    [[nodiscard]] bool jsop_defvar(uint32_t index);
-    [[nodiscard]] bool jsop_deflexical(uint32_t index);
-    [[nodiscard]] bool jsop_deffun(uint32_t index);
-    [[nodiscard]] bool jsop_notearg();
-    [[nodiscard]] bool jsop_throwsetconst();
-    [[nodiscard]] bool jsop_checklexical();
-    [[nodiscard]] bool jsop_checkaliasedlexical(EnvironmentCoordinate ec);
-    [[nodiscard]] bool jsop_funcall(uint32_t argc);
-    [[nodiscard]] bool jsop_funapply(uint32_t argc);
-    [[nodiscard]] bool jsop_funapplyarguments(uint32_t argc);
-    [[nodiscard]] bool jsop_funapplyarray(uint32_t argc);
-    [[nodiscard]] bool jsop_call(uint32_t argc, bool constructing);
-    [[nodiscard]] bool jsop_call(uint32_t argc, bool constructing, bool ignoresReturnValue);
-    [[nodiscard]] bool jsop_eval(uint32_t argc);
-    [[nodiscard]] bool jsop_label();
-    [[nodiscard]] bool jsop_logical(JSOp op);
-    [[nodiscard]] bool jsop_dup2();
-    [[nodiscard]] bool jsop_loophead(jsbytecode* pc);
-    [[nodiscard]] bool jsop_compare(JSOp op);
-    [[nodiscard]] bool jsop_compare(JSOp op, MDefinition* left, MDefinition* right);
-    [[nodiscard]] bool getStaticName(JSObject* staticObject, PropertyName* name, bool* psucceeded,
+    AbortReasonOr<Ok> jsop_add(MDefinition* left, MDefinition* right);
+    AbortReasonOr<Ok> jsop_bitnot();
+    AbortReasonOr<Ok> jsop_bitop(JSOp op);
+    AbortReasonOr<Ok> jsop_binary_arith(JSOp op);
+    AbortReasonOr<Ok> jsop_binary_arith(JSOp op, MDefinition* left, MDefinition* right);
+    AbortReasonOr<Ok> jsop_pow();
+    AbortReasonOr<Ok> jsop_pos();
+    AbortReasonOr<Ok> jsop_neg();
+    AbortReasonOr<Ok> jsop_tostring();
+    AbortReasonOr<Ok> jsop_setarg(uint32_t arg);
+    AbortReasonOr<Ok> jsop_defvar(uint32_t index);
+    AbortReasonOr<Ok> jsop_deflexical(uint32_t index);
+    AbortReasonOr<Ok> jsop_deffun(uint32_t index);
+    AbortReasonOr<Ok> jsop_notearg();
+    AbortReasonOr<Ok> jsop_throwsetconst();
+    AbortReasonOr<Ok> jsop_checklexical();
+    AbortReasonOr<Ok> jsop_checkaliasedlexical(EnvironmentCoordinate ec);
+    AbortReasonOr<Ok> jsop_funcall(uint32_t argc);
+    AbortReasonOr<Ok> jsop_funapply(uint32_t argc);
+    AbortReasonOr<Ok> jsop_funapplyarguments(uint32_t argc);
+    AbortReasonOr<Ok> jsop_funapplyarray(uint32_t argc);
+    AbortReasonOr<Ok> jsop_call(uint32_t argc, bool constructing);
+    AbortReasonOr<Ok> jsop_eval(uint32_t argc);
+    AbortReasonOr<Ok> jsop_label();
+    AbortReasonOr<Ok> jsop_andor(JSOp op);
+    AbortReasonOr<Ok> jsop_dup2();
+    AbortReasonOr<Ok> jsop_loophead(jsbytecode* pc);
+    AbortReasonOr<Ok> jsop_compare(JSOp op);
+    AbortReasonOr<Ok> jsop_compare(JSOp op, MDefinition* left, MDefinition* right);
+    AbortReasonOr<Ok> getStaticName(bool* emitted, JSObject* staticObject, PropertyName* name,
                                     MDefinition* lexicalCheck = nullptr);
-    [[nodiscard]] bool loadStaticSlot(JSObject* staticObject, BarrierKind barrier,
+    AbortReasonOr<Ok> loadStaticSlot(JSObject* staticObject, BarrierKind barrier,
                                      TemporaryTypeSet* types, uint32_t slot);
-    [[nodiscard]] bool setStaticName(JSObject* staticObject, PropertyName* name);
-    [[nodiscard]] bool jsop_getgname(PropertyName* name);
-    [[nodiscard]] bool jsop_getname(PropertyName* name);
-    [[nodiscard]] bool jsop_intrinsic(PropertyName* name);
-    [[nodiscard]] bool jsop_getimport(PropertyName* name);
-    [[nodiscard]] bool jsop_bindname(PropertyName* name);
-    [[nodiscard]] bool jsop_bindvar();
-    [[nodiscard]] bool jsop_getelem();
-    [[nodiscard]] bool jsop_getelem_dense(MDefinition* obj, MDefinition* index,
+    AbortReasonOr<Ok> setStaticName(JSObject* staticObject, PropertyName* name);
+    AbortReasonOr<Ok> jsop_getgname(PropertyName* name);
+    AbortReasonOr<Ok> jsop_getname(PropertyName* name);
+    AbortReasonOr<Ok> jsop_intrinsic(PropertyName* name);
+    AbortReasonOr<Ok> jsop_getimport(PropertyName* name);
+    AbortReasonOr<Ok> jsop_bindname(PropertyName* name);
+    AbortReasonOr<Ok> jsop_bindvar();
+    AbortReasonOr<Ok> jsop_getelem();
+    AbortReasonOr<Ok> jsop_getelem_dense(MDefinition* obj, MDefinition* index,
                                          JSValueType unboxedType);
-    [[nodiscard]] bool jsop_getelem_typed(MDefinition* obj, MDefinition* index,
+    AbortReasonOr<Ok> jsop_getelem_typed(MDefinition* obj, MDefinition* index,
                                          ScalarTypeDescr::Type arrayType);
-    [[nodiscard]] bool jsop_setelem();
-    [[nodiscard]] bool jsop_setelem_dense(TemporaryTypeSet::DoubleConversion conversion,
+    AbortReasonOr<Ok> jsop_setelem();
+    AbortReasonOr<Ok> jsop_setelem_dense(TemporaryTypeSet::DoubleConversion conversion,
                                          MDefinition* object, MDefinition* index,
                                          MDefinition* value, JSValueType unboxedType,
                                          bool writeHole, bool* emitted);
-    [[nodiscard]] bool jsop_setelem_typed(ScalarTypeDescr::Type arrayType,
+    AbortReasonOr<Ok> jsop_setelem_typed(ScalarTypeDescr::Type arrayType,
                                          MDefinition* object, MDefinition* index,
                                          MDefinition* value);
-    [[nodiscard]] bool jsop_length();
-    [[nodiscard]] bool jsop_length_fastPath();
-    [[nodiscard]] bool jsop_arguments();
-    [[nodiscard]] bool jsop_arguments_getelem();
-    [[nodiscard]] bool jsop_runonce();
-    [[nodiscard]] bool jsop_rest();
-    [[nodiscard]] bool jsop_not();
-    [[nodiscard]] bool jsop_getprop(PropertyName* name);
-    [[nodiscard]] bool jsop_setprop(PropertyName* name);
-    [[nodiscard]] bool jsop_delprop(PropertyName* name);
-    [[nodiscard]] bool jsop_delelem();
-    [[nodiscard]] bool jsop_newarray(uint32_t length);
-    [[nodiscard]] bool jsop_newarray(JSObject* templateObject, uint32_t length);
-    [[nodiscard]] bool jsop_newarray_copyonwrite();
-    [[nodiscard]] bool jsop_newobject();
-    [[nodiscard]] bool jsop_initelem();
-    [[nodiscard]] bool jsop_initelem_array();
-    [[nodiscard]] bool jsop_initelem_getter_setter();
-    [[nodiscard]] bool jsop_mutateproto();
-    [[nodiscard]] bool jsop_initprop(PropertyName* name);
-    [[nodiscard]] bool jsop_initprop_getter_setter(PropertyName* name);
-    [[nodiscard]] bool jsop_regexp(RegExpObject* reobj);
-    [[nodiscard]] bool jsop_object(JSObject* obj);
-    [[nodiscard]] bool jsop_lambda(JSFunction* fun);
-    [[nodiscard]] bool jsop_lambda_arrow(JSFunction* fun);
-    [[nodiscard]] bool jsop_setfunname(uint8_t prefixKind);
-    [[nodiscard]] bool jsop_functionthis();
-    [[nodiscard]] bool jsop_globalthis();
-    [[nodiscard]] bool jsop_typeof();
-    [[nodiscard]] bool jsop_toasync();
-    [[nodiscard]] bool jsop_toasyncgen();
-    [[nodiscard]] bool jsop_toasynciter();
-    [[nodiscard]] bool jsop_toid();
-    [[nodiscard]] bool jsop_iter(uint8_t flags);
-    [[nodiscard]] bool jsop_itermore();
-    [[nodiscard]] bool jsop_isnoiter();
-    [[nodiscard]] bool jsop_iterend();
-    [[nodiscard]] bool jsop_in();
-    [[nodiscard]] bool jsop_instanceof();
-    [[nodiscard]] bool jsop_getaliasedvar(EnvironmentCoordinate ec);
-    [[nodiscard]] bool jsop_setaliasedvar(EnvironmentCoordinate ec);
-    [[nodiscard]] bool jsop_debugger();
-    [[nodiscard]] bool jsop_newtarget();
-    [[nodiscard]] bool jsop_checkisobj(uint8_t kind);
-    [[nodiscard]] bool jsop_checkiscallable(uint8_t kind);
-    [[nodiscard]] bool jsop_checkobjcoercible();
-    [[nodiscard]] bool jsop_pushcallobj();
-    [[nodiscard]] bool jsop_importmeta();
-    [[nodiscard]] bool jsop_dynamic_import();
+    AbortReasonOr<Ok> jsop_length();
+    bool jsop_length_fastPath();
+    AbortReasonOr<Ok> jsop_arguments();
+    AbortReasonOr<Ok> jsop_arguments_getelem();
+    AbortReasonOr<Ok> jsop_runonce();
+    AbortReasonOr<Ok> jsop_rest();
+    AbortReasonOr<Ok> jsop_not();
+    AbortReasonOr<Ok> jsop_getprop(PropertyName* name);
+    AbortReasonOr<Ok> jsop_setprop(PropertyName* name);
+    AbortReasonOr<Ok> jsop_delprop(PropertyName* name);
+    AbortReasonOr<Ok> jsop_delelem();
+    AbortReasonOr<Ok> jsop_newarray(uint32_t length);
+    AbortReasonOr<Ok> jsop_newarray(JSObject* templateObject, uint32_t length);
+    AbortReasonOr<Ok> jsop_newarray_copyonwrite();
+    AbortReasonOr<Ok> jsop_newobject();
+    AbortReasonOr<Ok> jsop_initelem();
+    AbortReasonOr<Ok> jsop_initelem_array();
+    AbortReasonOr<Ok> jsop_initelem_getter_setter();
+    AbortReasonOr<Ok> jsop_mutateproto();
+    AbortReasonOr<Ok> jsop_initprop(PropertyName* name);
+    AbortReasonOr<Ok> jsop_initprop_getter_setter(PropertyName* name);
+    AbortReasonOr<Ok> jsop_regexp(RegExpObject* reobj);
+    AbortReasonOr<Ok> jsop_object(JSObject* obj);
+    AbortReasonOr<Ok> jsop_lambda(JSFunction* fun);
+    AbortReasonOr<Ok> jsop_lambda_arrow(JSFunction* fun);
+    AbortReasonOr<Ok> jsop_setfunname(uint8_t prefixKind);
+    AbortReasonOr<Ok> jsop_functionthis();
+    AbortReasonOr<Ok> jsop_globalthis();
+    AbortReasonOr<Ok> jsop_typeof();
+    AbortReasonOr<Ok> jsop_toasync();
+    AbortReasonOr<Ok> jsop_toid();
+    AbortReasonOr<Ok> jsop_iter(uint8_t flags);
+    AbortReasonOr<Ok> jsop_itermore();
+    AbortReasonOr<Ok> jsop_isnoiter();
+    AbortReasonOr<Ok> jsop_iterend();
+    AbortReasonOr<Ok> jsop_in();
+    AbortReasonOr<Ok> jsop_instanceof();
+    AbortReasonOr<Ok> jsop_getaliasedvar(EnvironmentCoordinate ec);
+    AbortReasonOr<Ok> jsop_setaliasedvar(EnvironmentCoordinate ec);
+    AbortReasonOr<Ok> jsop_debugger();
+    AbortReasonOr<Ok> jsop_newtarget();
+    AbortReasonOr<Ok> jsop_checkisobj(uint8_t kind);
+    AbortReasonOr<Ok> jsop_checkobjcoercible();
+    AbortReasonOr<Ok> jsop_pushcallobj();
+    AbortReasonOr<Ok> jsop_importmeta();
+    AbortReasonOr<Ok> jsop_dynamic_import();
 
     /* Inlining. */
 
     enum InliningStatus
     {
-        InliningStatus_Error,
         InliningStatus_NotInlined,
         InliningStatus_WarmUpCountTooLow,
         InliningStatus_Inlined
     };
+    using InliningResult = AbortReasonOr<InliningStatus>;
 
     enum InliningDecision
     {
@@ -619,7 +618,7 @@ class IonBuilder
     // Oracles.
     InliningDecision canInlineTarget(JSFunction* target, CallInfo& callInfo);
     InliningDecision makeInliningDecision(JSObject* target, CallInfo& callInfo);
-    [[nodiscard]] bool selectInliningTargets(const ObjectVector& targets, CallInfo& callInfo,
+    AbortReasonOr<Ok> selectInliningTargets(const ObjectVector& targets, CallInfo& callInfo,
                                             BoolVector& choiceSet, uint32_t* numInlineable);
 
     // Native inlining helpers.
@@ -630,134 +629,133 @@ class IonBuilder
     MIRType getInlineReturnType();
 
     // Array natives.
-    InliningStatus inlineArray(CallInfo& callInfo);
-    InliningStatus inlineArrayIsArray(CallInfo& callInfo);
-    InliningStatus inlineArrayPopShift(CallInfo& callInfo, MArrayPopShift::Mode mode);
-    InliningStatus inlineArrayPush(CallInfo& callInfo);
-    InliningStatus inlineArraySlice(CallInfo& callInfo);
-    InliningStatus inlineArrayJoin(CallInfo& callInfo);
+    InliningResult inlineArray(CallInfo& callInfo);
+    InliningResult inlineArrayIsArray(CallInfo& callInfo);
+    InliningResult inlineArrayPopShift(CallInfo& callInfo, MArrayPopShift::Mode mode);
+    InliningResult inlineArrayPush(CallInfo& callInfo);
+    InliningResult inlineArraySlice(CallInfo& callInfo);
+    InliningResult inlineArrayJoin(CallInfo& callInfo);
 
     // Math natives.
-    InliningStatus inlineMathAbs(CallInfo& callInfo);
-    InliningStatus inlineMathFloor(CallInfo& callInfo);
-    InliningStatus inlineMathCeil(CallInfo& callInfo);
-    InliningStatus inlineMathClz32(CallInfo& callInfo);
-    InliningStatus inlineMathRound(CallInfo& callInfo);
-    InliningStatus inlineMathSqrt(CallInfo& callInfo);
-    InliningStatus inlineMathAtan2(CallInfo& callInfo);
-    InliningStatus inlineMathHypot(CallInfo& callInfo);
-    InliningStatus inlineMathMinMax(CallInfo& callInfo, bool max);
-    InliningStatus inlineMathPow(CallInfo& callInfo);
-    InliningStatus inlineMathRandom(CallInfo& callInfo);
-    InliningStatus inlineMathImul(CallInfo& callInfo);
-    InliningStatus inlineMathFRound(CallInfo& callInfo);
-    InliningStatus inlineMathFunction(CallInfo& callInfo, MMathFunction::Function function);
+    InliningResult inlineMathAbs(CallInfo& callInfo);
+    InliningResult inlineMathFloor(CallInfo& callInfo);
+    InliningResult inlineMathCeil(CallInfo& callInfo);
+    InliningResult inlineMathClz32(CallInfo& callInfo);
+    InliningResult inlineMathRound(CallInfo& callInfo);
+    InliningResult inlineMathSqrt(CallInfo& callInfo);
+    InliningResult inlineMathAtan2(CallInfo& callInfo);
+    InliningResult inlineMathHypot(CallInfo& callInfo);
+    InliningResult inlineMathMinMax(CallInfo& callInfo, bool max);
+    InliningResult inlineMathPow(CallInfo& callInfo);
+    InliningResult inlineMathRandom(CallInfo& callInfo);
+    InliningResult inlineMathImul(CallInfo& callInfo);
+    InliningResult inlineMathFRound(CallInfo& callInfo);
+    InliningResult inlineMathFunction(CallInfo& callInfo, MMathFunction::Function function);
 
     // String natives.
-    InliningStatus inlineStringObject(CallInfo& callInfo);
-    InliningStatus inlineStrCharCodeAt(CallInfo& callInfo);
-    InliningStatus inlineConstantCharCodeAt(CallInfo& callInfo);
-    InliningStatus inlineStrFromCharCode(CallInfo& callInfo);
-    InliningStatus inlineStrFromCodePoint(CallInfo& callInfo);
-    InliningStatus inlineStrCharAt(CallInfo& callInfo);
+    InliningResult inlineStringObject(CallInfo& callInfo);
+    InliningResult inlineStrCharCodeAt(CallInfo& callInfo);
+    InliningResult inlineConstantCharCodeAt(CallInfo& callInfo);
+    InliningResult inlineStrFromCharCode(CallInfo& callInfo);
+    InliningResult inlineStrFromCodePoint(CallInfo& callInfo);
+    InliningResult inlineStrCharAt(CallInfo& callInfo);
 
     // String intrinsics.
-    InliningStatus inlineStringReplaceString(CallInfo& callInfo);
-    InliningStatus inlineConstantStringSplitString(CallInfo& callInfo);
-    InliningStatus inlineStringSplitString(CallInfo& callInfo);
+    InliningResult inlineStringReplaceString(CallInfo& callInfo);
+    InliningResult inlineConstantStringSplitString(CallInfo& callInfo);
+    InliningResult inlineStringSplitString(CallInfo& callInfo);
 
     // RegExp intrinsics.
-    InliningStatus inlineRegExpMatcher(CallInfo& callInfo);
-    InliningStatus inlineRegExpSearcher(CallInfo& callInfo);
-    InliningStatus inlineRegExpTester(CallInfo& callInfo);
-    InliningStatus inlineIsRegExpObject(CallInfo& callInfo);
-    InliningStatus inlineIsPossiblyWrappedRegExpObject(CallInfo& callInfo);
-    InliningStatus inlineRegExpPrototypeOptimizable(CallInfo& callInfo);
-    InliningStatus inlineRegExpInstanceOptimizable(CallInfo& callInfo);
-    InliningStatus inlineGetFirstDollarIndex(CallInfo& callInfo);
+    InliningResult inlineRegExpMatcher(CallInfo& callInfo);
+    InliningResult inlineRegExpSearcher(CallInfo& callInfo);
+    InliningResult inlineRegExpTester(CallInfo& callInfo);
+    InliningResult inlineIsRegExpObject(CallInfo& callInfo);
+    InliningResult inlineRegExpPrototypeOptimizable(CallInfo& callInfo);
+    InliningResult inlineRegExpInstanceOptimizable(CallInfo& callInfo);
+    InliningResult inlineGetFirstDollarIndex(CallInfo& callInfo);
 
     // Object natives and intrinsics.
-    InliningStatus inlineObjectCreate(CallInfo& callInfo);
-    InliningStatus inlineDefineDataProperty(CallInfo& callInfo);
+    InliningResult inlineObjectCreate(CallInfo& callInfo);
+    InliningResult inlineDefineDataProperty(CallInfo& callInfo);
 
     // Atomics natives.
-    InliningStatus inlineAtomicsCompareExchange(CallInfo& callInfo);
-    InliningStatus inlineAtomicsExchange(CallInfo& callInfo);
-    InliningStatus inlineAtomicsLoad(CallInfo& callInfo);
-    InliningStatus inlineAtomicsStore(CallInfo& callInfo);
-    InliningStatus inlineAtomicsBinop(CallInfo& callInfo, InlinableNative target);
-    InliningStatus inlineAtomicsIsLockFree(CallInfo& callInfo);
+    InliningResult inlineAtomicsCompareExchange(CallInfo& callInfo);
+    InliningResult inlineAtomicsExchange(CallInfo& callInfo);
+    InliningResult inlineAtomicsLoad(CallInfo& callInfo);
+    InliningResult inlineAtomicsStore(CallInfo& callInfo);
+    InliningResult inlineAtomicsBinop(CallInfo& callInfo, InlinableNative target);
+    InliningResult inlineAtomicsIsLockFree(CallInfo& callInfo);
 
     // Slot intrinsics.
-    InliningStatus inlineUnsafeSetReservedSlot(CallInfo& callInfo);
-    InliningStatus inlineUnsafeGetReservedSlot(CallInfo& callInfo,
+    InliningResult inlineUnsafeSetReservedSlot(CallInfo& callInfo);
+    InliningResult inlineUnsafeGetReservedSlot(CallInfo& callInfo,
                                                MIRType knownValueType);
 
     // Map and Set intrinsics.
-    InliningStatus inlineGetNextEntryForIterator(CallInfo& callInfo,
+    InliningResult inlineGetNextEntryForIterator(CallInfo& callInfo,
                                                  MGetNextEntryForIterator::Mode mode);
 
     // ArrayBuffer intrinsics.
-    InliningStatus inlineArrayBufferByteLength(CallInfo& callInfo);
-    InliningStatus inlinePossiblyWrappedArrayBufferByteLength(CallInfo& callInfo);
+    InliningResult inlineArrayBufferByteLength(CallInfo& callInfo);
+    InliningResult inlinePossiblyWrappedArrayBufferByteLength(CallInfo& callInfo);
 
     // TypedArray intrinsics.
     enum WrappingBehavior { AllowWrappedTypedArrays, RejectWrappedTypedArrays };
-    InliningStatus inlineTypedArray(CallInfo& callInfo, Native native);
-    InliningStatus inlineIsTypedArrayHelper(CallInfo& callInfo, WrappingBehavior wrappingBehavior);
-    InliningStatus inlineIsTypedArray(CallInfo& callInfo);
-    InliningStatus inlineIsPossiblyWrappedTypedArray(CallInfo& callInfo);
-    InliningStatus inlineTypedArrayLength(CallInfo& callInfo);
-    InliningStatus inlinePossiblyWrappedTypedArrayLength(CallInfo& callInfo);
-    InliningStatus inlineSetDisjointTypedElements(CallInfo& callInfo);
+    InliningResult inlineTypedArray(CallInfo& callInfo, Native native);
+    InliningResult inlineIsTypedArrayHelper(CallInfo& callInfo, WrappingBehavior wrappingBehavior);
+    InliningResult inlineIsTypedArray(CallInfo& callInfo);
+    InliningResult inlineIsPossiblyWrappedTypedArray(CallInfo& callInfo);
+    InliningResult inlineTypedArrayLength(CallInfo& callInfo);
+    InliningResult inlinePossiblyWrappedTypedArrayLength(CallInfo& callInfo);
+    InliningResult inlineSetDisjointTypedElements(CallInfo& callInfo);
 
     // TypedObject intrinsics and natives.
-    InliningStatus inlineObjectIsTypeDescr(CallInfo& callInfo);
-    InliningStatus inlineSetTypedObjectOffset(CallInfo& callInfo);
-    InliningStatus inlineConstructTypedObject(CallInfo& callInfo, TypeDescr* target);
+    InliningResult inlineObjectIsTypeDescr(CallInfo& callInfo);
+    InliningResult inlineSetTypedObjectOffset(CallInfo& callInfo);
+    InliningResult inlineConstructTypedObject(CallInfo& callInfo, TypeDescr* target);
 
     // Utility intrinsics.
-    InliningStatus inlineIsCallable(CallInfo& callInfo);
-    InliningStatus inlineIsConstructor(CallInfo& callInfo);
-    InliningStatus inlineIsObject(CallInfo& callInfo);
-    InliningStatus inlineToObject(CallInfo& callInfo);
-    InliningStatus inlineIsWrappedArrayConstructor(CallInfo& callInfo);
-    InliningStatus inlineToInteger(CallInfo& callInfo);
-    InliningStatus inlineToString(CallInfo& callInfo);
-    InliningStatus inlineDump(CallInfo& callInfo);
-    InliningStatus inlineHasClass(CallInfo& callInfo, const Class* clasp,
+    InliningResult inlineIsCallable(CallInfo& callInfo);
+    InliningResult inlineIsConstructor(CallInfo& callInfo);
+    InliningResult inlineIsObject(CallInfo& callInfo);
+    InliningResult inlineToObject(CallInfo& callInfo);
+    InliningResult inlineIsWrappedArrayConstructor(CallInfo& callInfo);
+    InliningResult inlineToInteger(CallInfo& callInfo);
+    InliningResult inlineToString(CallInfo& callInfo);
+    InliningResult inlineDump(CallInfo& callInfo);
+    InliningResult inlineHasClass(CallInfo& callInfo, const Class* clasp,
                                   const Class* clasp2 = nullptr,
                                   const Class* clasp3 = nullptr,
                                   const Class* clasp4 = nullptr);
-    InliningStatus inlineGuardToClass(CallInfo& callInfo, const Class* clasp);
-    InliningStatus inlineIsConstructing(CallInfo& callInfo);
-    InliningStatus inlineSubstringKernel(CallInfo& callInfo);
-    InliningStatus inlineObjectHasPrototype(CallInfo& callInfo);
+    InliningResult inlineGuardToClass(CallInfo& callInfo, const Class* clasp);
+    InliningResult inlineIsConstructing(CallInfo& callInfo);
+    InliningResult inlineSubstringKernel(CallInfo& callInfo);
+    InliningResult inlineObjectHasPrototype(CallInfo& callInfo);
 
     // Testing functions.
-    InliningStatus inlineBailout(CallInfo& callInfo);
-    InliningStatus inlineAssertFloat32(CallInfo& callInfo);
-    InliningStatus inlineAssertRecoveredOnBailout(CallInfo& callInfo);
+    InliningResult inlineBailout(CallInfo& callInfo);
+    InliningResult inlineAssertFloat32(CallInfo& callInfo);
+    InliningResult inlineAssertRecoveredOnBailout(CallInfo& callInfo);
 
     // Bind function.
-    InliningStatus inlineBoundFunction(CallInfo& callInfo, JSFunction* target);
+    InliningResult inlineBoundFunction(CallInfo& callInfo, JSFunction* target);
 
     // Main inlining functions
-    InliningStatus inlineNativeCall(CallInfo& callInfo, JSFunction* target);
-    InliningStatus inlineNativeGetter(CallInfo& callInfo, JSFunction* target);
-    InliningStatus inlineNonFunctionCall(CallInfo& callInfo, JSObject* target);
-    InliningStatus inlineScriptedCall(CallInfo& callInfo, JSFunction* target);
-    InliningStatus inlineSingleCall(CallInfo& callInfo, JSObject* target);
+    InliningResult inlineNativeCall(CallInfo& callInfo, JSFunction* target);
+    InliningResult inlineNativeGetter(CallInfo& callInfo, JSFunction* target);
+    InliningResult inlineNonFunctionCall(CallInfo& callInfo, JSObject* target);
+    InliningResult inlineScriptedCall(CallInfo& callInfo, JSFunction* target);
+    InliningResult inlineSingleCall(CallInfo& callInfo, JSObject* target);
 
     // Call functions
-    InliningStatus inlineCallsite(const ObjectVector& targets, CallInfo& callInfo);
-    [[nodiscard]] bool inlineCalls(CallInfo& callInfo, const ObjectVector& targets,
+    InliningResult inlineCallsite(const ObjectVector& targets, CallInfo& callInfo);
+    AbortReasonOr<Ok> inlineCalls(CallInfo& callInfo, const ObjectVector& targets,
                                   BoolVector& choiceSet, MGetPropertyCache* maybeCache);
 
     // Inlining helpers.
-    [[nodiscard]] bool inlineGenericFallback(JSFunction* target, CallInfo& callInfo,
+    AbortReasonOr<Ok> inlineGenericFallback(JSFunction* target, CallInfo& callInfo,
                                             MBasicBlock* dispatchBlock);
-    [[nodiscard]] bool inlineObjectGroupFallback(CallInfo& callInfo, MBasicBlock* dispatchBlock,
+    AbortReasonOr<Ok> inlineObjectGroupFallback(CallInfo& callInfo, MBasicBlock* dispatchBlock,
                                                 MObjectGroupDispatch* dispatch,
                                                 MGetPropertyCache* cache,
                                                 MBasicBlock** fallbackTarget);
@@ -767,15 +765,15 @@ class IonBuilder
         DoCheckAtomicResult
     };
 
-    [[nodiscard]] bool atomicsMeetsPreconditions(CallInfo& callInfo, Scalar::Type* arrayElementType,
-                                                bool* requiresDynamicCheck,
-                                                AtomicCheckResult checkResult=DoCheckAtomicResult);
+    bool atomicsMeetsPreconditions(CallInfo& callInfo, Scalar::Type* arrayElementType,
+                                   bool* requiresDynamicCheck,
+                                   AtomicCheckResult checkResult=DoCheckAtomicResult);
     void atomicsCheckBounds(CallInfo& callInfo, MInstruction** elements, MDefinition** index);
 
-    [[nodiscard]] bool testNeedsArgumentCheck(JSFunction* target, CallInfo& callInfo);
+    bool testNeedsArgumentCheck(JSFunction* target, CallInfo& callInfo);
 
-    MCall* makeCallHelper(JSFunction* target, CallInfo& callInfo);
-    [[nodiscard]] bool makeCall(JSFunction* target, CallInfo& callInfo);
+    AbortReasonOr<MCall*> makeCallHelper(JSFunction* target, CallInfo& callInfo);
+    AbortReasonOr<Ok> makeCall(JSFunction* target, CallInfo& callInfo);
 
     MDefinition* patchInlinedReturn(CallInfo& callInfo, MBasicBlock* exit, MBasicBlock* bottom);
     MDefinition* patchInlinedReturns(CallInfo& callInfo, MIRGraphReturns& returns,
@@ -790,12 +788,13 @@ class IonBuilder
     /*
      * Callers must pass a non-null globalGuard if they pass a non-null globalShape.
      */
-    [[nodiscard]] bool testCommonGetterSetter(TemporaryTypeSet* types, PropertyName* name,
-                                             bool isGetter, JSFunction* getterOrSetter,
-                                             MDefinition** guard, Shape* globalShape = nullptr,
-                                             MDefinition** globalGuard = nullptr);
-    [[nodiscard]] bool testShouldDOMCall(TypeSet* inTypes,
-                                        JSFunction* func, JSJitInfo::OpType opType);
+    bool testCommonGetterSetter(TemporaryTypeSet* types, PropertyName* name,
+                                bool isGetter, JSObject* foundProto,
+                                Shape* lastProperty, JSFunction* getterOrSetter,
+                                MDefinition** guard, Shape* globalShape = nullptr,
+                                MDefinition** globalGuard = nullptr);
+    AbortReasonOr<bool> testShouldDOMCall(TypeSet* inTypes,
+                                          JSFunction* func, JSJitInfo::OpType opType);
 
     MDefinition*
     addShapeGuardsForGetterSetter(MDefinition* obj, JSObject* holder, Shape* holderShape,
@@ -803,7 +802,7 @@ class IonBuilder
                                   const BaselineInspector::ObjectGroupVector& convertUnboxedGroups,
                                   bool isOwnProperty);
 
-    [[nodiscard]] bool annotateGetPropertyCache(MDefinition* obj, PropertyName* name,
+    AbortReasonOr<Ok> annotateGetPropertyCache(MDefinition* obj, PropertyName* name,
                                                MGetPropertyCache* getPropCache,
                                                TemporaryTypeSet* objTypes,
                                                TemporaryTypeSet* pushedTypes);
@@ -815,7 +814,7 @@ class IonBuilder
     JSObject* testSingletonProperty(JSObject* obj, jsid id);
     JSObject* testSingletonPropertyTypes(MDefinition* obj, jsid id);
 
-    ResultWithOOM<bool> testNotDefinedProperty(MDefinition* obj, jsid id);
+    AbortReasonOr<bool> testNotDefinedProperty(MDefinition* obj, jsid id);
 
     uint32_t getDefiniteSlot(TemporaryTypeSet* types, PropertyName* name, uint32_t* pnfixed);
     MDefinition* convertUnboxedObjects(MDefinition* obj);
@@ -834,8 +833,8 @@ class IonBuilder
                                     MDefinition* elements, int32_t elementsOffset,
                                     MDefinition* scaledOffset, JSValueType unboxedType,
                                     MDefinition* value, bool preBarrier = true);
-    [[nodiscard]] bool checkPreliminaryGroups(MDefinition *obj);
-    [[nodiscard]] bool freezePropTypeSets(TemporaryTypeSet* types,
+    AbortReasonOr<Ok> checkPreliminaryGroups(MDefinition *obj);
+    AbortReasonOr<Ok> freezePropTypeSets(TemporaryTypeSet* types,
                                          JSObject* foundProto, PropertyName* name);
     bool canInlinePropertyOpShapes(const BaselineInspector::ReceiverVector& receivers);
 
@@ -845,13 +844,13 @@ class IonBuilder
     // updating |current| directly. setCurrent() should only be used in cases
     // where the block cannot have phis whose type needs to be computed.
 
-    [[nodiscard]] bool setCurrentAndSpecializePhis(MBasicBlock* block) {
+    AbortReasonOr<Ok> setCurrentAndSpecializePhis(MBasicBlock* block) {
         if (block) {
             if (!block->specializePhis(alloc()))
-                return false;
+                return abort(AbortReason::Alloc);
         }
         setCurrent(block);
-        return true;
+        return Ok();
     }
 
     void setCurrent(MBasicBlock* block) {
@@ -927,7 +926,7 @@ class IonBuilder
     void trace(JSTracer* trc);
 
   private:
-    [[nodiscard]] bool init();
+    AbortReasonOr<Ok> init();
 
     JSContext* analysisContext;
     BaselineFrameInspector* baselineFrame_;
