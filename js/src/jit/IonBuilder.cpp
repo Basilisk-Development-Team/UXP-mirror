@@ -12046,8 +12046,7 @@ IonBuilder::jsop_setarg(uint32_t arg)
         auto* ins = MSetArgumentsObjectArg::New(alloc(), current->argumentsObject(),
                                                 GET_ARGNO(pc), val);
         current->add(ins);
-		if (resumeAfter(ins))
-            return abort(AbortReason::Alloc);
+        MOZ_TRY(resumeAfter(ins));
         return Ok();
     }
 
