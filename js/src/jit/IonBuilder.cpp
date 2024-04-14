@@ -6,6 +6,7 @@
 #include "jit/IonBuilder.h"
 
 #include "mozilla/DebugOnly.h"
+#include "mozilla/ScopeExit.h"
 #include "mozilla/SizePrintfMacros.h"
 
 #include "builtin/Eval.h"
@@ -846,10 +847,12 @@ IonBuilder::build()
 
     insertRecompileCheck();
 
-    MOZ_TRY(traverseBytecode());
+    auto clearLastPriorResumePoint = mozilla::MakeScopeExit([&] {
+        // Discard unreferenced & pre-allocated resume points.
+        replaceMaybeFallbackFunctionGetter(nullptr);
+    });
 
-    // Discard unreferenced & pre-allocated resume points.
-    replaceMaybeFallbackFunctionGetter(nullptr);
+    MOZ_TRY(traverseBytecode());
 
     if (script_->hasBaselineScript() &&
         inlinedBytecodeLength_ > script_->baselineScript()->inlinedBytecodeLength())
@@ -1008,10 +1011,12 @@ IonBuilder::buildInline(IonBuilder* callerBuilder, MResumePoint* callerResumePoi
     // initialized.
     MOZ_TRY(initEnvironmentChain(callInfo.fun()));
 
-    MOZ_TRY(traverseBytecode());
+    auto clearLastPriorResumePoint = mozilla::MakeScopeExit([&] {
+        // Discard unreferenced & pre-allocated resume points.
+        replaceMaybeFallbackFunctionGetter(nullptr);
+    });
 
-    // Discard unreferenced & pre-allocated resume points.
-    replaceMaybeFallbackFunctionGetter(nullptr);
+    MOZ_TRY(traverseBytecode());
 
     MOZ_ASSERT(iterators_.empty(), "Iterators should be added to outer builder");
 
