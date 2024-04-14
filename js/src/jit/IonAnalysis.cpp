@@ -3992,10 +3992,12 @@ jit::AnalyzeNewScriptDefiniteProperties(JSContext* cx,
     IonBuilder builder(cx, CompileCompartment::get(cx->compartment()), options, &temp, &graph, constraints,
                        &inspector, &info, optimizationInfo, /* baselineFrame = */ nullptr);
 
-    if (!builder.build()) {
+    AbortReasonOr<Ok> buildResult = builder.build();
+    if (buildResult.isErr()) {
+        AbortReason reason = buildResult.unwrapErr();
         if (cx->isThrowingOverRecursed() || cx->isThrowingOutOfMemory())
             return false;
-        if (builder.abortReason() == AbortReason::Alloc) {
+        if (reason == AbortReason::Alloc) {
             ReportOutOfMemory(cx);
             return false;
         }
@@ -4237,10 +4239,12 @@ jit::AnalyzeArgumentsUsage(JSContext* cx, JSScript* scriptArg)
     IonBuilder builder(nullptr, CompileCompartment::get(cx->compartment()), options, &temp, &graph, constraints,
                        &inspector, &info, optimizationInfo, /* baselineFrame = */ nullptr);
 
-    if (!builder.build()) {
+    AbortReasonOr<Ok> buildResult = builder.build();
+    if (buildResult.isErr()) {
+        AbortReason reason = buildResult.unwrapErr();
         if (cx->isThrowingOverRecursed() || cx->isThrowingOutOfMemory())
             return false;
-        if (builder.abortReason() == AbortReason::Alloc) {
+        if (reason == AbortReason::Alloc) {
             ReportOutOfMemory(cx);
             return false;
         }
