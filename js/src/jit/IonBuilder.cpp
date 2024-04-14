@@ -3340,7 +3340,7 @@ IonBuilder::binaryArithEmitSpecialized(MDefinition::Opcode op, MIRType specializ
     MBinaryArithInstruction* ins = MBinaryArithInstruction::New(alloc(), op, left, right);
     ins->setSpecialization(specialization);
 
-    if (op == MDefinition::Op_Add || op == MDefinition::Op_Mul) {
+    if (op == MDefinition::Opcode::Add || op == MDefinition::Opcode::Mul) {
       ins->setCommutative();
     }
 
@@ -3604,13 +3604,13 @@ IonBuilder::unaryArithConvertToBinary(JSOp op, MDefinition::Opcode* defOp)
 {
     switch (op) {
       case JSOP_INC: {
-        *defOp = MDefinition::Op_Add;
+        *defOp = MDefinition::Opcode::Add;
         MConstant* right = MConstant::New(alloc(), Int32Value(1));
         current->add(right);
         return right;
       }
       case JSOP_DEC: {
-        *defOp = MDefinition::Op_Sub;
+        *defOp = MDefinition::Opcode::Sub;
         MConstant* right = MConstant::New(alloc(), Int32Value(1));
         current->add(right);
         return right;
