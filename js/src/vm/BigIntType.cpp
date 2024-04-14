@@ -2520,31 +2520,6 @@ bool BigInt::neg(JSContext* cx, HandleValue operand, MutableHandleValue res) {
   return true;
 }
 
-bool BigInt::inc(JSContext* cx, HandleValue operand, MutableHandleValue res) {
-  MOZ_ASSERT(operand.isBigInt());
-
-  RootedBigInt operandBigInt(cx, operand.toBigInt());
-  BigInt* resBigInt = BigInt::inc(cx, operandBigInt);
-  if (!resBigInt) {
-    return false;
-  }
-  res.setBigInt(resBigInt);
-  return true;
-}
-
-bool BigInt::dec(JSContext* cx, HandleValue operand, MutableHandleValue res) {
-  MOZ_ASSERT(operand.isBigInt());
-
-  RootedBigInt operandBigInt(cx, operand.toBigInt());
-  BigInt* resBigInt = BigInt::dec(cx, operandBigInt);
-  if (!resBigInt) {
-    return false;
-  }
-  res.setBigInt(resBigInt);
-  return true;
-}
-
-
 bool BigInt::lsh(JSContext* cx, HandleValue lhs, HandleValue rhs,
                  MutableHandleValue res) {
   if (!ValidBigIntOperands(cx, lhs, rhs)) {

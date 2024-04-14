@@ -296,9 +296,9 @@ class IonBuilder
     // jsop_binary_arith helpers.
     MBinaryArithInstruction* binaryArithInstruction(JSOp op, MDefinition* left, MDefinition* right);
 
-    [[nodiscard]] bool binaryArithTryConcat(bool* emitted, JSOp op, MDefinition* left,
+    AbortReasonOr<Ok>  binaryArithTryConcat(bool* emitted, JSOp op, MDefinition* left,
                                            MDefinition* right);
-    [[nodiscard]] bool binaryArithTrySpecialized(bool* emitted, JSOp op, MDefinition* left,
+    AbortReasonOr<Ok>  binaryArithTrySpecialized(bool* emitted, JSOp op, MDefinition* left,
                                                 MDefinition* right);
     AbortReasonOr<Ok> binaryArithTrySpecializedOnBaselineInspector(bool* emitted, JSOp op,
                                                                    MDefinition* left,

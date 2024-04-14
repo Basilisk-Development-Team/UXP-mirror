@@ -3366,8 +3366,7 @@ IonBuilder::binaryArithTrySpecialized(bool* emitted, JSOp op, MDefinition* left,
     current->push(ins);
 
     MOZ_ASSERT(!ins->isEffectful());
-    if (!maybeInsertResume())
-        return false;
+    MOZ_TRY(maybeInsertResume());
 
     trackOptimizationSuccess();
     *emitted = true;
@@ -3400,8 +3399,7 @@ IonBuilder::binaryArithTrySpecializedOnBaselineInspector(bool* emitted, JSOp op,
     current->push(ins);
 
     MOZ_ASSERT(!ins->isEffectful());
-    if (!maybeInsertResume())
-        return false;
+    MOZ_TRY(maybeInsertResume());
 
     trackOptimizationSuccess();
     *emitted = true;
