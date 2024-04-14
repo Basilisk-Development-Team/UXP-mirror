@@ -6244,7 +6244,6 @@ IonBuilder::newBlockAfter(MBasicBlock* at, MBasicBlock* predecessor, jsbytecode*
         return abort(AbortReason::Alloc);
 
     block->setLoopDepth(loopDepth_);
-        return nullptr;
     block->setHitCount(0); // osr block
     graph().insertBlockAfter(at, block);
     return block;
