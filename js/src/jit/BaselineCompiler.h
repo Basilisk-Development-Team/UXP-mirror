@@ -243,10 +243,8 @@ namespace jit {
     _(JSOP_JUMPTARGET)         \
     _(JSOP_IS_CONSTRUCTING)    \
     _(JSOP_TRY_DESTRUCTURING_ITERCLOSE) \
-    _(JSOP_IMPORTMETA)         \
-    _(JSOP_DYNAMIC_IMPORT)     \
-    _(JSOP_INC)                \
-    _(JSOP_DEC)
+    _(JSOP_IMPORTMETA) \
+    _(JSOP_DYNAMIC_IMPORT)
 
 class BaselineCompiler : public BaselineCompilerSpecific
 {
@@ -330,7 +328,8 @@ class BaselineCompiler : public BaselineCompilerSpecific
     OPCODE_LIST(EMIT_OP)
 #undef EMIT_OP
 
-    // JSOP_NEG, JSOP_BITNOT, JSOP_INC, JSOP_DEC
+
+    // JSOP_NEG, JSOP_BITNOT
     [[nodiscard]] bool emitUnaryArith();
 
     // JSOP_BITXOR, JSOP_LSH, JSOP_ADD etc.

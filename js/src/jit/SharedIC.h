@@ -1888,8 +1888,6 @@ class ICBinaryArith_DoubleWithInt32 : public ICStub
 // UnaryArith
 //     JSOP_BITNOT
 //     JSOP_NEG
-//     JSOP_INC
-//     JSOP_DEC
 
 class ICUnaryArith_Fallback : public ICFallbackStub
 {

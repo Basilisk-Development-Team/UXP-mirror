@@ -295,14 +295,10 @@ class IonBuilder
 
     // jsop_binary_arith helpers.
     MBinaryArithInstruction* binaryArithInstruction(JSOp op, MDefinition* left, MDefinition* right);
-    MIRType binaryArithNumberSpecialization(MDefinition* left, MDefinition* right);
-    AbortReasonOr<Ok> binaryArithTryConcat(bool* emitted, JSOp op, MDefinition* left,
+
+    AbortReasonOr<Ok>  binaryArithTryConcat(bool* emitted, JSOp op, MDefinition* left,
                                            MDefinition* right);
-    AbortReasonOr<MBinaryArithInstruction*> binaryArithEmitSpecialized(MDefinition::Opcode op,
-                                                                     MIRType specialization,
-                                                                     MDefinition* left,
-                                                                     MDefinition* right);
-    AbortReasonOr<Ok> binaryArithTrySpecialized(bool* emitted, JSOp op, MDefinition* left,
+    AbortReasonOr<Ok>  binaryArithTrySpecialized(bool* emitted, JSOp op, MDefinition* left,
                                                 MDefinition* right);
     AbortReasonOr<Ok> binaryArithTrySpecializedOnBaselineInspector(bool* emitted, JSOp op,
                                                                    MDefinition* left,
@@ -312,12 +308,6 @@ class IonBuilder
 
     // jsop_bitnot helpers.
     AbortReasonOr<Ok> bitnotTrySpecialized(bool* emitted, MDefinition* input);
-
-    // jsop_inc_or_dec helpers.
-    MDefinition* unaryArithConvertToBinary(JSOp op, MDefinition::Opcode* defOp);
-    AbortReasonOr<Ok> unaryArithTrySpecialized(bool* emitted, JSOp op, MDefinition* value);
-    AbortReasonOr<Ok> unaryArithTrySpecializedOnBaselineInspector(bool* emitted, JSOp op,
-                                                                  MDefinition* value);
 
     // jsop_pow helpers.
     AbortReasonOr<Ok> powTrySpecialized(bool* emitted, MDefinition* base, MDefinition* power,
@@ -492,6 +482,7 @@ class IonBuilder
     AbortReasonOr<Ok> tryFoldInstanceOf(bool* emitted, MDefinition* lhs, JSObject* protoObject);
     AbortReasonOr<bool> hasOnProtoChain(TypeSet::ObjectKey* key, JSObject* protoObject);
 
+
     AbortReasonOr<Ok> jsop_add(MDefinition* left, MDefinition* right);
     AbortReasonOr<Ok> jsop_bitnot();
     AbortReasonOr<Ok> jsop_bitop(JSOp op);
@@ -501,7 +492,6 @@ class IonBuilder
     AbortReasonOr<Ok> jsop_pos();
     AbortReasonOr<Ok> jsop_neg();
     AbortReasonOr<Ok> jsop_tonumeric();
-    AbortReasonOr<Ok> jsop_inc_or_dec(JSOp op);
     AbortReasonOr<Ok> jsop_tostring();
     AbortReasonOr<Ok> jsop_setarg(uint32_t arg);
     AbortReasonOr<Ok> jsop_defvar(uint32_t index);

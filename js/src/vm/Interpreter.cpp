@@ -4176,26 +4176,6 @@ CASE(JSOP_IS_CONSTRUCTING)
     PUSH_MAGIC(JS_IS_CONSTRUCTING);
 END_CASE(JSOP_IS_CONSTRUCTING)
 
-CASE(JSOP_INC)
-{
-    ReservedRooted<Value> val(&rootValue0, REGS.sp[-1]);
-    MutableHandleValue res = REGS.stackHandleAt(-1);
-    if (!IncOperation(cx, &val, res)) {
-        goto error;
-    }
-}
-END_CASE(JSOP_INC)
-
-CASE(JSOP_DEC)
-{
-    ReservedRooted<Value> val(&rootValue0, REGS.sp[-1]);
-    MutableHandleValue res = REGS.stackHandleAt(-1);
-    if (!DecOperation(cx, &val, res)) {
-        goto error;
-    }
-}
-END_CASE(JSOP_DEC)
-
 CASE(JSOP_TONUMERIC)
 {
     if (!ToNumeric(cx, REGS.stackHandleAt(-1))) {

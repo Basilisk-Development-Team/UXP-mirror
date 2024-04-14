@@ -1251,32 +1251,20 @@ DoUnaryArithFallback(JSContext* cx, void* payload, ICUnaryArith_Fallback* stub_,
     JSOp op = JSOp(*pc);
     FallbackICSpew(cx, stub, "UnaryArith(%s)", CodeName[op]);
 
-    // The unary operations take a copied val because the original value is needed
-    // below.
-    RootedValue valCopy(cx, val);
     switch (op) {
       case JSOP_BITNOT: {
+        RootedValue valCopy(cx, val);
         if (!BitNot(cx, &valCopy, res)) {
             return false;
         }
         break;
       }
       case JSOP_NEG: {
-          if (!NegOperation(cx, script, pc, &valCopy, res))
+        // We copy val here because the original value is needed below.
+        RootedValue valCopy(cx, val);
+        if (!NegOperation(cx, script, pc, &valCopy, res))
             return false;
         break;
-      }
-      case JSOP_INC: {
-          if (!IncOperation(cx, &valCopy, res)) {
-            return false;
-          }
-          break;
-      }
-      case JSOP_DEC: {
-          if (!DecOperation(cx, &valCopy, res)) {
-            return false;
-          }
-          break;
       }
       default:
         MOZ_CRASH("Unexpected op");
@@ -1352,8 +1340,12 @@ ICUnaryArith_Double::Compiler::generateStubCode(MacroAssembler& masm)
     Label failure;
     masm.ensureDouble(R0, FloatReg0, &failure);
 
-    switch (op) {
-      case JSOP_BITNOT: {
+    MOZ_ASSERT(op == JSOP_NEG || op == JSOP_BITNOT);
+
+    if (op == JSOP_NEG) {
+        masm.negateDouble(FloatReg0);
+        masm.boxDouble(FloatReg0, R0);
+    } else {
         // Truncate the double to an int32.
         Register scratchReg = R1.scratchReg();
 
@@ -1371,24 +1363,6 @@ ICUnaryArith_Double::Compiler::generateStubCode(MacroAssembler& masm)
         masm.bind(&doneTruncate);
         masm.not32(scratchReg);
         masm.tagValue(JSVAL_TYPE_INT32, scratchReg, R0);
-        break;
-      }
-      case JSOP_NEG:
-        masm.negateDouble(FloatReg0);
-        masm.boxDouble(FloatReg0, R0);
-        break;
-      case JSOP_INC:
-      case JSOP_DEC:
-        masm.loadConstantDouble(1.0, ScratchDoubleReg);
-        if (op == JSOP_INC) {
-            masm.addDouble(ScratchDoubleReg, FloatReg0);
-        } else {
-            masm.subDouble(ScratchDoubleReg, FloatReg0);
-        }
-        masm.boxDouble(FloatReg0, R0);
-        break;
-      default:
-        MOZ_CRASH("Unexpected op");
     }
 
     EmitReturnFromIC(masm);
