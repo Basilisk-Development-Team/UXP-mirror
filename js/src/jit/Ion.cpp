@@ -507,7 +507,7 @@ jit::FinishOffThreadBuilder(JSRuntime* runtime, IonBuilder* builder,
     // Clean up if compilation did not succeed.
     if (builder->script()->isIonCompilingOffThread()) {
         IonScript* ion =
-            builder->abortReason() == AbortReason_Disable ? ION_DISABLED_SCRIPT : nullptr;
+            builder->abortReason() == AbortReason::Disable ? ION_DISABLED_SCRIPT : nullptr;
         builder->script()->setIonScript(runtime, ion);
     }
 
@@ -2095,50 +2095,50 @@ IonCompile(JSContext* cx, JSScript* script,
 
     LifoAlloc* alloc = cx->new_<LifoAlloc>(TempAllocator::PreferredLifoChunkSize);
     if (!alloc)
-        return AbortReason_Alloc;
+        return AbortReason::Alloc;
 
     ScopedJSDeletePtr<LifoAlloc> autoDelete(alloc);
 
     TempAllocator* temp = alloc->new_<TempAllocator>(alloc);
     if (!temp)
-        return AbortReason_Alloc;
+        return AbortReason::Alloc;
 
     JitContext jctx(cx, temp);
 
     if (!cx->compartment()->ensureJitCompartmentExists(cx))
-        return AbortReason_Alloc;
+        return AbortReason::Alloc;
 
     if (!cx->compartment()->jitCompartment()->ensureIonStubsExist(cx))
-        return AbortReason_Alloc;
+        return AbortReason::Alloc;
 
     MIRGraph* graph = alloc->new_<MIRGraph>(temp);
     if (!graph)
-        return AbortReason_Alloc;
+        return AbortReason::Alloc;
 
     InlineScriptTree* inlineScriptTree = InlineScriptTree::New(temp, nullptr, nullptr, script);
     if (!inlineScriptTree)
-        return AbortReason_Alloc;
+        return AbortReason::Alloc;
 
     CompileInfo* info = alloc->new_<CompileInfo>(script, script->functionNonDelazifying(), osrPc,
                                                  Analysis_None,
                                                  script->needsArgsObj(), inlineScriptTree);
     if (!info)
-        return AbortReason_Alloc;
+        return AbortReason::Alloc;
 
     BaselineInspector* inspector = alloc->new_<BaselineInspector>(script);
     if (!inspector)
-        return AbortReason_Alloc;
+        return AbortReason::Alloc;
 
     BaselineFrameInspector* baselineFrameInspector = nullptr;
     if (baselineFrame) {
         baselineFrameInspector = NewBaselineFrameInspector(temp, baselineFrame, info);
         if (!baselineFrameInspector)
-            return AbortReason_Alloc;
+            return AbortReason::Alloc;
     }
 
     CompilerConstraintList* constraints = NewCompilerConstraintList(*temp);
     if (!constraints)
-        return AbortReason_Alloc;
+        return AbortReason::Alloc;
 
     const OptimizationInfo* optimizationInfo = IonOptimizations.get(optimizationLevel);
     const JitCompileOptions options(cx);
@@ -2149,7 +2149,7 @@ IonCompile(JSContext* cx, JSScript* script,
                                                   inspector, info, optimizationInfo,
                                                   baselineFrameInspector);
     if (!builder)
-        return AbortReason_Alloc;
+        return AbortReason::Alloc;
 
     if (cx->zone()->group()->storeBuffer().cancelIonCompilations())
         builder->setNotSafeForMinorGC();
@@ -2174,7 +2174,7 @@ IonCompile(JSContext* cx, JSScript* script,
     if (!succeeded) {
         AbortReason reason = builder->abortReason();
         builder->graphSpewer().endFunction();
-        if (reason == AbortReason_PreliminaryObjects) {
+        if (reason == AbortReason::PreliminaryObjects) {
             // Some group was accessed which has associated preliminary objects
             // to analyze. Do this now and we will try to build again shortly.
             const MIRGenerator::ObjectGroupVector& groups = builder->abortedPreliminaryGroups();
@@ -2182,7 +2182,7 @@ IonCompile(JSContext* cx, JSScript* script,
                 ObjectGroup* group = groups[i];
                 if (group->newScript()) {
                     if (!group->newScript()->maybeAnalyze(cx, group, nullptr, /* force = */ true))
-                        return AbortReason_Alloc;
+                        return AbortReason::Alloc;
                 } else if (group->maybePreliminaryObjects()) {
                     group->maybePreliminaryObjects()->maybeAnalyze(cx, group, /* force = */ true);
                 } else {
@@ -2216,12 +2216,12 @@ IonCompile(JSContext* cx, JSScript* script,
                 builderScript->filename(), builderScript->lineno());
 
         if (!CreateMIRRootList(*builder))
-            return AbortReason_Alloc;
+            return AbortReason::Alloc;
 
         if (!StartOffThreadIonCompile(cx, builder)) {
             JitSpew(JitSpew_IonAbort, "Unable to start off-thread ion compilation.");
             builder->graphSpewer().endFunction();
-            return AbortReason_Alloc;
+            return AbortReason::Alloc;
         }
 
         if (!recompile)
@@ -2231,7 +2231,7 @@ IonCompile(JSContext* cx, JSScript* script,
         // processed in the finishedOffThreadCompilations list.
         autoDelete.forget();
 
-        return AbortReason_NoAbort;
+        return AbortReason::NoAbort;
     }
 
     {
@@ -2241,18 +2241,18 @@ IonCompile(JSContext* cx, JSScript* script,
         if (!codegen) {
             JitSpew(JitSpew_IonAbort, "Failed during back-end compilation.");
             if (cx->isExceptionPending())
-                return AbortReason_Error;
-            return AbortReason_Disable;
+                return AbortReason::Error;
+            return AbortReason::Disable;
         }
 
         succeeded = LinkCodeGen(cx, builder, codegen);
     }
 
     if (succeeded)
-        return AbortReason_NoAbort;
+        return AbortReason::NoAbort;
     if (cx->isExceptionPending())
-        return AbortReason_Error;
-    return AbortReason_Disable;
+        return AbortReason::Error;
+    return AbortReason::Disable;
 }
 
 static bool
@@ -2432,13 +2432,13 @@ Compile(JSContext* cx, HandleScript script, BaselineFrame* osrFrame, jsbytecode*
     }
 
     AbortReason reason = IonCompile(cx, script, osrFrame, osrPc, recompile, optimizationLevel);
-    if (reason == AbortReason_Error)
+    if (reason == AbortReason::Error)
         return Method_Error;
 
-    if (reason == AbortReason_Disable)
+    if (reason == AbortReason::Disable)
         return Method_CantCompile;
 
-    if (reason == AbortReason_Alloc) {
+    if (reason == AbortReason::Alloc) {
         ReportOutOfMemory(cx);
         return Method_Error;
     }
