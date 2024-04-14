@@ -1040,6 +1040,7 @@ MConstant::MConstant(float f)
 }
 
 MConstant::MConstant(double d)
+: MNullaryInstruction(classOpcode)
 {
     setResultType(MIRType::Double);
     payload_.d = d;
