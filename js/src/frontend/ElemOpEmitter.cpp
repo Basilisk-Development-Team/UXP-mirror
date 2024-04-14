@@ -234,7 +234,7 @@ ElemOpEmitter::emitIncDec()
     MOZ_ASSERT(state_ == State::Get);
 
     JSOp binOp = isInc() ? JSOP_ADD : JSOP_SUB;
-    if (!bce_->emit1(JSOP_TONUMERIC)) {               // ... N
+    if (!bce_->emit1(JSOP_POS)) {                     // ... N
         return false;
     }
     if (isPostIncDec()) {

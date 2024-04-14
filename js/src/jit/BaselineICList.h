@@ -34,6 +34,8 @@ namespace jit {
     _(ToBool_Double)                             \
     _(ToBool_Object)                             \
                                                  \
+    _(ToNumber_Fallback)                         \
+                                                 \
     _(Call_Fallback)                             \
     _(Call_Scripted)                             \
     _(Call_AnyScripted)                          \

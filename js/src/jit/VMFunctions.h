@@ -838,9 +838,6 @@ SetNativeDataProperty(JSContext* cx, JSObject* obj, PropertyName* name, Value* v
 bool
 ObjectHasGetterSetter(JSContext* cx, JSObject* obj, Shape* propShape);
 
-extern const VMFunction ToNumberInfo;
-extern const VMFunction ToNumericInfo;
-
 } // namespace jit
 } // namespace js
 

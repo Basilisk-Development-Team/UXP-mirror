@@ -1653,20 +1653,5 @@ ObjectHasGetterSetter(JSContext* cx, JSObject* objArg, Shape* propShape)
         nobj = &proto->as<NativeObject>();
     }
 }
-
-template <bool allowBigInt = false>
-static bool DoToNumeric(JSContext* cx, HandleValue arg, MutableHandleValue ret)
-{
-    ret.set(arg);
-    if (allowBigInt) {
-        return ToNumeric(cx, ret);
-    }
-    return ToNumber(cx, ret);
-}
-
-typedef bool (*ToNumericFn)(JSContext*, HandleValue, MutableHandleValue);
-const VMFunction ToNumberInfo = FunctionInfo<ToNumericFn>(DoToNumeric, "ToNumber");
-const VMFunction ToNumericInfo = FunctionInfo<ToNumericFn>(DoToNumeric<true>, "ToNumeric");
-
 } // namespace jit
 } // namespace js
