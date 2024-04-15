@@ -7151,9 +7151,9 @@ IonBuilder::setStaticName(JSObject* staticObject, PropertyName* name)
     if (knownType != MIRType::Value)
         slotType = knownType;
 
-    bool needsBarrier = property.needsBarrier(constraints());
+    bool needsPreBarrier = property.needsBarrier(constraints());
     return storeSlot(obj, property.maybeTypes()->definiteSlot(), NumFixedSlots(staticObject),
-                     value, needsBarrier, slotType);
+                     value, needsPreBarrier, slotType);
 }
 
 JSObject*
@@ -8892,17 +8892,11 @@ IonBuilder::setElemTryCache(bool* emitted, MDefinition* object,
     bool checkNative = !clasp || !clasp->isNative();
     object = addMaybeCopyElementsForWrite(object, checkNative);
 
-    if (NeedsPostBarrier(value)) {
-        if (indexIsInt32)
-            current->add(MPostWriteElementBarrier::New(alloc(), object, value, index));
-        else
-            current->add(MPostWriteBarrier::New(alloc(), object, value));
-    }
-
     // Emit SetPropertyCache.
     bool strict = JSOp(*pc) == JSOP_STRICTSETELEM;
     MSetPropertyCache* ins =
-        MSetPropertyCache::New(alloc(), object, index, value, strict, barrier, guardHoles);
+        MSetPropertyCache::New(alloc(), object, index, value, strict, NeedsPostBarrier(value),
+                               barrier, guardHoles);
     current->add(ins);
     current->push(value);
 
@@ -11153,11 +11147,6 @@ IonBuilder::jsop_setprop(PropertyName* name)
             return Ok();
     }
 
-    // Add post barrier if needed. The instructions above manage any post
-    // barriers they need directly.
-    if (NeedsPostBarrier(value))
-        current->add(MPostWriteBarrier::New(alloc(), obj, value));
-
     if (!forceInlineCaches()) {
         // Try to emit store from definite slots.
         trackOptimizationAttempt(TrackedStrategy::SetProp_DefiniteSlot);
@@ -11448,6 +11437,9 @@ IonBuilder::setPropTryDefiniteSlot(bool* emitted, MDefinition* obj,
         writeBarrier |= property.needsBarrier(constraints());
     }
 
+    if (NeedsPostBarrier(value))
+        current->add(MPostWriteBarrier::New(alloc(), obj, value));
+
     MInstruction* store;
     if (slot < nfixed) {
         store = MStoreFixedSlot::New(alloc(), obj, slot, value);
@@ -11597,8 +11589,11 @@ IonBuilder::setPropTryInlineAccess(bool* emitted, MDefinition* obj,
             Shape* shape = receivers[0].shape->searchLinear(NameToId(name));
             MOZ_ASSERT(shape);
 
-            bool needsBarrier = objTypes->propertyNeedsBarrier(constraints(), NameToId(name));
-            MOZ_TRY(storeSlot(obj, shape, value, needsBarrier));
+            if (NeedsPostBarrier(value))
+                current->add(MPostWriteBarrier::New(alloc(), obj, value));
+
+            bool needsPreBarrier = objTypes->propertyNeedsBarrier(constraints(), NameToId(name));
+            MOZ_TRY(storeSlot(obj, shape, value, needsPreBarrier));
 
             trackOptimizationOutcome(TrackedOutcome::Monomorphic);
             *emitted = true;
@@ -11620,8 +11615,11 @@ IonBuilder::setPropTryInlineAccess(bool* emitted, MDefinition* obj,
             Shape* shape = receivers[0].shape->searchLinear(NameToId(name));
             MOZ_ASSERT(shape);
 
-            bool needsBarrier = objTypes->propertyNeedsBarrier(constraints(), NameToId(name));
-            MOZ_TRY(storeSlot(expando, shape, value, needsBarrier));
+            if (NeedsPostBarrier(value))
+                current->add(MPostWriteBarrier::New(alloc(), obj, value));
+
+            bool needsPreBarrier = objTypes->propertyNeedsBarrier(constraints(), NameToId(name));
+            MOZ_TRY(storeSlot(expando, shape, value, needsPreBarrier));
 
             trackOptimizationOutcome(TrackedOutcome::Monomorphic);
             *emitted = true;
@@ -11636,6 +11634,9 @@ IonBuilder::setPropTryInlineAccess(bool* emitted, MDefinition* obj,
             return Ok();
 
         obj = addGroupGuard(obj, group, Bailout_ShapeGuard);
+
+        if (NeedsPostBarrier(value))
+            current->add(MPostWriteBarrier::New(alloc(), obj, value));
 
         const UnboxedLayout::Property* property = group->unboxedLayout().lookup(name);
         storeUnboxedProperty(obj, property->offset, property->type, value);
@@ -11655,13 +11656,19 @@ IonBuilder::setPropTryInlineAccess(bool* emitted, MDefinition* obj,
         if (!obj)
             return abort(AbortReason::Alloc);
 
-        bool needsBarrier = objTypes->propertyNeedsBarrier(constraints(), NameToId(name));
-        MOZ_TRY(storeSlot(obj, propShape, value, needsBarrier));
+        if (NeedsPostBarrier(value))
+            current->add(MPostWriteBarrier::New(alloc(), obj, value));
+
+        bool needsPreBarrier = objTypes->propertyNeedsBarrier(constraints(), NameToId(name));
+        MOZ_TRY(storeSlot(obj, propShape, value, needsPreBarrier));
 
         trackOptimizationOutcome(TrackedOutcome::Polymorphic);
         *emitted = true;
         return Ok();
     }
+
+    if (NeedsPostBarrier(value))
+        current->add(MPostWriteBarrier::New(alloc(), obj, value));
 
     MSetPropertyPolymorphic* ins = MSetPropertyPolymorphic::New(alloc(), obj, value, name);
     current->add(ins);
@@ -11697,7 +11704,8 @@ IonBuilder::setPropTryCache(bool* emitted, MDefinition* obj,
     bool strict = IsStrictSetPC(pc);
 
     MConstant* id = constant(StringValue(name));
-    MSetPropertyCache* ins = MSetPropertyCache::New(alloc(), obj, id, value, strict, barrier,
+    MSetPropertyCache* ins = MSetPropertyCache::New(alloc(), obj, id, value, strict,
+                                                    NeedsPostBarrier(value), barrier,
                                                     /* guardHoles = */ false);
     current->add(ins);
     current->push(value);
