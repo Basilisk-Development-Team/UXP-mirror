@@ -104,7 +104,7 @@ IonIC::trace(JSTracer* trc)
 
 /* static */ bool
 IonGetPropertyIC::update(JSContext* cx, HandleScript outerScript, IonGetPropertyIC* ic,
-			 HandleObject obj, HandleValue idVal, MutableHandleValue res)
+			 HandleValue val, HandleValue idVal, MutableHandleValue res)
 {
     // Override the return value if we are invalidated (bug 728188).
     IonScript* ionScript = outerScript->ionScript();
@@ -126,10 +126,9 @@ IonGetPropertyIC::update(JSContext* cx, HandleScript outerScript, IonGetProperty
         CanAttachGetter canAttachGetter =
             ic->monitoredResult() ? CanAttachGetter::Yes : CanAttachGetter::No;
         jsbytecode* pc = ic->idempotent() ? nullptr : ic->pc();
-        RootedValue objVal(cx, ObjectValue(*obj));
         bool isTemporarilyUnoptimizable = false;
         GetPropIRGenerator gen(cx, outerScript, pc, ic->kind(), ic->state().mode(),
-                               &isTemporarilyUnoptimizable, objVal, idVal, canAttachGetter);
+                               &isTemporarilyUnoptimizable, val, idVal, canAttachGetter);
         if (ic->idempotent() ? gen.tryAttachIdempotentStub() : gen.tryAttachStub())
             ic->attachCacheIRStub(cx, gen.writerRef(), gen.cacheKind(), ionScript, &attached);
 
@@ -159,11 +158,12 @@ IonGetPropertyIC::update(JSContext* cx, HandleScript outerScript, IonGetProperty
     }
 
     if (ic->kind() == CacheKind::GetProp) {
-        if (!GetProperty(cx, obj, obj, idVal.toString()->asAtom().asPropertyName(), res))
+        RootedPropertyName name(cx, idVal.toString()->asAtom().asPropertyName());
+        if (!GetProperty(cx, val, name, res))
             return false;
     } else {
         MOZ_ASSERT(ic->kind() == CacheKind::GetElem);
-        if (!GetObjectElementOperation(cx, JSOp(*ic->pc()), obj, obj, idVal, res))
+        if (!GetElementOperation(cx, JSOp(*ic->pc()), val, idVal, res))
             return false;
     }
 

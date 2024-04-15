@@ -160,7 +160,7 @@ class IonGetPropertyIC : public IonIC
 {
     LiveRegisterSet liveRegs_;
 
-    Register object_;
+    TypedOrValueRegister value_;
     ConstantOrRegister id_;
     TypedOrValueRegister output_;
     Register maybeTemp_; // Might be InvalidReg.
@@ -169,12 +169,12 @@ class IonGetPropertyIC : public IonIC
     bool allowDoubleResult_ : 1;
 
   public:
-    IonGetPropertyIC(CacheKind kind, LiveRegisterSet liveRegs, Register object,
+    IonGetPropertyIC(CacheKind kind, LiveRegisterSet liveRegs, TypedOrValueRegister value,
                      const ConstantOrRegister& id, TypedOrValueRegister output, Register maybeTemp,
                      bool monitoredResult, bool allowDoubleResult)
       : IonIC(kind),
         liveRegs_(liveRegs),
-        object_(object),
+        value_(value),
         id_(id),
         output_(output),
         maybeTemp_(maybeTemp),
@@ -183,7 +183,7 @@ class IonGetPropertyIC : public IonIC
     { }
 
     bool monitoredResult() const { return monitoredResult_; }
-    Register object() const { return object_; }
+    TypedOrValueRegister value() const { return value_; }
     ConstantOrRegister id() const { return id_; }
     TypedOrValueRegister output() const { return output_; }
     Register maybeTemp() const { return maybeTemp_; }
@@ -191,7 +191,7 @@ class IonGetPropertyIC : public IonIC
     bool allowDoubleResult() const { return allowDoubleResult_; }
 
     static [[nodiscard]] bool update(JSContext* cx, HandleScript outerScript, IonGetPropertyIC* ic,
-                                    HandleObject obj, HandleValue idVal, MutableHandleValue res);
+                                    HandleValue val, HandleValue idVal, MutableHandleValue res);
 };
 
 class IonSetPropertyIC : public IonIC
