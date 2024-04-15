@@ -777,13 +777,13 @@ static bool
 DoGetElemFallback(JSContext* cx, BaselineFrame* frame, ICGetElem_Fallback* stub_, HandleValue lhs,
                   HandleValue rhs, MutableHandleValue res)
 {
-    SharedStubInfo info(cx, frame, stub_->icEntry());
-
     // This fallback stub may trigger debug mode toggling.
     DebugModeOSRVolatileStub<ICGetElem_Fallback*> stub(frame, stub_);
 
     RootedScript script(cx, frame->script());
     jsbytecode* pc = stub->icEntry()->pc(frame->script());
+    StackTypeSet* types = TypeScript::BytecodeTypes(script, pc);
+
     JSOp op = JSOp(*pc);
     FallbackICSpew(cx, stub, "GetElem(%s)", CodeName[op]);
 
@@ -798,7 +798,7 @@ DoGetElemFallback(JSContext* cx, BaselineFrame* frame, ICGetElem_Fallback* stub_
         if (!GetElemOptimizedArguments(cx, frame, &lhsCopy, rhs, res, &isOptimizedArgs))
             return false;
         if (isOptimizedArgs)
-            TypeScript::Monitor(cx, frame->script(), pc, res);
+            TypeScript::Monitor(cx, script, pc, types, res);
     }
 
     bool attached = false;
@@ -814,7 +814,7 @@ DoGetElemFallback(JSContext* cx, BaselineFrame* frame, ICGetElem_Fallback* stub_
                                &isTemporarilyUnoptimizable, lhs, rhs, CanAttachGetter::Yes);
         if (gen.tryAttachStub()) {
             ICStub* newStub = AttachBaselineCacheIRStub(cx, gen.writerRef(), gen.cacheKind(),
-                                                        engine, info.outerScript(cx), stub, &attached);
+                                                        engine, script, stub, &attached);
             if (newStub) {
                 JitSpew(JitSpew_BaselineIC, "  Attached CacheIR stub");
                 if (gen.shouldNotePreliminaryObjectStub())
@@ -830,7 +830,7 @@ DoGetElemFallback(JSContext* cx, BaselineFrame* frame, ICGetElem_Fallback* stub_
     if (!isOptimizedArgs) {
         if (!GetElementOperation(cx, op, &lhsCopy, rhs, res))
             return false;
-        TypeScript::Monitor(cx, frame->script(), pc, res);
+        TypeScript::Monitor(cx, script, pc, types, res);
     }
 
     // Check if debug mode toggling made the stub invalid.
@@ -838,10 +838,8 @@ DoGetElemFallback(JSContext* cx, BaselineFrame* frame, ICGetElem_Fallback* stub_
         return true;
 
     // Add a type monitor stub for the resulting value.
-    if (!stub->addMonitorStubForValue(cx, &info, res))
-    {
+    if (!stub->addMonitorStubForValue(cx, frame, types, res))
         return false;
-    }
 
     if (attached)
         return true;
@@ -1267,7 +1265,6 @@ static bool
 DoGetNameFallback(JSContext* cx, BaselineFrame* frame, ICGetName_Fallback* stub_,
                   HandleObject envChain, MutableHandleValue res)
 {
-    SharedStubInfo info(cx, frame, stub_->icEntry());
 
     // This fallback stub may trigger debug mode toggling.
     DebugModeOSRVolatileStub<ICGetName_Fallback*> stub(frame, stub_);
@@ -1291,8 +1288,7 @@ DoGetNameFallback(JSContext* cx, BaselineFrame* frame, ICGetName_Fallback* stub_
         GetNameIRGenerator gen(cx, script, pc, stub->state().mode(), envChain, name);
         if (gen.tryAttachStub()) {
             ICStub* newStub = AttachBaselineCacheIRStub(cx, gen.writerRef(), gen.cacheKind(),
-                                                        engine, info.outerScript(cx), stub,
-                                                        &attached);
+                                                        engine, script, stub, &attached);
             if (newStub)
                 JitSpew(JitSpew_BaselineIC, "  Attached CacheIR stub");
         }
@@ -1310,14 +1306,15 @@ DoGetNameFallback(JSContext* cx, BaselineFrame* frame, ICGetName_Fallback* stub_
             return false;
     }
 
-    TypeScript::Monitor(cx, script, pc, res);
+    StackTypeSet* types = TypeScript::BytecodeTypes(script, pc);
+    TypeScript::Monitor(cx, script, pc, types, res);
 
     // Check if debug mode toggling made the stub invalid.
     if (stub.invalid())
         return true;
 
     // Add a type monitor stub for the resulting value.
-    if (!stub->addMonitorStubForValue(cx, &info, res))
+    if (!stub->addMonitorStubForValue(cx, frame, types, res))
         return false;
 
     if (!attached)
@@ -2214,7 +2211,6 @@ static bool
 DoCallFallback(JSContext* cx, BaselineFrame* frame, ICCall_Fallback* stub_, uint32_t argc,
                Value* vp, MutableHandleValue res)
 {
-    SharedStubInfo info(cx, frame, stub_->icEntry());
 
     // This fallback stub may trigger debug mode toggling.
     DebugModeOSRVolatileStub<ICCall_Fallback*> stub(frame, stub_);
@@ -2281,21 +2277,15 @@ DoCallFallback(JSContext* cx, BaselineFrame* frame, ICCall_Fallback* stub_, uint
         res.set(callArgs.rval());
     }
 
-    TypeScript::Monitor(cx, script, pc, res);
+    StackTypeSet* types = TypeScript::BytecodeTypes(script, pc);
+    TypeScript::Monitor(cx, script, pc, types, res);
 
     // Check if debug mode toggling made the stub invalid.
     if (stub.invalid())
         return true;
 
-    // Attach a new TypeMonitor stub for this value.
-    ICTypeMonitor_Fallback* typeMonFbStub = stub->fallbackMonitorStub();
-    if (!typeMonFbStub->addMonitorStubForValue(cx, &info, res))
-    {
-        return false;
-    }
-
     // Add a type monitor stub for the resulting value.
-    if (!stub->addMonitorStubForValue(cx, &info, res))
+    if (!stub->addMonitorStubForValue(cx, frame, types, res))
         return false;
 
     // If 'callee' is a potential Call_StringSplit, try to attach an
@@ -2313,8 +2303,6 @@ static bool
 DoSpreadCallFallback(JSContext* cx, BaselineFrame* frame, ICCall_Fallback* stub_, Value* vp,
                      MutableHandleValue res)
 {
-    SharedStubInfo info(cx, frame, stub_->icEntry());
-
     // This fallback stub may trigger debug mode toggling.
     DebugModeOSRVolatileStub<ICCall_Fallback*> stub(frame, stub_);
 
@@ -2348,15 +2336,9 @@ DoSpreadCallFallback(JSContext* cx, BaselineFrame* frame, ICCall_Fallback* stub_
     if (stub.invalid())
         return true;
 
-    // Attach a new TypeMonitor stub for this value.
-    ICTypeMonitor_Fallback* typeMonFbStub = stub->fallbackMonitorStub();
-    if (!typeMonFbStub->addMonitorStubForValue(cx, &info, res))
-    {
-        return false;
-    }
-
     // Add a type monitor stub for the resulting value.
-    if (!stub->addMonitorStubForValue(cx, &info, res))
+    StackTypeSet* types = TypeScript::BytecodeTypes(script, pc);
+    if (!stub->addMonitorStubForValue(cx, frame, types, res))
         return false;
 
     if (!handled)
