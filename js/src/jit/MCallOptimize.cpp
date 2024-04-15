@@ -614,7 +614,9 @@ IonBuilder::inlineArrayPopShift(CallInfo& callInfo, MArrayPopShift::Mode mode)
     }
 
     // Watch out for extra indexed properties on the object or its prototype.
-    if (ElementAccessHasExtraIndexedProperty(this, obj)) {
+    bool hasIndexedProperty;
+    MOZ_TRY_VAR(hasIndexedProperty, ElementAccessHasExtraIndexedProperty(this, obj));
+    if (hasIndexedProperty) {
         trackOptimizationOutcome(TrackedOutcome::ProtoIndexedProps);
         return InliningStatus_NotInlined;
     }
@@ -707,7 +709,9 @@ IonBuilder::inlineArrayPush(CallInfo& callInfo)
     if (clasp != &ArrayObject::class_)
         return InliningStatus_NotInlined;
 
-    if (ElementAccessHasExtraIndexedProperty(this, obj)) {
+    bool hasIndexedProperty;
+    MOZ_TRY_VAR(hasIndexedProperty, ElementAccessHasExtraIndexedProperty(this, obj));
+    if (hasIndexedProperty) {
         trackOptimizationOutcome(TrackedOutcome::ProtoIndexedProps);
         return InliningStatus_NotInlined;
     }
@@ -792,8 +796,10 @@ IonBuilder::inlineArraySlice(CallInfo& callInfo)
             return InliningStatus_NotInlined;
     }
 
-    // Watch out for indexed properties on the object or its prototype.
-    if (ElementAccessHasExtraIndexedProperty(this, obj)) {
+    // Watch out for extra indexed properties on the object or its prototype.
+    bool hasIndexedProperty;
+    MOZ_TRY_VAR(hasIndexedProperty, ElementAccessHasExtraIndexedProperty(this, obj));
+    if (hasIndexedProperty) {
         trackOptimizationOutcome(TrackedOutcome::ProtoIndexedProps);
         return InliningStatus_NotInlined;
     }
@@ -2105,7 +2111,9 @@ IonBuilder::inlineDefineDataProperty(CallInfo& callInfo)
     MDefinition* id = callInfo.getArg(1);
     MDefinition* value = callInfo.getArg(2);
 
-    if (ElementAccessHasExtraIndexedProperty(this, obj))
+    bool hasExtraIndexedProperty;
+    MOZ_TRY_VAR(hasExtraIndexedProperty, ElementAccessHasExtraIndexedProperty(this, obj));
+    if (hasExtraIndexedProperty)
         return InliningStatus_NotInlined;
 
     // setElemTryDense will push the value as the result of the define instead
