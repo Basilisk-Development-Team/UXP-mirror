@@ -747,11 +747,21 @@ LIRGeneratorShared::useBox(MDefinition* mir, LUse::Policy policy, bool useAtStar
 }
 
 LBoxAllocation
-LIRGeneratorShared::useBoxOrTypedOrConstant(MDefinition* mir, bool useConstant)
+LIRGeneratorShared::useBoxOrTyped(MDefinition* mir)
 {
     if (mir->type() == MIRType::Value)
         return useBox(mir);
 
+#if defined(JS_NUNBOX32)
+    return LBoxAllocation(useRegister(mir), LAllocation());
+#else
+    return LBoxAllocation(useRegister(mir));
+#endif
+}
+
+LBoxAllocation
+LIRGeneratorShared::useBoxOrTypedOrConstant(MDefinition* mir, bool useConstant)
+{
 
     if (useConstant && mir->isConstant()) {
 #if defined(JS_NUNBOX32)
@@ -761,11 +771,7 @@ LIRGeneratorShared::useBoxOrTypedOrConstant(MDefinition* mir, bool useConstant)
 #endif
     }
 
-#if defined(JS_NUNBOX32)
-    return LBoxAllocation(useRegister(mir), LAllocation());
-#else
-    return LBoxAllocation(useRegister(mir));
-#endif
+    return useBoxOrTyped(mir);
 }
 
 LInt64Allocation
