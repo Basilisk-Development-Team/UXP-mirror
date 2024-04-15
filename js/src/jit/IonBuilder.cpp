@@ -4719,9 +4719,6 @@ IonBuilder::createCallObject(MDefinition* callee, MDefinition* env)
         if (!alloc().ensureBallast())
             return abort(AbortReason::Alloc);
 
-        if (!alloc().ensureBallast())
-            return nullptr;
-
         unsigned slot = fi.location().slot();
         unsigned formal = fi.argumentSlot();
         unsigned numFixedSlots = templateObj->numFixedSlots();
