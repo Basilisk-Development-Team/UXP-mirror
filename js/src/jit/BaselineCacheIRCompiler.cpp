@@ -876,7 +876,7 @@ BaselineCacheIRCompiler::emitStoreSlotShared(bool isFixed)
         EmitPreBarrier(masm, slot, MIRType::Value);
         masm.storeValue(val, slot);
     }
-    BaselineEmitPostWriteBarrierSlot(masm, obj, val, scratch1, LiveGeneralRegisterSet(), cx_);
+    emitPostBarrierSlot(obj, val, scratch1);
     return true;
 }
 
@@ -988,7 +988,7 @@ BaselineCacheIRCompiler::emitAddAndStoreSlotShared(CacheOp op)
         BaseIndex slot(scratch2, scratch1, TimesOne);
         masm.storeValue(val, slot);
     }
-    BaselineEmitPostWriteBarrierSlot(masm, obj, val, scratch1, LiveGeneralRegisterSet(), cx_);
+    emitPostBarrierSlot(obj, val, scratch1);
     return true;
 }
 
@@ -1044,7 +1044,7 @@ BaselineCacheIRCompiler::emitStoreUnboxedProperty()
                               /* failure = */ nullptr);
 
     if (UnboxedTypeNeedsPostBarrier(fieldType))
-        BaselineEmitPostWriteBarrierSlot(masm, obj, val, scratch, LiveGeneralRegisterSet(), cx_);
+        emitPostBarrierSlot(obj, val, scratch);
     return true;
 }
 
@@ -1081,7 +1081,7 @@ BaselineCacheIRCompiler::emitStoreTypedObjectReferenceProperty()
     emitStoreTypedObjectReferenceProp(val, type, dest, scratch2);
 
     if (type != ReferenceTypeDescr::TYPE_STRING)
-        BaselineEmitPostWriteBarrierSlot(masm, obj, val, scratch1, LiveGeneralRegisterSet(), cx_);
+        emitPostBarrierSlot(obj, val, scratch1);
 
     return true;
 }
@@ -1187,7 +1187,7 @@ BaselineCacheIRCompiler::emitStoreDenseElement()
     EmitPreBarrier(masm, element, MIRType::Value);
     masm.storeValue(val, element);
 
-    BaselineEmitPostWriteBarrierSlot(masm, obj, val, scratch, LiveGeneralRegisterSet(), cx_);
+    emitPostBarrierElement(obj, val, scratch, index);
     return true;
 }
 
@@ -1324,7 +1324,7 @@ BaselineCacheIRCompiler::emitStoreDenseElementHole()
     masm.bind(&doStore);
     masm.storeValue(val, element);
 
-    BaselineEmitPostWriteBarrierSlot(masm, obj, val, scratch, LiveGeneralRegisterSet(), cx_);
+    emitPostBarrierElement(obj, val, scratch, index);
     return true;
 }
 
@@ -1423,7 +1423,7 @@ BaselineCacheIRCompiler::emitStoreUnboxedArrayElement()
                               /* failure = */ nullptr);
 
     if (UnboxedTypeNeedsPostBarrier(elementType))
-        BaselineEmitPostWriteBarrierSlot(masm, obj, val, scratch, LiveGeneralRegisterSet(), cx_);
+        emitPostBarrierSlot(obj, val, scratch);
     return true;
 }
 
@@ -1500,7 +1500,7 @@ BaselineCacheIRCompiler::emitStoreUnboxedArrayElementHole()
                               /* failure = */ nullptr);
 
     if (UnboxedTypeNeedsPostBarrier(elementType))
-        BaselineEmitPostWriteBarrierSlot(masm, obj, val, scratch, LiveGeneralRegisterSet(), cx_);
+        emitPostBarrierSlot(obj, val, scratch);
     return true;
 }
 
