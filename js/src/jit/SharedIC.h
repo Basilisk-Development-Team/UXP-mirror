@@ -1214,9 +1214,9 @@ class ICMonitoredFallbackStub : public ICFallbackStub
         fallbackMonitorStub_(nullptr) {}
 
   public:
-    [[nodiscard]] bool initMonitoringChain(JSContext* cx, ICStubSpace* space,
-                                          ICStubCompiler::Engine engine);
-    [[nodiscard]] bool addMonitorStubForValue(JSContext* cx, SharedStubInfo* info, HandleValue val);
+    [[nodiscard]] bool initMonitoringChain(JSContext* cx, ICStubSpace* space);
+    [[nodiscard]] bool addMonitorStubForValue(JSContext* cx, BaselineFrame* frame,
+                                             StackTypeSet* types, HandleValue val);
 
     inline ICTypeMonitor_Fallback* fallbackMonitorStub() const {
         return fallbackMonitorStub_;
@@ -1311,9 +1311,9 @@ class TypeCheckPrimitiveSetStub : public ICStub
         }
 
       public:
-        Compiler(JSContext* cx, Kind kind, Engine engine_, TypeCheckPrimitiveSetStub* existingStub,
+        Compiler(JSContext* cx, Kind kind, TypeCheckPrimitiveSetStub* existingStub,
                  JSValueType type)
-          : ICStubCompiler(cx, kind, engine_),
+          : ICStubCompiler(cx, kind, Engine::Baseline),
             existingStub_(existingStub),
             flags_((existingStub ? existingStub->typeFlags() : 0) | TypeToFlag(type))
         {
@@ -1476,7 +1476,8 @@ class ICTypeMonitor_Fallback : public ICStub
 
     // Create a new monitor stub for the type of the given value, and
     // add it to this chain.
-    [[nodiscard]] bool addMonitorStubForValue(JSContext* cx, SharedStubInfo* info, HandleValue val);
+    [[nodiscard]] bool addMonitorStubForValue(JSContext* cx, BaselineFrame* frame,
+                                             StackTypeSet* types, HandleValue val);
 
     void resetMonitorStubChain(Zone* zone);
 
@@ -1489,14 +1490,14 @@ class ICTypeMonitor_Fallback : public ICStub
         [[nodiscard]] bool generateStubCode(MacroAssembler& masm);
 
       public:
-        Compiler(JSContext* cx, Engine engine, ICMonitoredFallbackStub* mainFallbackStub)
-            : ICStubCompiler(cx, ICStub::TypeMonitor_Fallback, engine),
+        Compiler(JSContext* cx, ICMonitoredFallbackStub* mainFallbackStub)
+          : ICStubCompiler(cx, ICStub::TypeMonitor_Fallback, Engine::Baseline),
             mainFallbackStub_(mainFallbackStub),
             argumentIndex_(BYTECODE_INDEX)
         { }
 
-        Compiler(JSContext* cx, Engine engine, uint32_t argumentIndex)
-          : ICStubCompiler(cx, ICStub::TypeMonitor_Fallback, engine),
+        Compiler(JSContext* cx, uint32_t argumentIndex)
+          : ICStubCompiler(cx, ICStub::TypeMonitor_Fallback, Engine::Baseline),
             mainFallbackStub_(nullptr),
             argumentIndex_(argumentIndex)
         { }
@@ -1522,9 +1523,9 @@ class ICTypeMonitor_PrimitiveSet : public TypeCheckPrimitiveSetStub
         [[nodiscard]] bool generateStubCode(MacroAssembler& masm);
 
       public:
-        Compiler(JSContext* cx, Engine engine, ICTypeMonitor_PrimitiveSet* existingStub,
+        Compiler(JSContext* cx, ICTypeMonitor_PrimitiveSet* existingStub,
                  JSValueType type)
-          : TypeCheckPrimitiveSetStub::Compiler(cx, TypeMonitor_PrimitiveSet, engine, existingStub,
+          : TypeCheckPrimitiveSetStub::Compiler(cx, TypeMonitor_PrimitiveSet, existingStub,
                                                 type)
         {}
 
@@ -1607,6 +1608,30 @@ class ICTypeMonitor_ObjectGroup : public ICStub
 
         ICTypeMonitor_ObjectGroup* getStub(ICStubSpace* space) {
             return newStub<ICTypeMonitor_ObjectGroup>(space, getStubCode(), group_);
+        }
+    };
+};
+
+class ICTypeMonitor_AnyValue : public ICStub
+{
+    friend class ICStubSpace;
+
+    explicit ICTypeMonitor_AnyValue(JitCode* stubCode)
+      : ICStub(TypeMonitor_AnyValue, stubCode)
+    {}
+
+  public:
+    class Compiler : public ICStubCompiler {
+      protected:
+        [[nodiscard]] bool generateStubCode(MacroAssembler& masm);
+
+      public:
+        explicit Compiler(JSContext* cx)
+          : ICStubCompiler(cx, TypeMonitor_AnyValue, Engine::Baseline)
+        { }
+
+        ICTypeMonitor_AnyValue* getStub(ICStubSpace* space) {
+            return newStub<ICTypeMonitor_AnyValue>(space, getStubCode());
         }
     };
 };
@@ -2372,7 +2397,7 @@ class ICGetProp_Fallback : public ICMonitoredFallbackStub
 
         ICStub* getStub(ICStubSpace* space) {
             ICGetProp_Fallback* stub = newStub<ICGetProp_Fallback>(space, getStubCode());
-            if (!stub || !stub->initMonitoringChain(cx, space, engine_))
+            if (!stub || !stub->initMonitoringChain(cx, space))
                 return nullptr;
             return stub;
         }
