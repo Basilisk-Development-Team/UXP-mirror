@@ -2875,12 +2875,15 @@ IonBuilder::visitCompare(CFGCompare* compare)
     MDefinition* rhs = current->peek(-1);
 
     MDefinition* lhs = current->peek(-2);
-        return abort(AbortReason::Alloc);
 
     // Execute the compare operation.
-    MOZ_TRY(jsop_compare(JSOP_STRICTEQ, lhs, rhs));
+    MOZ_TRY(jsop_compare(JSOP_STRICTEQ));
     MInstruction* cmpResult = current->pop()->toInstruction();
     MOZ_ASSERT(!cmpResult->isEffectful());
+
+    // Put the rhs/lhs again on the stack.
+    current->push(lhs);
+    current->push(rhs);
 
     // Create true and false branches.
 	MBasicBlock* ifTrue;
