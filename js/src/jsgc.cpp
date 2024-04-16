@@ -1990,6 +1990,9 @@ GCRuntime::sweepZoneAfterCompacting(Zone* zone)
     for (auto* cache : zone->weakCaches())
         cache->sweep();
 
+    if (jit::JitZone* jitZone = zone->jitZone())
+        jitZone->sweep(fop);
+
     for (CompartmentsInZoneIter c(zone); !c.done(); c.next()) {
         c->objectGroups.sweep(fop);
         c->sweepRegExps();
@@ -4642,6 +4645,10 @@ GCRuntime::sweepJitDataOnMainThread(FreeOp* fop)
         for (GCCompartmentGroupIter c(rt); !c.done(); c.next())
             c->sweepJitCompartment(fop);
 
+        for (GCZoneGroupIter zone(rt); !zone.done(); zone.next()) {
+            if (jit::JitZone* jitZone = zone->jitZone())
+                jitZone->sweep(fop);
+        }
         // Bug 1071218: the following method has not yet been refactored to
         // work on a single zone-group at once.
 
