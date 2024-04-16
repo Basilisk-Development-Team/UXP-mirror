@@ -780,6 +780,7 @@ struct MOZ_STACK_CLASS BytecodeEmitter
     [[nodiscard]] bool emitSelfHostedResumeGenerator(BinaryNode* callNode);
     [[nodiscard]] bool emitSelfHostedForceInterpreter(ParseNode* pn);
     [[nodiscard]] bool emitSelfHostedAllowContentIter(BinaryNode* callNode);
+    [[nodiscard]] bool emitSelfHostedDefineDataProperty(BinaryNode* callNode);
 
     [[nodiscard]] bool emitComprehensionFor(ForNode* forNode);
     [[nodiscard]] bool emitComprehensionForIn(ForNode* forNode);
