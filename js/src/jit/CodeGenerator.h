@@ -408,7 +408,6 @@ class CodeGenerator final : public CodeGeneratorSpecific
     void loadOutermostJSScript(Register reg);
 
     // Inline caches visitors.
-    void visitOutOfLineCache(OutOfLineUpdateCache* ool);
     void visitOutOfLineICFallback(OutOfLineICFallback* ool);
 
     void visitGetPropertyCacheV(LGetPropertyCacheV* ins);
@@ -418,8 +417,6 @@ class CodeGenerator final : public CodeGeneratorSpecific
     void visitSetPropertyCache(LSetPropertyCache* ins);
     void visitGetNameCache(LGetNameCache* ins);
     void visitHasOwnCache(LHasOwnCache* ins);
-
-    void visitBindNameIC(OutOfLineUpdateCache* ool, DataPtr<BindNameIC>& ic);
 
     void visitAssertRangeI(LAssertRangeI* ins);
     void visitAssertRangeD(LAssertRangeD* ins);
