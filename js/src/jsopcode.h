@@ -807,6 +807,12 @@ IsSetElemPC(jsbytecode* pc)
 }
 
 inline bool
+IsElemPC(jsbytecode* pc)
+{
+    return CodeSpec[*pc].format & JOF_ELEM;
+}
+
+inline bool
 IsCallPC(jsbytecode* pc)
 {
     return CodeSpec[*pc].format & JOF_INVOKE;
