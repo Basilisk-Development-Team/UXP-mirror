@@ -332,6 +332,9 @@ class MoveResolver
     uint32_t numCycles() const {
         return numCycles_;
     }
+    bool hasNoPendingMoves() const {
+        return pending_.empty();
+    }
     void setAllocator(TempAllocator& alloc) {
         movePool_.setAllocator(alloc);
     }
