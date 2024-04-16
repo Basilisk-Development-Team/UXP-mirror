@@ -138,6 +138,7 @@ class ObjectGroup : public gc::TenuredCell
     /* Flags for this group. */
     ObjectGroupFlags flags_;
 
+  public:
     // Kinds of addendums which can be attached to ObjectGroups.
     enum AddendumKind {
         Addendum_None,
@@ -167,6 +168,7 @@ class ObjectGroup : public gc::TenuredCell
         Addendum_TypeDescr
     };
 
+  private:
     // If non-null, holds additional information about this object, whose
     // format is indicated by the object's addendum kind.
     void* addendum_;
@@ -199,7 +201,11 @@ class ObjectGroup : public gc::TenuredCell
     inline TypeNewScript* newScript();
 
     void setNewScript(TypeNewScript* newScript) {
+        MOZ_ASSERT(newScript);
         setAddendum(Addendum_NewScript, newScript);
+    }
+    void detachNewScript() {
+        setAddendum(Addendum_None, nullptr);
     }
 
     inline PreliminaryObjectArrayWithTemplate* maybePreliminaryObjects();

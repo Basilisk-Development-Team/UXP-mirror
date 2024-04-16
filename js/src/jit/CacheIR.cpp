@@ -2971,17 +2971,22 @@ SetPropIRGenerator::tryAttachAddSlotStub(HandleObjectGroup oldGroup, HandleShape
             return false;
     }
 
-    // Don't attach if we are adding a property to an object which the new
-    // script properties analysis hasn't been performed for yet, as there
-    // may be a shape change required here afterwards.
-    if (oldGroup->newScript() && !oldGroup->newScript()->analyzed()) {
-        *isTemporarilyUnoptimizable_ = true;
-        return false;
-    }
-
     ObjOperandId objId = writer.guardIsObject(objValId);
     maybeEmitIdGuard(id);
     writer.guardGroup(objId, oldGroup);
+
+    // If we are adding a property to an object for which the new script
+    // properties analysis hasn't been performed yet, make sure the stub fails
+    // after we run the analysis as a group change may be required here. The
+    // group change is not required for correctness but improves type
+    // information elsewhere.
+    if (oldGroup->newScript() && !oldGroup->newScript()->analyzed()) {
+        writer.guardGroupHasUnanalyzedNewScript(oldGroup);
+        MOZ_ASSERT(IsPreliminaryObject(obj));
+        preliminaryObjectAction_ = PreliminaryObjectAction::NotePreliminary;
+    } else {
+        preliminaryObjectAction_ = PreliminaryObjectAction::Unlink;
+    }
 
     // Shape guard the holder.
     ObjOperandId holderId = objId;

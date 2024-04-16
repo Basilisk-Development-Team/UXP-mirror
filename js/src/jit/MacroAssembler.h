@@ -1461,6 +1461,9 @@ class MacroAssembler : public MacroAssemblerSpecific
         loadJSContext(dest);
         loadPtr(Address(dest, offsetof(JSContext, activation_)), dest);
     }
+
+    void guardGroupHasUnanalyzedNewScript(Register group, Register scratch, Label* fail);
+
     void loadWasmActivationFromTls(Register dest) {
         loadPtr(Address(WasmTlsReg, offsetof(wasm::TlsData, cx)), dest);
         loadPtr(Address(dest, JSContext::offsetOfWasmActivation()), dest);
