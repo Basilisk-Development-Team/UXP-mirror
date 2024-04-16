@@ -7356,14 +7356,10 @@ AbortReasonOr<Ok>
 IonBuilder::jsop_bindname(PropertyName* name)
 {
     MDefinition* envChain;
-    if (analysis().usesEnvironmentChain()) {
-        envChain = current->environmentChain();
-    } else {
-        // We take the slow path when trying to BINDGNAME a name that resolves
-        // to a 'const' or an uninitialized binding.
-        MOZ_ASSERT(JSOp(*pc) == JSOP_BINDGNAME);
+    if (IsGlobalOp(JSOp(*pc)) && !script()->hasNonSyntacticScope())
         envChain = constant(ObjectValue(script()->global().lexicalEnvironment()));
-    }
+    else
+        envChain = current->environmentChain();
     MBindNameCache* ins = MBindNameCache::New(alloc(), envChain, name, script(), pc);
 
     current->add(ins);
