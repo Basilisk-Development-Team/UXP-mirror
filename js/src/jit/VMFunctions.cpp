@@ -1745,5 +1745,12 @@ HasNativeDataPropertyPure(JSContext* cx, JSObject* obj, Value* vp)
     return true;
 }
 
+JSString*
+TypeOfObject(JSObject* obj, JSRuntime* rt)
+{
+    JSType type = js::TypeOfObject(obj);
+    return TypeName(type, *rt->commonNames);
+}
+
 } // namespace jit
 } // namespace js
