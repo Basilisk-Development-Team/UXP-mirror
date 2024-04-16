@@ -93,6 +93,13 @@ function Object_valueOf() {
     return ToObject(this);
 }
 
+// ES 2018 draft 19.1.3.2
+function Object_hasOwnProperty(V) {
+    // Implement hasOwnProperty as a pseudo function that becomes a JSOp
+    // to easier add an inline cache for this.
+    return hasOwn(V, this);
+}
+
 // ES7 draft (2016 March 8) B.2.2.3
 function ObjectDefineSetter(name, setter) {
     // Step 1.
@@ -160,7 +167,7 @@ function ObjectLookupSetter(name) {
         // Step 3.b.
         if (desc) {
             // Step.b.i.
-            if (callFunction(std_Object_hasOwnProperty, desc, "set"))
+            if (hasOwn("set", desc))
                 return desc.set;
 
             // Step.b.ii.
@@ -189,7 +196,7 @@ function ObjectLookupGetter(name) {
         // Step 3.b.
         if (desc) {
             // Step.b.i.
-            if (callFunction(std_Object_hasOwnProperty, desc, "get"))
+            if (hasOwn("get", desc))
                 return desc.get;
 
             // Step.b.ii.
@@ -222,10 +229,10 @@ function ObjectFromEntries(iter) {
 }
 
 // Proposal https://github.com/tc39/proposal-accessible-object-hasownproperty
-// Object.hasOwn (Object, Property)
+// 1. Object.hasOwn ( O, P )
 function ObjectHasOwn(O, P) {
     // Step 1.
     var obj = ToObject(O);
     // Step 2-3.
-    return callFunction(std_Object_hasOwnProperty, obj, P);
+    return hasOwn(P, obj);
 }

@@ -48,9 +48,6 @@ obj_getOwnPropertyDescriptor(JSContext* cx, unsigned argc, JS::Value* vp);
 obj_getPrototypeOf(JSContext* cx, unsigned argc, JS::Value* vp);
 
 [[nodiscard]] bool
-obj_hasOwnProperty(JSContext* cx, unsigned argc, JS::Value* vp);
-
-[[nodiscard]] bool
 obj_isExtensible(JSContext* cx, unsigned argc, JS::Value* vp);
 
 [[nodiscard]] bool

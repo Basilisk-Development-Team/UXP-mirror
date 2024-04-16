@@ -837,6 +837,9 @@ bool
 GetNativeDataPropertyByValue(JSContext* cx, JSObject* obj, Value* vp);
 
 bool
+HasOwnNativeDataProperty(JSContext* cx, JSObject* obj, Value* vp);
+
+bool
 SetNativeDataProperty(JSContext* cx, JSObject* obj, PropertyName* name, Value* val);
 
 bool

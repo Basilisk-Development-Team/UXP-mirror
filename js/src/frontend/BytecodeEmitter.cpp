@@ -7295,10 +7295,29 @@ BytecodeEmitter::emitSelfHostedDefineDataProperty(BinaryNode* callNode)
     // This will leave the object on the stack instead of pushing |undefined|,
     // but that's fine because the self-hosted code doesn't use the return
     // value.
-    if (!emit1(JSOP_INITELEM))
+    return emit1(JSOP_INITELEM);
+}
+
+bool
+BytecodeEmitter::emitSelfHostedHasOwn(BinaryNode* callNode)
+{
+    ListNode* argsList = &callNode->right()->as<ListNode>();
+
+    if (argsList->count() != 2) {
+    reportError(callNode, JSMSG_MORE_ARGS_NEEDED, "hasOwn", "2", "");
+    return false;
+    }
+
+    ParseNode* idNode = argsList->head();
+    if (!emitTree(idNode)) {
+    return false;
+    }
+
+    ParseNode* objNode = idNode->pn_next;
+    if (!emitTree(objNode))
         return false;
 
-    return true;
+    return emit1(JSOP_HASOWN);
 }
 
 bool
@@ -7652,6 +7671,10 @@ BytecodeEmitter::emitCallOrNew(
         if (calleeName == cx->names().defineDataPropertyIntrinsic && 
 		        argsList->count() == 3) {
                 return emitSelfHostedDefineDataProperty(callNode);
+        }
+        if (calleeName == cx->names().hasOwn) {
+            return emitSelfHostedHasOwn(callNode);
+        }
         // Fall through.
     }
 
