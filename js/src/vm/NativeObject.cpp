@@ -298,58 +298,6 @@ js::NativeObject::dynamicSlotsCount(uint32_t nfixed, uint32_t span, const Class*
     return slots;
 }
 
-inline bool
-NativeObject::updateSlotsForSpan(JSContext* cx, size_t oldSpan, size_t newSpan)
-{
-    MOZ_ASSERT(oldSpan != newSpan);
-
-    size_t oldCount = dynamicSlotsCount(numFixedSlots(), oldSpan, getClass());
-    size_t newCount = dynamicSlotsCount(numFixedSlots(), newSpan, getClass());
-
-    if (oldSpan < newSpan) {
-        if (oldCount < newCount && !growSlots(cx, oldCount, newCount))
-            return false;
-
-        if (newSpan == oldSpan + 1)
-            initSlotUnchecked(oldSpan, UndefinedValue());
-        else
-            initializeSlotRange(oldSpan, newSpan - oldSpan);
-    } else {
-        /* Trigger write barriers on the old slots before reallocating. */
-        prepareSlotRangeForOverwrite(newSpan, oldSpan);
-        invalidateSlotRange(newSpan, oldSpan - newSpan);
-
-        if (oldCount > newCount)
-            shrinkSlots(cx, oldCount, newCount);
-    }
-
-    return true;
-}
-
-bool
-NativeObject::setLastProperty(JSContext* cx, Shape* shape)
-{
-    MOZ_ASSERT(!inDictionaryMode());
-    MOZ_ASSERT(!shape->inDictionary());
-    MOZ_ASSERT(shape->zone() == zone());
-    MOZ_ASSERT(shape->numFixedSlots() == numFixedSlots());
-    MOZ_ASSERT(shape->getObjectClass() == getClass());
-
-    size_t oldSpan = lastProperty()->slotSpan();
-    size_t newSpan = shape->slotSpan();
-
-    if (oldSpan == newSpan) {
-        shape_ = shape;
-        return true;
-    }
-
-    if (!updateSlotsForSpan(cx, oldSpan, newSpan))
-        return false;
-
-    shape_ = shape;
-    return true;
-}
-
 void
 NativeObject::setLastPropertyShrinkFixedSlots(Shape* shape)
 {
@@ -1091,23 +1039,22 @@ js::NativeLookupOwnProperty<NoGC>(JSContext* cx, NativeObject* const& obj, const
 
 /*** [[DefineOwnProperty]] ***********************************************************************/
 
-static inline bool
-CallAddPropertyHook(JSContext* cx, HandleNativeObject obj, HandleShape shape,
-                    HandleValue value)
+static MOZ_ALWAYS_INLINE bool
+CallAddPropertyHook(JSContext* cx, HandleNativeObject obj, HandleId id, HandleValue value)
 {
-    if (JSAddPropertyOp addProperty = obj->getClass()->getAddProperty()) {
+    JSAddPropertyOp addProperty = obj->getClass()->getAddProperty();
+    if (MOZ_UNLIKELY(addProperty)) {
         MOZ_ASSERT(!cx->helperThread());
 
-        RootedId id(cx, shape->propid());
         if (!CallJSAddPropertyOp(cx, addProperty, obj, id, value)) {
-            NativeObject::removeProperty(cx, obj, shape->propid());
+            NativeObject::removeProperty(cx, obj, id);
             return false;
         }
     }
     return true;
 }
 
-static inline bool
+static MOZ_ALWAYS_INLINE bool
 CallAddPropertyHookDense(JSContext* cx, HandleNativeObject obj, uint32_t index,
                          HandleValue value)
 {
@@ -1120,7 +1067,8 @@ CallAddPropertyHookDense(JSContext* cx, HandleNativeObject obj, uint32_t index,
         return true;
     }
 
-    if (JSAddPropertyOp addProperty = obj->getClass()->getAddProperty()) {
+    JSAddPropertyOp addProperty = obj->getClass()->getAddProperty();
+    if (MOZ_UNLIKELY(addProperty)) {
         MOZ_ASSERT(!cx->helperThread());
 
         if (!obj->maybeCopyElementsForWrite(cx))
@@ -1135,10 +1083,12 @@ CallAddPropertyHookDense(JSContext* cx, HandleNativeObject obj, uint32_t index,
     return true;
 }
 
-static bool
-UpdateShapeTypeAndValue(JSContext* cx, HandleNativeObject obj, HandleShape shape, const Value& value)
+static MOZ_ALWAYS_INLINE void
+UpdateShapeTypeAndValue(JSContext* cx, NativeObject* obj, Shape* shape, jsid id,
+                        const Value& value)
 {
-    jsid id = shape->propid();
+    MOZ_ASSERT(id == shape->propid());
+
     if (shape->hasSlot()) {
         obj->setSlotWithType(cx, shape, value, /* overwriting = */ false);
 
@@ -1154,7 +1104,6 @@ UpdateShapeTypeAndValue(JSContext* cx, HandleNativeObject obj, HandleShape shape
         MarkTypePropertyNonData(cx, obj, id);
     if (!shape->writable())
         MarkTypePropertyNonWritable(cx, obj, id);
-    return true;
 }
 
 static bool
@@ -1227,7 +1176,10 @@ PurgeEnvironmentChain(JSContext* cx, HandleObject obj, HandleId id)
     return true;
 }
 
-static bool
+enum class IsAddOrChange { Add, AddOrChange };
+
+template <IsAddOrChange AddOrChange>
+static MOZ_ALWAYS_INLINE bool
 AddOrChangeProperty(JSContext* cx, HandleNativeObject obj, HandleId id,
                     Handle<PropertyDescriptor> desc)
 {
@@ -1256,13 +1208,20 @@ AddOrChangeProperty(JSContext* cx, HandleNativeObject obj, HandleId id,
         }
     }
 
-    RootedShape shape(cx, NativeObject::putProperty(cx, obj, id, desc.getter(), desc.setter(),
-                                                    SHAPE_INVALID_SLOT, desc.attributes(), 0));
+    // If we know this is a new property we can call addProperty instead of
+    // the slower putProperty.
+    Shape* shape;
+    if (AddOrChange == IsAddOrChange::Add) {
+        shape = NativeObject::addProperty(cx, obj, id, desc.getter(), desc.setter(),
+                                          SHAPE_INVALID_SLOT, desc.attributes(), 0);
+    } else {
+        shape = NativeObject::putProperty(cx, obj, id, desc.getter(), desc.setter(),
+                                          SHAPE_INVALID_SLOT, desc.attributes(), 0);
+    }
     if (!shape)
         return false;
 
-    if (!UpdateShapeTypeAndValue(cx, obj, shape, desc.value()))
-        return false;
+    UpdateShapeTypeAndValue(cx, obj, shape, id, desc.value());
 
     // Clear any existing dense index after adding a sparse indexed property,
     // and investigate converting the object to dense indexes.
@@ -1282,7 +1241,7 @@ AddOrChangeProperty(JSContext* cx, HandleNativeObject obj, HandleId id,
         }
     }
 
-    return CallAddPropertyHook(cx, obj, shape, desc.value());
+    return CallAddPropertyHook(cx, obj, id, desc.value());
 }
 
 static bool IsConfigurable(unsigned attrs) { return (attrs & JSPROP_PERMANENT) == 0; }
@@ -1477,7 +1436,7 @@ js::NativeDefineProperty(JSContext* cx, HandleNativeObject obj, HandleId id,
         // Fill in missing desc fields with defaults.
         CompletePropertyDescriptor(&desc);
 
-        if (!AddOrChangeProperty(cx, obj, id, desc))
+        if (!AddOrChangeProperty<IsAddOrChange::Add>(cx, obj, id, desc))
             return false;
         return result.succeed();
     }
@@ -1494,11 +1453,8 @@ js::NativeDefineProperty(JSContext* cx, HandleNativeObject obj, HandleId id,
         // type for this property that doesn't match the value in the slot.
         // Update the type here, even though this DefineProperty call is
         // otherwise a no-op. (See bug 1125624 comment 13.)
-        if (!prop.isDenseOrTypedArrayElement() && desc.hasValue()) {
-            RootedShape shape(cx, prop.shape());
-            if (!UpdateShapeTypeAndValue(cx, obj, shape, desc.value()))
-                return false;
-        }
+        if (!prop.isDenseOrTypedArrayElement() && desc.hasValue())
+            UpdateShapeTypeAndValue(cx, obj, prop.shape(), id, desc.value());
         return result.succeed();
     }
 
@@ -1626,7 +1582,7 @@ js::NativeDefineProperty(JSContext* cx, HandleNativeObject obj, HandleId id,
     }
 
     // Step 10.
-    if (!AddOrChangeProperty(cx, obj, id, desc))
+    if (!AddOrChangeProperty<IsAddOrChange::AddOrChange>(cx, obj, id, desc))
         return false;
     return result.succeed();
 }
