@@ -117,11 +117,6 @@ namespace jit {
             return true;
         }
 
-        unsigned char* data()
-        {
-            return m_buffer.begin();
-        }
-
         size_t size() const
         {
             return m_buffer.length();
@@ -132,9 +127,28 @@ namespace jit {
             return m_oom;
         }
 
-        const unsigned char* buffer() const {
-            MOZ_ASSERT(!m_oom);
-            return m_buffer.begin();
+        const unsigned char* acquireBuffer() const
+        {
+            MOZ_RELEASE_ASSERT(!m_oom);
+            return m_buffer.acquire();
+        }
+
+        void releaseBuffer() const { m_buffer.release(); }
+        unsigned char* acquireData() { return m_buffer.acquire(); }
+        void releaseData() const { m_buffer.release(); }
+        void disableProtection() { m_buffer.disableProtection(); }
+        void enableProtection() { m_buffer.enableProtection(); }
+        void setLowerBoundForProtection(size_t size)
+        {
+            m_buffer.setLowerBoundForProtection(size);
+        }
+        void unprotectRegion(unsigned char* first, size_t size)
+        {
+            m_buffer.unprotectRegion(first, size);
+        }
+        void reprotectRegion(unsigned char* first, size_t size)
+        {
+            m_buffer.reprotectRegion(first, size);
         }
 
     protected:
@@ -158,7 +172,8 @@ namespace jit {
         }
 
         PageProtectingVector<unsigned char, 256, SystemAllocPolicy,
-                             /* ProtectUsed = */ false, /* ProtectUnused = */ true,
+                             /* ProtectUsed = */ false, /* ProtectUnused = */ false,
+                             /* GuardAgainstReentrancy = */ true,
                              /* InitialLowerBound = */ 32 * 1024> m_buffer;
         bool m_oom;
     };
