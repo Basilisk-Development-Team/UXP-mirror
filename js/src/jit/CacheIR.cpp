@@ -2095,19 +2095,23 @@ SetPropIRGenerator::tryAttachStub()
                 return true;
             if (tryAttachUnboxedProperty(obj, objId, id, rhsValId))
                 return true;
-            if (tryAttachSetter(obj, objId, id, rhsValId))
-                return true;
             if (tryAttachTypedObjectProperty(obj, objId, id, rhsValId))
                 return true;
             if (tryAttachSetArrayLength(obj, objId, id, rhsValId))
                 return true;
-            if (tryAttachProxy(obj, objId, id, rhsValId))
-                return true;
+            if (IsPropertySetOp(JSOp(*pc_))) {
+                if (tryAttachSetter(obj, objId, id, rhsValId))
+                    return true;
+                if (tryAttachProxy(obj, objId, id, rhsValId))
+                    return true;
+           }
             return false;
         }
 
-        if (tryAttachProxyElement(obj, objId, rhsValId))
-            return true;
+        if (IsPropertySetOp(JSOp(*pc_))) {
+            if (tryAttachProxyElement(obj, objId, rhsValId))
+                return true;
+        }
         uint32_t index;
         Int32OperandId indexId;
         if (maybeGuardInt32Index(idVal_, setElemKeyValueId(), &index, &indexId)) {
@@ -2379,8 +2383,6 @@ CanAttachSetter(JSContext* cx, jsbytecode* pc, HandleObject obj, HandleId id,
                 bool* isTemporarilyUnoptimizable)
 {
     // Don't attach a setter stub for ops like JSOP_INITELEM.
-    if (IsPropertyInitOp(JSOp(*pc)))
-        return false;
     MOZ_ASSERT(IsPropertySetOp(JSOp(*pc)));
 
     PropertyResult prop;
@@ -2834,6 +2836,9 @@ bool
 SetPropIRGenerator::tryAttachProxy(HandleObject obj, ObjOperandId objId, HandleId id,
                                    ValOperandId rhsId)
 {
+    // Don't attach a proxy stub for ops like JSOP_INITELEM.
+    MOZ_ASSERT(IsPropertySetOp(JSOp(*pc_)));
+
     switch (GetProxyStubType(cx_, obj, id)) {
       case ProxyStubType::None:
         return false;
@@ -2854,6 +2859,9 @@ SetPropIRGenerator::tryAttachProxy(HandleObject obj, ObjOperandId objId, HandleI
 bool
 SetPropIRGenerator::tryAttachProxyElement(HandleObject obj, ObjOperandId objId, ValOperandId rhsId)
 {
+    // Don't attach a proxy stub for ops like JSOP_INITELEM.
+    MOZ_ASSERT(IsPropertySetOp(JSOp(*pc_)));
+
     if (!obj->is<ProxyObject>())
         return false;
 

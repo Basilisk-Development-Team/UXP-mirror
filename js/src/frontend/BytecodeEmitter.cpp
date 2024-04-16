@@ -7273,6 +7273,35 @@ BytecodeEmitter::emitSelfHostedAllowContentIter(BinaryNode* callNode)
 }
 
 bool
+BytecodeEmitter::emitSelfHostedDefineDataProperty(BinaryNode* callNode)
+{
+    ListNode* argsList = &callNode->right()->as<ListNode>();
+
+    // Only optimize when 3 arguments are passed.
+    MOZ_ASSERT(argsList->count() == 3);
+
+    ParseNode* objNode = argsList->head();
+    if (!emitTree(objNode))
+        return false;
+
+    ParseNode* idNode = objNode->pn_next;
+    if (!emitTree(idNode))
+        return false;
+
+    ParseNode* valNode = idNode->pn_next;
+    if (!emitTree(valNode))
+        return false;
+
+    // This will leave the object on the stack instead of pushing |undefined|,
+    // but that's fine because the self-hosted code doesn't use the return
+    // value.
+    if (!emit1(JSOP_INITELEM))
+        return false;
+
+    return true;
+}
+
+bool
 BytecodeEmitter::isRestParameter(ParseNode* pn)
 {
     if (!sc->isFunctionBox())
@@ -7620,6 +7649,9 @@ BytecodeEmitter::emitCallOrNew(
             return emitSelfHostedForceInterpreter(callNode);
         if (calleeName == cx->names().allowContentIter)
             return emitSelfHostedAllowContentIter(callNode);
+        if (calleeName == cx->names().defineDataPropertyIntrinsic && 
+		        argsList->count() == 3) {
+                return emitSelfHostedDefineDataProperty(callNode);
         // Fall through.
     }
 
