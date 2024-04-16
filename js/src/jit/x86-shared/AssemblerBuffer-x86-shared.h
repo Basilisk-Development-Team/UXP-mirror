@@ -84,12 +84,7 @@ namespace jit {
         }
 
     public:
-        AssemblerBuffer()
-            : m_oom(false)
-        {
-            // Provide memory protection once the buffer starts to get big.
-            m_buffer.setLowerBoundForProtection(32 * 1024);
-        }
+        AssemblerBuffer() : m_oom(false) {}
 
         void ensureSpace(size_t space)
         {
@@ -142,13 +137,6 @@ namespace jit {
             return m_buffer.begin();
         }
 
-        void unprotectDataRegion(size_t firstByteOffset, size_t lastByteOffset) {
-            m_buffer.unprotectRegion(firstByteOffset, lastByteOffset);
-        }
-        void reprotectDataRegion(size_t firstByteOffset, size_t lastByteOffset) {
-            m_buffer.reprotectRegion(firstByteOffset, lastByteOffset);
-        }
-
     protected:
         /*
          * OOM handling: This class can OOM in the ensureSpace() method trying
@@ -169,7 +157,9 @@ namespace jit {
             m_buffer.clear();
         }
 
-        PageProtectingVector<unsigned char, 256, SystemAllocPolicy> m_buffer;
+        PageProtectingVector<unsigned char, 256, SystemAllocPolicy,
+                             /* ProtectUsed = */ false, /* ProtectUnused = */ true,
+                             /* InitialLowerBound = */ 32 * 1024> m_buffer;
         bool m_oom;
     };
 
