@@ -1630,6 +1630,7 @@ GetNativeDataPropertyByValuePure<true>(JSContext* cx, JSObject* obj, Value* vp);
 template bool
 GetNativeDataPropertyByValuePure<false>(JSContext* cx, JSObject* obj, Value* vp);
 
+template <bool NeedsTypeBarrier>
 bool
 SetNativeDataProperty(JSContext* cx, JSObject* obj, PropertyName* name, Value* val)
 {
@@ -1648,12 +1649,18 @@ SetNativeDataProperty(JSContext* cx, JSObject* obj, PropertyName* name, Value* v
         return false;
     }
 
-    if (!HasTypePropertyId(nobj, NameToId(name), *val))
+    if (NeedsTypeBarrier && !HasTypePropertyId(nobj, NameToId(name), *val))
         return false;
 
     nobj->setSlot(shape->slot(), *val);
     return true;
 }
+
+template bool
+SetNativeDataProperty<true>(JSContext* cx, JSObject* obj, PropertyName* name, Value* val);
+
+template bool
+SetNativeDataProperty<false>(JSContext* cx, JSObject* obj, PropertyName* name, Value* val);
 
 bool
 ObjectHasGetterSetter(JSContext* cx, JSObject* objArg, Shape* propShape)

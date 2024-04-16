@@ -839,6 +839,7 @@ GetNativeDataPropertyByValuePure(JSContext* cx, JSObject* obj, Value* vp);
 bool
 HasNativeDataPropertyPure(JSContext* cx, JSObject* obj, Value* vp);
 
+template <bool NeedsTypeBarrier>
 bool
 SetNativeDataProperty(JSContext* cx, JSObject* obj, PropertyName* name, Value* val);
 
