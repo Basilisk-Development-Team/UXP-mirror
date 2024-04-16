@@ -10,7 +10,7 @@
  * Shorthand for hasOwnProperty.
  */
 function hasOwn(propName, object) {
-    return callFunction(std_Object_hasOwnProperty, object, propName);
+    return hasOwn (propName, object);
 }
 
 #ifdef DEBUG

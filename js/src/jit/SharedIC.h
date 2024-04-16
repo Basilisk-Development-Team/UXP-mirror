@@ -2329,6 +2329,9 @@ UpdateExistingGetPropCallStubs(ICFallbackStub* fallbackStub,
                                HandleObject receiver,
                                HandleFunction getter);
 [[nodiscard]] bool
+CheckHasNoSuchOwnProperty(JSContext* cx, JSObject* obj, jsid id);
+
+[[nodiscard]] bool
 CheckHasNoSuchProperty(JSContext* cx, JSObject* obj, jsid id,
                        JSObject** lastProto = nullptr, size_t* protoChainDepthOut = nullptr);
 

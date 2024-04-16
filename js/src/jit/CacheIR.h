@@ -138,7 +138,8 @@ class TypedOperandId : public OperandId
     _(GetName)              \
     _(SetProp)              \
     _(SetElem)              \
-    _(In)
+    _(In)                   \
+    _(HasOwn)
 
 enum class CacheKind : uint8_t
 {
@@ -184,6 +185,7 @@ extern const char* CacheKindNames[];
     _(MegamorphicLoadSlotResult)          \
     _(MegamorphicLoadSlotByValueResult)   \
     _(MegamorphicStoreSlot)               \
+    _(MegamorphicHasOwnResult)            \
 	                                      \
 	/* See CacheIR.cpp 'DOM proxies' comment. */ \
     _(LoadDOMExpandoValue)                \
@@ -787,6 +789,10 @@ class MOZ_RAII CacheIRWriter : public JS::CustomAutoRooter
         addStubField(uintptr_t(name), StubField::Type::String);
         writeOperandId(rhs);
     }
+    void megamorphicHasOwnResult(ObjOperandId obj, ValOperandId id) {
+        writeOpWithOperandId(CacheOp::MegamorphicHasOwnResult, obj);
+        writeOperandId(id);
+    }
 
     void loadBooleanResult(bool val) {
         writeOp(CacheOp::LoadBooleanResult);
@@ -1251,6 +1257,27 @@ class MOZ_RAII InIRGenerator : public IRGenerator
   public:
     InIRGenerator(JSContext* cx, HandleScript, jsbytecode* pc, ICState::Mode mode, HandleValue key,
                   HandleObject obj);
+
+    bool tryAttachStub();
+};
+
+// HasOwnIRGenerator generates CacheIR for a HasOwn IC.
+class MOZ_RAII HasOwnIRGenerator : public IRGenerator
+{
+    HandleValue key_;
+    HandleValue val_;
+
+    bool tryAttachNativeHasOwn(HandleId key, ValOperandId keyId,
+                           HandleObject obj, ObjOperandId objId);
+    bool tryAttachNativeHasOwnDoesNotExist(HandleId key, ValOperandId keyId,
+                                           HandleObject obj, ObjOperandId objId);
+
+    void trackAttached(const char* name);
+    void trackNotAttached();
+
+  public:
+    HasOwnIRGenerator(JSContext* cx, HandleScript, jsbytecode* pc, ICState::Mode mode, HandleValue key,
+                      HandleValue value);
 
     bool tryAttachStub();
 };

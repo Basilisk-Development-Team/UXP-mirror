@@ -242,6 +242,7 @@ namespace jit {
     _(Ceil)                                                                 \
     _(Round)                                                                \
     _(In)                                                                   \
+    _(HasOwnCache)                                                          \
     _(InstanceOf)                                                           \
     _(CallInstanceOf)                                                       \
     _(InterruptCheck)                                                       \

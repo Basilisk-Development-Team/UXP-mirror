@@ -30,9 +30,6 @@
 
 // Other
 
-#define HAS_PROPERTY(obj, prop) \
-    callFunction(std_Object_hasOwnProperty, obj, prop)
-
 ///////////////////////////////////////////////////////////////////////////
 // Getting values
 //
