@@ -2273,10 +2273,6 @@ class MacroAssemblerCompat : public vixl::MacroAssembler
         return nextOffset().getOffset();
     }
 
-    struct AutoPrepareForPatching {
-        explicit AutoPrepareForPatching(MacroAssemblerCompat&) {}
-    };
-
   protected:
     bool buildOOLFakeExitFrame(void* fakeReturnAddr) {
         uint32_t descriptor = MakeFrameDescriptor(framePushed(), JitFrame_IonJS,
