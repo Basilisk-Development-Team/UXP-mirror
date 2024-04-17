@@ -169,6 +169,19 @@ JSRuntime::finishAtoms()
     emptyString = nullptr;
 }
 
+static inline void
+MarkPinnedAtoms(JSTracer* trc, const AtomSet& atoms)
+{
+    for (auto r = atoms.all(); !r.empty(); r.popFront()) {
+        const AtomStateEntry& entry = r.front();
+        if (entry.isPinned()) {
+            JSAtom* atom = entry.asPtrUnbarriered();
+            TraceRoot(trc, &atom, "interned_atom");
+            MOZ_ASSERT(entry.asPtrUnbarriered() == atom);
+        }
+    }
+}
+
 void
 js::MarkAtoms(JSTracer* trc, AutoLockForExclusiveAccess& lock)
 {
@@ -177,15 +190,9 @@ js::MarkAtoms(JSTracer* trc, AutoLockForExclusiveAccess& lock)
     if (rt->atomsAreFinished())
         return;
 
-    for (AtomSet::Enum e(rt->atoms(lock)); !e.empty(); e.popFront()) {
-        const AtomStateEntry& entry = e.front();
-        if (!entry.isPinned())
-            continue;
-
-        JSAtom* atom = entry.asPtrUnbarriered();
-        TraceRoot(trc, &atom, "interned_atom");
-        MOZ_ASSERT(entry.asPtrUnbarriered() == atom);
-    }
+    MarkPinnedAtoms(trc, rt->atoms(lock));
+    if (rt->atomsAddedWhileSweeping())
+        MarkPinnedAtoms(trc, *rt->atomsAddedWhileSweeping());
 }
 
 void
@@ -249,6 +256,17 @@ JSRuntime::transformToPermanentAtoms(JSContext* cx)
     return true;
 }
 
+static inline AtomSet::Ptr
+LookupAtomState(JSRuntime* rt, const AtomHasher::Lookup& lookup)
+{
+    MOZ_ASSERT(rt->currentThreadHasExclusiveAccess());
+
+    AtomSet::Ptr p = rt->unsafeAtoms().lookup(lookup); // Safe because we hold the lock.
+    if (!p && rt->atomsAddedWhileSweeping())
+        p = rt->atomsAddedWhileSweeping()->lookup(lookup);
+    return p;
+}
+
 bool
 AtomIsPinned(JSContext* cx, JSAtom* atom)
 {
@@ -266,7 +284,7 @@ AtomIsPinned(JSContext* cx, JSAtom* atom)
 
     AutoLockForExclusiveAccess lock(cx);
 
-    p = cx->runtime()->atoms(lock).lookup(lookup);
+    p = LookupAtomState(cx->runtime(), lookup);
     if (!p)
         return false;
 
@@ -284,7 +302,7 @@ AtomIsPinnedInRuntime(JSRuntime* rt, JSAtom* atom)
 
     AtomHasher::Lookup lookup(atom);
 
-    AtomSet::Ptr p = rt->unsafeAtoms().lookup(lookup);
+    AtomSet::Ptr p = LookupAtomState(rt, lookup);
     MOZ_ASSERT(p);
 
     return p->isPinned();
@@ -355,7 +373,7 @@ AtomizeAndCopyChars(JSContext* cx, const CharT* tbchars, size_t length, PinningB
         // is dead.
         if (!p) {
             if (AtomSet::AddPtr p2 = atoms.lookupForAdd(lookup)) {
-                JSAtom* atom = p2->asPtr(cx);
+                JSAtom* atom = p2->asPtrUnbarriered();
                 if (!IsAboutToBeFinalizedUnbarriered(&atom))
                     p = p2;
             }
@@ -393,7 +411,8 @@ AtomizeAndCopyChars(JSContext* cx, const CharT* tbchars, size_t length, PinningB
         // We have held the lock since looking up p, and the operations we've done
         // since then can't GC; therefore the atoms table has not been modified and
         // p is still valid.
-        if (!atoms.add(p, AtomStateEntry(atom, bool(pin)))) {
+        AtomSet* addSet = atomsAddedWhileSweeping ? atomsAddedWhileSweeping : &atoms;
+        if (!addSet->add(p, AtomStateEntry(atom, bool(pin)))) {
             ReportOutOfMemory(cx); /* SystemAllocPolicy does not report OOM. */
             return nullptr;
         }
@@ -431,7 +450,7 @@ js::AtomizeString(JSContext* cx, JSString* str,
 
         AutoLockForExclusiveAccess lock(cx);
 
-        p = cx->atoms(lock).lookup(lookup);
+        p = LookupAtomState(cx->runtime(), lookup);
         MOZ_ASSERT(p); /* Non-static atom must exist in atom state set. */
         MOZ_ASSERT(p->asPtrUnbarriered() == &atom);
         MOZ_ASSERT(pin == PinAtom);
