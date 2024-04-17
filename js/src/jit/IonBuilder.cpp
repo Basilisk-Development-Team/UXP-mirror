@@ -7483,28 +7483,7 @@ IonBuilder::jsop_getelem()
         return abort(AbortReason::Disable, "Type is not definitely lazy arguments.");
 
     trackOptimizationAttempt(TrackedStrategy::GetElem_InlineCache);
-    MOZ_TRY(getElemTryCache(&emitted, obj, index));
-    if (emitted)
-        return Ok();
-
-    // Emit call.
-    MInstruction* ins = MCallGetElement::New(alloc(), obj, index);
-
-    current->add(ins);
-    current->push(ins);
-
-    MOZ_TRY(resumeAfter(ins));
-
-    if (*pc == JSOP_CALLELEM && IsNullOrUndefined(obj->type())) {
-        // Due to inlining, it's possible the observed TypeSet is non-empty,
-        // even though we know |obj| is null/undefined and the MCallGetElement
-        // will throw. Don't push a TypeBarrier in this case, to avoid
-        // inlining the following (unreachable) JSOP_CALL.
-        return Ok();
-    }
-
-    TemporaryTypeSet* types = bytecodeTypes(pc);
-    return pushTypeBarrier(ins, types, BarrierKind::TypeSet);
+    return getElemAddCache(obj, index);
 }
 
 AbortReasonOr<Ok>
@@ -8146,49 +8125,27 @@ IonBuilder::getElemTryArgumentsInlined(bool* emitted, MDefinition* obj, MDefinit
 }
 
 AbortReasonOr<Ok>
-IonBuilder::getElemTryCache(bool* emitted, MDefinition* obj, MDefinition* index)
+IonBuilder::getElemAddCache(MDefinition* obj, MDefinition* index)
 {
-    MOZ_ASSERT(*emitted == false);
-
-    // Make sure we have at least an object.
-    if (!obj->mightBeType(MIRType::Object)) {
-        trackOptimizationOutcome(TrackedOutcome::NotObject);
-        return Ok();
-    }
-
-    // Don't cache for strings.
-    if (obj->mightBeType(MIRType::String)) {
-        trackOptimizationOutcome(TrackedOutcome::GetElemStringNotCached);
-        return Ok();
-    }
-
-    // Index should be integer, string, or symbol
-    if (!index->mightBeType(MIRType::Int32) &&
-        !index->mightBeType(MIRType::String) &&
-        !index->mightBeType(MIRType::Symbol))
-    {
-        trackOptimizationOutcome(TrackedOutcome::IndexType);
-        return Ok();
-    }
-
-    // Turn off cacheing if the element is int32 and we've seen non-native objects as the target
-    // of this getelem.
-    bool nonNativeGetElement = inspector->hasSeenNonNativeGetElement(pc);
-    if (index->mightBeType(MIRType::Int32) && nonNativeGetElement) {
-        trackOptimizationOutcome(TrackedOutcome::NonNativeReceiver);
-        return Ok();
-    }
-
-    // Emit GetElementCache.
+    // Emit GetPropertyCache.
 
     TemporaryTypeSet* types = bytecodeTypes(pc);
-    BarrierKind barrier = PropertyReadNeedsTypeBarrier(analysisContext, constraints(), obj,
-                                                       nullptr, types);
-
-    // Always add a barrier if the index might be a string or symbol, so that
-    // the cache can attach stubs for particular properties.
-    if (index->mightBeType(MIRType::String) || index->mightBeType(MIRType::Symbol))
+    BarrierKind barrier;
+    if (obj->type() == MIRType::Object) {
+        // Always add a barrier if the index is not an int32 value, so we can
+        // attach stubs for particular properties.
+        if (index->type() == MIRType::Int32) {
+            barrier = PropertyReadNeedsTypeBarrier(analysisContext, constraints(), obj,
+                                                   nullptr, types);
+        } else {
+            barrier = BarrierKind::TypeSet;
+        }
+    } else {
+        // PropertyReadNeedsTypeBarrier only accounts for object types, so for
+        // now always insert a barrier if the input is not known to be an
+        // object.
         barrier = BarrierKind::TypeSet;
+    }
 
     // Ensure we insert a type barrier for reads from typed objects, as type
     // information does not account for the initial undefined/null types.
@@ -8224,7 +8181,6 @@ IonBuilder::getElemTryCache(bool* emitted, MDefinition* obj, MDefinition* index)
     MOZ_TRY(pushTypeBarrier(ins, types, barrier));
 
     trackOptimizationSuccess();
-    *emitted = true;
     return Ok();
 }
 
@@ -8892,18 +8848,8 @@ IonBuilder::initOrSetElemTryCache(bool* emitted, MDefinition* object,
         return Ok();
     }
 
-    if (!index->mightBeType(MIRType::Int32) &&
-        !index->mightBeType(MIRType::String) &&
-        !index->mightBeType(MIRType::Symbol))
-    {
-        trackOptimizationOutcome(TrackedOutcome::IndexType);
-        return Ok();
-    }
-
     bool barrier = true;
-    bool indexIsInt32 = index->type() == MIRType::Int32;
-
-    if (indexIsInt32 &&
+    if (index->type() == MIRType::Int32 &&
         !PropertyWriteNeedsTypeBarrier(alloc(), constraints(), current,
                                        &object, nullptr, &value, /* canModify = */ true))
     {
