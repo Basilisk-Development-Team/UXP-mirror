@@ -63,12 +63,17 @@ namespace JS {
     D(RESET)                                    \
     D(OUT_OF_NURSERY)                           \
     D(EVICT_NURSERY)                            \
-    D(FULL_STORE_BUFFER)                        \
+    D(UNUSED2)                                  \
     D(SHARED_MEMORY_LIMIT)                      \
     D(UNUSED1)                                  \
     D(INCREMENTAL_TOO_SLOW)                     \
     D(ABORT_GC)                                 \
     D(DELAYED_ATOMS_GC) /* Different to 56+! */ \
+    D(FULL_WHOLE_CELL_BUFFER)                   \
+    D(FULL_GENERIC_BUFFER)                      \
+    D(FULL_VALUE_BUFFER)                        \
+    D(FULL_CELL_PTR_BUFFER)                     \
+    D(FULL_SLOT_BUFFER)                         \
                                                 \
     /* These are reserved for future use. */    \
     D(RESERVED0)                                \
