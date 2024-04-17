@@ -2096,5 +2096,4 @@ IonIC::attachCacheIRStub(JSContext* cx, const CacheIRWriter& writer, CacheKind k
 
     attachStub(newStub, code);
     *attached = true;
-
 }
