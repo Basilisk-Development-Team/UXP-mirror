@@ -225,13 +225,6 @@ js::MarkWellKnownSymbols(JSTracer* trc)
     }
 }
 
-void
-JSRuntime::sweepAtoms()
-{
-    if (atoms_)
-        atoms_->sweep();
-}
-
 bool
 JSRuntime::transformToPermanentAtoms(JSContext* cx)
 {
@@ -345,8 +338,30 @@ AtomizeAndCopyChars(JSContext* cx, const CharT* tbchars, size_t length, PinningB
 
     AutoLockForExclusiveAccess lock(cx);
 
-    AtomSet& atoms = cx->atoms(lock);
-    AtomSet::AddPtr p = atoms.lookupForAdd(lookup);
+    JSRuntime* rt = cx->runtime();
+    AtomSet& atoms = rt->atoms(lock);
+    AtomSet* atomsAddedWhileSweeping = rt->atomsAddedWhileSweeping();
+    AtomSet::AddPtr p;
+
+    if (!atomsAddedWhileSweeping) {
+        p = atoms.lookupForAdd(lookup);
+    } else {
+        // We're currently sweeping the main atoms table and all new atoms will
+        // be added to a secondary table. Check this first.
+        MOZ_ASSERT(rt->atomsZone(lock)->isGCSweeping());
+        p = atomsAddedWhileSweeping->lookupForAdd(lookup);
+
+        // If that fails check the main table but check if any atom found there
+        // is dead.
+        if (!p) {
+            if (AtomSet::AddPtr p2 = atoms.lookupForAdd(lookup)) {
+                JSAtom* atom = p2->asPtr(cx);
+                if (!IsAboutToBeFinalizedUnbarriered(&atom))
+                    p = p2;
+            }
+        }
+    }
+
     if (p) {
         JSAtom* atom = p->asPtr(cx);
         p->setPinned(bool(pin));
