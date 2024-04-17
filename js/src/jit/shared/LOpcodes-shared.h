@@ -328,7 +328,7 @@
     _(CeilF)                        \
     _(Round)                        \
     _(RoundF)                       \
-    _(In)                           \
+    _(InCache)                      \
     _(InArray)                      \
     _(HasOwnCache)                  \
     _(InstanceOfO)                  \
