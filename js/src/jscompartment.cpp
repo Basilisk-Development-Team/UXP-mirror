@@ -646,7 +646,7 @@ JSCompartment::traceIncomingCrossCompartmentEdgesForZoneGC(JSTracer* trc)
         if (!c->zone()->isCollecting())
             c->traceOutgoingCrossCompartmentWrappers(trc);
     }
-    Debugger::markIncomingCrossCompartmentEdges(trc);
+    Debugger::traceIncomingCrossCompartmentEdges(trc);
 }
 
 void
@@ -685,7 +685,7 @@ JSCompartment::traceRoots(JSTracer* trc, js::gc::GCRuntime::TraceOrMarkRuntime t
 
     /* Mark debug scopes, if present */
     if (debugEnvs)
-        debugEnvs->mark(trc);
+        debugEnvs->trace(trc);
 
     if (lazyArrayBuffers)
         lazyArrayBuffers->trace(trc);

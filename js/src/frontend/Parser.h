@@ -1102,7 +1102,7 @@ FOR_EACH_PARSENODE_SUBCLASS(DECLARE_TYPE)
         traceListHead = m.traceListHead;
     }
 
-    friend void js::frontend::MarkParser(JSTracer* trc, JS::AutoGCRooter* parser);
+    friend void js::frontend::TraceParser(JSTracer* trc, JS::AutoGCRooter* parser);
 
     /*
      * Parse a top-level JS script.

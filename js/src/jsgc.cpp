@@ -2379,7 +2379,7 @@ GCRuntime::updateZonePointersToRelocatedCells(Zone* zone, AutoLockForExclusiveAc
 
         gcstats::AutoPhase ap(stats(), gcstats::PHASE_MARK_ROOTS);
 
-        WeakMapBase::markAll(zone, &trc);
+        WeakMapBase::traceZone(zone, &trc);
 
 	}
 
@@ -2411,8 +2411,8 @@ GCRuntime::updateRuntimePointersToRelocatedCells(AutoLockForExclusiveAccess& loc
     // Mark roots to update them.
     {
         gcstats::AutoPhase ap2(stats(), gcstats::PHASE_MARK_ROOTS);
-        Debugger::markAllForMovingGC(&trc);
-        Debugger::markIncomingCrossCompartmentEdges(&trc);
+        Debugger::traceAllForMovingGC(&trc);
+        Debugger::traceIncomingCrossCompartmentEdges(&trc);
 
         // Mark all gray roots, making sure we call the trace callback to get the
         // current set.
@@ -3951,7 +3951,7 @@ GCRuntime::markWeakReferences(gcstats::Phase phase)
             for (ZoneIterT zone(rt); !zone.done(); zone.next())
                 markedAny |= WeakMapBase::markZoneIteratively(zone, &marker);
         }
-        markedAny |= Debugger::markAllIteratively(&marker);
+        markedAny |= Debugger::markIteratively(&marker);
         markedAny |= jit::JitRuntime::MarkJitcodeGlobalTableIteratively(&marker);
 
         if (!markedAny)

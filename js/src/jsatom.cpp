@@ -170,7 +170,7 @@ JSRuntime::finishAtoms()
 }
 
 static inline void
-MarkPinnedAtoms(JSTracer* trc, const AtomSet& atoms)
+TracePinnedAtoms(JSTracer* trc, const AtomSet& atoms)
 {
     for (auto r = atoms.all(); !r.empty(); r.popFront()) {
         const AtomStateEntry& entry = r.front();
@@ -183,24 +183,24 @@ MarkPinnedAtoms(JSTracer* trc, const AtomSet& atoms)
 }
 
 void
-js::MarkAtoms(JSTracer* trc, AutoLockForExclusiveAccess& lock)
+js::TraceAtoms(JSTracer* trc, AutoLockForExclusiveAccess& lock)
 {
     JSRuntime* rt = trc->runtime();
 
     if (rt->atomsAreFinished())
         return;
 
-    MarkPinnedAtoms(trc, rt->atoms(lock));
+    TracePinnedAtoms(trc, rt->atoms(lock));
     if (rt->atomsAddedWhileSweeping())
-        MarkPinnedAtoms(trc, *rt->atomsAddedWhileSweeping());
+        TracePinnedAtoms(trc, *rt->atomsAddedWhileSweeping());
 }
 
 void
-js::MarkPermanentAtoms(JSTracer* trc)
+js::TracePermanentAtoms(JSTracer* trc)
 {
     JSRuntime* rt = trc->runtime();
 
-    // Permanent atoms only need to be marked in the runtime which owns them.
+    // Permanent atoms only need to be traced in the runtime which owns them.
     if (rt->parentRuntime)
         return;
 
@@ -219,7 +219,7 @@ js::MarkPermanentAtoms(JSTracer* trc)
 }
 
 void
-js::MarkWellKnownSymbols(JSTracer* trc)
+js::TraceWellKnownSymbols(JSTracer* trc)
 {
     JSRuntime* rt = trc->runtime();
 

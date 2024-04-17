@@ -184,9 +184,9 @@ class JitRuntime
     ~JitRuntime();
     [[nodiscard]] bool initialize(JSContext* cx, js::AutoLockForExclusiveAccess& lock);
 
-    static void Mark(JSTracer* trc, js::AutoLockForExclusiveAccess& lock);
-    static void MarkJitcodeGlobalTableUnconditionally(JSTracer* trc);
-    [[nodiscard]] static bool MarkJitcodeGlobalTableIteratively(JSTracer* trc);
+    static void Trace(JSTracer* trc, js::AutoLockForExclusiveAccess& lock);
+    static void TraceJitcodeGlobalTable(JSTracer* trc);
+    [[nodiscard]] static bool MarkJitcodeGlobalTableIteratively(GCMarker* marker);
     static void SweepJitcodeGlobalTable(JSRuntime* rt);
 
     ExecutableAllocator& execAlloc() {

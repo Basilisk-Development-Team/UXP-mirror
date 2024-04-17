@@ -127,9 +127,9 @@ IsIdentifierNameOrPrivateName(const char16_t* chars, size_t length);
 bool
 IsKeyword(JSLinearString* str);
 
-/* GC marking. Defined in Parser.cpp. */
+/* Trace all GC things reachable from parser. Defined in Parser.cpp. */
 void
-MarkParser(JSTracer* trc, JS::AutoGCRooter* parser);
+TraceParser(JSTracer* trc, JS::AutoGCRooter* parser);
 
 } /* namespace frontend */
 } /* namespace js */

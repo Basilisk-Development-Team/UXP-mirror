@@ -223,7 +223,7 @@ JS_NondeterministicGetWeakMapKeys(JSContext* cx, HandleObject objArg, MutableHan
 }
 
 static void
-WeakMap_mark(JSTracer* trc, JSObject* obj)
+WeakMap_trace(JSTracer* trc, JSObject* obj)
 {
     if (ObjectValueMap* map = obj->as<WeakMapObject>().getMap())
         map->trace(trc);
@@ -325,7 +325,7 @@ static const ClassOps WeakMapObjectClassOps = {
     nullptr, /* call */
     nullptr, /* hasInstance */
     nullptr, /* construct */
-    WeakMap_mark
+    WeakMap_trace
 };
 
 const Class WeakMapObject::class_ = {
