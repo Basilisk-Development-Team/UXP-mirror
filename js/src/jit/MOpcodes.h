@@ -241,7 +241,7 @@ namespace jit {
     _(Floor)                                                                \
     _(Ceil)                                                                 \
     _(Round)                                                                \
-    _(In)                                                                   \
+    _(InCache)                                                              \
     _(HasOwnCache)                                                          \
     _(InstanceOf)                                                           \
     _(CallInstanceOf)                                                       \
