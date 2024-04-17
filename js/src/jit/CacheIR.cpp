@@ -2206,8 +2206,8 @@ HasPropIRGenerator::trackAttached(const char* name)
 void
 HasPropIRGenerator::trackNotAttached()
 {
-#ifdef JS_JITSPEW
-    CacheIRSpewer& sp = GetCacheIRSpewerSingleton();
+#ifdef JS_CACHEIR_SPEW
+    CacheIRSpewer& sp = CacheIRSpewer::singleton();
     if (sp.enabled()) {
         LockGuard<Mutex> guard(sp.lock());
         sp.beginCache(guard, *this);
