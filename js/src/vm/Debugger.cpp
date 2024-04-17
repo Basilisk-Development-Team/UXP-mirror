@@ -2901,14 +2901,14 @@ Debugger::removeAllocationsTrackingForAllDebuggees()
 /*** Debugger JSObjects **************************************************************************/
 
 void
-Debugger::markCrossCompartmentEdges(JSTracer* trc)
+Debugger::traceCrossCompartmentEdges(JSTracer* trc)
 {
-    objects.markCrossCompartmentEdges<DebuggerObject_trace>(trc);
-    environments.markCrossCompartmentEdges<DebuggerEnv_trace>(trc);
-    scripts.markCrossCompartmentEdges<DebuggerScript_trace>(trc);
-    sources.markCrossCompartmentEdges<DebuggerSource_trace>(trc);
-    wasmInstanceScripts.markCrossCompartmentEdges<DebuggerScript_trace>(trc);
-    wasmInstanceSources.markCrossCompartmentEdges<DebuggerSource_trace>(trc);
+    objects.traceCrossCompartmentEdges<DebuggerObject_trace>(trc);
+    environments.traceCrossCompartmentEdges<DebuggerEnv_trace>(trc);
+    scripts.traceCrossCompartmentEdges<DebuggerScript_trace>(trc);
+    sources.traceCrossCompartmentEdges<DebuggerSource_trace>(trc);
+    wasmInstanceScripts.traceCrossCompartmentEdges<DebuggerScript_trace>(trc);
+    wasmInstanceSources.traceCrossCompartmentEdges<DebuggerSource_trace>(trc);
 }
 
 /*
@@ -2936,7 +2936,7 @@ Debugger::markCrossCompartmentEdges(JSTracer* trc)
  * pointers into zones that are being compacted.
  */
 /* static */ void
-Debugger::markIncomingCrossCompartmentEdges(JSTracer* trc)
+Debugger::traceIncomingCrossCompartmentEdges(JSTracer* trc)
 {
     JSRuntime* rt = trc->runtime();
     gc::State state = rt->gc.state();
@@ -2947,7 +2947,7 @@ Debugger::markIncomingCrossCompartmentEdges(JSTracer* trc)
         for (Debugger* dbg : group->debuggerList()) {
             Zone* zone = MaybeForwarded(dbg->object.get())->zone();
             if (!zone->isCollecting() || state == gc::State::Compact)
-                dbg->markCrossCompartmentEdges(trc);
+                dbg->traceCrossCompartmentEdges(trc);
         }
     }
 }
@@ -2963,7 +2963,7 @@ Debugger::markIncomingCrossCompartmentEdges(JSTracer* trc)
  * returns false.
  */
 /* static */ bool
-Debugger::markAllIteratively(GCMarker* trc)
+Debugger::markIteratively(GCMarker* marker)
 {
     bool markedAny = false;
 
@@ -2971,7 +2971,7 @@ Debugger::markAllIteratively(GCMarker* trc)
      * Find all Debugger objects in danger of GC. This code is a little
      * convoluted since the easiest way to find them is via their debuggees.
      */
-    JSRuntime* rt = trc->runtime();
+    JSRuntime* rt = marker->runtime();
     for (CompartmentsIter c(rt, SkipAtoms); !c.done(); c.next()) {
         if (c->isDebuggee()) {
             GlobalObject* global = c->unsafeUnbarrieredMaybeGlobal();
@@ -3003,7 +3003,7 @@ Debugger::markAllIteratively(GCMarker* trc)
                      * obj could be reachable only via its live, enabled
                      * debugger hooks, which may yet be called.
                      */
-                    TraceEdge(trc, &dbgobj, "enabled Debugger");
+                    TraceEdge(marker, &dbgobj, "enabled Debugger");
                     markedAny = true;
                     dbgMarked = true;
                 }
@@ -3017,7 +3017,7 @@ Debugger::markAllIteratively(GCMarker* trc)
                              * Therefore the breakpoint handler is live.
                              */
                             if (!IsMarked(rt, &bp->getHandlerRef())) {
-                                TraceEdge(trc, &bp->getHandlerRef(), "breakpoint handler");
+                                TraceEdge(marker, &bp->getHandlerRef(), "breakpoint handler");
                                 markedAny = true;
                             }
                         }
@@ -3030,22 +3030,22 @@ Debugger::markAllIteratively(GCMarker* trc)
 }
 
 /* static */ void
-Debugger::markAllForMovingGC(JSTracer* trc)
+Debugger::traceAllForMovingGC(JSTracer* trc)
 {
     JSRuntime* rt = trc->runtime();
     for (ZoneGroupsIter group(rt); !group.done(); group.next()) {
         for (Debugger* dbg : group->debuggerList())
-            dbg->markForMovingGC(trc);
+            dbg->traceForMovingGC(trc);
     }
 }
 
 /*
- * Mark all debugger-owned GC things unconditionally. This is used during
+ * Trace all debugger-owned GC things unconditionally. This is used by the minor
  * compacting GC and in minor GC: the minor GC cannot apply the weak constraints
  * of the full GC because it visits only part of the heap.
  */
 void
-Debugger::markForMovingGC(JSTracer* trc)
+Debugger::traceForMovingGC(JSTracer* trc)
 {
     trace(trc);
 

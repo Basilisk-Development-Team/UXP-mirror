@@ -931,7 +931,7 @@ class DebugEnvironments
     static void onPopGeneric(JSContext* cx, const EnvironmentIter& ei);
 
   public:
-    void mark(JSTracer* trc);
+    void trace(JSTracer* trc);
     void sweep(JSRuntime* rt);
     void finish();
 #ifdef JSGC_HASH_TABLE_CHECKS
@@ -940,7 +940,7 @@ class DebugEnvironments
 
     // If a live frame has a synthesized entry in missingEnvs, make sure it's not
     // collected.
-    void markLiveFrame(JSTracer* trc, AbstractFramePtr frame);
+    void traceLiveFrame (JSTracer* trc, AbstractFramePtr frame);
 
     static DebugEnvironmentProxy* hasDebugEnvironment(JSContext* cx, EnvironmentObject& env);
     static bool addDebugEnvironment(JSContext* cx, Handle<EnvironmentObject*> env,

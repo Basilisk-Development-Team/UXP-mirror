@@ -676,7 +676,7 @@ struct JSRuntime : public js::MallocProvider<JSRuntime>
 
     bool initSelfHosting(JSContext* cx);
     void finishSelfHosting();
-    void markSelfHostingGlobal(JSTracer* trc);
+    void traceSelfHostingGlobal(JSTracer* trc);
     bool isSelfHostingGlobal(JSObject* global) {
         return global == selfHostingGlobal_;
     }

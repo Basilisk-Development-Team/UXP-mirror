@@ -283,7 +283,7 @@ void HandleException(ResumeFromException* rfe);
 
 void EnsureBareExitFrame(JSContext* cx, JitFrameLayout* frame);
 
-void MarkJitActivations(JSContext* cx, const CooperatingContext& target, JSTracer* trc);
+void TraceJitActivations(JSContext* cx, const CooperatingContext& target, JSTracer* trc);
 
 JSCompartment*
 TopmostIonActivationCompartment(JSContext* cx);
@@ -528,7 +528,7 @@ class ExitFrameLayout : public CommonFrameLayout
 
   public:
     // Pushed for "bare" fake exit frames that have no GC things on stack to be
-    // marked.
+    // traced.
     static JitCode* BareToken() { return (JitCode*)ExitFrameLayoutBareToken; }
 
     static inline size_t Size() {
@@ -1032,7 +1032,7 @@ void
 GetPcScript(JSContext* cx, JSScript** scriptRes, jsbytecode** pcRes);
 
 CalleeToken
-MarkCalleeToken(JSTracer* trc, CalleeToken token);
+TraceCalleeToken(JSTracer* trc, CalleeToken token);
 
 // Baseline requires one slot for this/argument type checks.
 static const uint32_t MinJITStackSize = 1;

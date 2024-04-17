@@ -289,7 +289,7 @@ JitFrameIterator::machineState() const
 {
     MOZ_ASSERT(isIonScripted());
 
-    // The MachineState is used by GCs for marking call-sites.
+    // The MachineState is used by GCs for tracing call-sites.
     if (MOZ_UNLIKELY(isBailoutJS()))
         return *activation_->bailoutData()->machineState();
 
@@ -963,7 +963,7 @@ HandleException(ResumeFromException* rfe)
 }
 
 // Turns a JitFrameLayout into an ExitFrameLayout. Note that it has to be a
-// bare exit frame so it's ignored by MarkJitExitFrame.
+// bare exit frame so it's ignored by TraceJitExitFrame.
 void
 EnsureBareExitFrame(JSContext* cx, JitFrameLayout* frame)
 {
@@ -992,7 +992,7 @@ EnsureBareExitFrame(JSContext* cx, JitFrameLayout* frame)
 }
 
 CalleeToken
-MarkCalleeToken(JSTracer* trc, CalleeToken token)
+TraceCalleeToken(JSTracer* trc, CalleeToken token)
 {
     switch (CalleeTokenTag tag = GetCalleeTokenTag(token)) {
       case CalleeToken_Function:
@@ -1034,13 +1034,13 @@ ReadAllocation(const JitFrameIterator& frame, const LAllocation* a)
 #endif
 
 static void
-MarkThisAndArguments(JSTracer* trc, const JitFrameIterator& frame)
+TraceThisAndArguments(JSTracer* trc, const JitFrameIterator& frame)
 {
-    // Mark |this| and any extra actual arguments for an Ion frame. Marking of
-    // formal arguments is taken care of by the frame's safepoint/snapshot,
+    // Trace |this| and any extra actual arguments for an Ion frame. Tracinging
+    // of formal arguments is taken care of by the frame's safepoint/snapshot,
     // except when the script might have lazy arguments or rest, in which case
-    // we mark them as well. We also have to mark formals if we have a LazyLink
-    // frame.
+    // we trace them as well. We also have to trace formals if we have a
+    // LazyLink frame.
 
     JitFrameLayout* layout = frame.isExitFrameLayout<LazyLinkExitFrameLayout>()
                              ? frame.exitFrame()->as<LazyLinkExitFrameLayout>()->jsFrame()
@@ -1070,7 +1070,7 @@ MarkThisAndArguments(JSTracer* trc, const JitFrameIterator& frame)
     for (size_t i = nformals + 1; i < nargs + 1; i++)
         TraceRoot(trc, &argv[i], "ion-argv");
 
-    // Always mark the new.target from the frame. It's not in the snapshots.
+    // Always trace the new.target from the frame. It's not in the snapshots.
     // +1 to pass |this|
     if (CalleeTokenIsConstructing(layout->calleeToken()))
         TraceRoot(trc, &argv[1 + newTargetOffset], "ion-newTarget");
@@ -1090,11 +1090,11 @@ WriteAllocation(const JitFrameIterator& frame, const LAllocation* a, uintptr_t v
 #endif
 
 static void
-MarkIonJSFrame(JSTracer* trc, const JitFrameIterator& frame)
+TraceIonJSFrame(JSTracer* trc, const JitFrameIterator& frame)
 {
     JitFrameLayout* layout = (JitFrameLayout*)frame.fp();
 
-    layout->replaceCalleeToken(MarkCalleeToken(trc, layout->calleeToken()));
+    layout->replaceCalleeToken(TraceCalleeToken(trc, layout->calleeToken()));
 
     IonScript* ionScript = nullptr;
     if (frame.checkInvalidation(&ionScript)) {
@@ -1106,7 +1106,7 @@ MarkIonJSFrame(JSTracer* trc, const JitFrameIterator& frame)
         ionScript = frame.ionScriptFromCalleeToken();
     }
 
-    MarkThisAndArguments(trc, frame);
+    TraceThisAndArguments(trc, frame);
 
     const SafepointIndex* si = ionScript->getSafepointIndex(frame.returnAddressToFp());
 
@@ -1156,15 +1156,15 @@ MarkIonJSFrame(JSTracer* trc, const JitFrameIterator& frame)
 }
 
 static void
-MarkBailoutFrame(JSTracer* trc, const JitFrameIterator& frame)
+TraceBailoutFrame(JSTracer* trc, const JitFrameIterator& frame)
 {
     JitFrameLayout* layout = (JitFrameLayout*)frame.fp();
 
-    layout->replaceCalleeToken(MarkCalleeToken(trc, layout->calleeToken()));
+    layout->replaceCalleeToken(TraceCalleeToken(trc, layout->calleeToken()));
 
-    // We have to mark the list of actual arguments, as only formal arguments
+    // We have to trace the list of actual arguments, as only formal arguments
     // are represented in the Snapshot.
-    MarkThisAndArguments(trc, frame);
+    TraceThisAndArguments(trc, frame);
 
     // Under a bailout, do not have a Safepoint to only iterate over GC-things.
     // Thus we use a SnapshotIterator to trace all the locations which would be
@@ -1237,9 +1237,9 @@ UpdateIonJSFrameForMinorGC(JSTracer* trc, const JitFrameIterator& frame)
 }
 
 static void
-MarkBaselineStubFrame(JSTracer* trc, const JitFrameIterator& frame)
+TraceBaselineStubFrame(JSTracer* trc, const JitFrameIterator& frame)
 {
-    // Mark the ICStub pointer stored in the stub frame. This is necessary
+    // Trace the ICStub pointer stored in the stub frame. This is necessary
     // so that we don't destroy the stub code after unlinking the stub.
 
     MOZ_ASSERT(frame.type() == JitFrame_BaselineStub);
@@ -1252,7 +1252,7 @@ MarkBaselineStubFrame(JSTracer* trc, const JitFrameIterator& frame)
 }
 
 static void
-MarkIonICCallFrame(JSTracer* trc, const JitFrameIterator& frame)
+TraceIonICCallFrame(JSTracer* trc, const JitFrameIterator& frame)
 {
     MOZ_ASSERT(frame.type() == JitFrame_IonICCall);
     IonICCallFrameLayout* layout = (IonICCallFrameLayout*)frame.fp();
@@ -1269,7 +1269,7 @@ alignDoubleSpillWithOffset(uint8_t* pointer, int32_t offset)
 }
 
 static void
-MarkJitExitFrameCopiedArguments(JSTracer* trc, const VMFunction* f, ExitFooterFrame* footer)
+TraceJitExitFrameCopiedArguments(JSTracer* trc, const VMFunction* f, ExitFooterFrame* footer)
 {
     uint8_t* doubleArgs = reinterpret_cast<uint8_t*>(footer);
     doubleArgs = alignDoubleSpillWithOffset(doubleArgs, sizeof(intptr_t));
@@ -1290,26 +1290,26 @@ MarkJitExitFrameCopiedArguments(JSTracer* trc, const VMFunction* f, ExitFooterFr
 }
 #else
 static void
-MarkJitExitFrameCopiedArguments(JSTracer* trc, const VMFunction* f, ExitFooterFrame* footer)
+TraceJitExitFrameCopiedArguments(JSTracer* trc, const VMFunction* f, ExitFooterFrame* footer)
 {
     // This is NO-OP on other platforms.
 }
 #endif
 
 static void
-MarkJitExitFrame(JSTracer* trc, const JitFrameIterator& frame)
+TraceJitExitFrame(JSTracer* trc, const JitFrameIterator& frame)
 {
     ExitFooterFrame* footer = frame.exitFrame()->footer();
 
-    // Mark the code of the code handling the exit path.  This is needed because
-    // invalidated script are no longer marked because data are erased by the
+    // Trace the code of the code handling the exit path.  This is needed because
+    // invalidated script are no longer traced because data are erased by the
     // invalidation and relocation data are no longer reliable.  So the VM
     // wrapper or the invalidation code may be GC if no JitCode keep reference
     // on them.
     MOZ_ASSERT(uintptr_t(footer->jitCode()) != uintptr_t(-1));
 
     // This corresponds to the case where we have build a fake exit frame which
-    // handles the case of a native function call. We need to mark the argument
+    // handles the case of a native function call. We need to trace the argument
     // vector of the function call, and also new.target if it was a constructing
     // call.
     if (frame.isExitFrameLayout<NativeExitFrameLayout>()) {
@@ -1336,7 +1336,7 @@ MarkJitExitFrame(JSTracer* trc, const JitFrameIterator& frame)
         frame.isExitFrameLayout<IonOOLSetterOpExitFrameLayout>())
     {
         // A SetterOp frame is a different size, but that's the only relevant
-        // difference between the two. The fields that need marking are all in
+        // difference between the two. The fields that need tracing are all in
         // the common base class.
         IonOOLPropertyOpExitFrameLayout* oolgetter =
             frame.isExitFrameLayout<IonOOLPropertyOpExitFrameLayout>()
@@ -1378,14 +1378,14 @@ MarkJitExitFrame(JSTracer* trc, const JitFrameIterator& frame)
         JitFrameLayout* layout = ll->jsFrame();
 
         TraceRoot(trc, ll->stubCode(), "lazy-link-code");
-        layout->replaceCalleeToken(MarkCalleeToken(trc, layout->calleeToken()));
-        MarkThisAndArguments(trc, frame);
+        layout->replaceCalleeToken(TraceCalleeToken(trc, layout->calleeToken()));
+        TraceThisAndArguments(trc, frame);
         return;
     }
 
     if (frame.isBareExit()) {
-        // Nothing to mark. Fake exit frame pushed for VM functions with
-        // nothing to mark on the stack.
+        // Nothing to trace. Fake exit frame pushed for VM functions with
+        // nothing to trace on the stack.
         return;
     }
 
@@ -1395,7 +1395,7 @@ MarkJitExitFrame(JSTracer* trc, const JitFrameIterator& frame)
     if (f == nullptr)
         return;
 
-    // Mark arguments of the VM wrapper.
+    // Trace arguments of the VM wrapper.
     uint8_t* argBase = frame.exitFrame()->argBase();
     for (uint32_t explicitArg = 0; explicitArg < f->explicitArgs; explicitArg++) {
         switch (f->argRootType(explicitArg)) {
@@ -1462,13 +1462,13 @@ MarkJitExitFrame(JSTracer* trc, const JitFrameIterator& frame)
         }
     }
 
-    MarkJitExitFrameCopiedArguments(trc, f, footer);
+    TraceJitExitFrameCopiedArguments(trc, f, footer);
 }
 
 static void
-MarkRectifierFrame(JSTracer* trc, const JitFrameIterator& frame)
+TraceRectifierFrame(JSTracer* trc, const JitFrameIterator& frame)
 {
-    // Mark thisv.
+    // Trace thisv.
     //
     // Baseline JIT code generated as part of the ICCall_Fallback stub may use
     // it if we're calling a constructor that returns a primitive value.
@@ -1477,7 +1477,7 @@ MarkRectifierFrame(JSTracer* trc, const JitFrameIterator& frame)
 }
 
 static void
-MarkJitActivation(JSTracer* trc, const JitActivationIterator& activations)
+TraceJitActivation(JSTracer* trc, const JitActivationIterator& activations)
 {
     JitActivation* activation = activations->asJit();
 
@@ -1490,31 +1490,31 @@ MarkJitActivation(JSTracer* trc, const JitActivationIterator& activations)
     }
 #endif
 
-    activation->markRematerializedFrames(trc);
-    activation->markIonRecovery(trc);
+    activation->traceRematerializedFrames(trc);
+    activation->traceIonRecovery(trc);
 
     for (JitFrameIterator frames(activations); !frames.done(); ++frames) {
         switch (frames.type()) {
           case JitFrame_Exit:
-            MarkJitExitFrame(trc, frames);
+            TraceJitExitFrame(trc, frames);
             break;
           case JitFrame_BaselineJS:
             frames.baselineFrame()->trace(trc, frames);
             break;
           case JitFrame_IonJS:
-            MarkIonJSFrame(trc, frames);
+            TraceIonJSFrame(trc, frames);
             break;
           case JitFrame_BaselineStub:
-            MarkBaselineStubFrame(trc, frames);
+            TraceBaselineStubFrame(trc, frames);
             break;
           case JitFrame_Bailout:
-            MarkBailoutFrame(trc, frames);
+            TraceBailoutFrame(trc, frames);
             break;
           case JitFrame_Rectifier:
-            MarkRectifierFrame(trc, frames);
+            TraceRectifierFrame(trc, frames);
             break;
           case JitFrame_IonICCall:
-            MarkIonICCallFrame(trc, frames);
+            TraceIonICCallFrame(trc, frames);
             break;
           default:
             MOZ_CRASH("unexpected frame type");
@@ -1523,10 +1523,10 @@ MarkJitActivation(JSTracer* trc, const JitActivationIterator& activations)
 }
 
 void
-MarkJitActivations(JSContext* cx, const CooperatingContext& target, JSTracer* trc)
+TraceJitActivations(JSContext* cx, const CooperatingContext& target, JSTracer* trc)
 {
     for (JitActivationIterator activations(cx, target); !activations.done(); ++activations)
-        MarkJitActivation(trc, activations);
+        TraceJitActivation(trc, activations);
 }
 
 JSCompartment*
@@ -2002,7 +2002,7 @@ SnapshotIterator::writeAllocationValuePayload(const RValueAllocation& alloc, con
     uintptr_t payload = *v.payloadUIntPtr();
 #if defined(JS_PUNBOX64)
     // Do not write back the tag, as this will trigger an assertion when we will
-    // reconstruct the JS Value while marking again or when bailing out.
+    // reconstruct the JS Value while tracing again or when bailing out.
     payload &= JSVAL_PAYLOAD_MASK;
 #endif
 

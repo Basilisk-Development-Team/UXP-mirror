@@ -941,7 +941,7 @@ class CooperatingContext
     // For &cx. The address should not be taken for other CooperatingContexts.
     friend class ZoneGroup;
 };
-void MarkInterpreterActivations(JSContext* cx, const CooperatingContext& target, JSTracer* trc);
+void TraceInterpreterActivations(JSContext* cx, const CooperatingContext& target, JSTracer* trc);
 
 /*****************************************************************************/
 
@@ -1580,7 +1580,7 @@ class JitActivation : public Activation
     // Remove a previous rematerialization by fp.
     void removeRematerializedFrame(uint8_t* top);
 
-    void markRematerializedFrames(JSTracer* trc);
+    void traceRematerializedFrames(JSTracer* trc);
 
 
     // Register the results of on Ion frame recovery.
@@ -1593,7 +1593,7 @@ class JitActivation : public Activation
     // from the activation.
     void removeIonFrameRecovery(JitFrameLayout* fp);
 
-    void markIonRecovery(JSTracer* trc);
+    void traceIonRecovery(JSTracer* trc);
 
     // Return the bailout information if it is registered.
     const BailoutFrameInfo* bailoutData() const { return bailoutData_; }
