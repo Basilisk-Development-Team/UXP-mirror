@@ -1601,18 +1601,25 @@ CacheIRCompiler::emitLoadUndefinedResult()
     return true;
 }
 
+static void
+EmitStoreBoolean(MacroAssembler& masm, bool b, const AutoOutputRegister& output)
+{
+    if (output.hasValue()) {
+        Value val = BooleanValue(b);
+        masm.moveValue(val, output.valueReg());
+    } else {
+        MOZ_ASSERT(output.type() == JSVAL_TYPE_BOOLEAN);
+        masm.movePtr(ImmWord(b), output.typedReg().gpr());
+    }
+}
+
 bool
 CacheIRCompiler::emitLoadBooleanResult()
 {
     AutoOutputRegister output(*this);
-    if (output.hasValue()) {
-        Value val = BooleanValue(reader.readBool());
-        masm.moveValue(val, output.valueReg());
-    } else {
-        MOZ_ASSERT(output.type() == JSVAL_TYPE_BOOLEAN);
-        bool b = reader.readBool();
-        masm.movePtr(ImmWord(b), output.typedReg().gpr());
-    }
+    bool b = reader.readBool();
+    EmitStoreBoolean(masm, b, output);
+
     return true;
 }
 
@@ -1917,12 +1924,7 @@ CacheIRCompiler::emitLoadDenseElementExistsResult()
     BaseObjectElementIndex element(scratch, index);
     masm.branchTestMagic(Assembler::Equal, element, failure->label());
 
-    if (output.hasValue()) {
-        masm.moveValue(BooleanValue(true), output.valueReg());
-    } else {
-        MOZ_ASSERT(output.type() == JSVAL_TYPE_BOOLEAN);
-        masm.movePtr(ImmWord(true), output.typedReg().gpr());
-    }
+    EmitStoreBoolean(masm, true, output);
     return true;
 }
 
@@ -1951,14 +1953,14 @@ CacheIRCompiler::emitLoadDenseElementHoleExistsResult()
 
     // Load value and replace with true.
     Label done;
-    masm.loadValue(BaseObjectElementIndex(scratch, index), output.valueReg());
-    masm.branchTestMagic(Assembler::Equal, output.valueReg(), &hole);
-    masm.moveValue(BooleanValue(true), output.valueReg());
+    BaseObjectElementIndex element(scratch, index);
+    masm.branchTestMagic(Assembler::Equal, element, &hole);
+    EmitStoreBoolean(masm, true, output);
     masm.jump(&done);
 
     // Load false for the hole.
     masm.bind(&hole);
-    masm.moveValue(BooleanValue(false), output.valueReg());
+    EmitStoreBoolean(masm, false, output);
 
     masm.bind(&done);
     return true;
