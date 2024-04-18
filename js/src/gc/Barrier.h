@@ -665,8 +665,8 @@ class HeapSlot : public WriteBarrieredBase<Value>
 
 #ifdef DEBUG
     bool preconditionForSet(NativeObject* owner, Kind kind, uint32_t slot) const;
-    bool preconditionForWriteBarrierPost(NativeObject* obj, Kind kind, uint32_t slot,
-                                         const Value& target) const;
+    void assertPreconditionForWriteBarrierPost(NativeObject* obj, Kind kind, uint32_t slot,
+                                               const Value& target) const;
 #endif
 
     MOZ_ALWAYS_INLINE void set(NativeObject* owner, Kind kind, uint32_t slot, const Value& v) {
@@ -678,7 +678,9 @@ class HeapSlot : public WriteBarrieredBase<Value>
 
   private:
     void post(NativeObject* owner, Kind kind, uint32_t slot, const Value& target) {
-        MOZ_ASSERT(preconditionForWriteBarrierPost(owner, kind, slot, target));
+#ifdef DEBUG
+        assertPreconditionForWriteBarrierPost(owner, kind, slot, target);
+#endif
         if (this->value.isObject()) {
             gc::Cell* cell = reinterpret_cast<gc::Cell*>(&this->value.toObject());
             if (cell->storeBuffer())
