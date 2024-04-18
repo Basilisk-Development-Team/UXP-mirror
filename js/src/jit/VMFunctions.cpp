@@ -672,7 +672,9 @@ PostWriteElementBarrier(JSRuntime* rt, JSObject* obj, int32_t index)
 
     if (nobj->getDenseInitializedLength() > MAX_WHOLE_CELL_BUFFER_SIZE)
     {
-        rt->gc.storeBuffer().putSlot(nobj, HeapSlot::Element, index, 1);
+        rt->gc.storeBuffer().putSlot(nobj, HeapSlot::Element,
+                                     nobj->unshiftedIndex(index),
+                                     1);
         return;
     }
 
