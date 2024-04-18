@@ -2285,34 +2285,39 @@ js::array_unshift(JSContext* cx, unsigned argc, Value* vp)
 
     double newlen = length;
     if (args.length() > 0) {
-        /* Slide up the array to make room for all args at the bottom. */
-        if (length > 0) {
-            // Only include a fast path for boxed arrays. Unboxed arrays can'nt
-            // be optimized here because unshifting temporarily places holes at
-            // the start of the array.
-            bool optimized = false;
-            do {
-                if (!obj->is<ArrayObject>())
-                    break;
-                if (ObjectMayHaveExtraIndexedProperties(obj))
-                    break;
-                ArrayObject* aobj = &obj->as<ArrayObject>();
-                if (!aobj->lengthIsWritable())
-                    break;
-                DenseElementResult result = aobj->ensureDenseElements(cx, length, args.length());
+        // Only include a fast path for native objects. Unboxed arrays can't
+        // be optimized here because unshifting temporarily places holes at
+        // the start of the array.
+        // TODO: Implement unboxed array optimization similar to the one in
+        // array_splice_impl(), unshift() is a special version of splice():
+        // arr.unshift(...values) ~= arr.splice(0, 0, ...values).
+        bool optimized = false;
+        do {
+            if (!obj->isNative())
+                break;
+            if (ObjectMayHaveExtraIndexedProperties(obj))
+                break;
+            NativeObject* nobj = &obj->as<NativeObject>();
+            if (nobj->is<ArrayObject>() && !nobj->as<ArrayObject>().lengthIsWritable())
+                break;
+            if (!nobj->tryUnshiftDenseElements(args.length())) {
+                DenseElementResult result = nobj->ensureDenseElements(cx, length, args.length());
                 if (result != DenseElementResult::Success) {
                     if (result == DenseElementResult::Failure)
                         return false;
                     MOZ_ASSERT(result == DenseElementResult::Incomplete);
                     break;
                 }
-                aobj->moveDenseElements(args.length(), 0, length);
-                for (uint32_t i = 0; i < args.length(); i++)
-                    aobj->setDenseElement(i, MagicValue(JS_ELEMENTS_HOLE));
-                optimized = true;
-            } while (false);
+                if (length > 0)
+                    nobj->moveDenseElements(args.length(), 0, length);
+            }
+            for (uint32_t i = 0; i < args.length(); i++)
+                nobj->setDenseElementWithType(cx, i, args[i]);
+            optimized = true;
+        } while (false);
 
-            if (!optimized) {
+        if (!optimized) {
+            if (length > 0) {
                 double last = length;
                 double upperIndex = last + args.length();
                 RootedValue value(cx);
@@ -2332,11 +2337,11 @@ js::array_unshift(JSContext* cx, unsigned argc, Value* vp)
                     }
                 } while (last != 0);
             }
-        }
 
-        /* Copy from args to the bottom of the array. */
-        if (!InitArrayElements(cx, obj, 0, args.length(), args.array()))
-            return false;
+            /* Copy from args to the bottom of the array. */
+            if (!InitArrayElements(cx, obj, 0, args.length(), args.array()))
+                return false;
+        }
 
         newlen += args.length();
     }
