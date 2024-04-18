@@ -7440,11 +7440,6 @@ IonBuilder::jsop_getelem()
     bool emitted = false;
 
     if (!forceInlineCaches()) {
-        trackOptimizationAttempt(TrackedStrategy::GetElem_TypedObject);
-        MOZ_TRY(getElemTryTypedObject(&emitted, obj, index));
-        if (emitted)
-            return Ok();
- 
         // Note: no trackOptimizationAttempt call is needed, getElemTryGetProp
         // will call it.
         MOZ_TRY(getElemTryGetProp(&emitted, obj, index));
@@ -7468,6 +7463,11 @@ IonBuilder::jsop_getelem()
 
         trackOptimizationAttempt(TrackedStrategy::GetElem_String);
         MOZ_TRY(getElemTryString(&emitted, obj, index));
+        if (emitted)
+            return Ok();
+
+        trackOptimizationAttempt(TrackedStrategy::GetElem_TypedObject);
+        MOZ_TRY(getElemTryTypedObject(&emitted, obj, index));
         if (emitted)
             return Ok();
 
@@ -8549,11 +8549,6 @@ IonBuilder::jsop_setelem()
     }
 
     if (!forceInlineCaches()) {
-        trackOptimizationAttempt(TrackedStrategy::SetElem_TypedObject);
-        MOZ_TRY(setElemTryTypedObject(&emitted, object, index, value));
-        if (emitted)
-            return Ok();
-
         trackOptimizationAttempt(TrackedStrategy::SetElem_TypedStatic);
         MOZ_TRY(setElemTryTypedStatic(&emitted, object, index, value));
         if (emitted)
@@ -8573,6 +8568,11 @@ IonBuilder::jsop_setelem()
 
         trackOptimizationAttempt(TrackedStrategy::SetElem_Arguments);
         MOZ_TRY(setElemTryArguments(&emitted, object, index, value));
+        if (emitted)
+            return Ok();
+
+        trackOptimizationAttempt(TrackedStrategy::SetElem_TypedObject);
+        MOZ_TRY(setElemTryTypedObject(&emitted, object, index, value));
         if (emitted)
             return Ok();
     }
@@ -10020,6 +10020,7 @@ IonBuilder::jsop_getprop(PropertyName* name)
         MOZ_TRY(getPropTryModuleNamespace(&emitted, obj, name, barrier, types));
         if (emitted)
             return Ok();
+
         // Try to emit loads from known binary data blocks
         trackOptimizationAttempt(TrackedStrategy::GetProp_TypedObject);
         MOZ_TRY(getPropTryTypedObject(&emitted, obj, name));
@@ -12842,10 +12843,10 @@ IonBuilder::typedObjectPrediction(TemporaryTypeSet* types)
     TypedObjectPrediction out;
     for (uint32_t i = 0; i < types->getObjectCount(); i++) {
         ObjectGroup* group = types->getGroup(i);
-        if (!group || !TypeSet::ObjectKey::get(group)->hasStableClassAndProto(constraints()))
+        if (!group || !IsTypedObjectClass(group->clasp()))
             return TypedObjectPrediction();
 
-        if (!IsTypedObjectClass(group->clasp()))
+        if (!TypeSet::ObjectKey::get(group)->hasStableClassAndProto(constraints()))
             return TypedObjectPrediction();
 
         out.addDescr(group->typeDescr());
