@@ -1577,10 +1577,6 @@ class MacroAssembler : public MacroAssemblerSpecific
 
     inline void storeCallResultValue(TypedOrValueRegister dest);
 
-    template <typename T>
-    Register extractString(const T& source, Register scratch) {
-        return extractObject(source, scratch);
-    }
     using MacroAssemblerSpecific::store32;
     void store32(const RegisterOrInt32Constant& key, const Address& dest) {
         if (key.isRegister())
@@ -1658,11 +1654,13 @@ class MacroAssembler : public MacroAssemblerSpecific
     void checkUnboxedArrayCapacity(Register obj, const RegisterOrInt32Constant& index,
                                    Register temp, Label* failure);
 
-    Register extractString(const Address& address, Register scratch) {
-        return extractObject(address, scratch);
+    template <typename T>
+    Register extractString(const T& source, Register scratch) {
+        return extractObject(source, scratch);
     }
-    Register extractString(const ValueOperand& value, Register scratch) {
-        return extractObject(value, scratch);
+    template <typename T>
+    Register extractSymbol(const T& source, Register scratch) {
+        return extractObject(source, scratch);
     }
 
     void debugAssertIsObject(const ValueOperand& val);
