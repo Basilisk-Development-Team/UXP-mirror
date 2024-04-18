@@ -31,9 +31,9 @@
 
 #ifndef JIT_SPEW_DIR
 # if defined(_WIN32)
-#  define JIT_SPEW_DIR ""
+#  define JIT_SPEW_DIR "."
 # else
-#  define JIT_SPEW_DIR "/tmp/"
+#  define JIT_SPEW_DIR "/tmp"
 # endif
 #endif
 
