@@ -97,6 +97,10 @@ HeapCheckTracerBase::onChild(const JS::GCCellPtr& thing)
         return;
     }
 
+    // Don't trace into GC things owned by another runtime.
+    if (cell->runtimeFromAnyThread() != rt)
+        return;
+
     // Don't trace into GC in zones being used by helper threads.
     Zone* zone = thing.is<JSObject>() ? thing.as<JSObject>().zone() : cell->asTenured().zone();
     if (zone->group() && zone->group()->usedByHelperThread)
