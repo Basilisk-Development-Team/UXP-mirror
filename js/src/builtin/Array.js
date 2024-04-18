@@ -200,19 +200,23 @@ function ArrayStaticSome(list, callbackfn/*, thisArg*/) {
 function ArraySort(comparefn) {
     /* Step 1. */
     if (comparefn !== undefined) {
-        if (!IsCallable(comparefn)) {
-            ThrowTypeError(JSMSG_NOT_FUNCTION, DecompileArg(0, comparefn));
-        }
+        if (!IsCallable(comparefn))
+            ThrowTypeError(JSMSG_BAD_SORT_ARG);
     }
 
     /* Step 2. */
     var O = ToObject(this);
 
+    // First try to sort the array in native code, if that fails, indicated by
+    // returning |false| from ArrayNativeSort, sort it in self-hosted code.
+    if (callFunction(ArrayNativeSort, O, comparefn))
+        return O;
+
     /* Step 3. */
     var len = ToLength(O.length);
 
     if (len <= 1)
-      return this;
+      return O;
 
     if (comparefn === undefined) {
         // {Goanna} This implementation slightly breaks the standard. The default
@@ -1338,7 +1342,7 @@ function ArrayStaticReverse(arr) {
 function ArrayStaticSort(arr, comparefn) {
     if (arguments.length < 1)
         ThrowTypeError(JSMSG_MISSING_FUN_ARG, 0, 'Array.sort');
-    return callFunction(std_Array_sort, arr, comparefn);
+    return callFunction(ArraySort, arr, comparefn);
 }
 
 function ArrayStaticPush(arr, arg1) {
