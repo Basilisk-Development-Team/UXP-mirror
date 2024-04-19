@@ -656,7 +656,6 @@ struct ZoneStats
     macro(Other,   GCHeapUsed,  regExpSharedsGCHeap) \
     macro(Other,   MallocHeap,  regExpSharedsMallocHeap) \
     macro(Other,   MallocHeap,  typePool) \
-    macro(Other,   MallocHeap,  regexpZone) \
     macro(Other,   MallocHeap,  jitZone) \
     macro(Other,   MallocHeap,  baselineStubsOptimized) \
     macro(Other,   MallocHeap,  cachedCFG) \
@@ -778,6 +777,7 @@ struct CompartmentStats
     macro(Other,   MallocHeap, lazyArrayBuffersTable) \
     macro(Other,   MallocHeap, objectMetadataTable) \
     macro(Other,   MallocHeap, crossCompartmentWrappersTable) \
+    macro(Other,   MallocHeap, regexpCompartment) \
     macro(Other,   MallocHeap, savedStacksSet) \
     macro(Other,   MallocHeap, varNamesSet) \
     macro(Other,   MallocHeap, nonSyntacticLexicalScopesTable) \

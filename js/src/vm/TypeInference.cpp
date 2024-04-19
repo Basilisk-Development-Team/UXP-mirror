@@ -4501,7 +4501,6 @@ TypeScript::destroy()
 void
 Zone::addSizeOfIncludingThis(mozilla::MallocSizeOf mallocSizeOf,
                              size_t* typePool,
-                             size_t* regexpZone,
                              size_t* jitZone,
                              size_t* baselineStubsOptimized,
                              size_t* cachedCFG,
@@ -4510,7 +4509,6 @@ Zone::addSizeOfIncludingThis(mozilla::MallocSizeOf mallocSizeOf,
                              size_t* atomsMarkBitmaps)
 {
     *typePool += types.typeLifoAlloc.ref().sizeOfExcludingThis(mallocSizeOf);
-    *regexpZone += regExps.sizeOfExcludingThis(mallocSizeOf);
     if (jitZone_)
         jitZone_->addSizeOfIncludingThis(mallocSizeOf, jitZone, baselineStubsOptimized, cachedCFG);
     *uniqueIdMap += uniqueIds().sizeOfExcludingThis(mallocSizeOf);
