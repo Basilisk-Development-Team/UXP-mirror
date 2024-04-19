@@ -608,6 +608,7 @@ struct MOZ_STACK_CLASS BytecodeEmitter
 
     [[nodiscard]] bool emitElemObjAndKey(PropertyByValue* elem, bool isSuper, ElemOpEmitter& eoe);
     [[nodiscard]] bool emitElemOpBase(JSOp op);
+    [[nodiscard]] bool emitElemOp(ParseNode* pn, JSOp op);
     [[nodiscard]] bool emitElemIncDec(UnaryNode* incDec);
 
     [[nodiscard]] bool emitCatch(TernaryNode* catchNode);
@@ -814,6 +815,10 @@ struct MOZ_STACK_CLASS BytecodeEmitter
     // incrementing I, then push the result I (it will be original I +
     // iteration count). The stack after iteration will look like |ARRAY INDEX|.
     [[nodiscard]] bool emitSpread(bool allowSelfHosted = false);
+
+    [[nodiscard]] bool emitSuperElemOperands(ParseNode* pn,
+                                            EmitElemOption opts = EmitElemOption::Get);
+    [[nodiscard]] bool emitSuperGetElem(ParseNode* pn, bool isCall = false);
 
     [[nodiscard]] bool emitClass(ClassNode* classNode);
 };
