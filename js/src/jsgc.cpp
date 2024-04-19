@@ -5675,8 +5675,7 @@ GCRuntime::canChangeActiveContext(JSContext* cx)
     // behavior when execution transfers to another thread for cooperative
     // scheduling.
     return cx->heapState == JS::HeapState::Idle
-         && !cx->suppressGC
-        && cx->allowGCBarriers
+        && !cx->suppressGC
         && !cx->inUnsafeRegion
         && !cx->generationalDisabled
         && !cx->compactingDisabledCount
@@ -6992,25 +6991,6 @@ JS::AutoAssertNoGC::~AutoAssertNoGC()
 {
     MOZ_ASSERT(cx_->inUnsafeRegion > 0);
     cx_->inUnsafeRegion--;
-}
-
-JS::AutoAssertOnBarrier::AutoAssertOnBarrier(JSContext* cx)
-  : context(cx),
-    prev(cx->allowGCBarriers)
-{
-    context->allowGCBarriers = false;
-}
-
-JS::AutoAssertOnBarrier::~AutoAssertOnBarrier()
-{
-    MOZ_ASSERT(!context->allowGCBarriers);
-    context->allowGCBarriers = prev;
-}
-
-JS_FRIEND_API(bool)
-js::gc::BarriersAreAllowedOnCurrentThread()
-{
-    return TlsContext.get()->allowGCBarriers;
 }
 
 #ifdef DEBUG

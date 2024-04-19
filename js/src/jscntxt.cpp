@@ -1174,7 +1174,6 @@ JSContext::JSContext(JSRuntime* runtime, const JS::ContextOptions& options)
     dtoaState(nullptr),
     heapState(JS::HeapState::Idle),
     suppressGC(0),
-    allowGCBarriers(true),
 #ifdef DEBUG
     ionCompiling(false),
     ionCompilingSafeForMinorGC(false),
