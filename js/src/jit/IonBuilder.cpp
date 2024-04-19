@@ -5892,6 +5892,10 @@ IonBuilder::newArrayTrySharedStub(bool* emitted)
 
     MOZ_TRY(resumeAfter(stub));
 
+    MUnbox* unbox = MUnbox::New(alloc(), current->pop(), MIRType::Object, MUnbox::Infallible);
+    current->add(unbox);
+    current->push(unbox);
+
     *emitted = true;
     return Ok();
 }
@@ -6029,6 +6033,10 @@ IonBuilder::newObjectTrySharedStub(bool* emitted)
     current->push(stub);
 
     MOZ_TRY(resumeAfter(stub));
+
+    MUnbox* unbox = MUnbox::New(alloc(), current->pop(), MIRType::Object, MUnbox::Infallible);
+    current->add(unbox);
+    current->push(unbox);
 
     *emitted = true;
     return Ok();
