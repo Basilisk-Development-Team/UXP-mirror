@@ -1992,6 +1992,9 @@ IonBuilder::inspectOpcode(JSOp op)
       case JSOP_INITHIDDENELEM:
         return jsop_initelem();
 
+      case JSOP_INITELEM_INC:
+        return jsop_initelem_inc();
+
       case JSOP_INITELEM_ARRAY:
         return jsop_initelem_array();
 
@@ -6016,7 +6019,7 @@ IonBuilder::jsop_initelem()
 
     MDefinition* value = current->pop();
     MDefinition* id = current->pop();
-    MDefinition* obj = current->pop();
+    MDefinition* obj = current->peek(-1);
 
     bool emitted = false;
 
@@ -6032,7 +6035,35 @@ IonBuilder::jsop_initelem()
 
     MInitElem* initElem = MInitElem::New(alloc(), obj, id, value);
     current->add(initElem);
-    current->push(obj);
+
+    return resumeAfter(initElem);
+}
+
+AbortReasonOr<Ok>
+IonBuilder::jsop_initelem_inc()
+{
+    MDefinition* value = current->pop();
+    MDefinition* id = current->pop();
+    MDefinition* obj = current->peek(-1);
+
+    bool emitted = false;
+
+    MAdd* nextId = MAdd::New(alloc(), id, constantInt(1), MIRType::Int32);
+    current->add(nextId);
+    current->push(nextId);
+
+    if (!forceInlineCaches()) {
+        MOZ_TRY(initOrSetElemTryDense(&emitted, obj, id, value, /* writeHole = */ true));
+        if (emitted)
+            return Ok();
+    }
+
+    MOZ_TRY(initOrSetElemTryCache(&emitted, obj, id, value));
+    if (emitted)
+        return Ok();
+
+    MCallInitElementArray* initElem = MCallInitElementArray::New(alloc(), obj, id, value);
+    current->add(initElem);
 
     return resumeAfter(initElem);
 }
@@ -6078,7 +6109,12 @@ IonBuilder::jsop_initelem_array()
 
     uint32_t index = GET_UINT32(pc);
     if (needStub) {
-        MCallInitElementArray* store = MCallInitElementArray::New(alloc(), obj, index, value);
+        MOZ_ASSERT(index <= INT32_MAX,
+                   "the bytecode emitter must fail to compile code that would "
+                   "produce JSOP_INITELEM_ARRAY with an index exceeding "
+                   "int32_t range");
+        MCallInitElementArray* store = MCallInitElementArray::New(alloc(), obj,
+                                                                  constantInt(index), value);
         current->add(store);
         return resumeAfter(store);
     }
@@ -8773,6 +8809,11 @@ IonBuilder::initOrSetElemTryDense(bool* emitted, MDefinition* object,
 {
     MOZ_ASSERT(*emitted == false);
 
+    if (value->type() == MIRType::MagicHole)
+    {
+        trackOptimizationOutcome(TrackedOutcome::InitHole);
+        return Ok();
+    }
     JSValueType unboxedType = UnboxedArrayElementType(constraints(), object, index);
     if (unboxedType == JSVAL_TYPE_MAGIC) {
         if (!ElementAccessIsDenseNative(constraints(), object, index)) {
@@ -8844,13 +8885,16 @@ IonBuilder::initOrSetElemTryCache(bool* emitted, MDefinition* object,
 {
     MOZ_ASSERT(*emitted == false);
 
-    MDefinition* objectArg = object;
-
     if (!object->mightBeType(MIRType::Object)) {
         trackOptimizationOutcome(TrackedOutcome::NotObject);
         return Ok();
     }
 
+    if (value->type() == MIRType::MagicHole)
+    {
+        trackOptimizationOutcome(TrackedOutcome::InitHole);
+        return Ok();
+    }
     bool barrier = true;
     if (index->type() == MIRType::Int32 &&
         !PropertyWriteNeedsTypeBarrier(alloc(), constraints(), current,
@@ -8877,9 +8921,8 @@ IonBuilder::initOrSetElemTryCache(bool* emitted, MDefinition* object,
         MSetPropertyCache::New(alloc(), object, index, value, strict, NeedsPostBarrier(value),
                                barrier, guardHoles);
     current->add(ins);
-    if (IsPropertyInitOp(JSOp(*pc)))
-        current->push(objectArg);
-    else
+    // Push value back onto stack. Init ops keep their object on stack.
+    if (!IsPropertyInitOp(JSOp(*pc)))
         current->push(value);
 
     MOZ_TRY(resumeAfter(ins));
@@ -8895,8 +8938,6 @@ IonBuilder::initOrSetElemDense(TemporaryTypeSet::DoubleConversion conversion,
                                JSValueType unboxedType, bool writeHole, bool* emitted)
 {
     MOZ_ASSERT(*emitted == false);
-
-    MDefinition* objArg = obj;
 
     MIRType elementType = MIRType::None;
     if (unboxedType == JSVAL_TYPE_MAGIC)
@@ -9001,9 +9042,8 @@ IonBuilder::initOrSetElemDense(TemporaryTypeSet::DoubleConversion conversion,
         }
     }
 
-        if (IsPropertyInitOp(JSOp(*pc)))
-        current->push(objArg);
-    else
+    // Push value back onto stack. Init ops keep their object on stack.
+    if (!IsPropertyInitOp(JSOp(*pc)))
         current->push(value);
 
     MOZ_TRY(resumeAfter(store));

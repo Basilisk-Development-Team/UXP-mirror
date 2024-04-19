@@ -118,6 +118,7 @@ namespace JS {
     _(UnknownSimdProperty)                                              \
     _(NotModuleNamespace)                                               \
     _(UnknownProperty)                                                  \
+    _(InitHole)                                                         \
                                                                         \
     _(ICOptStub_GenericSuccess)                                         \
                                                                         \
