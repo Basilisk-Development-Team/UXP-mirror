@@ -79,7 +79,7 @@ enum RegExpRunStatus
 };
 
 extern RegExpObject*
-RegExpAlloc(JSContext* cx, HandleObject proto = nullptr);
+RegExpAlloc(JSContext* cx, NewObjectKind newKind, HandleObject proto = nullptr);
 
 extern JSObject*
 CloneRegExpObject(JSContext* cx, Handle<RegExpObject*> regex);
@@ -403,11 +403,13 @@ class RegExpObject : public NativeObject
 
     static RegExpObject*
     create(JSContext* cx, const char16_t* chars, size_t length, RegExpFlag flags,
-           const ReadOnlyCompileOptions* options, frontend::TokenStream* ts, LifoAlloc& alloc);
+           const ReadOnlyCompileOptions* options, frontend::TokenStream* ts, LifoAlloc& alloc,
+           NewObjectKind newKind);
 
     static RegExpObject*
     create(JSContext* cx, HandleAtom atom, RegExpFlag flags,
-           const ReadOnlyCompileOptions* options, frontend::TokenStream* ts, LifoAlloc& alloc);
+           const ReadOnlyCompileOptions* options, frontend::TokenStream* ts, LifoAlloc& alloc,
+           NewObjectKind newKind);
 
     /*
      * Compute the initial shape to associate with fresh RegExp objects,

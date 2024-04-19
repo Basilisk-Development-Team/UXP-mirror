@@ -10602,7 +10602,8 @@ Parser<ParseHandler>::newRegExp()
     RegExpFlag flags = tokenStream.currentToken().regExpFlags();
 
     Rooted<RegExpObject*> reobj(context);
-    reobj = RegExpObject::create(context, chars, length, flags, nullptr, &tokenStream, alloc);
+    reobj = RegExpObject::create(context, chars, length, flags, nullptr, &tokenStream, alloc,
+                                 TenuredObject);
     if (!reobj)
         return null();
 
