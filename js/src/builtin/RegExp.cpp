@@ -277,7 +277,7 @@ RegExpInitializeIgnoringLastIndex(JSContext* cx, Handle<RegExpObject*> obj,
     if (sharedUse == UseRegExpShared) {
         /* Steps 7-8. */
         RootedRegExpShared re(cx);
-        if (!cx->zone()->regExps.get(cx, pattern, flags, &re))
+        if (!cx->compartment()->regExps.get(cx, pattern, flags, &re))
             return false;
 
         /* Steps 9-12. */

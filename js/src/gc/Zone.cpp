@@ -38,7 +38,6 @@ JS::Zone::Zone(JSRuntime* rt, ZoneGroup* group)
     gcWeakKeys_(group, SystemAllocPolicy(), rt->randomHashCodeScrambler()),
     gcZoneGroupEdges_(group),
     typeDescrObjects_(group, this),
-    regExps(this),
     markedAtoms_(group),
     atomCache_(group),
     externalStringCache_(group),
@@ -96,8 +95,7 @@ bool Zone::init(bool isSystemArg)
            gcWeakKeys().init() &&
            typeDescrObjects().init() &&
            markedAtoms().init() &&
-           atomCache().init() &&
-           regExps.init();
+           atomCache().init();
 }
 
 void
@@ -353,8 +351,6 @@ Zone::nextZone() const
 void
 Zone::clearTables()
 {
-    MOZ_ASSERT(regExps.empty());
-
     if (baseShapes().initialized())
         baseShapes().clear();
     if (initialShapes().initialized())
