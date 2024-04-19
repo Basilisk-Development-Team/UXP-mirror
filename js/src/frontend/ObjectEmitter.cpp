@@ -13,6 +13,7 @@
 
 
 #include "frontend/BytecodeEmitter.h"  // BytecodeEmitter
+#include "frontend/IfEmitter.h"        // IfEmitter
 #include "frontend/SharedContext.h"    // SharedContext
 #include "frontend/SourceNotes.h"      // SRC_*
 #include "gc/Heap.h"                   // AllocKind
@@ -687,33 +688,81 @@ bool ClassEmitter::emitClass(JS::Handle<JSAtom*> name)
     return true;
 }
 
-bool ClassEmitter::emitDerivedClass(JS::Handle<JSAtom*> name)
-{
-    MOZ_ASSERT(propertyState_ == PropertyState::Start);
-    MOZ_ASSERT(classState_ == ClassState::Start ||
-               classState_ == ClassState::Scope);
+bool ClassEmitter::emitDerivedClass(JS::Handle<JSAtom*> name) {
+  MOZ_ASSERT(propertyState_ == PropertyState::Start);
+  MOZ_ASSERT(classState_ == ClassState::Start ||
+             classState_ == ClassState::Scope);
 
-    //                [stack] HERITAGE
+  //                [stack]
 
-    setName(name);
-    isDerived_ = true;
+  setName(name);
+  isDerived_ = true;
 
-    if (!bce_->emit1(JSOP_CLASSHERITAGE)) {
-        //              [stack] funcProto objProto
-        return false;
-    }
-    if (!bce_->emit1(JSOP_OBJWITHPROTO)) {
-        //              [stack] funcProto HOMEOBJ
-        return false;
-    }
+  InternalIfEmitter ifThenElse(bce_);
 
-    // JSOP_CLASSHERITAGE leaves both protos on the stack. After
-    // creating the prototype, swap it to the bottom to make the
-    // constructor.
-    if (!bce_->emit1(JSOP_SWAP)) {
-        //              [stack] HOMEOBJ funcProto
-        return false;
-    }
+  // Heritage must be null or a non-generator constructor
+  if (!bce_->emit1(JSOP_CHECKCLASSHERITAGE)) {
+    //              [stack] HERITAGE
+    return false;
+  }
+
+  // [IF] (heritage !== null)
+  if (!bce_->emit1(JSOP_DUP)) {
+    //              [stack] HERITAGE HERITAGE
+    return false;
+  }
+  if (!bce_->emit1(JSOP_NULL)) {
+    //              [stack] HERITAGE HERITAGE NULL
+    return false;
+  }
+  if (!bce_->emit1(JSOP_STRICTNE)) {
+    //              [stack] HERITAGE NE
+    return false;
+  }
+
+  // [THEN] funProto = heritage, objProto = heritage.prototype
+  if (!ifThenElse.emitThenElse()) {
+    return false;
+  }
+  if (!bce_->emit1(JSOP_DUP)) {
+    //              [stack] HERITAGE HERITAGE
+    return false;
+  }
+  if (!bce_->emitAtomOp(bce_->cx->names().prototype, JSOP_GETPROP)) {
+    //              [stack] HERITAGE PROTO
+    return false;
+  }
+
+  // [ELSE] funProto = %FunctionPrototype%, objProto = null
+  if (!ifThenElse.emitElse()) {
+    return false;
+  }
+  if (!bce_->emit1(JSOP_POP)) {
+    //              [stack]
+    return false;
+  }
+  if (!bce_->emit2(JSOP_BUILTINPROTO, JSProto_Function)) {
+    //              [stack] PROTO
+    return false;
+  }
+  if (!bce_->emit1(JSOP_NULL)) {
+    //              [stack] PROTO NULL
+    return false;
+  }
+
+  // [ENDIF]
+  if (!ifThenElse.emitEnd()) {
+    return false;
+  }
+
+  if (!bce_->emit1(JSOP_OBJWITHPROTO)) {
+    //              [stack] HERITAGE HOMEOBJ
+    return false;
+  }
+  if (!bce_->emit1(JSOP_SWAP)) {
+    //              [stack] HOMEOBJ HERITAGE
+    return false;
+  }
 
 #ifdef DEBUG
     classState_ = ClassState::Class;
