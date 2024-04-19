@@ -760,7 +760,6 @@ struct MOZ_STACK_CLASS BytecodeEmitter
                                                 ValueUsage valueUsage = ValueUsage::WantValue);
 
     [[nodiscard]] bool isRestParameter(ParseNode* pn);
-    [[nodiscard]] bool emitOptimizeSpread(ParseNode* arg0, JumpList* jmp, bool* emitted);
 
     [[nodiscard]] ParseNode* getCoordNode(ParseNode* callNode, ParseNode* calleeNode,
                                          ListNode* argsList);
