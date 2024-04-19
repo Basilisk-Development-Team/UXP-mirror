@@ -7358,41 +7358,6 @@ BytecodeEmitter::isRestParameter(ParseNode* pn)
     return false;
 }
 
-bool
-BytecodeEmitter::emitOptimizeSpread(ParseNode* arg0, JumpList* jmp, bool* emitted)
-{
-    // Emit a pereparation code to optimize the spread call with a rest
-    // parameter:
-    //
-    //   function f(...args) {
-    //     g(...args);
-    //   }
-    //
-    // If the spread operand is a rest parameter and it's optimizable array,
-    // skip spread operation and pass it directly to spread call operation.
-    // See the comment in OptimizeSpreadCall in Interpreter.cpp for the
-    // optimizable conditons.
-    if (!isRestParameter(arg0)) {
-        *emitted = false;
-        return true;
-    }
-
-    if (!emitTree(arg0))
-        return false;
-
-    if (!emit1(JSOP_OPTIMIZE_SPREADCALL))
-        return false;
-
-    if (!emitJump(JSOP_IFNE, jmp))
-        return false;
-
-    if (!emit1(JSOP_POP))
-        return false;
-
-    *emitted = true;
-    return true;
-}
-
 /* A version of emitCalleeAndThis for the optional cases:
  *   * a?.()
  *   * a?.b()

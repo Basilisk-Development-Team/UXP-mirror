@@ -2317,6 +2317,16 @@ IonBuilder::inspectOpcode(JSOp op)
         pushConstant(MagicValue(JS_IS_CONSTRUCTING));
         return Ok();
 
+      case JSOP_OPTIMIZE_SPREADCALL:
+      {
+        // Assuming optimization isn't available doesn't affect correctness.
+        // TODO: Investigate dynamic checks.
+        MDefinition* arr = current->peek(-1);
+        arr->setImplicitlyUsedUnchecked();
+        pushConstant(BooleanValue(false));
+        return Ok();
+      }
+
 #ifdef DEBUG
       case JSOP_PUSHLEXICALENV:
       case JSOP_FRESHENLEXICALENV:
