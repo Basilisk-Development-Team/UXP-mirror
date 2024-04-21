@@ -349,6 +349,9 @@ CallbackObjectHolderBase::ToXPCOMCallback(CallbackObject* aCallback,
   JSContext* cx = jsapi.cx();
 
   JS::Rooted<JSObject*> callback(cx, aCallback->CallbackOrNull());
+  if (!callback) {
+    return nullptr;
+  }
 
   JSAutoCompartment ac(cx, callback);
   RefPtr<nsXPCWrappedJS> wrappedJS;
