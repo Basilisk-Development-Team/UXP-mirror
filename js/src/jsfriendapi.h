@@ -111,7 +111,18 @@ JS_FRIEND_API(JS::Value) MaybeGetScriptPrivate(JSObject* object);
 
 }  // namespace js
 
-/*
+
+/**
+ * Creates a new dead wrapper object in the given scope. To be used when
+ * attempting to wrap objects from scopes which are already dead.
+ *
+ * If origObject is passed, it must be an proxy object, and will be
+ * used to determine the characteristics of the new dead wrapper.
+ */
+extern JS_FRIEND_API(JSObject*)
+JS_NewDeadWrapper(JSContext* cx, JSObject* origObject = nullptr);
+
+ /*
  * Used by the cycle collector to trace through a shape or object group and
  * all cycle-participating data it reaches, using bounded stack space.
  */
