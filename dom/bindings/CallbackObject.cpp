@@ -140,6 +140,12 @@ CallbackObject::CallSetup::CallSetup(CallbackObject* aCallback,
     webIDLCallerPrincipal = nsContentUtils::SubjectPrincipalOrSystemIfNativeCaller();
   }
 
+  JSObject* wrappedCallback = aCallback->CallbackPreserveColor();
+  if (!wrappedCallback) {
+    aRv.ThrowDOMException(NS_ERROR_DOM_NOT_SUPPORTED_ERR,
+      NS_LITERAL_CSTRING("Cannot execute callback from a nuked compartment."));
+    return;
+  }
   // First, find the real underlying callback.
   JSObject* realCallback = js::UncheckedUnwrap(wrappedCallback);
   nsIGlobalObject* globalObject = nullptr;
