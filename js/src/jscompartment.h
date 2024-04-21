@@ -399,6 +399,18 @@ using InnerMap = NurseryAwareHashMap<CrossCompartmentKey,
         return size;
     }
 
+    bool hasNurseryAllocatedWrapperEntries(const CompartmentFilter& f) {
+        for (OuterMap::Enum e(map); !e.empty(); e.popFront()) {
+            JSCompartment* c = e.front().key();
+            if (c && !f.match(c))
+                continue;
+            InnerMap& m = e.front().value();
+            if (m.hasNurseryEntries())
+                return true;
+        }
+        return false;
+    }
+
     void sweepAfterMinorGC(JSTracer* trc) {
         for (OuterMap::Enum e(map); !e.empty(); e.popFront()) {
             InnerMap& m = e.front().value();
@@ -820,6 +832,10 @@ struct JSCompartment
 
     void removeWrapper(js::WrapperMap::Ptr p) {
         crossCompartmentWrappers.remove(p);
+    }
+
+    bool hasNurseryAllocatedWrapperEntries(const js::CompartmentFilter& f) {
+        return crossCompartmentWrappers.hasNurseryAllocatedWrapperEntries(f);
     }
 
     struct WrapperEnum : public js::WrapperMap::Enum {
