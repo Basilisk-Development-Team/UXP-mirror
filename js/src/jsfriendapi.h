@@ -1152,7 +1152,7 @@ struct CompartmentsWithPrincipals : public CompartmentFilter {
 extern JS_FRIEND_API(bool)
 NukeCrossCompartmentWrappers(JSContext* cx,
                              const CompartmentFilter& sourceFilter,
-                             const CompartmentFilter& targetFilter,
+                             JSCompartment* target,
                              NukeReferencesToWindow nukeReferencesToWindow,
                              NukeReferencesFromTarget nukeReferencesFromTarget);
 

@@ -9428,8 +9428,7 @@ public:
                                                                   : js::NukeWindowReferences);
         } else {
           // We only want to nuke wrappers for the chrome->content case
-          js::NukeCrossCompartmentWrappers(cx, BrowserCompartmentMatcher(),
-                                           js::SingleCompartment(cpt),
+          js::NukeCrossCompartmentWrappers(cx, BrowserCompartmentMatcher(), cpt,
                                            win->IsInnerWindow() ? js::DontNukeWindowReferences
                                                                 : js::NukeWindowReferences,
                                            js::NukeIncomingReferences);
