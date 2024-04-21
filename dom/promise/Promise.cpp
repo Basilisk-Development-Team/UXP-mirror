@@ -200,7 +200,7 @@ Promise::Then(JSContext* aCx,
 
   JS::Rooted<JSObject*> resolveCallback(aCx);
   if (aResolveCallback) {
-    resolveCallback = aResolveCallback->Callback();
+    resolveCallback = aResolveCallback->CallbackOrNull();
     if (!JS_WrapObject(aCx, &resolveCallback)) {
       aRv.NoteJSContextException(aCx);
       return;
@@ -209,7 +209,7 @@ Promise::Then(JSContext* aCx,
 
   JS::Rooted<JSObject*> rejectCallback(aCx);
   if (aRejectCallback) {
-    rejectCallback = aRejectCallback->Callback();
+    rejectCallback = aRejectCallback->CallbackOrNull();
     if (!JS_WrapObject(aCx, &rejectCallback)) {
       aRv.NoteJSContextException(aCx);
       return;
