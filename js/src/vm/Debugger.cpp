@@ -2485,7 +2485,7 @@ Debugger::updateExecutionObservabilityOfFrames(JSContext* cx, const ExecutionObs
 
     // See comment in unsetPrevUpToDateUntil.
     if (oldestEnabledFrame) {
-        AutoCompartment ac(cx, oldestEnabledFrame.compartment());
+        AutoCompartment ac(cx, oldestEnabledFrame.environmentChain());
         DebugEnvironments::unsetPrevUpToDateUntil(cx, oldestEnabledFrame);
     }
 
@@ -2506,7 +2506,7 @@ AppendAndInvalidateScript(JSContext* cx, Zone* zone, JSScript* script, Vector<JS
     // cancel off-thread compilations, whose books are kept on the
     // script's compartment.
     MOZ_ASSERT(script->compartment()->zone() == zone);
-    AutoCompartment ac(cx, script->compartment());
+    AutoCompartment ac(cx, script);
     zone->types.addPendingRecompile(cx, script);
     return scripts.append(script);
 }
@@ -4458,7 +4458,6 @@ class MOZ_STACK_CLASS Debugger::ScriptQuery
         // everything.
         for (auto r = compartments.all(); !r.empty(); r.popFront()) {
             JSCompartment* comp = r.front();
-            AutoCompartment ac(cx, comp);
             if (!comp->ensureDelazifyScriptsForDebugger(cx))
                 return false;
         }
@@ -7977,7 +7976,7 @@ DebuggerArguments_getArg(JSContext* cx, unsigned argc, Value* vp)
     if (unsigned(i) < frame.numActualArgs()) {
         script = frame.script();
         {
-            AutoCompartment ac(cx, script->compartment());
+            AutoCompartment ac(cx, script);
             if (!script->ensureHasAnalyzedArgsUsage(cx))
                 return false;
         }
