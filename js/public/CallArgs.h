@@ -299,7 +299,7 @@ class MOZ_STACK_CLASS CallArgs : public detail::CallArgsBase<detail::IncludeUsed
         args.ignoresReturnValue_ = ignoresReturnValue;
 #ifdef DEBUG
         for (unsigned i = 0; i < argc; ++i)
-            MOZ_ASSERT_IF(argv[i].isGCThing(), !GCThingIsMarkedGray(GCCellPtr(argv[i])));
+            MOZ_ASSERT(ValueIsNotGray(argv[i]));
 #endif
         return args;
     }

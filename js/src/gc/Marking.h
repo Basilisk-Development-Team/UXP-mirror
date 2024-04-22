@@ -300,6 +300,8 @@ class GCMarker : public JSTracer
 
 #ifdef DEBUG
     bool shouldCheckCompartments() { return strictCompartmentChecking; }
+
+    Zone* stackContainsCrossZonePointerTo(const gc::TenuredCell* cell) const;
 #endif
 
     void markEphemeronValues(gc::Cell* markedCell, gc::WeakEntryVector& entry);
