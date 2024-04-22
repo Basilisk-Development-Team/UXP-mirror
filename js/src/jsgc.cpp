@@ -3066,23 +3066,6 @@ GCRuntime::assertBackgroundSweepingFinished()
 #endif
 }
 
-unsigned
-js::GetCPUCount()
-{
-    static unsigned ncpus = 0;
-    if (ncpus == 0) {
-# ifdef XP_WIN
-        SYSTEM_INFO sysinfo;
-        GetSystemInfo(&sysinfo);
-        ncpus = unsigned(sysinfo.dwNumberOfProcessors);
-# else
-        long n = sysconf(_SC_NPROCESSORS_ONLN);
-        ncpus = (n > 0) ? unsigned(n) : 1;
-# endif
-    }
-    return ncpus;
-}
-
 void
 GCHelperState::finish()
 {
