@@ -2579,6 +2579,29 @@ GCMarker::sizeOfExcludingThis(mozilla::MallocSizeOf mallocSizeOf) const
     return size;
 }
 
+#ifdef DEBUG
+Zone*
+GCMarker::stackContainsCrossZonePointerTo(const TenuredCell* target) const
+{
+    MOZ_ASSERT(!JS::CurrentThreadIsHeapCollecting());
+
+    for (MarkStackIter iter(stack); !iter.done(); iter.next()) {
+        if (iter.peekTag() != MarkStack::ObjectTag)
+            continue;
+
+        auto source = iter.peekPtr().as<JSObject>();
+        if (source->is<ProxyObject>() &&
+            source->as<ProxyObject>().target() == static_cast<const Cell*>(target) &&
+            source->zone() != target->zone())
+        {
+            return source->zone();
+        }
+    }
+
+    return nullptr;
+}
+#endif // DEBUG
+
 
 /*** Tenuring Tracer *****************************************************************************/
 

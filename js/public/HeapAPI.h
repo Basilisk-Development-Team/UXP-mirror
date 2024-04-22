@@ -386,6 +386,11 @@ NurseryCellHasStoreBuffer(const void* cell)
     return *reinterpret_cast<void**>(addr) != nullptr;
 }
 
+#ifdef DEBUG
+extern JS_PUBLIC_API(bool)
+CellIsNotGray(const Cell* cell);
+#endif
+
 } /* namespace detail */
 
 MOZ_ALWAYS_INLINE bool

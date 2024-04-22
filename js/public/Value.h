@@ -1529,6 +1529,28 @@ PoisonedObjectValue(uintptr_t poison)
 
 } // namespace js
 
+#ifdef DEBUG
+namespace JS {
+
+MOZ_ALWAYS_INLINE bool
+ValueIsNotGray(const Value& value)
+{
+    if (!value.isGCThing())
+        return true;
+
+    return CellIsNotGray(value.toGCThing());
+}
+
+MOZ_ALWAYS_INLINE bool
+ValueIsNotGray(const Heap<Value>& value)
+{
+    return ValueIsNotGray(value.unbarrieredGet());
+}
+
+} // namespace JS
+#endif
+
+
 /************************************************************************/
 
 namespace JS {
