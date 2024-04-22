@@ -1185,7 +1185,7 @@ class GCRuntime
      * The current incremental GC phase. This is also used internally in
      * non-incremental GC.
      */
-    ActiveThreadData<State> incrementalState;
+    ActiveThreadOrGCTaskData<State> incrementalState;
 
     /* Indicates that the last incremental slice exhausted the mark stack. */
     ActiveThreadData<bool> lastMarkSlice;
@@ -1200,13 +1200,13 @@ class GCRuntime
     ActiveThreadData<BlackGrayEdgeVector> foundBlackGrayEdges;
 
     /* Singly linked list of zones to be swept in the background. */
-    ActiveThreadData<ZoneList> backgroundSweepZones;
+    ActiveThreadOrGCTaskData<ZoneList> backgroundSweepZones;
 
     /*
      * Free LIFO blocks are transferred to this allocator before being freed on
      * the background GC thread after sweeping.
      */
-    ActiveThreadData<LifoAlloc> blocksToFreeAfterSweeping;
+    ActiveThreadOrGCTaskData<LifoAlloc> blocksToFreeAfterSweeping;
 
     private:
     /* Index of current zone group (for stats). */
@@ -1216,7 +1216,7 @@ class GCRuntime
      * Incremental sweep state.
      */
     ActiveThreadData<JS::Zone*> zoneGroups;
-    ActiveThreadData<JS::Zone*> currentZoneGroup;
+    ActiveThreadOrGCTaskData<JS::Zone*> currentZoneGroup;
     ActiveThreadData<SweepActionList> sweepActionList;
     ActiveThreadData<size_t> sweepPhaseIndex;
     ActiveThreadOrGCTaskData<JS::Zone*> sweepZone;
