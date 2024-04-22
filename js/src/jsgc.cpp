@@ -4081,7 +4081,7 @@ GCRuntime::findInterZoneEdges()
 }
 
 void
-GCRuntime::findZoneGroups(AutoLockForExclusiveAccess& lock)
+GCRuntime::findZoneGroups(JS::gcreason::Reason reason, AutoLockForExclusiveAccess& lock)
 {
 #ifdef DEBUG
     for (ZonesIter zone(rt, WithAtoms); !zone.done(); zone.next())
@@ -4886,7 +4886,7 @@ GCRuntime::endSweepingZoneGroup()
 }
 
 void
-GCRuntime::beginSweepPhase(bool destroyingRuntime, AutoLockForExclusiveAccess& lock)
+GCRuntime::beginSweepPhase(JS::gcreason::Reason reason, AutoLockForExclusiveAccess& lock)
 {
     /*
      * Sweep phase.
@@ -4905,14 +4905,14 @@ GCRuntime::beginSweepPhase(bool destroyingRuntime, AutoLockForExclusiveAccess& l
     gcstats::AutoPhase ap(stats(), gcstats::PHASE_SWEEP);
 
     sweepOnBackgroundThread =
-        !destroyingRuntime && !TraceEnabled() && CanUseExtraThreads();
+        reason != JS::gcreason::DESTROY_RUNTIME && !TraceEnabled() && CanUseExtraThreads();
 
     releaseObservedTypes = shouldReleaseObservedTypes();
 
     AssertNoWrappersInGrayList(rt);
     DropStringWrappers(rt);
 
-    findZoneGroups(lock);
+    findZoneGroups(reason, lock);
     endMarkingZoneGroup();
     beginSweepingZoneGroup();
 }
@@ -5928,7 +5928,7 @@ GCRuntime::incrementalCollectSlice(SliceBudget& budget, JS::gcreason::Reason rea
          * This runs to completion, but we don't continue if the budget is
          * now exhasted.
          */
-        beginSweepPhase(destroyingRuntime, lock);
+        beginSweepPhase(reason, lock);
         if (budget.isOverBudget())
             break;
 
@@ -5949,7 +5949,7 @@ GCRuntime::incrementalCollectSlice(SliceBudget& budget, JS::gcreason::Reason rea
             gcstats::AutoPhase ap(stats(), gcstats::PHASE_WAIT_BACKGROUND_THREAD);
 
             // Yield until background finalization is done.
-            if (isIncremental) {
+            if (!budget.isUnlimited()) {
                 // Poll for end of background sweeping
                 AutoLockGC lock(rt);
                 if (isBackgroundSweeping())
@@ -5973,7 +5973,7 @@ GCRuntime::incrementalCollectSlice(SliceBudget& budget, JS::gcreason::Reason rea
         incrementalState = State::Compact;
 
         // Always yield before compacting since it is not incremental.
-        if (isCompacting && isIncremental)
+        if (isCompacting && !budget.isUnlimited())
             break;
 
         [[fallthrough]];
@@ -5999,7 +5999,7 @@ GCRuntime::incrementalCollectSlice(SliceBudget& budget, JS::gcreason::Reason rea
             gcstats::AutoPhase ap(stats(), gcstats::PHASE_WAIT_BACKGROUND_THREAD);
 
             // Yield until background decommit is done.
-            if (isIncremental && decommitTask.isRunning())
+            if (!budget.isUnlimited() && decommitTask.isRunning())
                 break;
 
             decommitTask.join();
