@@ -977,8 +977,8 @@ class GCRuntime
     void markAllWeakReferences(gcstats::Phase phase);
     void markAllGrayReferences(gcstats::Phase phase);
 
-    void beginSweepPhase(bool lastGC, AutoLockForExclusiveAccess& lock);
-    void findZoneGroups(AutoLockForExclusiveAccess& lock);
+    void beginSweepPhase(JS::gcreason::Reason reason, AutoLockForExclusiveAccess& lock);
+    void findZoneGroups(JS::gcreason::Reason reason, AutoLockForExclusiveAccess& lock);
     [[nodiscard]] bool findInterZoneEdges();
     void getNextZoneGroup();
     void endMarkingZoneGroup();
