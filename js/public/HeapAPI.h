@@ -35,9 +35,11 @@ const size_t ChunkShift = 20;
 const size_t ChunkSize = size_t(1) << ChunkShift;
 const size_t ChunkMask = ChunkSize - 1;
 
-const size_t CellShift = 3;
-const size_t CellSize = size_t(1) << CellShift;
-const size_t CellMask = CellSize - 1;
+const size_t CellAlignShift = 3;
+const size_t CellAlignBytes = size_t(1) << CellAlignShift;
+const size_t CellAlignMask = CellAlignBytes - 1;
+
+const size_t CellBytesPerMarkBit = CellAlignBytes;
 
 /* These are magic constants derived from actual offsets in gc/Heap.h. */
 #ifdef JS_GC_SMALL_CHUNK_SIZE
@@ -318,7 +320,7 @@ GetGCThingMarkWordAndMask(const uintptr_t addr, ColorBit colorBit,
                           uintptr_t** wordp, uintptr_t* maskp)
 {
     MOZ_ASSERT(addr);
-    const size_t bit = (addr & js::gc::ChunkMask) / js::gc::CellSize +
+    const size_t bit = (addr & js::gc::ChunkMask) / js::gc::CellBytesPerMarkBit +
                        static_cast<uint32_t>(colorBit);
     MOZ_ASSERT(bit < js::gc::ChunkMarkBitmapBits);
     uintptr_t* bitmap = GetGCThingMarkBitmap(addr);
@@ -368,6 +370,10 @@ CellIsMarkedGray(const Cell* cell)
 extern JS_PUBLIC_API(bool)
 CellIsMarkedGrayIfKnown(const Cell* cell);
 
+#ifdef DEBUG
+extern JS_PUBLIC_API(bool)
+CellIsNotGray(const Cell* cell);
+#endif
 MOZ_ALWAYS_INLINE ChunkLocation
 GetCellLocation(const void* cell)
 {
@@ -386,11 +392,6 @@ NurseryCellHasStoreBuffer(const void* cell)
     return *reinterpret_cast<void**>(addr) != nullptr;
 }
 
-#ifdef DEBUG
-extern JS_PUBLIC_API(bool)
-CellIsNotGray(const Cell* cell);
-#endif
-
 } /* namespace detail */
 
 MOZ_ALWAYS_INLINE bool
@@ -407,7 +408,7 @@ MOZ_ALWAYS_INLINE bool
 IsCellPointerValid(const void* cell)
 {
     auto addr = uintptr_t(cell);
-    if (addr < ChunkSize || addr % CellSize != 0)
+    if (addr < ChunkSize || addr % CellAlignBytes != 0)
         return false;
     auto location = detail::GetCellLocation(cell);
     if (location == ChunkLocation::TenuredHeap)

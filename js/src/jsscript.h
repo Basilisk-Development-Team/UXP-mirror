@@ -2090,8 +2090,8 @@ class JSScript : public js::gc::TenuredCell
 };
 
 /* If this fails, add/remove padding within JSScript. */
-static_assert(sizeof(JSScript) % js::gc::CellSize == 0,
-              "Size of JSScript must be an integral multiple of js::gc::CellSize");
+static_assert(sizeof(JSScript) % js::gc::CellAlignBytes == 0,
+              "Size of JSScript must be an integral multiple of js::gc::CellAlignBytes");
 
 namespace js {
 
@@ -2465,8 +2465,8 @@ class LazyScript : public gc::TenuredCell
 };
 
 /* If this fails, add/remove padding within LazyScript. */
-static_assert(sizeof(LazyScript) % js::gc::CellSize == 0,
-              "Size of LazyScript must be an integral multiple of js::gc::CellSize");
+static_assert(sizeof(LazyScript) % js::gc::CellAlignBytes == 0,
+              "Size of LazyScript must be an integral multiple of js::gc::CellAlignBytes");
 
 struct ScriptAndCounts
 {

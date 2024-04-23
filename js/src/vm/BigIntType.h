@@ -22,7 +22,7 @@
 // Handle future js::gc::Cell::ReservedBits, we have no reserved bits...
 #define js_gc_Cell_ReservedBits 0
 // Handle future js::gc::MinCellSize, 16 bytes, twice our js:gc:CellSize
-#define js_gc_MinCellSize (js::gc::CellSize*2)
+#define js_gc_MinCellSize (js::gc::CellAlignBytes*2)
 
 namespace JS {
 
