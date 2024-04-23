@@ -446,6 +446,7 @@ CycleCollectedJSContext::CycleCollectedJSContext()
   , mOutOfMemoryState(OOMState::OK)
   , mLargeAllocationFailureState(OOMState::OK)
 {
+  MOZ_COUNT_CTOR(CycleCollectedJSContext);
   nsCOMPtr<nsIThread> thread = do_GetCurrentThread();
   mOwningThread = thread.forget().downcast<nsThread>().take();
   MOZ_RELEASE_ASSERT(mOwningThread);
@@ -453,6 +454,7 @@ CycleCollectedJSContext::CycleCollectedJSContext()
 
 CycleCollectedJSContext::~CycleCollectedJSContext()
 {
+   MOZ_COUNT_DTOR(CycleCollectedJSContext);
   // If the allocation failed, here we are.
   if (!mJSContext) {
     return;
