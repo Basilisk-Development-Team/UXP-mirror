@@ -267,6 +267,13 @@ FormatStackDump(JSContext* cx, char* buf, bool showArgs, bool showLocals, bool s
 extern JS_FRIEND_API(bool)
 ForceLexicalInitialization(JSContext *cx, HandleObject obj);
 
+/**
+ * Whether we are poisoning unused/released data for error detection. Governed
+ * by the JS_GC_POISONING #ifdef as well as the $JSGC_DISABLE_POISONING
+ * environment variable.
+ */
+extern JS_FRIEND_API(int)
+IsGCPoisoning();
 } // namespace JS
 
 /**
@@ -2870,6 +2877,19 @@ ToWindowIfWindowProxy(JSObject* obj);
  */
 extern bool
 AddMozDateTimeFormatConstructor(JSContext* cx, JS::Handle<JSObject*> intl);
+// If the JS engine wants to block so that other cooperative threads can run, it
+// will call the yield callback. It may do this if it needs to access a ZoneGroup
+// that is held by another thread (such as the system zone group).
+typedef void
+(* YieldCallback)(JSContext* cx);
+
+extern JS_FRIEND_API(void)
+SetCooperativeYieldCallback(JSContext* cx, YieldCallback callback);
+
+// Returns true if the system zone is available (i.e., if no cooperative contexts
+// are using it now).
+extern JS_FRIEND_API(bool)
+SystemZoneAvailable(JSContext* cx);
 
 } /* namespace js */
 

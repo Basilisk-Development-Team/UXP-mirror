@@ -724,6 +724,7 @@ struct JSRuntime : public js::MallocProvider<JSRuntime>
     /* Garbage collector state has been successfully initialized. */
     js::WriteOnceData<bool> gcInitialized;
 
+    bool hasZealMode(js::gc::ZealMode mode) { return gc.hasZealMode(mode); }
     void lockGC() {
         gc.lockGC();
     }

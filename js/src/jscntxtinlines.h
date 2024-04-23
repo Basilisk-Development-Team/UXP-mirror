@@ -179,7 +179,7 @@ class CompartmentChecker
  * depends on other objects not having been swept yet.
  */
 #define START_ASSERT_SAME_COMPARTMENT()                                 \
-    if (cx->heapState != JS::HeapState::Idle)                           \
+    if (JS::CurrentThreadIsHeapBusy())                                  \
         return;                                                         \
     CompartmentChecker c(cx)
 
@@ -499,7 +499,7 @@ inline void
 JSContext::enterZoneGroup(js::ZoneGroup* group)
 {
     MOZ_ASSERT(this == js::TlsContext.get());
-    group->enter();
+    group->enter(this);
 }
 
 inline void
