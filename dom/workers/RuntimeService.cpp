@@ -1027,6 +1027,7 @@ public:
   explicit WorkerJSContext(WorkerPrivate* aWorkerPrivate)
     : mWorkerPrivate(aWorkerPrivate)
   {
+    MOZ_COUNT_CTOR_INHERITED(WorkerJSContext, CycleCollectedJSContext);
     MOZ_ASSERT(aWorkerPrivate);
     // Magical number 2. Workers have the base recursion depth 1, and normal
     // runnables run at level 2, and we don't want to process microtasks
@@ -1036,6 +1037,7 @@ public:
 
   ~WorkerJSContext()
   {
+    MOZ_COUNT_DTOR_INHERITED(WorkerJSContext, CycleCollectedJSContext);
     JSContext* cx = MaybeContext();
     if (!cx) {
       return;   // Initialize() must have failed
