@@ -487,6 +487,9 @@ struct JSRuntime : public js::MallocProvider<JSRuntime>
     /* Call this to get the name of a compartment. */
     js::ActiveThreadData<JSCompartmentNameCallback> compartmentNameCallback;
 
+    /* Callback for doing memory reporting on external strings. */
+    js::ActiveThreadData<JSExternalStringSizeofCallback> externalStringSizeofCallback;
+
     js::ActiveThreadData<mozilla::UniquePtr<js::SourceHook>> sourceHook;
 
     js::ActiveThreadData<const JSSecurityCallbacks*> securityCallbacks;

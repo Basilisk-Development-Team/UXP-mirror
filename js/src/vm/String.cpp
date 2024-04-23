@@ -14,6 +14,7 @@
 #include "mozilla/Unused.h"
 
 #include "gc/Marking.h"
+#include "js/GCAPI.h"
 #include "js/UbiNode.h"
 #include "vm/SPSProfiler.h"
 
@@ -43,9 +44,16 @@ JSString::sizeOfExcludingThis(mozilla::MallocSizeOf mallocSizeOf)
     if (isDependent())
         return 0;
 
-    // JSExternalString: don't count, the chars could be stored anywhere.
-    if (isExternal())
+    // JSExternalString: Ask the embedding to tell us what's going on.  If it
+    // doesn't want to say, don't count, the chars could be stored anywhere.
+    if (isExternal()) {
+        if (auto* cb = runtimeFromActiveCooperatingThread()->externalStringSizeofCallback.ref()) {
+            // Our callback isn't supposed to cause GC.
+            JS::AutoSuppressGCAnalysis nogc;
+            return cb(this, mallocSizeOf);
+        }
         return 0;
+    }
 
     MOZ_ASSERT(isFlat());
 

@@ -75,6 +75,7 @@
 #include "mozilla/dom/ScriptSettings.h"
 #include "jsprf.h"
 #include "js/Debug.h"
+#include "js/GCAPI.h"
 #include "jsfriendapi.h"
 #include "nsContentUtils.h"
 #include "nsCycleCollectionNoteRootCallback.h"
@@ -84,6 +85,7 @@
 #include "nsDOMMutationObserver.h"
 #include "nsJSUtils.h"
 #include "nsWrapperCache.h"
+#include "nsStringBuffer.h"
 
 #include "nsIException.h"
 #include "nsIPlatformInfo.h"
@@ -534,6 +536,7 @@ CycleCollectedJSContext::Initialize(JSRuntime* aParentRuntime,
 
   JS_SetObjectsTenuredCallback(mJSContext, JSObjectsTenuredCb, this);
   JS::SetOutOfMemoryCallback(mJSContext, OutOfMemoryCallback, this);
+  JS_SetExternalStringSizeofCallback(mJSContext, SizeofExternalStringCallback);
   JS::SetBuildIdOp(mJSContext, GetBuildId);
   JS::SetWarningReporter(mJSContext, MozCrashWarningReporter);
 
@@ -912,6 +915,26 @@ CycleCollectedJSContext::OutOfMemoryCallback(JSContext* aContext,
   MOZ_ASSERT(aContext == self->Context());
 
   self->OnOutOfMemory();
+}
+
+/* static */ size_t
+CycleCollectedJSContext::SizeofExternalStringCallback(JSString* aStr,
+                                                      MallocSizeOf aMallocSizeOf)
+{
+  // We promised the JS engine we would not GC.  Enforce that:
+  JS::AutoCheckCannotGC autoCannotGC;
+
+  if (!XPCStringConvert::IsDOMString(aStr)) {
+    // Might be a literal or something we don't understand.  Just claim 0.
+    return 0;
+  }
+
+  const char16_t* chars = JS_GetTwoByteExternalStringChars(aStr);
+  const nsStringBuffer* buf = nsStringBuffer::FromData((void*)chars);
+  // We want sizeof including this, because the entire string buffer is owned by
+  // the external string.  But only report here if we're unshared; if we're
+  // shared then we don't know who really owns this data.
+  return buf->SizeOfIncludingThisIfUnshared(aMallocSizeOf);
 }
 
 class PromiseJobRunnable final : public MicroTaskRunnable
@@ -1307,7 +1330,7 @@ CycleCollectedJSContext::JSObjectsTenured()
   for (auto iter = mNurseryObjects.Iter(); !iter.Done(); iter.Next()) {
     nsWrapperCache* cache = iter.Get();
     JSObject* wrapper = cache->GetWrapperMaybeDead();
-    MOZ_ASSERT(wrapper);
+    MOZ_DIAGNOSTIC_ASSERT(wrapper);
     if (!JS::ObjectIsTenured(wrapper)) {
       MOZ_ASSERT(!cache->PreservingWrapper());
       const JSClass* jsClass = js::GetObjectJSClass(wrapper);
