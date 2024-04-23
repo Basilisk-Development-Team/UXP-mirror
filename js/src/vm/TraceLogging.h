@@ -8,6 +8,7 @@
 
 #include "mozilla/GuardObjects.h"
 #include "mozilla/LinkedList.h"
+#include "mozilla/MemoryReporting.h"
 
 #include "jsalloc.h"
 
@@ -174,6 +175,12 @@ class TraceLoggerEventPayload {
         MOZ_ASSERT(CurrentThreadOwnsTraceLoggerThreadStateLock());
         pointerCount_--;
     }
+    size_t sizeOfExcludingThis(mozilla::MallocSizeOf mallocSizeOf) const {
+        return mallocSizeOf(string_.get());
+    }
+    size_t sizeOfIncludingThis(mozilla::MallocSizeOf mallocSizeOf) const {
+        return mallocSizeOf(this) + sizeOfExcludingThis(mallocSizeOf);
+    }
 };
 
 // Per thread trace logger state.
@@ -220,6 +227,9 @@ class TraceLoggerThread : public mozilla::LinkedListElement<TraceLoggerThread>
     bool enable(JSContext* cx);
     bool disable(bool force = false, const char* = "");
     bool enabled() { return enabled_ > 0; }
+
+    size_t sizeOfExcludingThis(mozilla::MallocSizeOf mallocSizeOf) const;
+    size_t sizeOfIncludingThis(mozilla::MallocSizeOf mallocSizeOf) const;
 
   private:
     bool fail(JSContext* cx, const char* error);
@@ -376,6 +386,11 @@ class TraceLoggerThreadState
     TraceLoggerEventPayload* getOrCreateEventPayload(TraceLoggerTextId type,
                                                      const JS::ReadOnlyCompileOptions& script);
 
+    size_t sizeOfExcludingThis(mozilla::MallocSizeOf mallocSizeOf);
+    size_t sizeOfIncludingThis(mozilla::MallocSizeOf mallocSizeOf) {
+        return mallocSizeOf(this) + sizeOfExcludingThis(mallocSizeOf);
+    }
+
   private:
     TraceLoggerEventPayload* getOrCreateEventPayload(TraceLoggerTextId type, const char* filename,
                                                      size_t lineno, size_t colno, const void* p);
@@ -476,6 +491,8 @@ inline void TraceLogStopEventPrivate(TraceLoggerThread* logger, uint32_t id) {
         logger->stopEvent(id);
 #endif
 }
+
+size_t SizeOfTraceLogState(mozilla::MallocSizeOf mallocSizeOf);
 
 // Automatic logging at the start and end of function call.
 class MOZ_RAII AutoTraceLog
