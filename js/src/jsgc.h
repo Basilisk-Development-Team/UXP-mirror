@@ -839,9 +839,6 @@ InitializeStaticData();
 class InterpreterFrame;
 
 extern void
-MarkCompartmentActive(js::InterpreterFrame* fp);
-
-extern void
 TraceRuntime(JSTracer* trc);
 
 extern void

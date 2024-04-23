@@ -2759,12 +2759,6 @@ SliceBudget::checkOverBudget()
 }
 
 void
-js::MarkCompartmentActive(InterpreterFrame* fp)
-{
-    fp->script()->compartment()->zone()->active = true;
-}
-
-void
 GCRuntime::requestMajorGC(JS::gcreason::Reason reason)
 {
     MOZ_ASSERT(!CurrentThreadIsPerformingGC());
@@ -5581,7 +5575,6 @@ GCRuntime::finishCollection(JS::gcreason::Reason reason)
         if (zone->isCollecting()) {
             MOZ_ASSERT(zone->isGCFinished());
             zone->setGCState(Zone::NoGC);
-            zone->active = false;
         }
 
         MOZ_ASSERT(!zone->isCollectingFromAnyThread());
