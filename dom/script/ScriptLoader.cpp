@@ -1108,7 +1108,8 @@ static void DynamicImportPrefChangedCallback(const char* aPrefName,
 
   AutoJSAPI jsapi;
   jsapi.Init();
-  JS::SetModuleDynamicImportHook(jsapi.cx(), hook);
+  JSRuntime* rt = JS_GetRuntime(jsapi.cx());
+  JS::SetModuleDynamicImportHook(rt, hook);
 }
 
 void ScriptLoader::EnsureModuleHooksInitialized() {
@@ -1120,8 +1121,8 @@ void ScriptLoader::EnsureModuleHooksInitialized() {
   }
 
   JS::SetModuleResolveHook(rt, HostResolveImportedModule);
-  JS::SetModuleMetadataHook(jsapi.cx(), HostPopulateImportMeta);
-  JS::SetScriptPrivateReferenceHooks(jsapi.cx(), HostAddRefTopLevelScript,
+  JS::SetModuleMetadataHook(rt, HostPopulateImportMeta);
+  JS::SetScriptPrivateReferenceHooks(rt, HostAddRefTopLevelScript,
                                      HostReleaseTopLevelScript);
 
   Preferences::RegisterCallbackAndCall(DynamicImportPrefChangedCallback,

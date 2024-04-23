@@ -1049,19 +1049,20 @@ struct JSRuntime : public js::MallocProvider<JSRuntime>
     js::RuntimeCaches& caches() { return caches_.ref(); }
 
     // The implementation-defined abstract operation HostResolveImportedModule.
-    JS::ModuleResolveHook moduleResolveHook;
+    js::ActiveThreadData<JS::ModuleResolveHook> moduleResolveHook;
 
     // A hook that implements the abstract operations
     // HostGetImportMetaProperties and HostFinalizeImportMeta.
-    JS::ModuleMetadataHook moduleMetadataHook;
+    js::ActiveThreadData<JS::ModuleMetadataHook> moduleMetadataHook;
 
     // A hook that implements the abstract operation
-    // HostImportModuleDynamically.
-    JS::ModuleDynamicImportHook moduleDynamicImportHook;
+    // HostImportModuleDynamically. This is also used to enable/disable dynamic
+    // module import and can accessed by off-thread parsing.
+    mozilla::Atomic<JS::ModuleDynamicImportHook> moduleDynamicImportHook;
 
     // Hooks called when script private references are created and destroyed.
-    JS::ScriptPrivateReferenceHook scriptPrivateAddRefHook;
-    JS::ScriptPrivateReferenceHook scriptPrivateReleaseHook;
+    js::ActiveThreadData<JS::ScriptPrivateReferenceHook> scriptPrivateAddRefHook;
+    js::ActiveThreadData<JS::ScriptPrivateReferenceHook> scriptPrivateReleaseHook;
 
     void addRefScriptPrivate(const JS::Value& value) {
       if (!value.isUndefined() && scriptPrivateAddRefHook) {

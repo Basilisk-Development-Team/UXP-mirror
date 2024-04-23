@@ -1601,21 +1601,30 @@ js::StartDynamicModuleImport(JSContext* cx, HandleValue referencingPrivate, Hand
 
     Handle<PromiseObject*> promise = promiseObject.as<PromiseObject>();
 
-    RootedString specifier(cx, ToString(cx, specifierArg));
-    if (!specifier) {
-        if (!RejectPromiseWithPendingError(cx, promise))
+    JS::ModuleDynamicImportHook importHook = cx->runtime()->moduleDynamicImportHook;
+    if (!importHook) {
+        JS_ReportErrorASCII(cx, "Dynamic module import is disabled");
+        if (!RejectPromiseWithPendingError(cx, promise)) {
             return nullptr;
+        }
         return promise;
     }
-
-    JS::ModuleDynamicImportHook importHook = cx->runtime()->moduleDynamicImportHook;
-    MOZ_ASSERT(importHook);
+    RootedString specifier(cx, ToString(cx, specifierArg));
+    if (!specifier) {
+        if (!RejectPromiseWithPendingError(cx, promise)) {
+            return nullptr;
+        }
+        return promise;
+    }
     cx->runtime()->addRefScriptPrivate(referencingPrivate);
     if (!importHook(cx, referencingPrivate, specifier, promise)) {
         cx->runtime()->releaseScriptPrivate(referencingPrivate);
 
-        if (!RejectPromiseWithPendingError(cx, promise))
+        // If there's no exception pending then the script is terminating
+        // anyway, so just return nullptr.
+        if (!cx->isExceptionPending() || !RejectPromiseWithPendingError(cx, promise)) {
             return nullptr;
+        }
         return promise;
     }
 

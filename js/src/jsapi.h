@@ -1009,9 +1009,6 @@ JS_NewCooperativeContext(JSContext* siblingContext);
 extern JS_PUBLIC_API(void)
 JS_DestroyContext(JSContext* cx);
 
-extern JS_PUBLIC_API(JSRuntime*)
-JS_GetRuntime(JSContext* cx);
-
 typedef double (*JS_CurrentEmbedderTimeFunction)();
 
 /**
@@ -1040,6 +1037,8 @@ JS_SetContextPrivate(JSContext* cx, void* data);
 extern JS_PUBLIC_API(JSRuntime*)
 JS_GetParentRuntime(JSContext* cx);
 
+extern JS_PUBLIC_API(JSRuntime*)
+JS_GetRuntime(JSContext* cx);
 extern JS_PUBLIC_API(void)
 JS_BeginRequest(JSContext* cx);
 
@@ -4447,14 +4446,14 @@ using ModuleMetadataHook = bool (*)(JSContext*, HandleObject, HandleObject);
  * Get the hook for populating the import.meta metadata object.
  */
 extern JS_PUBLIC_API(ModuleMetadataHook)
-GetModuleMetadataHook(JSContext* cx);
+GetModuleMetadataHook(JSRuntime* rt);
 
 /**
  * Set the hook for populating the import.meta metadata object to the given
  * function.
  */
 extern JS_PUBLIC_API(void)
-SetModuleMetadataHook(JSContext* cx, ModuleMetadataHook func);
+SetModuleMetadataHook(JSRuntime* rt, ModuleMetadataHook func);
 
 using ModuleDynamicImportHook = bool (*)(JSContext* cx, HandleValue referencingPrivate,
                                          HandleString specifier, HandleObject promise);
@@ -4463,13 +4462,13 @@ using ModuleDynamicImportHook = bool (*)(JSContext* cx, HandleValue referencingP
  * Get the HostResolveImportedModule hook for the runtime.
  */
 extern JS_PUBLIC_API(ModuleDynamicImportHook)
-GetModuleDynamicImportHook(JSContext* cx);
+GetModuleDynamicImportHook(JSRuntime* rt);
 
 /**
  * Set the HostResolveImportedModule hook for the runtime to the given function.
  */
 extern JS_PUBLIC_API(void)
-SetModuleDynamicImportHook(JSContext* cx, ModuleDynamicImportHook func);
+SetModuleDynamicImportHook(JSRuntime* rt, ModuleDynamicImportHook func);
 
 extern JS_PUBLIC_API(bool)
 FinishDynamicModuleImport(JSContext* cx, HandleValue referencingPrivate, HandleString specifier,
@@ -4527,7 +4526,7 @@ using ScriptPrivateReferenceHook = void (*)(const JS::Value&);
  * Set the script private finalize hook for the runtime to the given function.
  */
 extern JS_PUBLIC_API(void)
-SetScriptPrivateReferenceHooks(JSContext* cx, ScriptPrivateReferenceHook addRefHook,
+SetScriptPrivateReferenceHooks(JSRuntime* rt, ScriptPrivateReferenceHook addRefHook,
                                ScriptPrivateReferenceHook releaseHook);
 
 /*

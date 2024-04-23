@@ -4721,41 +4721,43 @@ JS::Evaluate(JSContext* cx, const ReadOnlyCompileOptions& optionsArg,
 JS_PUBLIC_API(JS::ModuleResolveHook)
 JS::GetModuleResolveHook(JSRuntime* rt)
 {
+    AssertHeapIsIdle();
     return rt->moduleResolveHook;
 }
 
 JS_PUBLIC_API(void)
 JS::SetModuleResolveHook(JSRuntime* rt, JS::ModuleResolveHook func)
 {
+    AssertHeapIsIdle();
     rt->moduleResolveHook = func;
 }
 
 JS_PUBLIC_API(JS::ModuleMetadataHook)
-JS::GetModuleMetadataHook(JSContext* cx)
+JS::GetModuleMetadataHook(JSRuntime* rt)
 {
     AssertHeapIsIdle();
-    return cx->runtime()->moduleMetadataHook;
+    return rt->moduleMetadataHook;
 }
 
 JS_PUBLIC_API(void)
-JS::SetModuleMetadataHook(JSContext* cx, JS::ModuleMetadataHook func)
+JS::SetModuleMetadataHook(JSRuntime* rt, JS::ModuleMetadataHook func)
 {
     AssertHeapIsIdle();
-    cx->runtime()->moduleMetadataHook = func;
+    rt->moduleMetadataHook = func;
 }
 
 JS_PUBLIC_API(JS::ModuleDynamicImportHook)
-JS::GetModuleDynamicImportHook(JSContext* cx)
+JS::GetModuleDynamicImportHook(JSRuntime* rt)
 {
     AssertHeapIsIdle();
-    return cx->runtime()->moduleDynamicImportHook;
+    return rt->moduleDynamicImportHook;
 }
 
 JS_PUBLIC_API(void)
-JS::SetModuleDynamicImportHook(JSContext* cx, JS::ModuleDynamicImportHook func)
+JS::SetModuleDynamicImportHook(JSRuntime* rt, JS::ModuleDynamicImportHook func)
 {
     AssertHeapIsIdle();
-    cx->runtime()->moduleDynamicImportHook = func;
+    rt->moduleDynamicImportHook = func;
 }
 
 JS_PUBLIC_API(bool)
@@ -4820,12 +4822,12 @@ JS::GetScriptedCallerPrivate(JSContext* cx)
 }
 
 JS_PUBLIC_API(void)
-JS::SetScriptPrivateReferenceHooks(JSContext* cx, JS::ScriptPrivateReferenceHook addRefHook,
+JS::SetScriptPrivateReferenceHooks(JSRuntime* rt, JS::ScriptPrivateReferenceHook addRefHook,
                                    JS::ScriptPrivateReferenceHook releaseHook)
 {
   AssertHeapIsIdle();
-  cx->runtime()->scriptPrivateAddRefHook = addRefHook;
-  cx->runtime()->scriptPrivateReleaseHook = releaseHook;
+  rt->scriptPrivateAddRefHook = addRefHook;
+  rt->scriptPrivateReleaseHook = releaseHook;
 }
 
 JS_PUBLIC_API(bool)
