@@ -527,9 +527,6 @@ struct Zone : public JS::shadow::Zone,
         return !isAtomsZone() && group()->usedByHelperThread;
     }
 
-    // True when there are active frames.
-    bool active;
-
 #ifdef DEBUG
     js::ZoneGroupData<unsigned> gcLastZoneGroupIndex;
 #endif

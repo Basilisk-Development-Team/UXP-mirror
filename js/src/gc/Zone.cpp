@@ -51,7 +51,6 @@ JS::Zone::Zone(JSRuntime* rt, ZoneGroup* group)
     nurseryShapes_(group),
     data(group, nullptr),
     isSystem(group, false),
-    active(false),
 #ifdef DEBUG
     gcLastZoneGroupIndex(group, 0),
 #endif
@@ -110,11 +109,6 @@ Zone::setNeedsIncrementalBarrier(bool needs)
 void
 Zone::beginSweepTypes(FreeOp* fop, bool releaseTypes)
 {
-    // Periodically release observed types for all scripts. This is safe to
-    // do when there are no frames for the zone on the stack.
-    if (active)
-        releaseTypes = false;
-
     AutoClearTypeInferenceStateOnOOM oom(this);
     types.beginSweep(fop, releaseTypes, oom);
 }
