@@ -8,6 +8,7 @@
 
 #include "mozilla/ArrayUtils.h"
 #include "mozilla/Maybe.h"
+#include "mozilla/PodOperations.h"
 
 #include "jscntxt.h"
 
@@ -60,6 +61,49 @@ class MOZ_RAII AutoPrepareForTracing
 AbortReason
 IsIncrementalGCUnsafe(JSRuntime* rt);
 
+#ifdef JS_GC_ZEAL
+
+class MOZ_RAII AutoStopVerifyingBarriers
+{
+    GCRuntime* gc;
+    bool restartPreVerifier;
+
+  public:
+    AutoStopVerifyingBarriers(JSRuntime* rt, bool isShutdown)
+      : gc(&rt->gc)
+    {
+        if (gc->isVerifyPreBarriersEnabled()) {
+            gc->endVerifyPreBarriers();
+            restartPreVerifier = !isShutdown;
+        } else {
+            restartPreVerifier = false;
+        }
+    }
+
+    ~AutoStopVerifyingBarriers() {
+        // Nasty special case: verification runs a minor GC, which *may* nest
+        // inside of an outer minor GC. This is not allowed by the
+        // gc::Statistics phase tree. So we pause the "real" GC, if in fact one
+        // is in progress.
+        gcstats::Phase outer = gc->stats().currentPhase();
+        if (outer != gcstats::PHASE_NONE)
+            gc->stats().endPhase(outer);
+        MOZ_ASSERT(gc->stats().currentPhase() == gcstats::PHASE_NONE);
+
+        if (restartPreVerifier)
+            gc->startVerifyPreBarriers();
+
+        if (outer != gcstats::PHASE_NONE)
+            gc->stats().beginPhase(outer);
+    }
+};
+#else
+struct MOZ_RAII AutoStopVerifyingBarriers
+{
+    AutoStopVerifyingBarriers(JSRuntime*, bool) {}
+};
+#endif /* JS_GC_ZEAL */
+
 #ifdef JSGC_HASH_TABLE_CHECKS
 void CheckHashTablesAfterMovingGC(JSRuntime* rt);
 void CheckHeapAfterGC(JSRuntime* rt);
@@ -107,9 +151,9 @@ struct TenureCountCache
     static const size_t EntryShift = 4;
     static const size_t EntryCount = 1 << EntryShift;
 
-    TenureCount entries[EntryCount] = {}; // zeroes
+    TenureCount entries[EntryCount];
 
-    TenureCountCache() = default;
+    TenureCountCache() { mozilla::PodZero(this); }
 
     HashNumber hash(ObjectGroup* group) {
 #if JS_BITS_PER_WORD == 32

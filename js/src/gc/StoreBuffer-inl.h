@@ -1,4 +1,5 @@
 /* -*- Mode: C++; tab-width: 8; indent-tabs-mode: nil; c-basic-offset: 4 -*-
+ * vim: set ts=8 sts=4 et sw=4 tw=99:
  * This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -18,27 +19,28 @@ namespace gc {
 inline /* static */ size_t
 ArenaCellSet::getCellIndex(const TenuredCell* cell)
 {
-    MOZ_ASSERT((uintptr_t(cell) & ~ArenaMask) % CellSize == 0);
-    return (uintptr_t(cell) & ArenaMask) / CellSize;
+    uintptr_t cellOffset = uintptr_t(cell) & ArenaMask;
+    MOZ_ASSERT(cellOffset % ArenaCellIndexBytes == 0);
+    return cellOffset / ArenaCellIndexBytes;
 }
 
 inline /* static */ void
 ArenaCellSet::getWordIndexAndMask(size_t cellIndex, size_t* wordp, uint32_t* maskp)
 {
-    BitArray<ArenaCellCount>::getIndexAndMask(cellIndex, wordp, maskp);
+    BitArray<MaxArenaCellIndex>::getIndexAndMask(cellIndex, wordp, maskp);
 }
 
 inline bool
 ArenaCellSet::hasCell(size_t cellIndex) const
 {
-    MOZ_ASSERT(cellIndex < ArenaCellCount);
+    MOZ_ASSERT(cellIndex < MaxArenaCellIndex);
     return bits.get(cellIndex);
 }
 
 inline void
 ArenaCellSet::putCell(size_t cellIndex)
 {
-    MOZ_ASSERT(cellIndex < ArenaCellCount);
+    MOZ_ASSERT(cellIndex < MaxArenaCellIndex);
     bits.set(cellIndex);
 }
 

@@ -1,4 +1,5 @@
 /* -*- Mode: C++; tab-width: 8; indent-tabs-mode: nil; c-basic-offset: 4 -*-
+ * vim: set ts=8 sts=4 et sw=4 tw=99:
  * This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -79,18 +80,18 @@ StoreBuffer::clear()
     bufferGeneric.clear();
 
     for (ArenaCellSet* set = bufferWholeCell; set; set = set->next)
-         set->arena->bufferedCells() = nullptr;
+        set->arena->bufferedCells() = nullptr;
     bufferWholeCell = nullptr;
 }
 
 void
-StoreBuffer::setAboutToOverflow(JS::gcreason::Reason reason)
+StoreBuffer::setAboutToOverflow()
 {
     if (!aboutToOverflow_) {
         aboutToOverflow_ = true;
         runtime_->gc.stats().count(gcstats::STAT_STOREBUFFER_OVERFLOW);
     }
-    nursery_.requestMinorGC(reason);
+    nursery_.requestMinorGC(JS::gcreason::FULL_STORE_BUFFER);
 }
 
 void
@@ -137,7 +138,7 @@ js::gc::AllocateWholeCellSet(Arena* arena)
     }
 
     if (nursery.freeSpace() < ArenaCellSet::NurseryFreeThresholdBytes)
-        zone->group()->storeBuffer().setAboutToOverflow(JS::gcreason::FULL_WHOLE_CELL_BUFFER);
+        zone->group()->storeBuffer().setAboutToOverflow();
 
     auto cells = static_cast<ArenaCellSet*>(data);
     new (cells) ArenaCellSet(arena);

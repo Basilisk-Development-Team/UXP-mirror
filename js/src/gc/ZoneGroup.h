@@ -28,7 +28,6 @@ typedef Vector<JS::Zone*, 4, SystemAllocPolicy> ZoneVector;
 // to the data they are using. Most data in a zone group, its zones,
 // compartments, GC things and so forth may only be used by the thread that has
 // entered the zone group.
-//
 
 class ZoneGroup
 {
@@ -42,11 +41,15 @@ class ZoneGroup
     // The number of times the context has entered this zone group.
     UnprotectedData<size_t> enterCount;
 
-   public:
+    // If this flag is true, then we may need to block before entering this zone
+    // group. Blocking happens using JSContext::yieldToEmbedding.
+    UnprotectedData<bool> useExclusiveLocking;
+
+  public:
     CooperatingContext& ownerContext() { return ownerContext_.ref(); }
     void* addressOfOwnerContext() { return &ownerContext_.ref().cx; }
 
-    void enter();
+    void enter(JSContext* cx);
     void leave();
     bool ownedByCurrentThread();
 
@@ -69,6 +72,9 @@ class ZoneGroup
 
     inline bool isCollecting();
     inline bool isGCScheduled();
+
+    // See the useExclusiveLocking field above.
+    void setUseExclusiveLocking() { useExclusiveLocking = true; }
 
 #ifdef DEBUG
   private:
@@ -99,8 +105,7 @@ class ZoneGroup
     // thread state lock, but may be read from at other times.
     mozilla::Atomic<size_t> numFinishedBuilders;
 
-
-    private:
+  private:
     /* List of Ion compilation waiting to get linked. */
     typedef mozilla::LinkedList<js::jit::IonBuilder> IonBuilderList;
 
