@@ -1,4 +1,5 @@
 /* -*- Mode: C++; tab-width: 8; indent-tabs-mode: nil; c-basic-offset: 4 -*- */
+/* vim: set ts=8 sts=4 et sw=4 tw=99: */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -57,8 +58,7 @@
  * nsIXPCScriptable). This allows it to implement a more DOM-like interface,
  * besides just exposing XPCOM methods and constants. An nsIXPCScriptable
  * instance has hooks that correspond to all the normal JSClass hooks. Each
- * nsIXPCScriptable instance is mirrored by an XPCNativeScriptableInfo in
- * XPConnect. These can have pointers from XPCWrappedNativeProto and
+ * nsIXPCScriptable instance can have pointers from XPCWrappedNativeProto and
  * XPCWrappedNative (since C++ objects can have scriptable info without having
  * class info).
  */
@@ -118,7 +118,6 @@
 #include "xpcexception.h"
 #include "xpcjsid.h"
 #include "prenv.h"
-#include "prclist.h"
 #include "prcvar.h"
 #include "nsString.h"
 #include "nsReadableUtils.h"
@@ -593,6 +592,7 @@ private:
     AutoMarkingPtr*          mAutoRoots;
     jsid                     mResolveName;
     XPCWrappedNative*        mResolvingWrapper;
+
     JSObject2WrappedJSMap*   mWrappedJSMap;
     IID2WrappedJSClassMap*   mWrappedJSClassMap;
     IID2NativeInterfaceMap*  mIID2NativeInterfaceMap;
@@ -699,7 +699,7 @@ public:
     inline bool                         CanGetTearOff() const ;
     inline XPCWrappedNativeTearOff*     GetTearOff() const ;
 
-    inline XPCNativeScriptableInfo*     GetScriptableInfo() const ;
+    inline nsIXPCScriptable*            GetScriptable() const ;
     inline bool                         CanGetSet() const ;
     inline XPCNativeSet*                GetSet() const ;
     inline bool                         CanGetInterface() const ;
@@ -775,7 +775,7 @@ private:
     XPCWrappedNative*               mWrapper;
     XPCWrappedNativeTearOff*        mTearOff;
 
-    XPCNativeScriptableInfo*        mScriptableInfo;
+    nsCOMPtr<nsIXPCScriptable>      mScriptable;
 
     RefPtr<XPCNativeSet>            mSet;
     RefPtr<XPCNativeInterface>      mInterface;
@@ -841,7 +841,7 @@ typedef nsTArray<InterpositionWhitelistPair> InterpositionWhitelistArray;
 
 class nsIAddonInterposition;
 class nsXPCComponentsBase;
-class XPCWrappedNativeScope final : public PRCList
+class XPCWrappedNativeScope final
 {
 public:
 
@@ -1382,145 +1382,6 @@ class XPCNativeSet final
     XPCNativeInterface*     mInterfaces[1];
 };
 
-/***************************************************************************/
-// XPCNativeScriptableFlags is a wrapper class that holds the flags returned
-// from calls to nsIXPCScriptable::GetScriptableFlags(). It has convenience
-// methods to check for particular bitflags.
-
-class XPCNativeScriptableFlags final
-{
-public:
-    explicit XPCNativeScriptableFlags(uint32_t flags = 0) : mFlags(flags) {}
-
-    uint32_t GetFlags() const { return mFlags; }
-    void SetFlags(uint32_t flags) { mFlags = flags; }
-
-    operator uint32_t() const { return GetFlags(); }
-
-    XPCNativeScriptableFlags(const XPCNativeScriptableFlags& r)
-    {
-        mFlags = r.GetFlags();
-    }
-
-    XPCNativeScriptableFlags& operator= (const XPCNativeScriptableFlags& r)
-    {
-        mFlags = r.GetFlags();
-        return *this;
-    }
-
-#ifdef GET_IT
-#undef GET_IT
-#endif
-#define GET_IT(f_) const { return 0 != (mFlags & nsIXPCScriptable:: f_ ); }
-
-    bool WantPreCreate()                GET_IT(WANT_PRECREATE)
-    bool WantAddProperty()              GET_IT(WANT_ADDPROPERTY)
-    bool WantGetProperty()              GET_IT(WANT_GETPROPERTY)
-    bool WantSetProperty()              GET_IT(WANT_SETPROPERTY)
-    bool WantEnumerate()                GET_IT(WANT_ENUMERATE)
-    bool WantNewEnumerate()             GET_IT(WANT_NEWENUMERATE)
-    bool WantResolve()                  GET_IT(WANT_RESOLVE)
-    bool WantFinalize()                 GET_IT(WANT_FINALIZE)
-    bool WantCall()                     GET_IT(WANT_CALL)
-    bool WantConstruct()                GET_IT(WANT_CONSTRUCT)
-    bool WantHasInstance()              GET_IT(WANT_HASINSTANCE)
-    bool UseJSStubForAddProperty()      GET_IT(USE_JSSTUB_FOR_ADDPROPERTY)
-    bool UseJSStubForDelProperty()      GET_IT(USE_JSSTUB_FOR_DELPROPERTY)
-    bool UseJSStubForSetProperty()      GET_IT(USE_JSSTUB_FOR_SETPROPERTY)
-    bool DontEnumQueryInterface()       GET_IT(DONT_ENUM_QUERY_INTERFACE)
-    bool DontAskInstanceForScriptable() GET_IT(DONT_ASK_INSTANCE_FOR_SCRIPTABLE)
-    bool ClassInfoInterfacesOnly()      GET_IT(CLASSINFO_INTERFACES_ONLY)
-    bool AllowPropModsDuringResolve()   GET_IT(ALLOW_PROP_MODS_DURING_RESOLVE)
-    bool AllowPropModsToPrototype()     GET_IT(ALLOW_PROP_MODS_TO_PROTOTYPE)
-    bool IsGlobalObject()               GET_IT(IS_GLOBAL_OBJECT)
-    bool DontReflectInterfaceNames()    GET_IT(DONT_REFLECT_INTERFACE_NAMES)
-
-#undef GET_IT
-
-private:
-    uint32_t mFlags;
-};
-
-/***************************************************************************/
-// XPCNativeScriptableInfo is a trivial wrapper for nsIXPCScriptable which
-// should be removed eventually.
-
-class XPCNativeScriptableInfo final
-{
-public:
-    static XPCNativeScriptableInfo*
-    Construct(const XPCNativeScriptableCreateInfo* sci);
-
-    nsIXPCScriptable*
-    GetCallback() const { return mCallback; }
-
-    XPCNativeScriptableFlags
-    GetFlags() const { return XPCNativeScriptableFlags(mCallback->GetScriptableFlags()); }
-
-    const JSClass*
-    GetJSClass() { return Jsvalify(mCallback->GetClass()); }
-
-protected:
-    explicit XPCNativeScriptableInfo(nsIXPCScriptable* aCallback)
-        : mCallback(aCallback)
-    {
-        MOZ_COUNT_CTOR(XPCNativeScriptableInfo);
-    }
-public:
-    ~XPCNativeScriptableInfo()
-    {
-        MOZ_COUNT_DTOR(XPCNativeScriptableInfo);
-    }
-private:
-
-    // disable copy ctor and assignment
-    XPCNativeScriptableInfo(const XPCNativeScriptableInfo& r) = delete;
-    XPCNativeScriptableInfo& operator= (const XPCNativeScriptableInfo& r) = delete;
-
-private:
-    nsCOMPtr<nsIXPCScriptable> mCallback;
-};
-
-/***************************************************************************/
-// XPCNativeScriptableCreateInfo is used in creating new wrapper and protos.
-// it abstracts out the scriptable interface pointer and the flags. After
-// creation these are factored differently using XPCNativeScriptableInfo.
-
-class MOZ_STACK_CLASS XPCNativeScriptableCreateInfo final
-{
-public:
-
-    explicit XPCNativeScriptableCreateInfo(const XPCNativeScriptableInfo& si)
-        : mCallback(si.GetCallback()), mFlags(si.GetFlags()) {}
-
-    XPCNativeScriptableCreateInfo(already_AddRefed<nsIXPCScriptable>&& callback,
-                                  XPCNativeScriptableFlags flags)
-        : mCallback(callback), mFlags(flags) {}
-
-    XPCNativeScriptableCreateInfo()
-        : mFlags(0) {}
-
-
-    nsIXPCScriptable*
-    GetCallback() const {return mCallback;}
-
-    const XPCNativeScriptableFlags&
-    GetFlags() const      {return mFlags;}
-
-    void
-    SetCallback(already_AddRefed<nsIXPCScriptable>&& callback)
-        {mCallback = callback;}
-
-    void
-    SetFlags(const XPCNativeScriptableFlags& flags)  {mFlags = flags;}
-
-private:
-    // XXX: the flags are the same as the ones gettable from the callback. This
-    // redundancy should be removed eventually.
-    nsCOMPtr<nsIXPCScriptable>  mCallback;
-    XPCNativeScriptableFlags    mFlags;
-};
-
 /***********************************************/
 // XPCWrappedNativeProto hold the additional shared wrapper data
 // for XPCWrappedNative whose native objects expose nsIClassInfo.
@@ -1531,7 +1392,7 @@ public:
     static XPCWrappedNativeProto*
     GetNewOrUsed(XPCWrappedNativeScope* scope,
                  nsIClassInfo* classInfo,
-                 const XPCNativeScriptableCreateInfo* scriptableCreateInfo,
+                 nsIXPCScriptable* scriptable,
                  bool callPostCreatePrototype = true);
 
     XPCWrappedNativeScope*
@@ -1552,8 +1413,8 @@ public:
     XPCNativeSet*
     GetSet()           const {return mSet;}
 
-    XPCNativeScriptableInfo*
-    GetScriptableInfo()   {return mScriptableInfo;}
+    nsIXPCScriptable*
+    GetScriptable() const { return mScriptable; }
 
     bool CallPostCreatePrototype();
     void JSProtoObjectFinalized(js::FreeOp* fop, JSObject* obj);
@@ -1599,8 +1460,7 @@ protected:
                           nsIClassInfo* ClassInfo,
                           already_AddRefed<XPCNativeSet>&& Set);
 
-    bool Init(const XPCNativeScriptableCreateInfo* scriptableCreateInfo,
-              bool callPostCreatePrototype);
+    bool Init(nsIXPCScriptable* scriptable, bool callPostCreatePrototype);
 
 private:
 #ifdef DEBUG
@@ -1612,7 +1472,7 @@ private:
     JS::ObjectPtr            mJSProtoObject;
     nsCOMPtr<nsIClassInfo>   mClassInfo;
     RefPtr<XPCNativeSet>     mSet;
-    XPCNativeScriptableInfo* mScriptableInfo;
+    nsCOMPtr<nsIXPCScriptable> mScriptable;
 };
 
 /***********************************************/
@@ -1775,11 +1635,8 @@ private:
 
 public:
 
-    XPCNativeScriptableInfo*
-    GetScriptableInfo() const {return mScriptableInfo;}
-
-    nsIXPCScriptable*      // call this wrong and you deserve to crash
-    GetScriptableCallback() const  {return mScriptableInfo->GetCallback();}
+    nsIXPCScriptable*
+    GetScriptable() const { return mScriptable; }
 
     nsIClassInfo*
     GetClassInfo() const {return IsValid() && HasProto() ?
@@ -1872,8 +1729,7 @@ public:
     // Returns a string that shuld be free'd using JS_smprintf_free (or null).
     char* ToString(XPCWrappedNativeTearOff* to = nullptr) const;
 
-    static void GatherProtoScriptableCreateInfo(nsIClassInfo* classInfo,
-                                                XPCNativeScriptableCreateInfo& sciProto);
+    static nsIXPCScriptable* GatherProtoScriptable(nsIClassInfo* classInfo);
 
     bool HasExternalReference() const {return mRefCnt > 1;}
 
@@ -1896,15 +1752,13 @@ protected:
     virtual ~XPCWrappedNative();
     void Destroy();
 
-    void UpdateScriptableInfo(XPCNativeScriptableInfo* si);
-
 private:
     enum {
         // Flags bits for mFlatJSObject:
         FLAT_JS_OBJECT_VALID = JS_BIT(0)
     };
 
-    bool Init(const XPCNativeScriptableCreateInfo* sci);
+    bool Init(nsIXPCScriptable* scriptable);
     bool FinishInit();
 
     bool ExtendSet(XPCNativeInterface* aInterface);
@@ -1916,10 +1770,10 @@ private:
     bool InitTearOffJSObject(XPCWrappedNativeTearOff* to);
 
 public:
-    static const XPCNativeScriptableCreateInfo& GatherScriptableCreateInfo(nsISupports* obj,
-                                                                           nsIClassInfo* classInfo,
-                                                                           XPCNativeScriptableCreateInfo& sciProto,
-                                                                           XPCNativeScriptableCreateInfo& sciWrapper);
+    static void GatherScriptable(nsISupports* obj,
+                                 nsIClassInfo* classInfo,
+                                 nsIXPCScriptable** scrProto,
+                                 nsIXPCScriptable** scrWrapper);
 
 private:
     union
@@ -1929,7 +1783,7 @@ private:
     };
     RefPtr<XPCNativeSet> mSet;
     JS::TenuredHeap<JSObject*> mFlatJSObject;
-    XPCNativeScriptableInfo* mScriptableInfo;
+    nsCOMPtr<nsIXPCScriptable> mScriptable;
     XPCWrappedNativeTearOff mFirstTearOff;
 };
 
@@ -2431,7 +2285,7 @@ class nsJSIID : public nsIJSIID,
 public:
     NS_DECL_ISUPPORTS
 
-    // we manually delagate these to nsJSID
+    // we manually delegate these to nsJSID
     NS_DECL_NSIJSID
 
     // we implement the rest...
@@ -2456,7 +2310,7 @@ class nsJSCID : public nsIJSCID, public nsIXPCScriptable
 public:
     NS_DECL_ISUPPORTS
 
-    // we manually delagate these to nsJSID
+    // we manually delegate these to nsJSID
     NS_DECL_NSIJSID
 
     // we implement the rest...
@@ -2604,13 +2458,14 @@ public:
                     MOZ_GUARD_OBJECT_NOTIFIER_PARAM) :
           mOld(ccx, XPCJSContext::Get()->SetResolveName(name))
 #ifdef DEBUG
-          ,mCheck(ccx, name)
+        ,mCheck(ccx, name)
 #endif
     {
         MOZ_GUARD_OBJECT_NOTIFIER_INIT;
     }
+
     ~AutoResolveName()
-        {
+    {
 #ifdef DEBUG
             jsid old =
 #endif
@@ -2816,7 +2671,7 @@ public:
     XPCTraceableVariant(JSContext* cx, const JS::Value& aJSVal)
         : XPCVariant(cx, aJSVal)
     {
-         nsXPConnect::GetContextInstance()->AddVariantRoot(this);
+        nsXPConnect::GetContextInstance()->AddVariantRoot(this);
     }
 
     virtual ~XPCTraceableVariant();
@@ -2885,9 +2740,9 @@ struct GlobalProperties {
     bool crypto : 1;
     bool rtcIdentityProvider : 1;
     bool fetch : 1;
-    bool structuredClone : 1;
     bool caches : 1;
     bool fileReader: 1;
+    bool messageChannel: 1;
 private:
     bool Define(JSContext* cx, JS::HandleObject obj);
 };

@@ -1,4 +1,5 @@
 /* -*- Mode: C++; tab-width: 8; indent-tabs-mode: nil; c-basic-offset: 4 -*- */
+/* vim: set ts=8 sts=4 et sw=4 tw=99: */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -101,6 +102,12 @@ public:
     JSObject* ensureExpandoObject(JSContext* cx, JS::HandleObject wrapper,
                                   JS::HandleObject target);
 
+    // Slots for holder objects.
+    enum {
+        HOLDER_SLOT_CACHED_PROTO = 0,
+        HOLDER_SHARED_SLOT_COUNT
+    };
+
     JSObject* getHolder(JSObject* wrapper);
     JSObject* ensureHolder(JSContext* cx, JS::HandleObject wrapper);
     virtual JSObject* createHolder(JSContext* cx, JSObject* wrapper) = 0;
@@ -110,6 +117,8 @@ public:
     bool cloneExpandoChain(JSContext* cx, JS::HandleObject dst, JS::HandleObject src);
 
 protected:
+    static const JSClass HolderClass;
+
     // Get the JSClass we should use for our expando object.
     virtual const JSClass* getExpandoClass(JSContext* cx,
                                            JS::HandleObject target) const;
@@ -118,7 +127,7 @@ private:
     bool expandoObjectMatchesConsumer(JSContext* cx, JS::HandleObject expandoObject,
                                       nsIPrincipal* consumerOrigin,
                                       JS::HandleObject exclusiveGlobal);
-    bool getExpandoObjectInternal(JSContext* cx, JS::HandleObject target,
+    bool getExpandoObjectInternal(JSContext* cx, JSObject* expandoChain,
                                   nsIPrincipal* origin, JSObject* exclusiveGlobal,
                                   JS::MutableHandleObject expandoObject);
     JSObject* attachExpandoObject(JSContext* cx, JS::HandleObject target,
@@ -303,7 +312,7 @@ public:
     }
 
     enum {
-        SLOT_PROTOKEY = 0,
+        SLOT_PROTOKEY = HOLDER_SHARED_SLOT_COUNT,
         SLOT_ISPROTOTYPE,
         SLOT_CONSTRUCTOR_FOR,
         SLOT_COUNT
@@ -423,7 +432,7 @@ public:
 
     virtual JSObject* createHolder(JSContext* cx, JSObject* wrapper) override
     {
-        return JS_NewObjectWithGivenProto(cx, nullptr, nullptr);
+        return JS_NewObjectWithGivenProto(cx, &HolderClass, nullptr);
     }
 
     static OpaqueXrayTraits singleton;
@@ -484,8 +493,6 @@ class XrayWrapper : public Base {
                                               JS::AutoIdVector& props) const override;
 
     virtual bool getBuiltinClass(JSContext* cx, JS::HandleObject wapper, js::ESClass* cls) const override;
-    virtual bool hasInstance(JSContext* cx, JS::HandleObject wrapper,
-                             JS::MutableHandleValue v, bool* bp) const override;
     virtual const char* className(JSContext* cx, JS::HandleObject proxy) const override;
 
     static const XrayWrapper singleton;

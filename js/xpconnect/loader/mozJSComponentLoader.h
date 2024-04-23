@@ -1,4 +1,5 @@
 /* -*- Mode: C++; tab-width: 8; indent-tabs-mode: nil; c-basic-offset: 4 -*- */
+/* vim: set ts=8 sts=4 et sw=4 tw=99: */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -46,8 +47,8 @@ class mozJSComponentLoader : public mozilla::ModuleLoader,
     // ModuleLoader
     const mozilla::Module* LoadModule(mozilla::FileLocation& aFile) override;
 
-    nsresult FindTargetObject(JSContext* aCx,
-                              JS::MutableHandleObject aTargetObject);
+    void FindTargetObject(JSContext* aCx,
+                          JS::MutableHandleObject aTargetObject);
 
     static mozJSComponentLoader* Get() { return sSelf; }
 
@@ -61,10 +62,13 @@ class mozJSComponentLoader : public mozilla::ModuleLoader,
     nsresult ReallyInit();
     void UnloadModules();
 
+    void CreateLoaderGlobal(JSContext* aCx,
+                            JSAddonId* aAddonID,
+                            JS::MutableHandleObject aGlobal);
+
     JSObject* PrepareObjectForLocation(JSContext* aCx,
                                        nsIFile* aComponentFile,
                                        nsIURI* aComponent,
-                                       bool aReuseLoaderGlobal,
                                        bool* aRealFile);
 
     nsresult ObjectForLocation(ComponentLoaderInfo& aInfo,
@@ -82,7 +86,6 @@ class mozJSComponentLoader : public mozilla::ModuleLoader,
 
     nsCOMPtr<nsIComponentManager> mCompMgr;
     nsCOMPtr<nsIPrincipal> mSystemPrincipal;
-    nsCOMPtr<nsIXPConnectJSObjectHolder> mLoaderGlobal;
 
     class ModuleEntry : public mozilla::Module
     {
@@ -154,7 +157,6 @@ class mozJSComponentLoader : public mozilla::ModuleLoader,
     nsDataHashtable<nsCStringHashKey, ModuleEntry*> mInProgressImports;
 
     bool mInitialized;
-    bool mReuseLoaderGlobal;
 };
 
 #endif

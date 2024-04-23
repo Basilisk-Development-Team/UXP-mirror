@@ -1,4 +1,5 @@
 /* -*- indent-tabs-mode: nil; js-indent-level: 4 -*-
+ * vim: sw=4 ts=4 sts=4 et
  * This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -149,6 +150,18 @@ add_test(function test_defineLazyPreferenceGetter()
     Preferences.reset(PREF);
 
     equal(obj.pref, "defaultValue", "Should return default value after pref is reset");
+
+    obj = {};
+    XPCOMUtils.defineLazyPreferenceGetter(obj, "pref", PREF, "a,b",
+                                          null, value => value.split(","));
+
+    deepEqual(obj.pref, ["a", "b"], "transform is applied to default value");
+
+    Preferences.set(PREF, "x,y,z");
+    deepEqual(obj.pref, ["x", "y", "z"], "transform is applied to updated value");
+
+    Preferences.reset(PREF);
+    deepEqual(obj.pref, ["a", "b"], "transform is applied to reset default");
 
     run_next_test();
 });

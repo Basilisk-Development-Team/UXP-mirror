@@ -1,4 +1,5 @@
 /* -*- Mode: C++; tab-width: 8; indent-tabs-mode: nil; c-basic-offset: 4 -*- */
+/* vim: set ts=8 sts=4 et sw=4 tw=99: */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -21,6 +22,21 @@ using namespace js;
 using namespace JS;
 
 namespace xpc {
+
+static inline void
+ReportASCIIErrorWithId(JSContext* cx, const char* msg, HandleId id)
+{
+    RootedValue idv(cx);
+    if (!JS_IdToValue(cx, id, &idv))
+        return;
+    RootedString idstr(cx, JS::ToString(cx, idv));
+    if (!idstr)
+        return;
+    JSAutoByteString bytes;
+    if (!bytes.encodeUtf8(cx, idstr))
+        return;
+    JS_ReportErrorUTF8(cx, msg, bytes.ptr());
+}
 
 bool
 InterposeProperty(JSContext* cx, HandleObject target, const nsIID* iid, HandleId id,
@@ -230,7 +246,7 @@ AddonWrapper<Base>::defineProperty(JSContext* cx, HandleObject wrapper, HandleId
     if (!interpDesc.object())
         return Base::defineProperty(cx, wrapper, id, desc, result);
 
-    js::ReportASCIIErrorWithId(cx, "unable to modify interposed property %s", id);
+    ReportASCIIErrorWithId(cx, "unable to modify interposed property %s", id);
     return false;
 }
 
@@ -246,7 +262,7 @@ AddonWrapper<Base>::delete_(JSContext* cx, HandleObject wrapper, HandleId id,
     if (!desc.object())
         return Base::delete_(cx, wrapper, id, result);
 
-    js::ReportASCIIErrorWithId(cx, "unable to delete interposed property %s", id);
+    ReportASCIIErrorWithId(cx, "unable to delete interposed property %s", id);
     return false;
 }
 

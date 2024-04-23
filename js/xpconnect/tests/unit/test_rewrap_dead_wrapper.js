@@ -30,5 +30,4 @@ function run_test()
 
   let liveObj = {};
   ok(liveObj === sb.echo(liveObj), "Rewrapped live object should be equal to itself");
-
 }

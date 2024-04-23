@@ -1,4 +1,5 @@
 /* -*- Mode: C++; tab-width: 8; indent-tabs-mode: nil; c-basic-offset: 4 -*- */
+/* vim: set ts=8 sts=4 et sw=4 tw=99: */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -179,7 +180,7 @@ XPCArrayHomogenizer::GetTypeForArray(JSContext* cx, HandleObject array,
             type = tDbl;
         } else if (val.isBoolean()) {
             type = tBool;
-        } else if (val.isUndefined() || val.isSymbol() || val.isBigInt()) {
+        } else if (val.isUndefined() || val.isSymbol()) {
             state = tVar;
             break;
         } else if (val.isNull()) {
@@ -187,7 +188,7 @@ XPCArrayHomogenizer::GetTypeForArray(JSContext* cx, HandleObject array,
         } else if (val.isString()) {
             type = tStr;
         } else {
-            MOZ_RELEASE_ASSERT(val.isObject(), "invalid type of jsval!");
+            MOZ_ASSERT(val.isObject(), "invalid type of jsval!");
             jsobj = &val.toObject();
 
             bool isArray;
@@ -274,8 +275,8 @@ bool XPCVariant::InitializeData(JSContext* cx)
         mData.SetFromBool(val.toBoolean());
         return true;
     }
-    // We can't represent symbol or BigInt on C++ side, so pretend it is void.
-    if (val.isUndefined() || val.isSymbol() || val.isBigInt()) {
+    // We can't represent symbol on C++ side, so pretend it is void.
+    if (val.isUndefined() || val.isSymbol()) {
         mData.SetToVoid();
         return true;
     }
@@ -303,7 +304,7 @@ bool XPCVariant::InitializeData(JSContext* cx)
     }
 
     // leaving only JSObject...
-    MOZ_RELEASE_ASSERT(val.isObject(), "invalid type of jsval!");
+    MOZ_ASSERT(val.isObject(), "invalid type of jsval!");
 
     RootedObject jsobj(cx, &val.toObject());
 

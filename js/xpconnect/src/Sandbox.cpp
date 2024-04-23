@@ -1,4 +1,5 @@
 /* -*- Mode: C++; tab-width: 8; indent-tabs-mode: nil; c-basic-offset: 4 -*- */
+/* vim: set ts=8 sts=4 et sw=4 tw=99: */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -34,6 +35,8 @@
 #include "mozilla/dom/IndexedDatabaseManager.h"
 #include "mozilla/dom/Fetch.h"
 #include "mozilla/dom/FileBinding.h"
+#include "mozilla/dom/MessageChannelBinding.h"
+#include "mozilla/dom/MessagePortBinding.h"
 #include "mozilla/dom/PromiseBinding.h"
 #include "mozilla/dom/RequestBinding.h"
 #include "mozilla/dom/ResponseBinding.h"
@@ -54,12 +57,8 @@ using namespace mozilla;
 using namespace JS;
 using namespace xpc;
 
-using mozilla::dom::ConvertExceptionToPromise;
 using mozilla::dom::DestroyProtoAndIfaceCache;
 using mozilla::dom::IndexedDatabaseManager;
-using mozilla::dom::RequestOrUSVString;
-using mozilla::dom::RequestOrUSVStringArgument;
-using mozilla::dom::RootedDictionary;
 
 NS_IMPL_CYCLE_COLLECTION_CLASS(SandboxPrivate)
 
@@ -140,6 +139,9 @@ SandboxDump(JSContext* cx, unsigned argc, Value* vp)
             *c = '\n';
         c++;
     }
+#endif
+#ifdef ANDROID
+    __android_log_write(ANDROID_LOG_INFO, "GeckoDump", cstr);
 #endif
 
     fputs(cstr, stdout);
@@ -289,6 +291,7 @@ SandboxFetch(JSContext* cx, JS::HandleObject scope, const CallArgs& args)
     if (!global) {
         return false;
     }
+
     ErrorResult rv;
     RefPtr<dom::Promise> response =
         FetchRequest(global, Constify(request), Constify(options), rv);
@@ -321,43 +324,6 @@ SandboxCreateFetch(JSContext* cx, HandleObject obj)
         dom::RequestBinding::GetConstructorObject(cx) &&
         dom::ResponseBinding::GetConstructorObject(cx) &&
         dom::HeadersBinding::GetConstructorObject(cx);
-}
-
-static bool SandboxStructuredClone(JSContext* cx, unsigned argc, Value* vp) {
-  CallArgs args = CallArgsFromVp(argc, vp);
-
-  if (!args.requireAtLeast(cx, "structuredClone", 1)) {
-    return false;
-  }
-
-  RootedDictionary<dom::StructuredSerializeOptions> options(cx);
-  if (!options.Init(cx, args.hasDefined(1) ? args[1] : JS::NullHandleValue,
-                    "Argument 2", false)) {
-    return false;
-  }
-
-  nsIGlobalObject* global = xpc::NativeGlobal(JS::CurrentGlobalOrNull(cx));
-  if (!global) {
-    JS_ReportErrorASCII(cx, "structuredClone: Missing global");
-    return false;
-  }
-
-  JS::Rooted<JS::Value> result(cx);
-  ErrorResult rv;
-  nsContentUtils::StructuredClone(cx, global, args[0], options, &result, rv);
-  if (rv.MaybeSetPendingException(cx)) {
-    return false;
-  }
-
-  args.rval().set(result);
-  return true;
-}
-
-static bool SandboxCreateStructuredClone(JSContext* cx, HandleObject obj) {
-  MOZ_ASSERT(JS_IsGlobalObject(obj));
-
-  return JS_DefineFunction(cx, obj, "structuredClone", SandboxStructuredClone,
-                           1, 0);
 }
 
 static bool
@@ -654,11 +620,10 @@ NS_IMPL_ADDREF(nsXPCComponents_utils_Sandbox)
 NS_IMPL_RELEASE(nsXPCComponents_utils_Sandbox)
 
 // We use the nsIXPScriptable macros to generate lots of stuff for us.
-#define XPC_MAP_CLASSNAME           nsXPCComponents_utils_Sandbox
-#define XPC_MAP_QUOTED_CLASSNAME   "nsXPCComponents_utils_Sandbox"
-#define                             XPC_MAP_WANT_CALL
-#define                             XPC_MAP_WANT_CONSTRUCT
-#define XPC_MAP_FLAGS               0
+#define XPC_MAP_CLASSNAME         nsXPCComponents_utils_Sandbox
+#define XPC_MAP_QUOTED_CLASSNAME "nsXPCComponents_utils_Sandbox"
+#define XPC_MAP_FLAGS (XPC_SCRIPTABLE_WANT_CALL | \
+                       XPC_SCRIPTABLE_WANT_CONSTRUCT)
 #include "xpc_map_end.h" /* This #undef's the above. */
 
 const xpc::SandboxProxyHandler xpc::sandboxProxyHandler;
@@ -965,12 +930,12 @@ xpc::GlobalProperties::Parse(JSContext* cx, JS::HandleObject obj)
 #endif
         } else if (!strcmp(name.ptr(), "fetch")) {
             fetch = true;
-        } else if (!strcmp(name.ptr(), "structuredClone")) {
-            structuredClone = true;
         } else if (!strcmp(name.ptr(), "caches")) {
             caches = true;
         } else if (!strcmp(name.ptr(), "FileReader")) {
             fileReader = true;
+        } else if (!strcmp(name.ptr(), "MessageChannel")) {
+            messageChannel = true;
         } else {
             JS_ReportErrorUTF8(cx, "Unknown property name: %s", name.ptr());
             return false;
@@ -1042,13 +1007,15 @@ xpc::GlobalProperties::Define(JSContext* cx, JS::HandleObject obj)
     if (fetch && !SandboxCreateFetch(cx, obj))
         return false;
 
-    if (structuredClone && !SandboxCreateStructuredClone(cx, obj))
-        return false;
-
     if (caches && !dom::cache::CacheStorage::DefineCaches(cx, obj))
         return false;
 
     if (fileReader && !dom::FileReaderBinding::GetConstructorObject(cx))
+        return false;
+
+    if (messageChannel &&
+        (!dom::MessageChannelBinding::GetConstructorObject(cx) ||
+         !dom::MessagePortBinding::GetConstructorObject(cx)))
         return false;
 
     return true;
@@ -1263,6 +1230,7 @@ xpc::CreateSandboxObject(JSContext* cx, MutableHandleValue vp, nsISupports* prin
 
     xpc::SetSandboxMetadata(cx, sandbox, options.metadata);
 
+    JSAutoCompartment ac(cx, sandbox);
     JS_FireOnNewGlobalObject(cx, sandbox);
 
     return NS_OK;

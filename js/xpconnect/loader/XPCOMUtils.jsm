@@ -1,4 +1,5 @@
 /* -*- indent-tabs-mode: nil; js-indent-level: 2 -*-
+ * vim: sw=2 ts=2 sts=2 et filetype=javascript
  * This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -295,9 +296,19 @@ this.XPCOMUtils = {
    *        The name of the preference to read.
    * @param aDefaultValue
    *        The default value to use, if the preference is not defined.
+   * @param aOnUpdate
+   *        A function to call upon update. Receives as arguments
+   *         `(aPreference, previousValue, newValue)`
+   * @param aTransform
+   *        An optional function to transform the value.  If provided,
+   *        this function receives the new preference value as an argument
+   *        and its return value is used by the getter.
    */
   defineLazyPreferenceGetter: function XPCU_defineLazyPreferenceGetter(
-                                   aObject, aName, aPreference, aDefaultValue = null)
+                                   aObject, aName, aPreference,
+                                   aDefaultValue = null,
+                                   aOnUpdate = null,
+                                   aTransform = val => val)
   {
     // Note: We need to keep a reference to this observer alive as long
     // as aObject is alive. This means that all of our getters need to
@@ -311,7 +322,18 @@ this.XPCOMUtils = {
 
       observe(subject, topic, data) {
         if (data == aPreference) {
-          this.value = undefined;
+          if (aOnUpdate) {
+            let previous = this.value;
+
+            // Fetch and cache value.
+            this.value = undefined;
+            let latest = lazyGetter();
+            aOnUpdate(data, previous, latest);
+          } else {
+
+            // Empty cache, next call to the getter will cause refetch.
+            this.value = undefined;
+          }
         }
       },
     }
@@ -326,7 +348,7 @@ this.XPCOMUtils = {
 
     function lazyGetter() {
       if (observer.value === undefined) {
-        observer.value = Preferences.get(aPreference, aDefaultValue);
+        observer.value = aTransform(Preferences.get(aPreference, aDefaultValue));
       }
       return observer.value;
     }

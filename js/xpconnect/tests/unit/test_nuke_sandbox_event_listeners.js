@@ -91,5 +91,4 @@ add_task(function*() {
      "No 'FromTest' listeners returned for nuked sandbox");
 
   webnav.close();
-
 });

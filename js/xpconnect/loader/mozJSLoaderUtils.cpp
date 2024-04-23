@@ -1,4 +1,5 @@
 /* -*- Mode: C++; tab-width: 8; indent-tabs-mode: nil; c-basic-offset: 4 -*- */
+/* vim: set ts=8 sts=4 et sw=4 tw=99: */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -43,14 +44,6 @@ ReadCachedScript(StartupCache* cache, nsACString& uri, JSContext* cx,
 }
 
 nsresult
-ReadCachedFunction(StartupCache* cache, nsACString& uri, JSContext* cx,
-                   nsIPrincipal* systemPrincipal, JSFunction** functionp)
-{
-    // This doesn't actually work ...
-    return NS_ERROR_NOT_IMPLEMENTED;
-}
-
-nsresult
 WriteCachedScript(StartupCache* cache, nsACString& uri, JSContext* cx,
                   nsIPrincipal* systemPrincipal, HandleScript script)
 {
@@ -73,12 +66,4 @@ WriteCachedScript(StartupCache* cache, nsACString& uri, JSContext* cx,
                                    reinterpret_cast<char*>(buffer.begin()),
                                    size);
     return rv;
-}
-
-nsresult
-WriteCachedFunction(StartupCache* cache, nsACString& uri, JSContext* cx,
-                    nsIPrincipal* systemPrincipal, JSFunction* function)
-{
-    // This doesn't actually work ...
-    return NS_ERROR_NOT_IMPLEMENTED;
 }

@@ -61,8 +61,7 @@ Module::~Module()
 
 #define XPC_MAP_CLASSNAME Module
 #define XPC_MAP_QUOTED_CLASSNAME "Module"
-#define XPC_MAP_WANT_CALL
-#define XPC_MAP_FLAGS nsIXPCScriptable::WANT_CALL
+#define XPC_MAP_FLAGS XPC_SCRIPTABLE_WANT_CALL
 #include "xpc_map_end.h"
 
 static bool
@@ -120,8 +119,7 @@ Module::Call(nsIXPConnectWrappedNative* wrapper,
 {
   mozJSComponentLoader* loader = mozJSComponentLoader::Get();
   JS::Rooted<JSObject*> targetObj(cx);
-  nsresult rv = loader->FindTargetObject(cx, &targetObj);
-  NS_ENSURE_SUCCESS(rv, rv);
+  loader->FindTargetObject(cx, &targetObj);
 
   *_retval = InitAndSealCTypesClass(cx, targetObj);
   return NS_OK;

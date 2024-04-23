@@ -499,7 +499,6 @@ interface nsIXPConnect : nsISupports
                                          in JSContextPtr cx,
                                          in JSObjectPtr sandbox,
                                          in int32_t version);
-
     /**
      * Trigger a JS garbage collection.
      * Use a js::gcreason::Reason from jsfriendapi.h for the kind.

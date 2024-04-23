@@ -1,4 +1,5 @@
 /* -*- Mode: C++; tab-width: 8; indent-tabs-mode: nil; c-basic-offset: 4 -*- */
+/* vim: set ts=8 sts=4 et sw=4 tw=99: */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -100,7 +101,7 @@ WrapperFactory::WaiveXray(JSContext* cx, JSObject* objArg)
     if (!waiver) {
         waiver = CreateXrayWaiver(cx, obj);
     }
-    MOZ_ASSERT(!ObjectIsMarkedGray(waiver));
+    MOZ_ASSERT(JS::ObjectIsNotGray(waiver));
     return waiver;
 }
 
@@ -183,15 +184,20 @@ WrapperFactory::PrepareForWrapping(JSContext* cx, HandleObject scope,
     // If we've somehow gotten to this point after either the source or target
     // compartment has been nuked, return a DeadObjectProxy to prevent further
     // access.
+    // However, we always need to provide live wrappers for ScriptSourceObjects,
+    // since they're used for cross-compartment cloned scripts, and need to
+    // remain accessible even after the original compartment has been nuked.
     JSCompartment* origin = js::GetObjectCompartment(obj);
     JSCompartment* target = js::GetObjectCompartment(scope);
-    if (CompartmentPrivate::Get(origin)->wasNuked ||
-        CompartmentPrivate::Get(target)->wasNuked) {
+    if (!JS_IsScriptSourceObject(obj) &&
+        (CompartmentPrivate::Get(origin)->wasNuked ||
+         CompartmentPrivate::Get(target)->wasNuked)) {
         NS_WARNING("Trying to create a wrapper into or out of a nuked compartment");
 
         retObj.set(JS_NewDeadWrapper(cx));
         return;
     }
+
 
     // If we've got a WindowProxy, there's nothing special that needs to be
     // done here, and we can move on to the next phase of wrapping. We handle
@@ -222,7 +228,7 @@ WrapperFactory::PrepareForWrapping(JSContext* cx, HandleObject scope,
     RootedObject wrapScope(cx, scope);
 
     {
-        if (NATIVE_HAS_FLAG(&ccx, WantPreCreate)) {
+        if (ccx.GetScriptable() && ccx.GetScriptable()->WantPreCreate()) {
             // We have a precreate hook. This object might enforce that we only
             // ever create JS object for it.
 
@@ -230,7 +236,7 @@ WrapperFactory::PrepareForWrapping(JSContext* cx, HandleObject scope,
             // being accessed across compartments. We would really prefer to
             // replace the above code with a test that says "do you only have one
             // wrapper?"
-            nsresult rv = wn->GetScriptableInfo()->GetCallback()->
+            nsresult rv = wn->GetScriptable()->
                 PreCreate(wn->Native(), cx, scope, wrapScope.address());
             if (NS_FAILED(rv)) {
                 retObj.set(waive ? WaiveXray(cx, obj) : obj);
@@ -269,7 +275,7 @@ WrapperFactory::PrepareForWrapping(JSContext* cx, HandleObject scope,
                 // (the old scope). If (2) is the case, PreCreate will return the
                 // scope of the document (the new scope).
                 RootedObject probe(cx);
-                rv = wn->GetScriptableInfo()->GetCallback()->
+                rv = wn->GetScriptable()->
                     PreCreate(wn->Native(), cx, currentScope, probe.address());
 
                 // Check for case (2).
@@ -316,7 +322,7 @@ WrapperFactory::PrepareForWrapping(JSContext* cx, HandleObject scope,
 
     obj.set(&v.toObject());
     MOZ_ASSERT(IS_WN_REFLECTOR(obj), "bad object");
-    MOZ_ASSERT(!ObjectIsMarkedGray(obj), "Should never return gray reflectors");
+    MOZ_ASSERT(JS::ObjectIsNotGray(obj), "Should never return gray reflectors");
 
     // Because the underlying native didn't have a PreCreate hook, we had
     // to a new (or possibly pre-existing) XPCWN in our compartment.
@@ -343,7 +349,8 @@ static void
 DEBUG_CheckUnwrapSafety(HandleObject obj, const js::Wrapper* handler,
                         JSCompartment* origin, JSCompartment* target)
 {
-    if (CompartmentPrivate::Get(origin)->wasNuked || CompartmentPrivate::Get(target)->wasNuked) {
+    if (!JS_IsScriptSourceObject(obj) &&
+        (CompartmentPrivate::Get(origin)->wasNuked || CompartmentPrivate::Get(target)->wasNuked)) {
         // If either compartment has already been nuked, we should have returned
         // a dead wrapper from our prewrap callback, and this function should
         // not be called.
@@ -366,8 +373,7 @@ DEBUG_CheckUnwrapSafety(HandleObject obj, const js::Wrapper* handler,
 #endif
 
 static const Wrapper*
-SelectWrapper(bool securityWrapper, bool wantXrays, XrayType xrayType,
-              bool waiveXrays, bool originIsXBLScope, JSObject* obj)
+SelectWrapper(bool securityWrapper, XrayType xrayType, bool waiveXrays, JSObject* obj)
 {
     // Waived Xray uses a modified CCW that has transparent behavior but
     // transitively waives Xrays on arguments.
@@ -378,7 +384,7 @@ SelectWrapper(bool securityWrapper, bool wantXrays, XrayType xrayType,
 
     // If we don't want or can't use Xrays, select a wrapper that's either
     // entirely transparent or entirely opaque.
-    if (!wantXrays || xrayType == NotXray) {
+    if (xrayType == NotXray) {
         if (!securityWrapper)
             return &CrossCompartmentWrapper::singleton;
         return &FilteringWrapper<CrossCompartmentSecurityWrapper, Opaque>::singleton;
@@ -410,7 +416,7 @@ SelectWrapper(bool securityWrapper, bool wantXrays, XrayType xrayType,
     // functions exposed from the XBL scope. We could remove this exception,
     // if needed, by using ExportFunction to generate the content-side
     // representations of XBL methods.
-    if (xrayType == XrayForJSObject && originIsXBLScope)
+    if (xrayType == XrayForJSObject && IsInContentXBLScope(obj))
         return &FilteringWrapper<CrossCompartmentSecurityWrapper, OpaqueWithCall>::singleton;
     return &FilteringWrapper<CrossCompartmentSecurityWrapper, Opaque>::singleton;
 }
@@ -459,9 +465,13 @@ WrapperFactory::Rewrap(JSContext* cx, HandleObject existing, HandleObject obj)
     bool originSubsumesTarget = AccessCheck::subsumesConsideringDomain(origin, target);
     bool targetSubsumesOrigin = AccessCheck::subsumesConsideringDomain(target, origin);
     bool sameOrigin = targetSubsumesOrigin && originSubsumesTarget;
-    XrayType xrayType = GetXrayType(obj);
 
     const Wrapper* wrapper;
+
+    CompartmentPrivate* originCompartmentPrivate =
+      CompartmentPrivate::Get(origin);
+    CompartmentPrivate* targetCompartmentPrivate =
+      CompartmentPrivate::Get(target);
 
     //
     // First, handle the special cases.
@@ -469,13 +479,13 @@ WrapperFactory::Rewrap(JSContext* cx, HandleObject existing, HandleObject obj)
 
     // If UniversalXPConnect is enabled, this is just some dumb mochitest. Use
     // a vanilla CCW.
-    if (xpc::IsUniversalXPConnectEnabled(target)) {
+    if (targetCompartmentPrivate->universalXPConnectEnabled) {
         CrashIfNotInAutomation();
         wrapper = &CrossCompartmentWrapper::singleton;
     }
 
     // Let the SpecialPowers scope make its stuff easily accessible to content.
-    else if (CompartmentPrivate::Get(origin)->forcePermissiveCOWs) {
+    else if (originCompartmentPrivate->forcePermissiveCOWs) {
         CrashIfNotInAutomation();
         wrapper = &CrossCompartmentWrapper::singleton;
     }
@@ -523,26 +533,23 @@ WrapperFactory::Rewrap(JSContext* cx, HandleObject existing, HandleObject obj)
         //
         // Xrays are a bidirectional protection, since it affords clarity to the
         // caller and privacy to the callee.
-        bool sameOriginXrays = CompartmentPrivate::Get(origin)->wantXrays ||
-                               CompartmentPrivate::Get(target)->wantXrays;
+        bool sameOriginXrays = originCompartmentPrivate->wantXrays ||
+                               targetCompartmentPrivate->wantXrays;
         bool wantXrays = !sameOrigin || sameOriginXrays;
+
+        XrayType xrayType = wantXrays ? GetXrayType(obj) : NotXray;
 
         // If Xrays are warranted, the caller may waive them for non-security
         // wrappers (unless explicitly forbidden from doing so).
         bool waiveXrays = wantXrays && !securityWrapper &&
-                          CompartmentPrivate::Get(target)->allowWaivers &&
+                          targetCompartmentPrivate->allowWaivers &&
                           HasWaiveXrayFlag(obj);
 
-        // We have slightly different behavior for the case when the object
-        // being wrapped is in an XBL scope.
-        bool originIsContentXBLScope = IsContentXBLScope(origin);
-
-        wrapper = SelectWrapper(securityWrapper, wantXrays, xrayType, waiveXrays,
-                                originIsContentXBLScope, obj);
+        wrapper = SelectWrapper(securityWrapper, xrayType, waiveXrays, obj);
 
         // If we want to apply add-on interposition in the target compartment,
         // then we try to "upgrade" the wrapper to an interposing one.
-        if (CompartmentPrivate::Get(target)->scope->HasInterposition())
+        if (targetCompartmentPrivate->scope->HasInterposition())
             wrapper = SelectAddonWrapper(cx, obj, wrapper);
     }
 

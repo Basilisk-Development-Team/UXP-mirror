@@ -14,7 +14,6 @@ function run_test()
       .createInstance(Ci.nsISupportsInterfacePointer);
 
   var sb = Cu.Sandbox(global);
-
   sb.prop = "prop"
   sb.ifacePointer = ifacePointer
 
@@ -37,13 +36,14 @@ function run_test()
   ok(Cu.isDeadWrapper(sb), "sb should be dead");
   ok(Cu.isDeadWrapper(ifacePointer.data.wrappedJSObject),
      "Wrapper retrieved via XPConnect should be dead");
+
   try{
     sb.prop;
     do_check_true(false);
   } catch (e) {
     do_check_true(e.toString().indexOf("can't access dead object") > -1);
   }
-  
+
   Components.utils.isDeadWrapper(refToObjFromSb, "ref to object from sb should be dead");
   try{
     refToObjFromSb.prop2;
@@ -51,5 +51,4 @@ function run_test()
   } catch (e) {
     do_check_true(e.toString().indexOf("can't access dead object") > -1);
   }
-  
 }

@@ -65,6 +65,7 @@ nsXPConnect::nsXPConnect()
     :   mContext(nullptr),
         mShuttingDown(false)
 {
+
     mContext = XPCJSContext::newXPCJSContext();
     if (!mContext) {
         NS_RUNTIMEABORT("Couldn't create XPCJSContext.");
@@ -73,6 +74,7 @@ nsXPConnect::nsXPConnect()
 
 nsXPConnect::~nsXPConnect()
 {
+
     mContext->DeleteSingletonScopes();
 
     // In order to clean up everything properly, we need to GC twice: once now,
@@ -173,7 +175,7 @@ nsXPConnect::IsISupportsDescendant(nsIInterfaceInfo* info)
 void
 xpc::ErrorBase::Init(JSErrorBase* aReport)
 {
-    if (!aReport->filename) {
+    if (!aReport->filename){
         mFileName.SetIsVoid(true);
     } else {
         mFileName.AssignWithConversion(aReport->filename);
@@ -582,7 +584,7 @@ nsXPConnect::InitClassesWithNewWrappedGlobal(JSContext * aJSContext,
     // Call into XPCWrappedNative to make a new global object, scope, and global
     // prototype.
     xpcObjectHelper helper(aCOMObj);
-    MOZ_ASSERT(helper.GetScriptableFlags() & nsIXPCScriptable::IS_GLOBAL_OBJECT);
+    MOZ_ASSERT(helper.GetScriptableFlags() & XPC_SCRIPTABLE_IS_GLOBAL_OBJECT);
     RefPtr<XPCWrappedNative> wrappedGlobal;
     nsresult rv =
         XPCWrappedNative::WrapNewGlobal(helper, aPrincipal,
@@ -879,6 +881,7 @@ nsXPConnect::EvalInSandboxObject(const nsAString& source, const char* filename,
                                  int32_t jsVersion,
                                  MutableHandleValue rval)
 {
+
 #ifdef DEBUG
     {
         const char *version = JS_VersionToString(JSVersion(jsVersion));
@@ -912,11 +915,11 @@ nsXPConnect::GetWrappedNativePrototype(JSContext* aJSContext,
     if (!scope)
         return UnexpectedFailure(NS_ERROR_FAILURE);
 
-    XPCNativeScriptableCreateInfo sciProto;
-    XPCWrappedNative::GatherProtoScriptableCreateInfo(aClassInfo, sciProto);
+    nsCOMPtr<nsIXPCScriptable> scrProto =
+        XPCWrappedNative::GatherProtoScriptable(aClassInfo);
 
     AutoMarkingWrappedNativeProtoPtr proto(aJSContext);
-    proto = XPCWrappedNativeProto::GetNewOrUsed(scope, aClassInfo, &sciProto);
+    proto = XPCWrappedNativeProto::GetNewOrUsed(scope, aClassInfo, scrProto);
     if (!proto)
         return UnexpectedFailure(NS_ERROR_FAILURE);
 

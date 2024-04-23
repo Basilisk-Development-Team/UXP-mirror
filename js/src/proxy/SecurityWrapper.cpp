@@ -19,7 +19,7 @@ ReportUnwrapDenied(JSContext *cx)
 template <class Base>
 bool
 SecurityWrapper<Base>::enter(JSContext* cx, HandleObject wrapper, HandleId id,
-                             Wrapper::Action act, bool* bp) const
+                             Wrapper::Action act, bool mayThrow, bool* bp) const
 {
     ReportUnwrapDenied(cx);
     *bp = false;
