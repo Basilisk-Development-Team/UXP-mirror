@@ -1707,6 +1707,13 @@ Interpret(JSContext* cx, RunState& state)
             activation.enableInterruptsUnconditionally();                     \
     JS_END_MACRO
 
+#define SANITY_CHECKS()                                                       \
+    JS_BEGIN_MACRO                                                            \
+        js::gc::MaybeVerifyBarriers(cx);                                      \
+    JS_END_MACRO
+
+    gc::MaybeVerifyBarriers(cx, true);
+
     MOZ_ASSERT(!cx->zone()->types.activeAnalysis);
 
     InterpreterFrame* entryFrame = state.pushInterpreterFrame(cx);
@@ -1837,6 +1844,7 @@ CASE(EnableInterruptsPseudoOpcode)
         activation.clearInterruptsMask();
 
     /* Commence executing the actual opcode. */
+    SANITY_CHECKS();
     DISPATCH_TO(op);
 }
 
@@ -4258,6 +4266,7 @@ DEFAULT()
         REGS.fp()->epilogue(cx, REGS.pc);
     }
 
+    gc::MaybeVerifyBarriers(cx, true);
     TraceLogStopEvent(logger, TraceLogger_Engine);
     TraceLogStopEvent(logger, scriptEvent);
 

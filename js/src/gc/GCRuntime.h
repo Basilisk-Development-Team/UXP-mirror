@@ -1012,7 +1012,7 @@ class GCRuntime
     bool shouldReleaseObservedTypes();
     void sweepDebuggerOnMainThread(FreeOp* fop);
     void sweepJitDataOnMainThread(FreeOp* fop);
-    void endSweepingSweepGroup();
+    void endSweepingZoneGroup();
     IncrementalProgress performSweepActions(SliceBudget& sliceBudget,
                                             AutoLockForExclusiveAccess& lock);
     static IncrementalProgress sweepTypeInformation(GCRuntime* gc, FreeOp* fop, Zone* zone,
@@ -1066,7 +1066,7 @@ class GCRuntime
 #endif
 
     void callFinalizeCallbacks(FreeOp* fop, JSFinalizeStatus status) const;
-    void callWeakPointerZonesCallbacks() const;
+    void callWeakPointerZoneGroupCallbacks() const;
     void callWeakPointerCompartmentCallbacks(JSCompartment* comp) const;
 
   public:

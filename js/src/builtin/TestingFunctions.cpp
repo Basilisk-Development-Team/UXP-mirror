@@ -184,6 +184,13 @@ GetBuildConfiguration(JSContext* cx, unsigned argc, Value* vp)
     if (!JS_SetProperty(cx, info, "tsan", value))
         return false;
 
+#ifdef JS_GC_ZEAL
+    value = BooleanValue(true);
+#else
+    value = BooleanValue(false);
+#endif
+    if (!JS_SetProperty(cx, info, "has-gczeal", value))
+        return false;
 #ifdef JS_MORE_DETERMINISTIC
     value = BooleanValue(true);
 #else
@@ -320,7 +327,7 @@ MinorGC(JSContext* cx, unsigned argc, Value* vp)
 {
     CallArgs args = CallArgsFromVp(argc, vp);
     if (args.get(0) == BooleanValue(true))
-        cx->zone()->group()->storeBuffer().setAboutToOverflow();
+        cx->zone()->group()->storeBuffer().setAboutToOverflow(JS::gcreason::FULL_GENERIC_BUFFER);
 
     cx->minorGC(JS::gcreason::API);
     args.rval().setUndefined();
@@ -4219,6 +4226,43 @@ JS_FN_HELP("streamsAreEnabled", StreamsAreEnabled, 0, 0,
 "gcPreserveCode()",
 "  Preserve JIT code during garbage collections."),
 
+#ifdef JS_GC_ZEAL
+    JS_FN_HELP("gczeal", GCZeal, 2, 0,
+"gczeal(level, [N])",
+gc::ZealModeHelpText),
+
+    JS_FN_HELP("schedulegc", ScheduleGC, 1, 0,
+"schedulegc([num | obj | string])",
+"  If num is given, schedule a GC after num allocations.\n"
+"  If obj is given, schedule a GC of obj's zone.\n"
+"  If string is given, schedule a GC of the string's zone if possible.\n"
+"  Returns the number of allocations before the next trigger."),
+
+    JS_FN_HELP("selectforgc", SelectForGC, 0, 0,
+"selectforgc(obj1, obj2, ...)",
+"  Schedule the given objects to be marked in the next GC slice."),
+
+    JS_FN_HELP("verifyprebarriers", VerifyPreBarriers, 0, 0,
+"verifyprebarriers()",
+"  Start or end a run of the pre-write barrier verifier."),
+
+    JS_FN_HELP("verifypostbarriers", VerifyPostBarriers, 0, 0,
+"verifypostbarriers()",
+"  Does nothing (the post-write barrier verifier has been remove)."),
+
+    JS_FN_HELP("gcstate", GCState, 0, 0,
+"gcstate()",
+"  Report the global GC state."),
+
+    JS_FN_HELP("deterministicgc", DeterministicGC, 1, 0,
+"deterministicgc(true|false)",
+"  If true, only allow determinstic GCs to run."),
+
+    JS_FN_HELP("dumpGCArenaInfo", DumpGCArenaInfo, 0, 0,
+"dumpGCArenaInfo()",
+"  Prints information about the different GC things and how they are arranged\n"
+"  in arenas.\n"),
+#endif
     JS_FN_HELP("startgc", StartGC, 1, 0,
 "startgc([n [, 'shrinking']])",
 "  Start an incremental GC and run a slice that processes about n objects.\n"

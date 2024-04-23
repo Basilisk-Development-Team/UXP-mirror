@@ -43,6 +43,7 @@ struct TabSizes
     {
     }
 
+
     void add(Kind kind, size_t n) {
         switch (kind) {
             case Objects: objects  += n; break;

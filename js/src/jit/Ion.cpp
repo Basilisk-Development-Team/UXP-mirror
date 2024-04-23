@@ -615,13 +615,13 @@ JitRuntime::Trace(JSTracer* trc, AutoLockForExclusiveAccess& lock)
 }
 
 /* static */ void
-JitRuntime::TraceJitcodeGlobalTable(JSTracer* trc)
+JitRuntime::TraceJitcodeGlobalTableForMinorGC(JSTracer* trc)
 {
     if (trc->runtime()->spsProfiler().enabled() &&
         trc->runtime()->hasJitRuntime() &&
         trc->runtime()->jitRuntime()->hasJitcodeGlobalTable())
     {
-        trc->runtime()->jitRuntime()->getJitcodeGlobalTable()->trace(trc);
+        trc->runtime()->jitRuntime()->getJitcodeGlobalTable()->traceForMinorGC(trc);
     }
 }
 

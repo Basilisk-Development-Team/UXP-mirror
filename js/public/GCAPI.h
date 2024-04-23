@@ -327,11 +327,12 @@ enum GCProgress {
 
 struct JS_PUBLIC_API(GCDescription) {
     bool isZone_;
+    bool isComplete_;
     JSGCInvocationKind invocationKind_;
     gcreason::Reason reason_;
 
-    GCDescription(bool isZone, JSGCInvocationKind kind, gcreason::Reason reason)
-      : isZone_(isZone), invocationKind_(kind), reason_(reason) {}
+    GCDescription(bool isZone, bool isComplete, JSGCInvocationKind kind, gcreason::Reason reason)
+      : isZone_(isZone), isComplete_(isComplete), invocationKind_(kind), reason_(reason) {}
 
     char16_t* formatSliceMessage(JSContext* cx) const;
     char16_t* formatSummaryMessage(JSContext* cx) const;
@@ -348,6 +349,8 @@ struct JS_PUBLIC_API(GCDescription) {
     JS::dbg::GarbageCollectionEvent::Ptr toGCEvent(JSContext* cx) const;
 };
 
+extern JS_PUBLIC_API(UniqueChars)
+MinorGcToJSON(JSContext* cx);
 typedef void
 (* GCSliceCallback)(JSContext* cx, GCProgress progress, const GCDescription& desc);
 
@@ -614,7 +617,6 @@ UnmarkGrayGCThingRecursively(GCCellPtr thing);
 
 namespace js {
 namespace gc {
-
 static MOZ_ALWAYS_INLINE void
 ExposeGCThingToActiveJS(JS::GCCellPtr thing)
 {

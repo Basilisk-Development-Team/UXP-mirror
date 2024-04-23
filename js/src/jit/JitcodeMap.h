@@ -237,6 +237,11 @@ class JitcodeGlobalEntry
         // into one vector here.
         IonTrackedTypeVector* optsAllTypes_;
 
+        // Linked list pointers to allow traversing through all entries that
+        // could possibly contain nursery pointers. Note that the contained
+        // pointers can be mutated into nursery pointers at any time.
+        IonEntry* prevNursery_;
+        IonEntry* nextNursery_;
         struct ScriptNamePair {
             JSScript* script;
             char* str;
@@ -271,6 +276,7 @@ class JitcodeGlobalEntry
             optsTypesTable_ = nullptr;
             optsAllTypes_ = nullptr;
             optsAttemptsTable_ = nullptr;
+            prevNursery_ = nextNursery_ = nullptr;
         }
 
         void initTrackedOptimizations(const IonTrackedOptimizationsRegionTable* regionTable,
@@ -562,31 +568,31 @@ class JitcodeGlobalEntry
     }
 
     explicit JitcodeGlobalEntry(const IonEntry& ion)
-      : tower_(nullptr)
+      : JitcodeGlobalEntry()
     {
         ion_ = ion;
     }
 
     explicit JitcodeGlobalEntry(const BaselineEntry& baseline)
-      : tower_(nullptr)
+      : JitcodeGlobalEntry()
     {
         baseline_ = baseline;
     }
 
     explicit JitcodeGlobalEntry(const IonCacheEntry& ionCache)
-      : tower_(nullptr)
+      : JitcodeGlobalEntry()
     {
         ionCache_ = ionCache;
     }
 
     explicit JitcodeGlobalEntry(const DummyEntry& dummy)
-      : tower_(nullptr)
+      : JitcodeGlobalEntry()
     {
         dummy_ = dummy;
     }
 
     explicit JitcodeGlobalEntry(const QueryEntry& query)
-      : tower_(nullptr)
+      : JitcodeGlobalEntry()
     {
         query_ = query;
     }
@@ -839,6 +845,9 @@ class JitcodeGlobalEntry
         return false;
     }
 
+    bool canHoldNurseryPointers() const {
+        return isIon() && ionEntry().hasTrackedOptimizations();
+    }
     mozilla::Maybe<uint8_t> trackedOptimizationIndexAtAddr(
             JSRuntime *rt,
             void* addr,
@@ -1009,13 +1018,15 @@ class JitcodeGlobalTable
     JitcodeGlobalEntry* freeEntries_;
     uint32_t rand_;
     uint32_t skiplistSize_;
+    JitcodeGlobalEntry::IonEntry* nurseryEntries_;
 
     JitcodeGlobalEntry* startTower_[JitcodeSkiplistTower::MAX_HEIGHT];
     JitcodeSkiplistTower* freeTowers_[JitcodeSkiplistTower::MAX_HEIGHT];
 
   public:
     JitcodeGlobalTable()
-      : alloc_(LIFO_CHUNK_SIZE), freeEntries_(nullptr), rand_(0), skiplistSize_(0)
+      : alloc_(LIFO_CHUNK_SIZE), freeEntries_(nullptr), rand_(0), skiplistSize_(0),
+        nurseryEntries_(nullptr)
     {
         for (unsigned i = 0; i < JitcodeSkiplistTower::MAX_HEIGHT; i++)
             startTower_[i] = nullptr;
@@ -1058,7 +1069,7 @@ class JitcodeGlobalTable
     void releaseEntry(JitcodeGlobalEntry& entry, JitcodeGlobalEntry** prevTower, JSRuntime* rt);
 
     void setAllEntriesAsExpired(JSRuntime* rt);
-    void trace(JSTracer* trc);
+    void traceForMinorGC(JSTracer* trc);
     [[nodiscard]] bool markIteratively(GCMarker* marker);
     void sweep(JSRuntime* rt);
 
@@ -1090,6 +1101,28 @@ class JitcodeGlobalTable
     void verifySkiplist() {}
 #endif
 
+    void addToNurseryList(JitcodeGlobalEntry::IonEntry* entry) {
+        MOZ_ASSERT(entry->prevNursery_ == nullptr);
+        MOZ_ASSERT(entry->nextNursery_ == nullptr);
+
+        entry->nextNursery_ = nurseryEntries_;
+        if (nurseryEntries_)
+            nurseryEntries_->prevNursery_ = entry;
+        nurseryEntries_ = entry;
+    }
+
+    void removeFromNurseryList(JitcodeGlobalEntry::IonEntry* entry) {
+        // Splice out of list to be scanned on a minor GC.
+        if (entry->prevNursery_)
+            entry->prevNursery_->nextNursery_ = entry->nextNursery_;
+        if (entry->nextNursery_)
+            entry->nextNursery_->prevNursery_ = entry->prevNursery_;
+
+        if (nurseryEntries_ == entry)
+            nurseryEntries_ = entry->nextNursery_;
+
+        entry->prevNursery_ = entry->nextNursery_ = nullptr;
+    }
   public:
     class Range
     {
