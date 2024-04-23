@@ -958,7 +958,7 @@ class NativeObject : public ShapedObject
         MOZ_ASSERT(end <= getDenseInitializedLength());
         MOZ_ASSERT(!denseElementsAreCopyOnWrite());
         for (size_t i = start; i < end; i++)
-            elements_[i].destroy();
+            elements_[i].HeapSlot::~HeapSlot();
     }
 
     /*
@@ -967,7 +967,7 @@ class NativeObject : public ShapedObject
      */
     void prepareSlotRangeForOverwrite(size_t start, size_t end) {
         for (size_t i = start; i < end; i++)
-            getSlotAddressUnchecked(i)->destroy();
+            getSlotAddressUnchecked(i)->HeapSlot::~HeapSlot();
     }
 
     inline void shiftDenseElementsUnchecked(uint32_t count);

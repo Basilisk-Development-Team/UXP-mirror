@@ -305,9 +305,25 @@ struct JSContext : public JS::RootingContext,
     friend class js::jit::DebugModeOSRVolatileJitFrameIterator;
     friend void js::ReportOverRecursed(JSContext*, unsigned errorNumber);
 
+    // Returns to the embedding to allow other cooperative threads to run. We
+    // may do this if we need access to a ZoneGroup that is in use by another
+    // thread.
+    void yieldToEmbedding() {
+        (*yieldCallback_)(this);
+    }
+
+    void setYieldCallback(js::YieldCallback callback) {
+        yieldCallback_ = callback;
+    }
+
   private:
     static JS::Error reportedError;
     static JS::OOM reportedOOM;
+
+    // This callback is used to ask the embedding to allow other cooperative
+    // threads to run. We may do this if we need access to a ZoneGroup that is
+    // in use by another thread.
+    js::ThreadLocalData<js::YieldCallback> yieldCallback_;
 
   public:
     inline JS::Result<> boolToResult(bool ok);
@@ -448,6 +464,10 @@ struct JSContext : public JS::RootingContext,
      * in non-exposed debugging facilities.
      */
     js::ThreadLocalData<int32_t> suppressGC;
+
+    // In some cases, invoking GC barriers (incremental or otherwise) will break
+    // things. These barriers assert if this flag is set.
+    js::ThreadLocalData<bool> allowGCBarriers;
 
 #ifdef DEBUG
     // Whether this thread is actively Ion compiling.

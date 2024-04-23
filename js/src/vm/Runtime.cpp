@@ -831,8 +831,8 @@ bool
 JSRuntime::activeGCInAtomsZone()
 {
     Zone* zone = atomsCompartment_->zone();
-    return zone->needsIncrementalBarrier() || zone->wasGCStarted();
-}
+    return (zone->needsIncrementalBarrier() && !gc.isVerifyPreBarriersEnabled()) ||
+           zone->wasGCStarted();}
 
 bool
 JSRuntime::createAtomsAddedWhileSweepingTable()
@@ -866,6 +866,7 @@ void
 JSRuntime::setUsedByHelperThread(Zone* zone)
 {
     MOZ_ASSERT(!zone->group()->usedByHelperThread);
+    MOZ_ASSERT(!zone->wasGCStarted());
     zone->group()->usedByHelperThread = true;
     numHelperThreadZones++;
 }

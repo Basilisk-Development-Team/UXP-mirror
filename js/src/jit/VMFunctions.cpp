@@ -149,6 +149,7 @@ CheckOverRecursed(JSContext* cx)
     if (!CheckRecursionLimit(cx))
         return false;
 #endif
+    gc::MaybeVerifyBarriers(cx);
     return cx->handleInterrupt();
 }
 
@@ -197,6 +198,7 @@ CheckOverRecursedWithExtra(JSContext* cx, BaselineFrame* frame,
         return false;
 #endif
 
+    gc::MaybeVerifyBarriers(cx);
     return cx->handleInterrupt();
 }
 
@@ -501,6 +503,7 @@ SetProperty(JSContext* cx, HandleObject obj, HandlePropertyName name, HandleValu
 bool
 InterruptCheck(JSContext* cx)
 {
+     gc::MaybeVerifyBarriers(cx);
     {
         JSRuntime* rt = cx->runtime();
         JitRuntime::AutoPreventBackedgePatching apbp(rt);
@@ -677,6 +680,9 @@ PostWriteElementBarrier(JSRuntime* rt, JSObject* obj, int32_t index)
         return;
 
     if (nobj->getDenseInitializedLength() > MAX_WHOLE_CELL_BUFFER_SIZE)
+#ifdef JS_GC_ZEAL
+         || rt->hasZealMode(gc::ZealMode::ElementsBarrier)
+#endif
     {
         rt->gc.storeBuffer().putSlot(nobj, HeapSlot::Element,
                                      nobj->unshiftedIndex(index),
@@ -722,6 +728,9 @@ GetIndexFromString(JSString* str)
 JSObject*
 WrapObjectPure(JSContext* cx, JSObject* obj)
 {
+    // IC code calls this directly so we shouldn't GC.
+    JS::AutoCheckCannotGC nogc;
+
     MOZ_ASSERT(obj);
     MOZ_ASSERT(cx->compartment() != obj->compartment());
 
