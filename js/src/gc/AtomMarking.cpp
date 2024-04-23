@@ -48,7 +48,7 @@ void
 AtomMarkingRuntime::registerArena(Arena* arena)
 {
     MOZ_ASSERT(arena->getThingSize() != 0);
-    MOZ_ASSERT(arena->getThingSize() % CellSize == 0);
+    MOZ_ASSERT(arena->getThingSize() % CellAlignBytes == 0);
     MOZ_ASSERT(arena->zone->isAtomsZone());
     MOZ_ASSERT(arena->zone->runtimeFromAnyThread()->currentThreadHasExclusiveAccess());
 
@@ -121,7 +121,6 @@ AddBitmapToChunkMarkBits(JSRuntime* runtime, Bitmap& bitmap)
         for (ArenaIter aiter(atomsZone, thingKind); !aiter.done(); aiter.next()) {
             Arena* arena = aiter.get();
             uintptr_t* chunkWords = arena->chunk()->bitmap.arenaBits(arena);
-
             bitmap.bitwiseOrRangeInto(arena->atomBitmapStart(), ArenaBitmapWords, chunkWords);
         }
     }
@@ -185,7 +184,7 @@ AtomMarkingRuntime::markAtomValue(JSContext* cx, const Value& value)
             markAtom(cx, &value.toString()->asAtom());
         return;
     }
-	if (value.isSymbol()) {
+    if (value.isSymbol()) {
         markAtom(cx, value.toSymbol());
         return;
     }
@@ -198,12 +197,10 @@ void
 AtomMarkingRuntime::adoptMarkedAtoms(Zone* target, Zone* source)
 {
     MOZ_ASSERT(target->runtimeFromAnyThread()->currentThreadHasExclusiveAccess());
-
     target->markedAtoms().bitwiseOrWith(source->markedAtoms());
 }
 
 #ifdef DEBUG
-
 template <typename T>
 bool
 AtomMarkingRuntime::atomIsMarked(Zone* zone, T* thing)
@@ -253,7 +250,6 @@ AtomMarkingRuntime::atomIsMarked(Zone* zone, TenuredCell* thing)
         return atomIsMarked(zone, static_cast<JS::Symbol*>(thing));
     return true;
 }
-
 
 bool
 AtomMarkingRuntime::idIsMarked(Zone* zone, jsid id)

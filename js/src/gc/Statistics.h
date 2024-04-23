@@ -1,4 +1,5 @@
 /* -*- Mode: C++; tab-width: 8; indent-tabs-mode: nil; c-basic-offset: 4 -*-
+ * vim: set ts=8 sts=4 et sw=4 tw=99:
  * This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -11,6 +12,7 @@
 #include "mozilla/EnumeratedArray.h"
 #include "mozilla/IntegerRange.h"
 #include "mozilla/Maybe.h"
+#include "mozilla/PodOperations.h"
 
 #include "jsalloc.h"
 #include "jsgc.h"
@@ -18,12 +20,14 @@
 
 #include "js/GCAPI.h"
 #include "js/Vector.h"
+#include "vm/JSONPrinter.h"
 
 using mozilla::Maybe;
 
 namespace js {
 
 class GCParallelTask;
+
 namespace gcstats {
 
 enum Phase : uint8_t {
@@ -122,40 +126,43 @@ enum Stat {
 struct ZoneGCStats
 {
     /* Number of zones collected in this GC. */
-    int collectedZoneCount = 0;
+    int collectedZoneCount;
 
     /* Total number of zones in the Runtime at the start of this GC. */
-    int zoneCount = 0;
+    int zoneCount;
 
     /* Number of zones swept in this GC. */
-    int sweptZoneCount = 0;
+    int sweptZoneCount;
 
     /* Total number of compartments in all zones collected. */
-    int collectedCompartmentCount = 0;
+    int collectedCompartmentCount;
 
     /* Total number of compartments in the Runtime at the start of this GC. */
-    int compartmentCount = 0;
+    int compartmentCount;
 
     /* Total number of compartments swept by this GC. */
-    int sweptCompartmentCount = 0;
+    int sweptCompartmentCount;
 
     bool isCollectingAllZones() const { return collectedZoneCount == zoneCount; }
 
-    ZoneGCStats() = default;
+    ZoneGCStats()
+      : collectedZoneCount(0), zoneCount(0), sweptZoneCount(0),
+        collectedCompartmentCount(0), compartmentCount(0), sweptCompartmentCount(0)
+    {}
 };
 
 #define FOR_EACH_GC_PROFILE_TIME(_)                                           \
-    _(BeginCallback, "beginCB",  PHASE_GC_BEGIN)                              \
-    _(WaitBgThread,  "waitBG",   PHASE_WAIT_BACKGROUND_THREAD)                \
-    _(DiscardCode,   "discard",  PHASE_MARK_DISCARD_CODE)                     \
-    _(RelazifyFunc,  "relazify", PHASE_RELAZIFY_FUNCTIONS)                    \
-    _(PurgeTables,   "purgeTables", PHASE_PURGE_SHAPE_TABLES)                 \
-    _(Purge,         "purge",    PHASE_PURGE)                                 \
-    _(Mark,          "mark",     PHASE_MARK)                                  \
-    _(Sweep,         "sweep",    PHASE_SWEEP)                                 \
-    _(Compact,       "compact",  PHASE_COMPACT)                               \
-    _(EndCallback,   "endCB",    PHASE_GC_END)                                \
-    _(Barriers,      "barriers", PHASE_BARRIER)
+    _(BeginCallback, "bgnCB",  PHASE_GC_BEGIN)                                \
+    _(WaitBgThread,  "waitBG", PHASE_WAIT_BACKGROUND_THREAD)                  \
+    _(DiscardCode,   "discrd", PHASE_MARK_DISCARD_CODE)                       \
+    _(RelazifyFunc,  "relzfy", PHASE_RELAZIFY_FUNCTIONS)                      \
+    _(PurgeTables,   "prgTbl", PHASE_PURGE_SHAPE_TABLES)                      \
+    _(Purge,         "purge",  PHASE_PURGE)                                   \
+    _(Mark,          "mark",   PHASE_MARK)                                    \
+    _(Sweep,         "sweep",  PHASE_SWEEP)                                   \
+    _(Compact,       "cmpct",  PHASE_COMPACT)                                 \
+    _(EndCallback,   "endCB",  PHASE_GC_END)                                  \
+    _(Barriers,      "brrier", PHASE_BARRIER)
 
 const char* ExplainAbortReason(gc::AbortReason reason);
 const char* ExplainInvocationKind(JSGCInvocationKind gckind);
@@ -175,7 +182,7 @@ const char* ExplainInvocationKind(JSGCInvocationKind gckind);
  */
 struct Statistics
 {
-	template <typename T, size_t Length>
+    template <typename T, size_t Length>
     using Array = mozilla::Array<T, Length>;
 
     template <typename IndexType, IndexType SizeAsEnumValue, typename ValueType>
@@ -184,20 +191,6 @@ struct Statistics
     using TimeDuration = mozilla::TimeDuration;
     using TimeStamp = mozilla::TimeStamp;
 
-    /*
-     * Phases are allowed to have multiple parents, though any path from root
-     * to leaf is allowed at most one multi-parented phase. We keep a full set
-     * of timings for each of the multi-parented phases, to be able to record
-     * all the timings in the expanded tree induced by our dag.
-     *
-     * Note that this wastes quite a bit of space, since we have a whole
-     * separate array of timing data containing all the phases. We could be
-     * more clever and keep an array of pointers biased by the offset of the
-     * multi-parented phase, and thereby preserve the simple
-     * timings[slot][PHASE_*] indexing. But the complexity doesn't seem worth
-     * the few hundred bytes of savings. If we want to extend things to full
-     * DAGs, this decision should be reconsidered.
-     */
     static const size_t MaxMultiparentPhases = 6;
     static const size_t NumTimingArrays = MaxMultiparentPhases + 1;
 
@@ -216,6 +209,7 @@ struct Statistics
     void beginPhase(Phase phase);
     void endPhase(Phase phase);
     void endParallelPhase(Phase phase, const GCParallelTask* task);
+    void recordParallelPhase(Phase phase, TimeDuration duration);
 
     // Occasionally, we may be in the middle of something that is tracked by
     // this class, and we need to do something unusual (eg evict the nursery)
@@ -223,7 +217,7 @@ struct Statistics
     // currently tracked phase stack, at which time the caller is free to do
     // other tracked operations.
     //
-    // This also happens internally with the PHASE_MUTATOR "phase". While in
+    // This also happens internally with the PhaseKind::MUTATOR "phase". While in
     // this phase, any beginPhase will automatically suspend the non-GC phase,
     // until that inner stack is complete, at which time it will automatically
     // resume the non-GC phase. Explicit suspensions do not get auto-resumed.
@@ -246,7 +240,7 @@ struct Statistics
     void reset(gc::AbortReason reason) {
         MOZ_ASSERT(reason != gc::AbortReason::None);
         if (!aborted)
-            slices.back().resetReason = reason;
+            slices_.back().resetReason = reason;
     }
 
     void nonincremental(gc::AbortReason reason) {
@@ -266,9 +260,10 @@ struct Statistics
         counts[s]++;
     }
 
-    uint32_t getCount(Stat s) {
+    uint32_t getCount(Stat s) const {
         return uint32_t(counts[s]);
     }
+
     void beginNurseryCollection(JS::gcreason::Reason reason);
     void endNurseryCollection(JS::gcreason::Reason reason);
 
@@ -277,8 +272,7 @@ struct Statistics
 
     UniqueChars formatCompactSliceMessage() const;
     UniqueChars formatCompactSummaryMessage() const;
-    UniqueChars formatJsonMessage(uint64_t timestamp);
-    UniqueChars formatDetailedMessage();
+    UniqueChars formatDetailedMessage() const;
 
     JS::GCSliceCallback setSliceCallback(JS::GCSliceCallback callback);
     JS::GCNurseryCollectionCallback setNurseryCollectionCallback(
@@ -316,19 +310,42 @@ struct Statistics
         TimeStamp start, end;
         size_t startFaults, endFaults;
         PhaseTimeTable phaseTimes;
+        PhaseTimeTable parallelTimes;
 
         TimeDuration duration() const { return end - start; }
         bool wasReset() const { return resetReason != gc::AbortReason::None; }
     };
 
     typedef Vector<SliceData, 8, SystemAllocPolicy> SliceDataVector;
-    typedef SliceDataVector::ConstRange SliceRange;
 
-    SliceRange sliceRange() const { return slices.all(); }
-    size_t slicesLength() const { return slices.length(); }
+    const SliceDataVector& slices() const { return slices_; }
 
-    /* Print total profile times on shutdown. */
+    TimeStamp start() const {
+        return slices_[0].start;
+    }
+
+    TimeStamp end() const {
+        return slices_.back().end;
+    }
+
+    // Occasionally print header lines for profiling information.
+    void maybePrintProfileHeaders();
+
+    // Print header line for profile times.
+    void printProfileHeader();
+
+    // Print total profile times on shutdown.
     void printTotalProfileTimes();
+
+    // Return JSON for a whole major GC, optionally including detailed
+    // per-slice data.
+    UniqueChars renderJsonMessage(uint64_t timestamp, bool includeSlices = true) const;
+
+    // Return JSON for the timings of just the given slice.
+    UniqueChars renderJsonSlice(size_t sliceNum) const;
+
+    // Return JSON for the previous nursery collection.
+    UniqueChars renderNurseryJson(JSRuntime* rt) const;
 
   private:
     JSRuntime* runtime;
@@ -342,7 +359,7 @@ struct Statistics
 
     gc::AbortReason nonincrementalReason_;
 
-    SliceDataVector slices;
+    SliceDataVector slices_;
 
     /* Most recent time when the given phase started. */
     EnumeratedArray<Phase, PHASE_LIMIT, TimeStamp> phaseStartTimes;
@@ -353,6 +370,7 @@ struct Statistics
 
     /* Total time in a given phase for this GC. */
     PhaseTimeTable phaseTimes;
+    PhaseTimeTable parallelTimes;
 
     /* Total time in a given phase over all GCs. */
     PhaseTimeTable phaseTotals;
@@ -365,6 +383,10 @@ struct Statistics
     /* Allocated space before the GC started. */
     size_t preBytes;
 
+    /* GC numbers as of the beginning of the collection. */
+    uint64_t startingMinorGCNumber;
+    uint64_t startingMajorGCNumber;
+
     /* Records the maximum GC pause in an API-controlled interval (in us). */
     mutable TimeDuration maxPauseInInterval;
 
@@ -376,8 +398,8 @@ struct Statistics
     /*
      * Certain phases can interrupt the phase stack, eg callback phases. When
      * this happens, we move the suspended phases over to a sepearate list,
-     * terminated by a dummy PHASE_SUSPENSION phase (so that we can nest
-     * suspensions by suspending multiple stacks with a PHASE_SUSPENSION in
+     * terminated by a dummy PhaseKind::SUSPENSION phase (so that we can nest
+     * suspensions by suspending multiple stacks with a PhaseKind::SUSPENSION in
      * between).
      */
     Array<Phase, MAX_NESTING * 3> suspendedPhases;
@@ -420,24 +442,24 @@ FOR_EACH_GC_PROFILE_TIME(DEFINE_TIME_KEY)
     void recordPhaseEnd(Phase phase);
 
     void gcDuration(TimeDuration* total, TimeDuration* maxPause) const;
-    void sccDurations(TimeDuration* total, TimeDuration* maxPause);
+    void sccDurations(TimeDuration* total, TimeDuration* maxPause) const;
     void printStats();
 
     UniqueChars formatCompactSlicePhaseTimes(const PhaseTimeTable& phaseTimes) const;
 
-    UniqueChars formatDetailedDescription();
-    UniqueChars formatDetailedSliceDescription(unsigned i, const SliceData& slice);
-    UniqueChars formatDetailedPhaseTimes(const PhaseTimeTable& phaseTimes);
-    UniqueChars formatDetailedTotals();
+    UniqueChars formatDetailedDescription() const;
+    UniqueChars formatDetailedSliceDescription(unsigned i, const SliceData& slice) const;
+    UniqueChars formatDetailedPhaseTimes(const PhaseTimeTable& phaseTimes) const;
+    UniqueChars formatDetailedTotals() const;
 
-    UniqueChars formatJsonDescription(uint64_t timestamp);
-    UniqueChars formatJsonSliceDescription(unsigned i, const SliceData& slice);
-    UniqueChars formatJsonPhaseTimes(const PhaseTimeTable& phaseTimes);
+    void formatJsonDescription(uint64_t timestamp, JSONPrinter&) const;
+    void formatJsonSliceDescription(unsigned i, const SliceData& slice, JSONPrinter&) const;
+    void formatJsonPhaseTimes(const PhaseTimeTable& phaseTimes, JSONPrinter&) const;
+    void formatJsonSlice(size_t sliceNum, JSONPrinter&) const;
 
     double computeMMU(TimeDuration resolution) const;
 
     void printSliceProfile();
-    static void printProfileHeader();
     static void printProfileTimes(const ProfileDurations& times);
 };
 
@@ -478,10 +500,11 @@ struct MOZ_RAII AutoPhase
 
     ~AutoPhase() {
         if (enabled) {
-            if (task)
-                stats.endParallelPhase(phase, task);
-            else
-                stats.endPhase(phase);
+            // Bug 1309651 - we only record active thread time (including time
+            // spent waiting to join with helper threads), but should start
+            // recording total work on helper threads sometime by calling
+            // endParallelPhase here if task is nonnull.
+            stats.endPhase(phase);
         }
     }
 

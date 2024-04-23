@@ -1,4 +1,5 @@
 /* -*- Mode: C++; tab-width: 8; indent-tabs-mode: nil; c-basic-offset: 4 -*-
+ * vim: set ts=8 sts=4 et sw=4 tw=99:
  * This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -184,7 +185,7 @@ struct Zone : public JS::shadow::Zone,
     ~Zone();
     [[nodiscard]] bool init(bool isSystem);
 
-    private:
+  private:
     js::ZoneGroup* const group_;
   public:
     js::ZoneGroup* group() const {
@@ -217,7 +218,7 @@ struct Zone : public JS::shadow::Zone,
     }
 
     [[nodiscard]] void* onOutOfMemory(js::AllocFunction allocFunc, size_t nbytes,
-                                      void* reallocPtr = nullptr) {
+                                     void* reallocPtr = nullptr) {
         if (!js::CurrentThreadCanAccessRuntime(runtime_))
             return nullptr;
         return runtimeFromActiveCooperatingThread()->onOutOfMemory(allocFunc, nbytes, reallocPtr);
@@ -240,7 +241,6 @@ struct Zone : public JS::shadow::Zone,
     bool canCollect();
 
     void notifyObservingDebuggers();
-
 
     void setGCState(GCState state) {
         MOZ_ASSERT(CurrentThreadIsHeapBusy());
@@ -277,6 +277,12 @@ struct Zone : public JS::shadow::Zone,
     // Get a number that is incremented whenever this zone is collected, and
     // possibly at other times too.
     uint64_t gcNumber();
+
+    bool compileBarriers() const { return compileBarriers(needsIncrementalBarrier()); }
+    bool compileBarriers(bool needsIncrementalBarrier) const {
+        return needsIncrementalBarrier ||
+               runtimeFromActiveCooperatingThread()->hasZealMode(js::gc::ZealMode::VerifierPre);
+    }
 
     void setNeedsIncrementalBarrier(bool needs);
     const uint32_t* addressOfNeedsIncrementalBarrier() const { return &needsIncrementalBarrier_; }
@@ -343,7 +349,7 @@ struct Zone : public JS::shadow::Zone,
     js::ZoneGroupOrGCTaskData<mozilla::LinkedList<js::WeakMapBase>> gcWeakMapList_;
   public:
     mozilla::LinkedList<js::WeakMapBase>& gcWeakMapList() { return gcWeakMapList_.ref(); }
- 
+
     typedef js::Vector<JSCompartment*, 1, js::SystemAllocPolicy> CompartmentVector;
 
   private:
@@ -384,29 +390,28 @@ struct Zone : public JS::shadow::Zone,
     js::ZoneGroupOrGCTaskData<js::gc::WeakKeyTable> gcWeakKeys_;
   public:
     js::gc::WeakKeyTable& gcWeakKeys() { return gcWeakKeys_.ref(); }
- 
-  private:
 
+  private:
     // A set of edges from this zone to other zones.
     //
-    // This is used during GC while calculating zone groups to record edges that
-    // can't be determined by examining this zone by itself.
+    // This is used during GC while calculating sweep groups to record edges
+    // that can't be determined by examining this zone by itself.
     js::ZoneGroupData<ZoneSet> gcZoneGroupEdges_;
+
   public:
     ZoneSet& gcZoneGroupEdges() { return gcZoneGroupEdges_.ref(); }
 
     // Keep track of all TypeDescr and related objects in this compartment.
     // This is used by the GC to trace them all first when compacting, since the
     // TypedObject trace hook may access these objects.
-	
-     //
-     // There are no barriers here - the set contains only tenured objects so no
-     // post-barrier is required, and these are weak references so no pre-barrier
-     // is required.
-     using TypeDescrObjectSet = js::GCHashSet<JSObject*,
+    //
+    // There are no barriers here - the set contains only tenured objects so no
+    // post-barrier is required, and these are weak references so no pre-barrier
+    // is required.
+    using TypeDescrObjectSet = js::GCHashSet<JSObject*,
                                              js::MovableCellHasher<JSObject*>,
                                              js::SystemAllocPolicy>;
-    private:
+  private:
     js::ZoneGroupData<JS::WeakCache<TypeDescrObjectSet>> typeDescrObjects_;
 
     // Malloc counter to measure memory pressure for GC scheduling. This
@@ -419,10 +424,10 @@ struct Zone : public JS::shadow::Zone,
     js::gc::MemoryCounter<Zone> jitCodeCounter;
 
   public:
-    JS::WeakCache<TypeDescrObjectSet>& typeDescrObjects() { return typeDescrObjects_.ref(); }
-	
-    bool addTypeDescrObject(JSContext* cx, HandleObject obj);
 
+    JS::WeakCache<TypeDescrObjectSet>& typeDescrObjects() { return typeDescrObjects_.ref(); }
+
+    bool addTypeDescrObject(JSContext* cx, HandleObject obj);
 
     bool triggerGCForTooMuchMalloc() {
         JSRuntime* rt = runtimeFromAnyThread();
@@ -763,7 +768,7 @@ class ZonesIter
 
     bool done() const { return !atomsZone && group.done(); }
 
-     void next() {
+    void next() {
         MOZ_ASSERT(!done());
         if (atomsZone)
             atomsZone = nullptr;
@@ -1001,10 +1006,6 @@ IsClearEdgesTracer(JSTracer *trc)
 } // namespace js
 
 namespace JS {
-
-template <typename T>
-struct DeletePolicy<js::GCPtr<T>> : public js::GCManagedDeletePolicy<js::GCPtr<T>>
-{};
 
 // Scope data that contain GCPtrs must use the correct DeletePolicy.
 //

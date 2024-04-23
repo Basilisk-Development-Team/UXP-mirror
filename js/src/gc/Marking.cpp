@@ -1257,34 +1257,34 @@ BindingIter::trace(JSTracer* trc)
 void
 LexicalScope::Data::trace(JSTracer* trc)
 {
-    TraceBindingNames(trc, trailingNames.start(), length);
+    TraceBindingNames(trc, names, length);
 }
 void
 FunctionScope::Data::trace(JSTracer* trc)
 {
     TraceNullableEdge(trc, &canonicalFunction, "scope canonical function");
-    TraceNullableBindingNames(trc, trailingNames.start(), length);
+    TraceNullableBindingNames(trc, names, length);
 }
 void
 VarScope::Data::trace(JSTracer* trc)
 {
-    TraceBindingNames(trc, trailingNames.start(), length);
+    TraceBindingNames(trc, names, length);
 }
 void
 GlobalScope::Data::trace(JSTracer* trc)
 {
-    TraceBindingNames(trc, trailingNames.start(), length);
+    TraceBindingNames(trc, names, length);
 }
 void
 EvalScope::Data::trace(JSTracer* trc)
 {
-    TraceBindingNames(trc, trailingNames.start(), length);
+    TraceBindingNames(trc, names, length);
 }
 void
 ModuleScope::Data::trace(JSTracer* trc)
 {
     TraceNullableEdge(trc, &module, "scope module");
-    TraceBindingNames(trc, trailingNames.start(), length);
+    TraceBindingNames(trc, names, length);
 }
 void
 Scope::traceChildren(JSTracer* trc)
@@ -1319,6 +1319,9 @@ Scope::traceChildren(JSTracer* trc)
         break;
       case ScopeKind::With:
         break;
+      case ScopeKind::WasmFunction:
+        reinterpret_cast<WasmFunctionScope::Data*>(data_)->trace(trc);
+        break;
     }
 }
 inline void
@@ -1328,13 +1331,13 @@ js::GCMarker::eagerlyMarkChildren(Scope* scope)
         traverseEdge(scope, static_cast<Scope*>(scope->enclosing_));
     if (scope->environmentShape_)
         traverseEdge(scope, static_cast<Shape*>(scope->environmentShape_));
-    TrailingNamesArray* names = nullptr;
+    BindingName* names = nullptr;
     uint32_t length = 0;
     switch (scope->kind_) {
       case ScopeKind::Function: {
         FunctionScope::Data* data = reinterpret_cast<FunctionScope::Data*>(scope->data_);
         traverseEdge(scope, static_cast<JSObject*>(data->canonicalFunction));
-        names = &data->trailingNames;
+        names = data->names;
         length = data->length;
         break;
       }
@@ -1342,7 +1345,7 @@ js::GCMarker::eagerlyMarkChildren(Scope* scope)
       case ScopeKind::FunctionBodyVar:
       case ScopeKind::ParameterExpressionVar: {
         VarScope::Data* data = reinterpret_cast<VarScope::Data*>(scope->data_);
-        names = &data->trailingNames;
+        names = data->names;
         length = data->length;
         break;
       }
@@ -1353,7 +1356,7 @@ js::GCMarker::eagerlyMarkChildren(Scope* scope)
       case ScopeKind::NamedLambda:
       case ScopeKind::StrictNamedLambda: {
         LexicalScope::Data* data = reinterpret_cast<LexicalScope::Data*>(scope->data_);
-        names = &data->trailingNames;
+        names = data->names;
         length = data->length;
         break;
       }
@@ -1361,7 +1364,7 @@ js::GCMarker::eagerlyMarkChildren(Scope* scope)
       case ScopeKind::Global:
       case ScopeKind::NonSyntactic: {
         GlobalScope::Data* data = reinterpret_cast<GlobalScope::Data*>(scope->data_);
-        names = &data->trailingNames;
+        names = data->names;
         length = data->length;
         break;
       }
@@ -1369,7 +1372,7 @@ js::GCMarker::eagerlyMarkChildren(Scope* scope)
       case ScopeKind::Eval:
       case ScopeKind::StrictEval: {
         EvalScope::Data* data = reinterpret_cast<EvalScope::Data*>(scope->data_);
-        names = &data->trailingNames;
+        names = data->names;
         length = data->length;
         break;
       }
@@ -1377,7 +1380,7 @@ js::GCMarker::eagerlyMarkChildren(Scope* scope)
       case ScopeKind::Module: {
         ModuleScope::Data* data = reinterpret_cast<ModuleScope::Data*>(scope->data_);
         traverseEdge(scope, static_cast<JSObject*>(data->module));
-        names = &data->trailingNames;
+        names = data->names;
         length = data->length;
         break;
       }
@@ -1387,12 +1390,12 @@ js::GCMarker::eagerlyMarkChildren(Scope* scope)
     }
     if (scope->kind_ == ScopeKind::Function) {
         for (uint32_t i = 0; i < length; i++) {
-            if (JSAtom* name = names->operator[](i).name())
+            if (JSAtom* name = names[i].name())
                 traverseEdge(scope, static_cast<JSString*>(name));
         }
     } else {
         for (uint32_t i = 0; i < length; i++)
-            traverseEdge(scope, static_cast<JSString*>(names->operator[](i).name()));
+            traverseEdge(scope, static_cast<JSString*>(names[i].name()));
     }
 }
 
@@ -1650,8 +1653,6 @@ GCMarker::processMarkStackTop(SliceBudget& budget)
     HeapSlot* end;
     JSObject* obj;
 
-
-    // Dispatch
     switch (stack.peekTag()) {
       case MarkStack::ValueArrayTag: {
         auto array = stack.popValueArray();
@@ -1850,14 +1851,12 @@ GCMarker::restoreValueArray(const MarkStack::SavedValueArray& array,
                             HeapSlot** vpp, HeapSlot** endp)
 {
     JSObject* objArg = array.ptr.asSavedValueArrayObject();
-
     if (!objArg->isNative())
         return false;
     NativeObject* obj = &objArg->as<NativeObject>();
 
     uintptr_t start = array.index;
     if (array.kind == HeapSlot::Element) {
-
         uint32_t initlen = obj->getDenseInitializedLength();
 
         // Account for shifted elements.
@@ -1944,7 +1943,7 @@ MarkStack::TaggedPtr::TaggedPtr(Tag tag, Cell* ptr)
   : bits(tag | uintptr_t(ptr))
 {
     MOZ_ASSERT(tag <= LastTag);
-    MOZ_ASSERT((uintptr_t(ptr) & CellMask) == 0);
+    MOZ_ASSERT((uintptr_t(ptr) & CellAlignMask) == 0);
 }
 
 inline MarkStack::Tag
@@ -2020,6 +2019,7 @@ MarkStack::~MarkStack()
     MOZ_ASSERT(iteratorCount_ == 0);
     js_free(stack_);
 }
+
 bool
 MarkStack::init(JSGCMode gcMode)
 {
@@ -2042,6 +2042,7 @@ MarkStack::setStack(TaggedPtr* stack, size_t tosIndex, size_t capacity)
     tos_ = stack + tosIndex;
     end_ = stack + capacity;
 }
+
 void
 MarkStack::setBaseCapacity(JSGCMode mode)
 {
@@ -2178,6 +2179,7 @@ MarkStack::popSavedValueArray()
     CheckSavedValueArray(array);
     return array;
 }
+
 void
 MarkStack::reset()
 {
@@ -2206,6 +2208,7 @@ MarkStack::ensureSpace(size_t count)
 
     return enlarge(count);
 }
+
 bool
 MarkStack::enlarge(size_t count)
 {
@@ -2328,6 +2331,7 @@ MarkStackIter::saveValueArray(NativeObject* obj, uintptr_t index, HeapSlot::Kind
     CheckSavedValueArray(array);
     MOZ_ASSERT(peekTag() == MarkStack::SavedValueArrayTag);
 }
+
 
 /*** GCMarker *************************************************************************************/
 
@@ -2415,6 +2419,7 @@ GCMarker::reset()
     MOZ_ASSERT(isDrained());
     MOZ_ASSERT(!markLaterArenas);
 }
+
 
 template <typename T>
 void
@@ -2581,21 +2586,33 @@ GCMarker::sizeOfExcludingThis(mozilla::MallocSizeOf mallocSizeOf) const
 
 #ifdef DEBUG
 Zone*
-GCMarker::stackContainsCrossZonePointerTo(const TenuredCell* target) const
+GCMarker::stackContainsCrossZonePointerTo(const Cell* target) const
 {
     MOZ_ASSERT(!JS::CurrentThreadIsHeapCollecting());
+
+    Zone* targetZone = target->asTenured().zone();
 
     for (MarkStackIter iter(stack); !iter.done(); iter.next()) {
         if (iter.peekTag() != MarkStack::ObjectTag)
             continue;
 
         auto source = iter.peekPtr().as<JSObject>();
-        if (source->is<ProxyObject>() &&
-            source->as<ProxyObject>().target() == static_cast<const Cell*>(target) &&
-            source->zone() != target->zone())
-        {
-            return source->zone();
+        Zone* sourceZone = source->zone();
+        if (sourceZone == targetZone)
+            continue;
+
+        // The private slot of proxy objects might contain a cross-compartment
+        // pointer.
+        if (source->is<ProxyObject>()) {
+            Value value = source->as<ProxyObject>().private_();
+            MOZ_ASSERT_IF(!IsCrossCompartmentWrapper(source),
+                          IsObjectValueInCompartment(value, source->compartment()));
+            if (value.isObject() && &value.toObject() == target)
+                return sourceZone;
         }
+
+        if (Debugger::isDebuggerCrossCompartmentEdge(source, target))
+            return sourceZone;
     }
 
     return nullptr;
@@ -2726,9 +2743,9 @@ template <typename T>
 static void
 TraceBufferedCells(TenuringTracer& mover, Arena* arena, ArenaCellSet* cells)
 {
-    for (size_t i = 0; i < ArenaCellCount; i++) {
+    for (size_t i = 0; i < MaxArenaCellIndex; i++) {
         if (cells->hasCell(i)) {
-            auto cell = reinterpret_cast<T*>(uintptr_t(arena) + CellSize * i);
+            auto cell = reinterpret_cast<T*>(uintptr_t(arena) + ArenaCellIndexBytes * i);
             TraceWholeCell(mover, cell);
         }
     }
@@ -3085,9 +3102,10 @@ IsMarkedInternalCommon(T* thingp)
     Zone* zone = thing.zoneFromAnyThread();
     if (!zone->isCollectingFromAnyThread() || zone->isGCFinished())
         return true;
+
     if (zone->isGCCompacting() && IsForwarded(*thingp)) {
         *thingp = Forwarded(*thingp);
-    return true;
+        return true;
     }
 
     return thing.isMarked() || thing.arena()->allocatedDuringIncremental;
@@ -3261,6 +3279,7 @@ FOR_EACH_PUBLIC_TAGGED_GC_POINTER_TYPE(INSTANTIATE_ALL_VALID_HEAP_TRACE_FUNCTION
 
 
 /*** Cycle Collector Barrier Implementation *******************************************************/
+
 /*
  * The GC and CC are run independently. Consequently, the following sequence of
  * events can occur:
@@ -3280,9 +3299,10 @@ FOR_EACH_PUBLIC_TAGGED_GC_POINTER_TYPE(INSTANTIATE_ALL_VALID_HEAP_TRACE_FUNCTION
  *
  * There is an additional complication for certain kinds of edges that are not
  * contained explicitly in the source object itself, such as from a weakmap key
- * to its value. These "implicit edges" are represented in some other
- * container object, such as the weakmap itself. In these cases, calling unmark
- * gray on an object won't find all of its children.
+ * to its value, and from an object being watched by a watchpoint to the
+ * watchpoint's closure. These "implicit edges" are represented in some other
+ * container object, such as the weakmap or the watchpoint itself. In these
+ * cases, calling unmark gray on an object won't find all of its children.
  *
  * Handling these implicit edges has two parts:
  * - A special pass enumerating all of the containers that know about the
@@ -3292,8 +3312,8 @@ FOR_EACH_PUBLIC_TAGGED_GC_POINTER_TYPE(INSTANTIATE_ALL_VALID_HEAP_TRACE_FUNCTION
  *   of the containers, we must add unmark-graying read barriers to these
  *   containers.
  */
- 
- #ifdef DEBUG
+
+#ifdef DEBUG
 struct AssertNonGrayTracer : public JS::CallbackTracer {
     explicit AssertNonGrayTracer(JSRuntime* rt) : JS::CallbackTracer(rt) {}
     void onChild(const JS::GCCellPtr& thing) override {
@@ -3348,8 +3368,8 @@ UnmarkGrayTracer::onChild(const JS::GCCellPtr& thing)
     TenuredCell& tenured = cell->asTenured();
     if (!tenured.isMarked(GRAY))
         return;
-    tenured.markBlack();
 
+    tenured.markBlack();
     unmarkedAny = true;
 
     if (!stack.append(thing))
@@ -3412,4 +3432,51 @@ JS_FRIEND_API(bool)
 JS::UnmarkGrayGCThingRecursively(JS::GCCellPtr thing)
 {
     return js::UnmarkGrayCellRecursively(thing.asCell(), thing.kind());
+}
+
+namespace js {
+namespace debug {
+
+MarkInfo
+GetMarkInfo(Cell* rawCell)
+{
+    if (!rawCell->isTenured())
+        return MarkInfo::NURSERY;
+
+    TenuredCell* cell = &rawCell->asTenured();
+    if (cell->isMarked(GRAY))
+        return MarkInfo::GRAY;
+    if (cell->isMarked(BLACK))
+        return MarkInfo::BLACK;
+    return MarkInfo::UNMARKED;
+}
+
+uintptr_t*
+GetMarkWordAddress(Cell* cell)
+{
+    if (!cell->isTenured())
+        return nullptr;
+
+    uintptr_t* wordp;
+    uintptr_t mask;
+    js::gc::detail::GetGCThingMarkWordAndMask(uintptr_t(cell), ColorBit::BlackBit, &wordp, &mask);
+    return wordp;
+}
+
+uintptr_t
+GetMarkMask(Cell* cell, uint32_t color)
+{
+    MOZ_ASSERT(color == 0 || color == 1);
+
+    if (!cell->isTenured())
+        return 0;
+
+    ColorBit bit = color == 0 ? ColorBit::BlackBit : ColorBit::GrayOrBlackBit;
+    uintptr_t* wordp;
+    uintptr_t mask;
+    js::gc::detail::GetGCThingMarkWordAndMask(uintptr_t(cell), bit, &wordp, &mask);
+    return mask;
+}
+
+}
 }

@@ -1,4 +1,5 @@
 /* -*- Mode: C++; tab-width: 8; indent-tabs-mode: nil; c-basic-offset: 4 -*-
+ * vim: set ts=8 sts=4 et sw=4 tw=99:
  * This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -276,8 +277,7 @@ js::gc::GCRuntime::traceRuntimeForMinorGC(JSTracer* trc, AutoLockForExclusiveAcc
     // the verifier for the last time.
     gcstats::AutoPhase ap(stats(), gcstats::PHASE_MARK_ROOTS);
 
-    // FIXME: As per bug 1298816 comment 12, we should be able to remove this.
-    jit::JitRuntime::TraceJitcodeGlobalTable(trc);
+    jit::JitRuntime::TraceJitcodeGlobalTableForMinorGC(trc);
 
     traceRuntimeCommon(trc, TraceRuntime, lock);
 }
@@ -335,6 +335,7 @@ js::gc::GCRuntime::traceRuntimeCommon(JSTracer* trc, TraceOrMarkRuntime traceOrM
             // Trace C stack roots.
             TraceExactStackRoots(target, trc);
         }
+
         for (RootRange r = rootsHash.ref().all(); !r.empty(); r.popFront()) {
             const RootEntry& entry = r.front();
             TraceRoot(trc, entry.key(), entry.value());
@@ -352,7 +353,7 @@ js::gc::GCRuntime::traceRuntimeCommon(JSTracer* trc, TraceOrMarkRuntime traceOrM
 
     // Trace anything in any of the cooperating threads.
     for (const CooperatingContext& target : rt->cooperatingContexts())
-    target.context()->trace(trc);
+        target.context()->trace(trc);
 
     // Trace all compartment roots, but not the compartment itself; it is
     // traced via the parent pointer if traceRoots actually traces anything.
@@ -407,6 +408,7 @@ void
 js::gc::GCRuntime::finishRoots()
 {
     AutoNoteSingleThreadedRegion anstr;
+
     rt->finishAtoms();
 
     if (rootsHash.ref().initialized())
@@ -540,7 +542,7 @@ GCRuntime::resetBufferedGrayRoots() const
     for (GCZonesIter zone(rt); !zone.done(); zone.next())
         zone->gcGrayRoots().clearAndFree();
 }
- 
+
 JS_PUBLIC_API(void)
 JS::AddPersistentRoot(JS::RootingContext* cx, RootKind kind, PersistentRooted<void*>* root)
 {

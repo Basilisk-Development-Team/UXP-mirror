@@ -30,7 +30,7 @@ class AtomMarkingRuntime
             markAtom(cx, description);
     }
 
-public:
+  public:
     // The extent of all allocated and free words in atom mark bitmaps.
     // This monotonically increases and may be read from without locking.
     mozilla::Atomic<size_t> allocatedWords;

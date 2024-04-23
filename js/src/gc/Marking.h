@@ -43,6 +43,7 @@ static const size_t INCREMENTAL_MARK_STACK_BASE_CAPACITY = 32768;
 namespace gc {
 
 class MarkStackIter;
+
 /*
  * When the native stack is low, the GC does not call js::TraceChildren to mark
  * the reachable "children" of the thing. Rather the thing is put aside and
@@ -77,7 +78,7 @@ class MarkStack
 
     static const uintptr_t TagMask = 7;
     static_assert(TagMask >= uintptr_t(LastTag), "The tag mask must subsume the tags.");
-    static_assert(TagMask <= gc::CellMask, "The tag mask must be embeddable in a Cell*.");
+    static_assert(TagMask <= gc::CellAlignMask, "The tag mask must be embeddable in a Cell*.");
 
     class TaggedPtr
     {
@@ -299,9 +300,11 @@ class GCMarker : public JSTracer
     size_t sizeOfExcludingThis(mozilla::MallocSizeOf mallocSizeOf) const;
 
 #ifdef DEBUG
+
     bool shouldCheckCompartments() { return strictCompartmentChecking; }
 
-    Zone* stackContainsCrossZonePointerTo(const gc::TenuredCell* cell) const;
+    Zone* stackContainsCrossZonePointerTo(const gc::Cell* cell) const;
+
 #endif
 
     void markEphemeronValues(gc::Cell* markedCell, gc::WeakEntryVector& entry);

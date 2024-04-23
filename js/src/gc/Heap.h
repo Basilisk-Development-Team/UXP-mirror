@@ -74,7 +74,9 @@ enum InitialHeap {
 };
 
 /* The GC allocation kinds. */
-enum class AllocKind : uint8_t {
+// FIXME: uint8_t would make more sense for the underlying type, but causes
+// miscompilations in GCC (fixed in 4.8.5 and 4.9.3). See also bug 1143966.
+enum class AllocKind {
     FIRST,
     OBJECT_FIRST = FIRST,
     FUNCTION = FIRST,
@@ -263,6 +265,8 @@ struct Cell
     // May be overridden by GC thing kinds that have a compartment pointer.
     inline JSCompartment* maybeCompartment() const { return nullptr; }
 
+    // The StoreBuffer used to record incoming pointers from the tenured heap.
+    // This will return nullptr for a tenured cell.
     inline StoreBuffer* storeBuffer() const;
 
     inline JS::TraceKind getTraceKind() const;
@@ -276,15 +280,17 @@ struct Cell
 
     template<class T>
     inline T* as() {
-        MOZ_ASSERT(this->is<T>());
+        MOZ_ASSERT(is<T>());
         return static_cast<T*>(this);
     }
 
     template <class T>
     inline const T* as() const {
-        MOZ_ASSERT(this->is<T>());
+        MOZ_ASSERT(is<T>());
         return static_cast<const T*>(this);
     }
+
+
 
 #ifdef DEBUG
     inline bool isAligned() const;
@@ -342,24 +348,39 @@ class TenuredCell : public Cell
 #endif
 };
 
-/* Cells are aligned to CellShift, so the largest tagged null pointer is: */
-const uintptr_t LargestTaggedNullCellPointer = (1 << CellShift) - 1;
+/* Cells are aligned to CellAlignShift, so the largest tagged null pointer is: */
+const uintptr_t LargestTaggedNullCellPointer = (1 << CellAlignShift) - 1;
+
+/*
+ * The minimum cell size ends up as twice the cell alignment because the mark
+ * bitmap contains one bit per CellBytesPerMarkBit bytes (which is equal to
+ * CellAlignBytes) and we need two mark bits per cell.
+ */
+const size_t MarkBitsPerCell = 2;
+const size_t MinCellSize = CellBytesPerMarkBit * MarkBitsPerCell;
 
 constexpr size_t
 DivideAndRoundUp(size_t numerator, size_t divisor) {
     return (numerator + divisor - 1) / divisor;
 }
 
-const size_t ArenaCellCount = ArenaSize / CellSize;
-static_assert(ArenaSize % CellSize == 0, "Arena size must be a multiple of cell size");
+static_assert(ArenaSize % CellAlignBytes == 0,
+              "Arena size must be a multiple of cell alignment");
 
 /*
- * The mark bitmap has one bit per each GC cell. For multi-cell GC things this
- * wastes space but allows to avoid expensive devisions by thing's size when
- * accessing the bitmap. In addition this allows to use some bits for colored
- * marking during the cycle GC.
+ * We sometimes use an index to refer to a cell in an arena. The index for a
+ * cell is found by dividing by the cell alignment so not all indicies refer to
+ * valid cells.
  */
-const size_t ArenaBitmapBits = ArenaCellCount;
+const size_t ArenaCellIndexBytes = CellAlignBytes;
+const size_t MaxArenaCellIndex = ArenaSize / CellAlignBytes;
+
+/*
+ * The mark bitmap has one bit per each possible cell start position. This
+ * wastes some space for larger GC things but allows us to avoid division by the
+ * cell's size when accessing the bitmap.
+ */
+const size_t ArenaBitmapBits = ArenaSize / CellBytesPerMarkBit;
 const size_t ArenaBitmapBytes = DivideAndRoundUp(ArenaBitmapBits, 8);
 const size_t ArenaBitmapWords = DivideAndRoundUp(ArenaBitmapBits, JS_BITS_PER_WORD);
 
@@ -545,7 +566,7 @@ class Arena
                   "Arena::auxNextLink packing assumes that ArenaShift has "
                   "enough bits to cover allocKind and hasDelayedMarking.");
 
-    private:
+  private:
     union {
         /*
          * For arenas in zones other than the atoms zone, if non-null, points
@@ -788,25 +809,26 @@ FreeSpan::checkRange(uintptr_t first, uintptr_t last, const Arena* arena) const
  */
 struct ChunkTrailer
 {
-    /* Construct a Nursery ChunkTrailer. */
+    // Construct a Nursery ChunkTrailer.
     ChunkTrailer(JSRuntime* rt, StoreBuffer* sb)
       : location(ChunkLocation::Nursery), storeBuffer(sb), runtime(rt)
     {}
 
-    /* Construct a Tenured heap ChunkTrailer. */
+    // Construct a Tenured heap ChunkTrailer.
     explicit ChunkTrailer(JSRuntime* rt)
       : location(ChunkLocation::TenuredHeap), storeBuffer(nullptr), runtime(rt)
     {}
 
   public:
-    /* The index the chunk in the nursery, or LocationTenuredHeap. */
+    // The index of the chunk in the nursery, or LocationTenuredHeap.
     ChunkLocation   location;
     uint32_t        padding;
 
-    /* The store buffer for writes to things in this chunk or nullptr. */
+    // The store buffer for pointers from tenured things to things in this
+    // chunk. Will be non-null only for nursery chunks.
     StoreBuffer*    storeBuffer;
 
-    /* This provides quick access to the runtime from absolutely anywhere. */
+    // Provide quick access to the runtime from absolutely anywhere.
     JSRuntime*      runtime;
 };
 
@@ -1155,7 +1177,7 @@ AssertValidColor(const TenuredCell* thing, uint32_t color)
 {
 #ifdef DEBUG
     Arena* arena = thing->arena();
-    MOZ_ASSERT(color < arena->getThingSize() / CellSize);
+    MOZ_ASSERT(color < arena->getThingSize() / CellBytesPerMarkBit);
 #endif
 }
 
@@ -1202,7 +1224,7 @@ inline uintptr_t
 Cell::address() const
 {
     uintptr_t addr = uintptr_t(this);
-    MOZ_ASSERT(addr % CellSize == 0);
+    MOZ_ASSERT(addr % CellAlignBytes == 0);
     MOZ_ASSERT(Chunk::withinValidRange(addr));
     return addr;
 }
@@ -1211,7 +1233,7 @@ Chunk*
 Cell::chunk() const
 {
     uintptr_t addr = uintptr_t(this);
-    MOZ_ASSERT(addr % CellSize == 0);
+    MOZ_ASSERT(addr % CellAlignBytes == 0);
     addr &= ~ChunkMask;
     return reinterpret_cast<Chunk*>(addr);
 }
@@ -1366,6 +1388,22 @@ TenuredCell::writeBarrierPre(TenuredCell* thing)
     if (!thing)
         return;
 
+#ifdef JS_GC_ZEAL
+    // When verifying pre barriers we need to switch on all barriers, even
+    // those on the Atoms Zone. Normally, we never enter a parse task when
+    // collecting in the atoms zone, so will filter out atoms below.
+    // Unfortuantely, If we try that when verifying pre-barriers, we'd never be
+    // able to handle off thread parse tasks at all as we switch on the verifier any
+    // time we're not doing GC. This would cause us to deadlock, as off thread parsing
+    // is meant to resume after GC work completes. Instead we filter out any
+    // off thread barriers that reach us and assert that they would normally not be
+    // possible.
+    if (!CurrentThreadCanAccessRuntime(thing->runtimeFromAnyThread())) {
+        AssertSafeToSkipBarrier(thing);
+        return;
+    }
+#endif
+
     JS::shadow::Zone* shadowZone = thing->shadowZoneFromAnyThread();
     if (shadowZone->needsIncrementalBarrier()) {
         MOZ_ASSERT(!RuntimeFromActiveCooperatingThreadIsHeapMajorCollecting(shadowZone));
@@ -1408,6 +1446,52 @@ static const int32_t ChunkLocationOffsetFromLastByte =
     int32_t(gc::ChunkLocationOffset) - int32_t(gc::ChunkMask);
 
 } /* namespace gc */
+
+namespace debug {
+
+// Utility functions meant to be called from an interactive debugger.
+enum class MarkInfo : int {
+    BLACK = js::gc::BLACK,
+    GRAY = js::gc::GRAY,
+    UNMARKED = -1,
+    NURSERY = -2,
+};
+
+// Get the mark color for a cell, in a way easily usable from a debugger.
+MOZ_NEVER_INLINE MarkInfo
+GetMarkInfo(js::gc::Cell* cell);
+
+// Sample usage from gdb:
+//
+//   (gdb) p $word = js::debug::GetMarkWordAddress(obj)
+//   $1 = (uintptr_t *) 0x7fa56d5fe360
+//   (gdb) p/x $mask = js::debug::GetMarkMask(obj, js::gc::GRAY)
+//   $2 = 0x200000000
+//   (gdb) watch *$word
+//   Hardware watchpoint 7: *$word
+//   (gdb) cond 7 *$word & $mask
+//   (gdb) cont
+//
+// Note that this is *not* a watchpoint on a single bit. It is a watchpoint on
+// the whole word, which will trigger whenever the word changes and the
+// selected bit is set after the change.
+//
+// So if the bit changing is the desired one, this is exactly what you want.
+// But if a different bit changes (either set or cleared), you may still stop
+// execution if the $mask bit happened to already be set. gdb does not expose
+// enough information to restrict the watchpoint to just a single bit.
+
+// Return the address of the word containing the mark bits for the given cell,
+// or nullptr if the cell is in the nursery.
+MOZ_NEVER_INLINE uintptr_t*
+GetMarkWordAddress(js::gc::Cell* cell);
+
+// Return the mask for the given cell and color, or 0 if the cell is in the
+// nursery.
+MOZ_NEVER_INLINE uintptr_t
+GetMarkMask(js::gc::Cell* cell, uint32_t color);
+
+} /* namespace debug */
 } /* namespace js */
 
 #endif /* gc_Heap_h */

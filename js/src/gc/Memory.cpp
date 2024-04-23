@@ -13,8 +13,14 @@
 
 #if defined(XP_WIN)
 
+#include "mozilla/Sprintf.h"
 #include "jswin.h"
 #include <psapi.h>
+
+#elif defined(SOLARIS)
+
+#include <sys/mman.h>
+#include <unistd.h>
 
 #elif defined(XP_UNIX)
 
@@ -402,6 +408,86 @@ DeallocateMappedContent(void* p, size_t length)
 
 #  endif
 
+#elif defined(SOLARIS)
+
+#ifndef MAP_NOSYNC
+# define MAP_NOSYNC 0
+#endif
+
+void
+InitMemorySubsystem()
+{
+    if (pageSize == 0)
+        pageSize = allocGranularity = size_t(sysconf(_SC_PAGESIZE));
+}
+
+void*
+MapAlignedPages(size_t size, size_t alignment)
+{
+    MOZ_ASSERT(size >= alignment);
+    MOZ_ASSERT(size >= allocGranularity);
+    MOZ_ASSERT(size % alignment == 0);
+    MOZ_ASSERT(size % pageSize == 0);
+    MOZ_ASSERT_IF(alignment < allocGranularity, allocGranularity % alignment == 0);
+    MOZ_ASSERT_IF(alignment > allocGranularity, alignment % allocGranularity == 0);
+
+    int prot = PROT_READ | PROT_WRITE;
+    int flags = MAP_PRIVATE | MAP_ANON | MAP_ALIGN | MAP_NOSYNC;
+
+    void* p = mmap((caddr_t)alignment, size, prot, flags, -1, 0);
+    if (p == MAP_FAILED)
+        return nullptr;
+    return p;
+}
+
+static void*
+MapAlignedPagesLastDitch(size_t size, size_t alignment)
+{
+    return nullptr;
+}
+
+void
+UnmapPages(void* p, size_t size)
+{
+    MOZ_ALWAYS_TRUE(0 == munmap((caddr_t)p, size));
+}
+
+bool
+MarkPagesUnused(void* p, size_t size)
+{
+    MOZ_ASSERT(OffsetFromAligned(p, pageSize) == 0);
+    return true;
+}
+
+bool
+MarkPagesInUse(void* p, size_t size)
+{
+    if (!DecommitEnabled())
+        return;
+
+    MOZ_ASSERT(OffsetFromAligned(p, pageSize) == 0);
+}
+
+size_t
+GetPageFaultCount()
+{
+    return 0;
+}
+
+void*
+AllocateMappedContent(int fd, size_t offset, size_t length, size_t alignment)
+{
+    // Not implemented.
+    return nullptr;
+}
+
+// Deallocate mapped memory for object.
+void
+DeallocateMappedContent(void* p, size_t length)
+{
+    // Not implemented.
+}
+
 #elif defined(XP_UNIX)
 
 void
@@ -414,15 +500,10 @@ InitMemorySubsystem()
 static inline void*
 MapMemoryAt(void* desired, size_t length, int prot = PROT_READ | PROT_WRITE,
             int flags = MAP_PRIVATE | MAP_ANON, int fd = -1, off_t offset = 0)
-
-// Solaris manages 64-bit address space in a different manner from every other
-// AMD64 operating system, but fortunately the fix is the same one 
-// required for every operating system on 64-bit SPARC, Itanium, and ARM. 
-// Most people's intuition failed them here and they thought this couldn't
-// possibly be correct on AMD64, but for Solaris/illumos it is.	
-	
 {
-#if defined(__ia64__) || defined(__aarch64__) || (defined(__sun) && defined(__x86_64__)) || (defined(__sparc__) && defined(__arch64__) && (defined(__NetBSD__) || defined(__linux__)))
+
+#if defined(__ia64__) || defined(__aarch64__) || \
+    (defined(__sparc__) && defined(__arch64__) && (defined(__NetBSD__) || defined(__linux__)))
     MOZ_ASSERT((0xffff800000000000ULL & (uintptr_t(desired) + length - 1)) == 0);
 #endif
     void* region = mmap(desired, length, prot, flags, fd, offset);
@@ -472,7 +553,7 @@ MapMemory(size_t length, int prot = PROT_READ | PROT_WRITE,
         return nullptr;
     }
     return region;
-#elif defined(__aarch64__) || (defined(__sun) && defined(__x86_64__)) || (defined(__sparc__) && defined(__arch64__) && defined(__linux__))
+#elif defined(__aarch64__) || (defined(__sparc__) && defined(__arch64__) && defined(__linux__))
    /*
     * There might be similar virtual address issue on arm64 which depends on
     * hardware and kernel configurations. But the work around is slightly
@@ -684,10 +765,10 @@ MarkPagesUnused(void* p, size_t size)
         return false;
 
     MOZ_ASSERT(OffsetFromAligned(p, pageSize) == 0);
-#ifdef XP_SOLARIS
-     int result = posix_madvise(p, size, POSIX_MADV_DONTNEED);
+#if defined(XP_SOLARIS)
+    int result = posix_madvise(p, size, POSIX_MADV_DONTNEED);
 #else
-     int result = madvise(p, size, MADV_DONTNEED);
+    int result = madvise(p, size, MADV_DONTNEED);
 #endif
     return result != -1;
 }
@@ -774,7 +855,7 @@ ProtectPages(void* p, size_t size)
 #if defined(XP_WIN)
     DWORD oldProtect;
     if (!VirtualProtect(p, size, PAGE_NOACCESS, &oldProtect)) {
-        MOZ_CRASH_UNSAFE_PRINTF("VirtualProtect(PAGE_NOACCESS) failed! Error code: %u",
+        MOZ_CRASH_UNSAFE_PRINTF("VirtualProtect(PAGE_NOACCESS) failed! Error code: %lu",
                                 GetLastError());
     }
     MOZ_ASSERT(oldProtect == PAGE_READWRITE);
@@ -793,7 +874,7 @@ MakePagesReadOnly(void* p, size_t size)
 #if defined(XP_WIN)
     DWORD oldProtect;
     if (!VirtualProtect(p, size, PAGE_READONLY, &oldProtect)) {
-        MOZ_CRASH_UNSAFE_PRINTF("VirtualProtect(PAGE_READONLY) failed! Error code: %u",
+        MOZ_CRASH_UNSAFE_PRINTF("VirtualProtect(PAGE_READONLY) failed! Error code: %lu",
                                 GetLastError());
     }
     MOZ_ASSERT(oldProtect == PAGE_READWRITE);
@@ -812,7 +893,7 @@ UnprotectPages(void* p, size_t size)
 #if defined(XP_WIN)
     DWORD oldProtect;
     if (!VirtualProtect(p, size, PAGE_READWRITE, &oldProtect)) {
-        MOZ_CRASH_UNSAFE_PRINTF("VirtualProtect(PAGE_READWRITE) failed! Error code: %u",
+        MOZ_CRASH_UNSAFE_PRINTF("VirtualProtect(PAGE_READWRITE) failed! Error code: %lu",
                                 GetLastError());
     }
     MOZ_ASSERT(oldProtect == PAGE_NOACCESS || oldProtect == PAGE_READONLY);

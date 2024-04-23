@@ -1,4 +1,5 @@
 /* -*- Mode: C++; tab-width: 8; indent-tabs-mode: nil; c-basic-offset: 4 -*-
+ * vim: set ts=8 sts=4 et sw=4 tw=99:
  * This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -120,7 +121,7 @@ class StoreBuffer
             last_ = T();
 
             if (MOZ_UNLIKELY(stores_.count() > MaxEntries))
-                owner->setAboutToOverflow(T::FullBufferReason);
+                owner->setAboutToOverflow();
         }
 
         bool has(StoreBuffer* owner, const T& v) {
@@ -187,7 +188,7 @@ class StoreBuffer
                 oomUnsafe.crash("Failed to allocate for GenericBuffer::put.");
 
             if (isAboutToOverflow())
-                owner->setAboutToOverflow(JS::gcreason::FULL_GENERIC_BUFFER);
+                owner->setAboutToOverflow();
         }
 
         size_t sizeOfExcludingThis(mozilla::MallocSizeOf mallocSizeOf) {
@@ -233,8 +234,6 @@ class StoreBuffer
         explicit operator bool() const { return edge != nullptr; }
 
         typedef PointerEdgeHasher<CellPtrEdge> Hasher;
-
-        static const auto FullBufferReason = JS::gcreason::FULL_CELL_PTR_BUFFER;
     };
 
     struct ValueEdge
@@ -262,8 +261,6 @@ class StoreBuffer
         explicit operator bool() const { return edge != nullptr; }
 
         typedef PointerEdgeHasher<ValueEdge> Hasher;
-
-        static const auto FullBufferReason = JS::gcreason::FULL_VALUE_BUFFER;
     };
 
     struct SlotsEdge
@@ -336,13 +333,11 @@ class StoreBuffer
 
         explicit operator bool() const { return objectAndKind_ != 0; }
 
-        typedef struct Hasher {
+        typedef struct {
             typedef SlotsEdge Lookup;
             static HashNumber hash(const Lookup& l) { return l.objectAndKind_ ^ l.start_ ^ l.count_; }
             static bool match(const SlotsEdge& k, const Lookup& l) { return k == l; }
         } Hasher;
-
-        static const auto FullBufferReason = JS::gcreason::FULL_SLOT_BUFFER;
     };
 
     template <typename Buffer, typename Edge>
@@ -436,7 +431,7 @@ class StoreBuffer
     void traceWholeCell(TenuringTracer& mover, JS::TraceKind kind, Cell* cell);
 
     /* For use by our owned buffers and for testing. */
-    void setAboutToOverflow(JS::gcreason::Reason);
+    void setAboutToOverflow();
 
     void addToWholeCellBuffer(ArenaCellSet* set);
 
@@ -455,7 +450,7 @@ class ArenaCellSet
     ArenaCellSet* next;
 
     // Bit vector for each possible cell start position.
-    BitArray<ArenaCellCount> bits;
+    BitArray<MaxArenaCellIndex> bits;
 
   public:
     explicit ArenaCellSet(Arena* arena);

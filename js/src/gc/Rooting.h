@@ -1,4 +1,5 @@
 /* -*- Mode: C++; tab-width: 8; indent-tabs-mode: nil; c-basic-offset: 4 -*-
+ * vim: set ts=8 sts=4 et sw=4 tw=99:
  * This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -23,6 +24,7 @@ class ScriptSourceObject;
 class SavedFrame;
 class Shape;
 class ObjectGroup;
+class DebuggerArguments;
 class DebuggerEnvironment;
 class DebuggerFrame;
 class DebuggerObject;
@@ -40,6 +42,7 @@ typedef JS::Handle<ArrayObject*>            HandleArrayObject;
 typedef JS::Handle<PlainObject*>            HandlePlainObject;
 typedef JS::Handle<SavedFrame*>             HandleSavedFrame;
 typedef JS::Handle<ScriptSourceObject*>     HandleScriptSource;
+typedef JS::Handle<DebuggerArguments*>      HandleDebuggerArguments;
 typedef JS::Handle<DebuggerEnvironment*>    HandleDebuggerEnvironment;
 typedef JS::Handle<DebuggerFrame*>          HandleDebuggerFrame;
 typedef JS::Handle<DebuggerObject*>         HandleDebuggerObject;
@@ -50,6 +53,7 @@ typedef JS::MutableHandle<JSAtom*>              MutableHandleAtom;
 typedef JS::MutableHandle<NativeObject*>        MutableHandleNativeObject;
 typedef JS::MutableHandle<PlainObject*>         MutableHandlePlainObject;
 typedef JS::MutableHandle<SavedFrame*>          MutableHandleSavedFrame;
+typedef JS::MutableHandle<DebuggerArguments*>   MutableHandleDebuggerArguments;
 typedef JS::MutableHandle<DebuggerEnvironment*> MutableHandleDebuggerEnvironment;
 typedef JS::MutableHandle<DebuggerFrame*>       MutableHandleDebuggerFrame;
 typedef JS::MutableHandle<DebuggerObject*>      MutableHandleDebuggerObject;
@@ -66,6 +70,7 @@ typedef JS::Rooted<GlobalObject*>           RootedGlobalObject;
 typedef JS::Rooted<PlainObject*>            RootedPlainObject;
 typedef JS::Rooted<SavedFrame*>             RootedSavedFrame;
 typedef JS::Rooted<ScriptSourceObject*>     RootedScriptSource;
+typedef JS::Rooted<DebuggerArguments*>      RootedDebuggerArguments;
 typedef JS::Rooted<DebuggerEnvironment*>    RootedDebuggerEnvironment;
 typedef JS::Rooted<DebuggerFrame*>          RootedDebuggerFrame;
 typedef JS::Rooted<DebuggerObject*>         RootedDebuggerObject;

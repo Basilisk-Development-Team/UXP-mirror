@@ -58,6 +58,9 @@ class NativeObject;
 class Nursery;
 class HeapSlot;
 class ZoneGroup;
+class JSONPrinter;
+
+void SetGCZeal(JSRuntime*, uint8_t, uint32_t);
 
 namespace gc {
 class AutoMaybeStartBackgroundAllocation;
@@ -249,6 +252,17 @@ class Nursery
                (numChunks() - currentChunk_ - 1) * NurseryChunkUsableSize;
     }
 
+#ifdef JS_GC_ZEAL
+    void enterZealMode();
+    void leaveZealMode();
+#endif
+
+    /* Write profile time JSON on JSONPrinter. */
+    void renderProfileJSON(JSONPrinter& json) const;
+
+    /* Print header line for profile times. */
+    static void printProfileHeader();
+
     /* Print total profile times on shutdown. */
     void printTotalProfileTimes();
 
@@ -262,6 +276,7 @@ class Nursery
     void clearMinorGCRequest() { minorGCTriggerReason_ = JS::gcreason::NO_REASON; }
 
     bool enableProfiling() const { return enableProfiling_; }
+    bool trackTimings() const { return trackTimings_; }
 
   private:
     /* The amount of space in the mapped nursery available to allocations. */
@@ -307,6 +322,12 @@ class Nursery
     /* Report minor collections taking at least this long, if enabled. */
     mozilla::TimeDuration profileThreshold_;
     bool enableProfiling_;
+
+    /*
+     * Track timings if either enableProfiling_ or the Gecko profiler is
+     * compiled in.
+     */
+    bool trackTimings_;
 
     /* Report ObjectGroups with at lest this many instances tenured. */
     int64_t reportTenurings_;
@@ -379,6 +400,11 @@ class Nursery
     using NativeObjectVector = Vector<NativeObject*, 0, SystemAllocPolicy>;
     NativeObjectVector dictionaryModeObjects_;
 
+#ifdef JS_GC_ZEAL
+    struct Canary;
+    Canary* lastCanary_;
+#endif
+
     NurseryChunk* allocChunk();
 
     NurseryChunk& chunk(unsigned index) const {
@@ -447,11 +473,11 @@ class Nursery
     void minimizeAllocableSpace();
 
     /* Profile recording and printing. */
+    void maybeClearProfileDurations();
     void startProfile(ProfileKey key);
     void endProfile(ProfileKey key);
     void maybeStartProfile(ProfileKey key);
     void maybeEndProfile(ProfileKey key);
-    static void printProfileHeader();
     static void printProfileDurations(const ProfileDurations& times);
 
     friend class TenuringTracer;

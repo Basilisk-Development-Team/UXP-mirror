@@ -1,4 +1,5 @@
 /* -*- Mode: C++; tab-width: 8; indent-tabs-mode: nil; c-basic-offset: 4 -*-
+ * vim: set ts=8 sts=4 et sw=4 tw=99:
  * This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -188,7 +189,7 @@ gc::TraceCycleCollectorChildren(JS::CallbackTracer* trc, Shape* shape)
         MOZ_ASSERT(shape->base());
         shape->base()->assertConsistency();
 
-        // Don't trace the propid because the CC doesn't care about jsid.
+        TraceEdge(trc, &shape->propidRef(), "propid");
 
         if (shape->hasGetterObject()) {
             JSObject* tmp = shape->getterObject();
@@ -294,6 +295,37 @@ CountDecimalDigits(size_t num)
     return numDigits;
 }
 
+static const char*
+StringKindHeader(JSString* str)
+{
+    MOZ_ASSERT(str->isLinear());
+
+    if (str->isAtom()) {
+        if (str->isPermanentAtom())
+            return "permanent atom: ";
+        return "atom: ";
+    }
+
+    if (str->isFlat()) {
+        if (str->isExtensible())
+            return "extensible: ";
+        if (str->isUndepended())
+            return "undepended: ";
+        if (str->isInline()) {
+            if (str->isFatInline())
+                return "fat inline: ";
+            return "inline: ";
+        }
+        return "flat: ";
+    }
+
+    if (str->isDependent())
+        return "dependent: ";
+    if (str->isExternal())
+        return "external: ";
+    return "linear: ";
+}
+
 JS_PUBLIC_API(void)
 JS_GetTraceThingInfo(char* buf, size_t bufsize, JSTracer* trc, void* thing,
                      JS::TraceKind kind, bool details)
@@ -305,14 +337,46 @@ JS_GetTraceThingInfo(char* buf, size_t bufsize, JSTracer* trc, void* thing,
         return;
 
     switch (kind) {
+      case JS::TraceKind::BaseShape:
+        name = "base_shape";
+        break;
+
+      case JS::TraceKind::JitCode:
+        name = "jitcode";
+        break;
+
+      case JS::TraceKind::LazyScript:
+        name = "lazyscript";
+        break;
+
+      case JS::TraceKind::Null:
+        name = "null_pointer";
+        break;
+
       case JS::TraceKind::Object:
       {
         name = static_cast<JSObject*>(thing)->getClass()->name;
         break;
       }
 
+      case JS::TraceKind::ObjectGroup:
+        name = "object_group";
+        break;
+
+      case JS::TraceKind::RegExpShared:
+        name = "reg_exp_shared";
+        break;
+
+      case JS::TraceKind::Scope:
+        name = "scope";
+        break;
+
       case JS::TraceKind::Script:
         name = "script";
+        break;
+
+      case JS::TraceKind::Shape:
+        name = "shape";
         break;
 
       case JS::TraceKind::String:
@@ -327,30 +391,6 @@ JS_GetTraceThingInfo(char* buf, size_t bufsize, JSTracer* trc, void* thing,
 
       case JS::TraceKind::BigInt:
         name = "BigInt";
-        break;
-
-      case JS::TraceKind::BaseShape:
-        name = "base_shape";
-        break;
-
-      case JS::TraceKind::JitCode:
-        name = "jitcode";
-        break;
-
-      case JS::TraceKind::LazyScript:
-        name = "lazyscript";
-        break;
-
-      case JS::TraceKind::Shape:
-        name = "shape";
-        break;
-
-      case JS::TraceKind::ObjectGroup:
-        name = "object_group";
-        break;
-
-      case JS::TraceKind::RegExpShared:
-        name = "reg_exp_shared";
         break;
 
       default:
@@ -400,12 +440,13 @@ JS_GetTraceThingInfo(char* buf, size_t bufsize, JSTracer* trc, void* thing,
             JSString* str = (JSString*)thing;
 
             if (str->isLinear()) {
-                bool willFit = str->length() + strlen("<length > ") +
+                const char* header = StringKindHeader(str);
+                bool willFit = str->length() + strlen("<length > ") + strlen(header) +
                                CountDecimalDigits(str->length()) < bufsize;
 
-                n = snprintf(buf, bufsize, "<length %" PRIuSIZE "%s> ",
-                                str->length(),
-                                willFit ? "" : " (truncated)");
+                n = snprintf(buf, bufsize, "<%slength %" PRIuSIZE "%s> ",
+                             header, str->length(),
+                             willFit ? "" : " (truncated)");
                 buf += n;
                 bufsize -= n;
 
@@ -430,6 +471,13 @@ JS_GetTraceThingInfo(char* buf, size_t bufsize, JSTracer* trc, void* thing,
             } else {
                 snprintf(buf, bufsize, "<null>");
             }
+            break;
+          }
+
+          case JS::TraceKind::Scope:
+          {
+            js::Scope* scope = static_cast<js::Scope*>(thing);
+            snprintf(buf, bufsize, " %s", js::ScopeKindString(scope->kind()));
             break;
           }
 
