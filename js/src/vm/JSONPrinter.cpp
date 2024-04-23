@@ -152,8 +152,7 @@ JSONPrinter::property(const char* name, int64_t value)
 
 void
 JSONPrinter::property(const char* name, uint64_t value)
- {
-    property(name);
+{
     propertyName(name);
     out_.printf("%" PRIu64, value);
 }
@@ -207,6 +206,10 @@ JSONPrinter::floatProperty(const char* name, double value, size_t precision)
 void
 JSONPrinter::property(const char* name, const mozilla::TimeDuration& dur, TimePrecision precision)
 {
+   if (precision == MICROSECONDS) {
+        property(name, static_cast<int64_t>(dur.ToMicroseconds()));
+        return;
+    }
     propertyName(name);
     lldiv_t split;
     switch (precision) {
@@ -216,6 +219,8 @@ JSONPrinter::property(const char* name, const mozilla::TimeDuration& dur, TimePr
       case MILLISECONDS:
         split = lldiv(static_cast<int64_t>(dur.ToMicroseconds()), 1000);
         break;
+      case MICROSECONDS:
+        MOZ_ASSERT_UNREACHABLE("");
     };
     out_.printf("%llu.%03llu", split.quot, split.rem);
 }

@@ -551,6 +551,17 @@ js::Nursery::endProfile(ProfileKey key)
     totalDurations_[key] += profileDurations_[key];
 }
 
+static inline bool
+IsFullStoreBufferReason(JS::gcreason::Reason reason)
+{
+    return reason == JS::gcreason::FULL_WHOLE_CELL_BUFFER ||
+           reason == JS::gcreason::FULL_GENERIC_BUFFER ||
+           reason == JS::gcreason::FULL_VALUE_BUFFER ||
+           reason == JS::gcreason::FULL_CELL_PTR_BUFFER ||
+           reason == JS::gcreason::FULL_SLOT_BUFFER ||
+           reason == JS::gcreason::FULL_SHAPE_BUFFER;
+}
+
 inline void
 js::Nursery::maybeStartProfile(ProfileKey key)
 {
@@ -617,7 +628,7 @@ js::Nursery::collect(JS::gcreason::Reason reason)
     // the nursery is full, look for object groups that are getting promoted
     // excessively and try to pretenure them.
     maybeStartProfile(ProfileKey::Pretenure);
-    if (promotionRate > 0.8 || reason == JS::gcreason::FULL_STORE_BUFFER) {
+    if (promotionRate > 0.8 || IsFullStoreBufferReason(reason)) {
         JSContext* cx = TlsContext.get();
         for (auto& entry : tenureCounts.entries) {
             if (entry.count >= 3000) {

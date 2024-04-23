@@ -185,7 +185,7 @@ class JitRuntime
     [[nodiscard]] bool initialize(JSContext* cx, js::AutoLockForExclusiveAccess& lock);
 
     static void Trace(JSTracer* trc, js::AutoLockForExclusiveAccess& lock);
-    static void TraceJitcodeGlobalTable(JSTracer* trc);
+    static void TraceJitcodeGlobalTableForMinorGC(JSTracer* trc);
     [[nodiscard]] static bool MarkJitcodeGlobalTableIteratively(GCMarker* marker);
     static void SweepJitcodeGlobalTable(JSRuntime* rt);
 

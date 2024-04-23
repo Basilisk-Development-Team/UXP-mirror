@@ -61,7 +61,7 @@ class JSONPrinter
 
     // JSON requires decimals to be separated by periods, but the LC_NUMERIC
     // setting may cause printf to use commas in some locales.
-    enum TimePrecision { SECONDS, MILLISECONDS };
+    enum TimePrecision { SECONDS, MILLISECONDS, MICROSECONDS};
     void property(const char* name, const mozilla::TimeDuration& dur, TimePrecision precision);
 
     void floatProperty(const char* name, double value, size_t precision);
@@ -69,8 +69,6 @@ class JSONPrinter
     void beginStringProperty(const char* name);
     void endStringProperty();
 
-    protected:
-    void propertyName(const char* name);
 
     void endObject();
     void endList();
@@ -78,6 +76,8 @@ class JSONPrinter
     // Notify the output that the caller has detected OOM and should transition
     // to its saw-OOM state.
     void outOfMemory() { out_.reportOutOfMemory(); }
+  protected:
+    void propertyName(const char* name);
 };
 
 } // namespace js

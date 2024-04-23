@@ -8458,6 +8458,11 @@ main(int argc, char** argv, char** envp)
                             "NUMBER of instructions.", -1)
 #endif
         || !op.addIntOption('\0', "nursery-size", "SIZE-MB", "Set the maximum nursery size in MB", 16)
+#ifdef JS_GC_ZEAL
+        || !op.addStringOption('z', "gc-zeal", "LEVEL(;LEVEL)*[,N]", gc::ZealModeHelpText)
+#else
+        || !op.addStringOption('z', "gc-zeal", "LEVEL(;LEVEL)*[,N]", "option ignored in non-gc-zeal builds")
+#endif
         || !op.addStringOption('\0', "module-load-path", "DIR", "Set directory to load modules from")
     )
     {

@@ -6175,7 +6175,6 @@ GCRuntime::canChangeActiveContext(JSContext* cx)
     // scheduling.
     return cx->heapState == JS::HeapState::Idle
         && !cx->suppressGC
-        && cx->allowGCBarriers
         && !cx->inUnsafeRegion
         && !cx->generationalDisabled
         && !cx->compactingDisabledCount
@@ -6426,6 +6425,9 @@ GCRuntime::incrementalCollectSlice(SliceBudget& budget, JS::gcreason::Reason rea
             pushZealSelectedObjects();
         incrementalState = State::Mark;
 
+        if (isIncremental && useZeal && hasZealMode(ZealMode::IncrementalRootsThenFinish))
+            break;
+
         [[fallthrough]];
 
       case State::Mark:
@@ -6455,7 +6457,8 @@ GCRuntime::incrementalCollectSlice(SliceBudget& budget, JS::gcreason::Reason rea
          * We will need to mark anything new on the stack when we resume, so
          * we stay in Mark state.
          */
-        if (!lastMarkSlice && isIncremental && initialState == State::Mark &&
+        if (!lastMarkSlice && isIncremental &&
+            ((initialState == State::Mark &&
               !(useZeal && hasZealMode(ZealMode::IncrementalRootsThenFinish))) ||
              (useZeal && hasZealMode(ZealMode::IncrementalMarkAllThenFinish))))
         {
@@ -7434,7 +7437,7 @@ gc::MergeCompartments(JSCompartment* source, JSCompartment* target)
     target->zone()->adoptUniqueIds(source->zone());
 
     // Merge other info in source's zone into target's zone.
-    target->zone()->types.typeLifoAlloc().transferFrom(&source->zone()->types.typeLifoAlloc());
+    target->zone()->types.typeLifoAlloc.ref().transferFrom(&source->zone()->types.typeLifoAlloc.ref());
 
     // Atoms which are marked in source's zone are now marked in target's zone.
     cx->atomMarking().adoptMarkedAtoms(target->zone(), source->zone());
@@ -7676,24 +7679,6 @@ JS::AutoAssertNoGC::~AutoAssertNoGC()
     cx_->inUnsafeRegion--;
 }
 
-JS::AutoAssertOnBarrier::AutoAssertOnBarrier(JSContext* cx)
-  : context(cx),
-    prev(cx->allowGCBarriers)
-{
-    context->allowGCBarriers = false;
-}
-
-JS::AutoAssertOnBarrier::~AutoAssertOnBarrier()
-{
-    MOZ_ASSERT(!context->allowGCBarriers);
-    context->allowGCBarriers = prev;
-}
-
-JS_FRIEND_API(bool)
-js::gc::BarriersAreAllowedOnCurrentThread()
-{
-    return TlsContext.get()->allowGCBarriers;
-}
 #ifdef DEBUG
 JS::AutoAssertNoAlloc::AutoAssertNoAlloc(JSContext* cx)
   : gc(nullptr)
