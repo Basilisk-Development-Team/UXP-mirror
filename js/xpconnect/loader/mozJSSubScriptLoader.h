@@ -1,4 +1,5 @@
 /* -*- Mode: C++; tab-width: 8; indent-tabs-mode: nil; c-basic-offset: 4 -*- */
+/* vim: set ts=8 sts=4 et sw=4 tw=99: */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -32,21 +33,24 @@ public:
 private:
     virtual ~mozJSSubScriptLoader();
 
-    bool ReadScript(nsIURI* uri, JSContext* cx, JSObject* target_obj,
+    bool ReadScript(nsIURI* uri, JSContext* cx, JS::HandleObject targetObj,
                     const nsAString& charset, const char* uriStr,
-                    nsIIOService* serv, nsIPrincipal* principal,
-                    bool reuseGlobal, JS::MutableHandleScript script,
-                    JS::MutableHandleFunction function);
+                    nsIIOService* serv,
+                    bool wantReturnValue,
+                    JS::MutableHandleScript script);
 
-    nsresult ReadScriptAsync(nsIURI* uri, JSObject* target_obj,
+    nsresult ReadScriptAsync(nsIURI* uri,
+                             JS::HandleObject targetObj,
                              const nsAString& charset,
-                             nsIIOService* serv, bool reuseGlobal,
-                             bool cache, JS::MutableHandleValue retval);
+                             nsIIOService* serv,
+                             bool wantReturnValue,
+                             bool cache,
+                             JS::MutableHandleValue retval);
 
     nsresult DoLoadSubScriptWithOptions(const nsAString& url,
                                         LoadSubScriptOptions& options,
                                         JSContext* cx,
-                                        JS::MutableHandle<JS::Value> retval);
+                                        JS::MutableHandleValue retval);
 
     nsCOMPtr<nsIPrincipal> mSystemPrincipal;
 };

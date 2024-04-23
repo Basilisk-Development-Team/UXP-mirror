@@ -129,8 +129,7 @@ using namespace mozilla::dom;
 
 #define NS_DEFINE_CLASSINFO_DATA_HELPER(_class, _helper, _flags,              \
                                         _chromeOnly, _allowXBL)               \
-  { #_class,                                                                  \
-    nullptr,                                                                  \
+  { nullptr,                                                                  \
     XPC_MAKE_CLASS_OPS(_flags),                                               \
     XPC_MAKE_CLASS(#_class, _flags,                                           \
                    &sClassInfoData[eDOMClassInfo_##_class##_id].mClassOps),   \
@@ -171,18 +170,18 @@ static nsDOMClassInfoData sClassInfoData[] = {
 
   NS_DEFINE_CLASSINFO_DATA(DOMPrototype, nsDOMConstructorSH,
                            DOM_BASE_SCRIPTABLE_FLAGS |
-                           nsIXPCScriptable::WANT_PRECREATE |
-                           nsIXPCScriptable::WANT_RESOLVE |
-                           nsIXPCScriptable::WANT_HASINSTANCE |
-                           nsIXPCScriptable::DONT_ENUM_QUERY_INTERFACE)
+                           XPC_SCRIPTABLE_WANT_PRECREATE |
+                           XPC_SCRIPTABLE_WANT_RESOLVE |
+                           XPC_SCRIPTABLE_WANT_HASINSTANCE |
+                           XPC_SCRIPTABLE_DONT_ENUM_QUERY_INTERFACE)
   NS_DEFINE_CLASSINFO_DATA(DOMConstructor, nsDOMConstructorSH,
                            DOM_BASE_SCRIPTABLE_FLAGS |
-                           nsIXPCScriptable::WANT_PRECREATE |
-                           nsIXPCScriptable::WANT_RESOLVE |
-                           nsIXPCScriptable::WANT_HASINSTANCE |
-                           nsIXPCScriptable::WANT_CALL |
-                           nsIXPCScriptable::WANT_CONSTRUCT |
-                           nsIXPCScriptable::DONT_ENUM_QUERY_INTERFACE)
+                           XPC_SCRIPTABLE_WANT_PRECREATE |
+                           XPC_SCRIPTABLE_WANT_RESOLVE |
+                           XPC_SCRIPTABLE_WANT_HASINSTANCE |
+                           XPC_SCRIPTABLE_WANT_CALL |
+                           XPC_SCRIPTABLE_WANT_CONSTRUCT |
+                           XPC_SCRIPTABLE_DONT_ENUM_QUERY_INTERFACE)
 
   // Misc Core related classes
 
@@ -224,13 +223,13 @@ static nsDOMClassInfoData sClassInfoData[] = {
   NS_DEFINE_CHROME_ONLY_CLASSINFO_DATA(ContentFrameMessageManager,
                                        nsMessageManagerSH<nsEventTargetSH>,
                                        DOM_DEFAULT_SCRIPTABLE_FLAGS |
-                                       nsIXPCScriptable::WANT_ENUMERATE |
-                                       nsIXPCScriptable::IS_GLOBAL_OBJECT)
+                                       XPC_SCRIPTABLE_WANT_ENUMERATE |
+                                       XPC_SCRIPTABLE_IS_GLOBAL_OBJECT)
   NS_DEFINE_CHROME_ONLY_CLASSINFO_DATA(ContentProcessMessageManager,
                                        nsMessageManagerSH<nsDOMGenericSH>,
                                        DOM_DEFAULT_SCRIPTABLE_FLAGS |
-                                       nsIXPCScriptable::WANT_ENUMERATE |
-                                       nsIXPCScriptable::IS_GLOBAL_OBJECT)
+                                       XPC_SCRIPTABLE_WANT_ENUMERATE |
+                                       XPC_SCRIPTABLE_IS_GLOBAL_OBJECT)
   NS_DEFINE_CHROME_ONLY_CLASSINFO_DATA(ChromeMessageBroadcaster, nsDOMGenericSH,
                                        DOM_DEFAULT_SCRIPTABLE_FLAGS)
   NS_DEFINE_CHROME_ONLY_CLASSINFO_DATA(ChromeMessageSender, nsDOMGenericSH,
@@ -662,7 +661,7 @@ nsDOMClassInfo::Init()
     }
 
     nsDOMClassInfoData& data = sClassInfoData[i];
-    nameSpaceManager->RegisterClassName(data.mName, i, data.mChromeOnly,
+    nameSpaceManager->RegisterClassName(data.mClass.name, i, data.mChromeOnly,
                                         data.mAllowXBL, &data.mNameUTF16);
   }
 
@@ -760,7 +759,7 @@ nsDOMClassInfo::GetFlags(uint32_t *aFlags)
 NS_IMETHODIMP
 nsDOMClassInfo::GetClassName(char **aClassName)
 {
-  *aClassName = NS_strdup(mData->mName);
+  *aClassName = NS_strdup(mData->mClass.name);
 
   return NS_OK;
 }
@@ -777,6 +776,13 @@ const js::Class*
 nsDOMClassInfo::GetClass()
 {
     return &mData->mClass;
+}
+
+// virtual
+const JSClass*
+nsDOMClassInfo::GetJSClass()
+{
+   return Jsvalify(&mData->mClass);
 }
 
 NS_IMETHODIMP
@@ -849,7 +855,7 @@ nsDOMClassInfo::Resolve(nsIXPConnectWrappedNative *wrapper, JSContext *cx,
   JS::Rooted<JSObject*> global(cx, ::JS_GetGlobalForObject(cx, obj));
 
   JS::Rooted<JS::PropertyDescriptor> desc(cx);
-  if (!JS_GetPropertyDescriptor(cx, global, mData->mName, &desc)) {
+  if (!JS_GetPropertyDescriptor(cx, global, mData->mClass.name, &desc)) {
     return NS_ERROR_UNEXPECTED;
   }
 
@@ -952,7 +958,7 @@ nsDOMClassInfo::PostCreatePrototype(JSContext * cx, JSObject * aProto)
       if (if_info) {
         nsXPIDLCString name;
         if_info->GetName(getter_Copies(name));
-        NS_ASSERTION(nsCRT::strcmp(CutPrefix(name), mData->mName) == 0,
+        NS_ASSERTION(nsCRT::strcmp(CutPrefix(name), mData->mClass.name) == 0,
                      "Class name and proto chain interface name mismatch!");
       }
     }

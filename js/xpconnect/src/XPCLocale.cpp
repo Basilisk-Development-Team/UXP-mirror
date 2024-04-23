@@ -1,10 +1,10 @@
 /* -*- Mode: C++; tab-width: 8; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
+/* vim: set ts=8 sts=2 et sw=2 tw=80: */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 #include "mozilla/Assertions.h"
-#include "mozilla/Preferences.h"
 
 #include "jsapi.h"
 
@@ -13,10 +13,12 @@
 #include "nsIPlatformCharset.h"
 #include "nsILocaleService.h"
 #include "nsICollation.h"
+#include "nsIObserver.h"
 #include "nsUnicharUtils.h"
 #include "nsComponentManagerUtils.h"
 #include "nsServiceManagerUtils.h"
 #include "mozilla/dom/EncodingUtils.h"
+#include "mozilla/CycleCollectedJSContext.h"
 #include "mozilla/Preferences.h"
 #include "nsIUnicodeDecoder.h"
 
@@ -24,7 +26,44 @@
 
 using namespace JS;
 using mozilla::dom::EncodingUtils;
-using mozilla::Preferences;
+using namespace mozilla;
+
+class XPCLocaleObserver : public nsIObserver
+{
+public:
+  NS_DECL_ISUPPORTS
+  NS_DECL_NSIOBSERVER
+
+  void Init();
+
+private:
+  virtual ~XPCLocaleObserver() {};
+};
+
+NS_IMPL_ISUPPORTS(XPCLocaleObserver, nsIObserver);
+
+void
+XPCLocaleObserver::Init()
+{
+  nsCOMPtr<nsIObserverService> observerService =
+    mozilla::services::GetObserverService();
+
+  observerService->AddObserver(this, "intl:app-locales-changed", false);
+}
+
+NS_IMETHODIMP
+XPCLocaleObserver::Observe(nsISupports* aSubject, const char* aTopic, const char16_t* aData)
+{
+  if (!strcmp(aTopic, "intl:app-locales-changed")) {
+    JSContext* cx = CycleCollectedJSContext::Get()->Context();
+    if (!xpc_LocalizeContext(cx)) {
+      return NS_ERROR_OUT_OF_MEMORY;
+    }
+    return NS_OK;
+  }
+
+  return NS_ERROR_UNEXPECTED;
+}
 
 /**
  * JS locale callbacks implemented by XPCOM modules.  These are theoretically
@@ -35,16 +74,20 @@ using mozilla::Preferences;
 struct XPCLocaleCallbacks : public JSLocaleCallbacks
 {
   XPCLocaleCallbacks()
-#ifdef DEBUG
-    : mThread(PR_GetCurrentThread())
-#endif
   {
     MOZ_COUNT_CTOR(XPCLocaleCallbacks);
 
-    localeToUpperCase = LocaleToUpperCase;
-    localeToLowerCase = LocaleToLowerCase;
+    // Disable the toLocaleUpper/Lower case hooks to use the standard,
+    // locale-insensitive definition from String.prototype. (These hooks are
+    // only consulted when EXPOSE_INTL_API is not set.)
+    localeToUpperCase = nullptr;
+    localeToLowerCase = nullptr;
     localeCompare = LocaleCompare;
     localeToUnicode = LocaleToUnicode;
+
+    // It's going to be retained by the ObserverService.
+    RefPtr<XPCLocaleObserver> locObs = new XPCLocaleObserver();
+    locObs->Init();
   }
 
   ~XPCLocaleCallbacks()
@@ -64,26 +107,14 @@ struct XPCLocaleCallbacks : public JSLocaleCallbacks
     // assert and double-check this.
     const JSLocaleCallbacks* lc = JS_GetLocaleCallbacks(cx);
     MOZ_ASSERT(lc);
-    MOZ_ASSERT(lc->localeToUpperCase == LocaleToUpperCase);
-    MOZ_ASSERT(lc->localeToLowerCase == LocaleToLowerCase);
+    MOZ_ASSERT(lc->localeToUpperCase == nullptr);
+    MOZ_ASSERT(lc->localeToLowerCase == nullptr);
     MOZ_ASSERT(lc->localeCompare == LocaleCompare);
     MOZ_ASSERT(lc->localeToUnicode == LocaleToUnicode);
 
     const XPCLocaleCallbacks* ths = static_cast<const XPCLocaleCallbacks*>(lc);
     ths->AssertThreadSafety();
     return const_cast<XPCLocaleCallbacks*>(ths);
-  }
-
-  static bool
-  LocaleToUpperCase(JSContext* cx, HandleString src, MutableHandleValue rval)
-  {
-    return ChangeCase(cx, src, rval, ToUpperCase);
-  }
-
-  static bool
-  LocaleToLowerCase(JSContext* cx, HandleString src, MutableHandleValue rval)
-  {
-    return ChangeCase(cx, src, rval, ToLowerCase);
   }
 
   static bool
@@ -99,28 +130,6 @@ struct XPCLocaleCallbacks : public JSLocaleCallbacks
   }
 
 private:
-  static bool
-  ChangeCase(JSContext* cx, HandleString src, MutableHandleValue rval,
-             void(*changeCaseFnc)(const nsAString&, nsAString&))
-  {
-    nsAutoJSString autoStr;
-    if (!autoStr.init(cx, src)) {
-      return false;
-    }
-
-    nsAutoString result;
-    changeCaseFnc(autoStr, result);
-
-    JSString* ucstr =
-      JS_NewUCStringCopyN(cx, result.get(), result.Length());
-    if (!ucstr) {
-      return false;
-    }
-
-    rval.setString(ucstr);
-    return true;
-  }
-
   bool
   Compare(JSContext* cx, HandleString src1, HandleString src2, MutableHandleValue rval)
   {
@@ -228,7 +237,7 @@ private:
           }
         }
         JS_free(cx, unichars);
-      }
+      }    
     }
 
     xpc::Throw(cx, NS_ERROR_OUT_OF_MEMORY);
@@ -237,21 +246,25 @@ private:
 
   void AssertThreadSafety() const
   {
-    MOZ_ASSERT(mThread == PR_GetCurrentThread(),
-               "XPCLocaleCallbacks used unsafely!");
+    NS_ASSERT_OWNINGTHREAD(XPCLocaleCallbacks);
   }
 
   nsCOMPtr<nsICollation> mCollation;
   nsCOMPtr<nsIUnicodeDecoder> mDecoder;
-#ifdef DEBUG
-  PRThread* mThread;
-#endif
+  NS_DECL_OWNINGTHREAD
 };
 
 bool
 xpc_LocalizeContext(JSContext* cx)
 {
-  JS_SetLocaleCallbacks(cx, new XPCLocaleCallbacks());
+  // We want to assign the locale callbacks only the first time we
+  // localize the context.
+  // All consequent calls to this function are result of language changes
+  // and should not assign it again.
+  const JSLocaleCallbacks* lc = JS_GetLocaleCallbacks(cx);
+  if (!lc) {
+    JS_SetLocaleCallbacks(cx, new XPCLocaleCallbacks());
+  }
 
   // Set the default locale.
 

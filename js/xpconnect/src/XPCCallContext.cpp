@@ -1,4 +1,5 @@
 /* -*- Mode: C++; tab-width: 8; indent-tabs-mode: nil; c-basic-offset: 4 -*- */
+/* vim: set ts=8 sts=4 et sw=4 tw=99: */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -14,7 +15,10 @@ using namespace mozilla;
 using namespace xpc;
 using namespace JS;
 
-#define IS_TEAROFF_CLASS(clazz) ((clazz) == &XPC_WN_Tearoff_JSClass)
+static inline bool IsTearoffClass(const js::Class* clazz)
+{
+    return clazz == &XPC_WN_Tearoff_JSClass;
+}
 
 XPCCallContext::XPCCallContext(JSContext* cx,
                                HandleObject obj    /* = nullptr               */,
@@ -63,17 +67,14 @@ XPCCallContext::XPCCallContext(JSContext* cx,
     const js::Class* clasp = js::GetObjectClass(unwrapped);
     if (IS_WN_CLASS(clasp)) {
         mWrapper = XPCWrappedNative::Get(unwrapped);
-    } else if (IS_TEAROFF_CLASS(clasp)) {
+    } else if (IsTearoffClass(clasp)) {
         mTearOff = (XPCWrappedNativeTearOff*)js::GetObjectPrivate(unwrapped);
         mWrapper = XPCWrappedNative::Get(
           &js::GetReservedSlot(unwrapped,
                                XPC_WN_TEAROFF_FLAT_OBJECT_SLOT).toObject());
     }
-    if (mWrapper) {
-        if (mTearOff)
-            mScriptableInfo = nullptr;
-        else
-            mScriptableInfo = mWrapper->GetScriptableInfo();
+    if (mWrapper && !mTearOff) {
+        mScriptable = mWrapper->GetScriptable();
     }
 
     if (!JSID_IS_VOID(name))

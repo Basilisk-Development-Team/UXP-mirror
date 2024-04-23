@@ -148,6 +148,12 @@ https://bugzilla.mozilla.org/show_bug.cgi?id=933681
 
     testArrayBuffer();
 
+    testMap();
+
+    testSet();
+
+    testDataView();
+
     // We could also test DataView and Iterator here for completeness, but it's
     // more trouble than it's worth.
 
@@ -182,8 +188,8 @@ https://bugzilla.mozilla.org/show_bug.cgi?id=933681
     "toGMTString", Symbol.toPrimitive];
   gConstructorProperties['Date'] = constructorProps(["UTC", "parse", "now"]);
   gPrototypeProperties['Object'] =
-    ["constructor", "toSource", "toString", "toLocaleString", "valueOf",
-     "hasOwnProperty", "isPrototypeOf", "propertyIsEnumerable",
+    ["constructor", "toSource", "toString", "toLocaleString", "valueOf", "watch",
+     "unwatch", "hasOwnProperty", "isPrototypeOf", "propertyIsEnumerable",
      "__defineGetter__", "__defineSetter__", "__lookupGetter__", "__lookupSetter__",
      "__proto__"];
   gConstructorProperties['Object'] =
@@ -192,13 +198,13 @@ https://bugzilla.mozilla.org/show_bug.cgi?id=933681
                       "getOwnPropertyNames", "getOwnPropertySymbols",
                       "preventExtensions", "freeze", "fromEntries", "isFrozen", "seal",
                       "isSealed", "assign", "getPrototypeOf", "values",
-                      "entries", "isExtensible"]);
+                      "entries", "isExtensible", "hasOwn"]);
   gPrototypeProperties['Array'] =
     ["length", "toSource", "toString", "toLocaleString", "join", "reverse", "sort", "push",
       "pop", "shift", "unshift", "splice", "concat", "slice", "lastIndexOf", "indexOf",
       "includes", "forEach", "map", "reduce", "reduceRight", "filter", "some", "every", "find",
       "findIndex", "copyWithin", "fill", Symbol.iterator, Symbol.unscopables, "entries", "keys",
-      "values", "constructor", "flat", "flatMap"];
+      "values", "constructor", "flat", "flatMap", "at"];
   if (isNightlyBuild) {
     // ...nothing now
   }
@@ -216,7 +222,7 @@ https://bugzilla.mozilla.org/show_bug.cgi?id=933681
     ["length", "buffer", "byteLength", "byteOffset", Symbol.iterator, "subarray",
      "set", "copyWithin", "find", "findIndex", "forEach","indexOf", "lastIndexOf", "includes",
      "reverse", "join", "every", "some", "reduce", "reduceRight", "entries", "keys", "values",
-     "slice", "map", "filter"];
+     "slice", "map", "filter", "at"];
   // There is no TypedArray constructor, looks like.
   is(window.TypedArray, undefined, "If this ever changes, add to this test!");
   for (var c of errorObjectClasses) {
@@ -250,14 +256,30 @@ https://bugzilla.mozilla.org/show_bug.cgi?id=933681
   gPrototypeProperties['ArrayBuffer'] =
     ["constructor", "byteLength", "slice", Symbol.toStringTag];
   gConstructorProperties['ArrayBuffer'] =
-    constructorProps(["isView", "slice", Symbol.species]);
+    constructorProps(["isView", Symbol.species]);
 
-  if (!isReleaseOrBeta) {
-    gPrototypeProperties['SharedArrayBuffer'] = ["constructor", "slice", "byteLength", Symbol.toStringTag];
-    gConstructorProperties['SharedArrayBuffer'] = constructorProps([Symbol.species]);
-  } else {
-    is(typeof SharedArrayBuffer, "undefined", "Enable tests!");
-  }
+  gPrototypeProperties['SharedArrayBuffer'] = ["constructor", "slice", "byteLength", Symbol.toStringTag];
+  gConstructorProperties['SharedArrayBuffer'] = constructorProps([Symbol.species]);
+
+  gPrototypeProperties['Map'] =
+    ["constructor", "size", Symbol.toStringTag, "get", "has", "set", "delete",
+     "keys", "values", "clear", "forEach", "entries", Symbol.iterator];
+  gConstructorProperties['Map'] =
+    constructorProps([Symbol.species]);
+
+  gPrototypeProperties['Set'] =
+    ["constructor", "size", Symbol.toStringTag, "has", "add", "delete",
+     "keys", "values", "clear", "forEach", "entries", Symbol.iterator];
+  gConstructorProperties['Set'] =
+    constructorProps([Symbol.species]);
+
+  gPrototypeProperties['DataView'] =
+    ["constructor", "buffer", "byteLength", "byteOffset", Symbol.toStringTag,
+     "getInt8", "getUint8", "getInt16", "getUint16",
+     "getInt32", "getUint32", "getFloat32", "getFloat64",
+     "setInt8", "setUint8", "setInt16", "setUint16",
+     "setInt32", "setUint32", "setFloat32", "setFloat64"];
+  gConstructorProperties['DataView'] = constructorProps([]);
 
   // Sort an array that may contain symbols as well as strings.
   function sortProperties(arr) {
@@ -314,10 +336,12 @@ https://bugzilla.mozilla.org/show_bug.cgi?id=933681
 
         // If invoking this method returns something non-Xrayable, the
         // stringification is going to return [object Opaque].
-        ok(!/Opaque/.test(method.call(xray)), "Method result is xrayable");
-        is(method.call(xray) + "",
-           lookupCallable(xray.wrappedJSObject).call(xray.wrappedJSObject) + "",
-           "Xray and waived method results stringify identically");
+        // This happens for set[@@iterator] and other Iterator objects.
+        if (!/Opaque/.test(method.call(xray))) {
+          is(method.call(xray) + "",
+             lookupCallable(xray.wrappedJSObject).call(xray.wrappedJSObject) + "",
+             "Xray and waived method results stringify identically");
+        }
       }
     }
   }
@@ -894,11 +918,7 @@ for (var prop of props) {
   }
 
   function testArrayBuffer() {
-    let constructors = ['ArrayBuffer'];
-
-    if (!isReleaseOrBeta) {
-      constructors.push('SharedArrayBuffer');
-    }
+    let constructors = ['ArrayBuffer', 'SharedArrayBuffer'];
 
     for (const c of constructors) {
       testXray(c, new iwin[c](0), new iwin[c](12));
@@ -909,11 +929,6 @@ for (var prop of props) {
       is(t.slice(4).byteLength, 8, `${c} byteLength is correct after slicing`);
       is(Cu.getGlobalForObject(t.slice(4)), iwin, "Slice results lives in the target compartment");
       is(Object.getPrototypeOf(t.slice(4)), iwin[c].prototype, "Slice results proto lives in target compartment")
-
-      // SharedArrayBuffer does not have static slice method
-      if (c === 'ArrayBuffer') {
-        is(ArrayBuffer.slice(t, 4).byteLength, 8, `${c}.slice (deprecated) works`);
-      }
 
       var i32Array = new Int32Array(t);
       // i32Array is going to be created in the buffer's target compartment,
@@ -933,6 +948,73 @@ for (var prop of props) {
 
       t = (new iwin.Int32Array(2)).buffer;
       is(t.byteLength, 8, `Can access ${c} returned by buffer property`);
+    }
+  }
+
+  function testMap() {
+    testXray('Map', new iwin.Map(), new iwin.Map());
+
+    var t = iwin.eval(`new Map([[1, "a"], [null, "b"]])`);
+    is(t.size, 2, "Map size is correct");
+    is(t.get(1), "a", "Key 1 has the correct value");
+    is(t.get(null), "b", "Key null has the correct value");
+    is(t.has(1), true, "Has Key 1");
+    is(t.set(3, 5).get(3), 5, "Correctly sets key");
+    is(t.delete(null), true, "Key null can be deleted");
+
+    let values = [];
+    t.forEach((value, key) => values.push(value));
+    is(values.toString(), "a,5", "forEach enumerates values correctly");
+
+    t.clear();
+    is(t.size, 0, "Map is empty after calling clear");
+  }
+
+  function testSet() {
+    testXray('Set', new iwin.Set(), new iwin.Set());
+
+    var t = iwin.eval(`new Set([1, null])`);
+    is(t.size, 2, "Set size is correct");
+    is(t.has(1), true, "Contains 1");
+    is(t.has(null), true, "Contains null");
+    is(t.add(5).has(5), true, "Can add value to set");
+    is(t.delete(null), true, "Value null can be deleted");
+
+    let values = [];
+    t.forEach(value => values.push(value));
+    is(values.toString(), "1,5", "forEach enumerates values correctly");
+
+    t.clear();
+    is(t.size, 0, "Set is empty after calling clear");
+  }
+
+  function testDataView() {
+    testXray('DataView', new iwin.DataView(new iwin.ArrayBuffer(4)),
+             new iwin.DataView(new iwin.ArrayBuffer(8)));
+
+    const versions = [() => iwin.eval(`new DataView(new ArrayBuffer(8))`),
+                      () => new DataView(new iwin.ArrayBuffer(8))];
+
+    for (const constructor of versions) {
+      let t = constructor();
+      is(t.byteLength, 8, `byteLength correct for "${constructor}"`);
+      is(t.byteOffset, 0, `byteOffset correct for "${constructor}"`);
+      is(t.buffer.byteLength, 8, `buffer works for "${constructor}"`);
+
+      const get = ["getInt8", "getUint8", "getInt16", "getUint16",
+                   "getInt32", "getUint32", "getFloat32", "getFloat64"];
+
+      const set = ["setInt8", "setUint8", "setInt16", "setUint16",
+                   "setInt32", "setUint32", "setFloat32", "setFloat64"];
+
+      for (const f of get) {
+        is(t[f](0), 0, `${f} is 0 for "${constructor}"`);
+      }
+
+      for (let i = 0; i < set.length; i++) {
+        t[set[i]](0, 13);
+        is(t[get[i]](0), 13, `${get[i]}(0) afer ${set[i]}(0, 13) is 13 for "${constructor}"`);
+      }
     }
   }
 

@@ -1,4 +1,5 @@
 /* -*- Mode: C++; tab-width: 8; indent-tabs-mode: nil; c-basic-offset: 4 -*- */
+/* vim: set ts=8 sts=4 et sw=4 tw=99: */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -150,6 +151,23 @@ IsXrayWrapper(JSObject* obj);
 JSObject*
 XrayAwareCalleeGlobal(JSObject* fun);
 
+// A version of XrayAwareCalleeGlobal that can be used from a binding
+// specialized getter.  We need this function because in a specialized getter we
+// don't have a callee JSFunction, so can't use xpc::XrayAwareCalleeGlobal.
+// Instead we do something a bit hacky using our current compartment and "this"
+// value.  Note that for the Xray case thisObj will NOT be in the compartment of
+// "cx".
+//
+// As expected, the outparam "global" need not be same-compartment with either
+// thisObj or cx, though it _will_ be same-compartment with one of them.
+//
+// This function can fail; the return value indicates success or failure.
+bool
+XrayAwareCalleeGlobalForSpecializedGetters(JSContext* cx,
+                                           JS::Handle<JSObject*> thisObj,
+                                           JS::MutableHandle<JSObject*> global);
+
+
 void
 TraceXPCGlobal(JSTracer* trc, JSObject* obj);
 
@@ -203,7 +221,6 @@ xpc_UnmarkSkippableJSHolders();
 // readable string conversions, static methods and members only
 class XPCStringConvert
 {
-
 public:
 
     // If the string shares the readable's buffer, that buffer will
@@ -603,6 +620,20 @@ IsInAutomation()
     return mozilla::Preferences::GetBool(prefName) &&
         AreNonLocalConnectionsDisabled();
 }
+
+void
+CreateCooperativeContext();
+
+void
+DestroyCooperativeContext();
+
+// Please see JS_YieldCooperativeContext in jsapi.h.
+void
+YieldCooperativeContext();
+
+// Please see JS_ResumeCooperativeContext in jsapi.h.
+void
+ResumeCooperativeContext();
 
 } // namespace xpc
 

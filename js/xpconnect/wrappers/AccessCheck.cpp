@@ -1,4 +1,5 @@
 /* -*- Mode: C++; tab-width: 8; indent-tabs-mode: nil; c-basic-offset: 4 -*- */
+/* vim: set ts=8 sts=4 et sw=4 tw=99: */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -6,6 +7,7 @@
 #include "AccessCheck.h"
 
 #include "nsJSPrincipals.h"
+#include "BasePrincipal.h"
 #include "nsGlobalWindow.h"
 
 #include "XPCWrapper.h"
@@ -13,6 +15,7 @@
 #include "FilteringWrapper.h"
 
 #include "jsfriendapi.h"
+#include "mozilla/ErrorResult.h"
 #include "mozilla/dom/BindingUtils.h"
 #include "mozilla/dom/LocationBinding.h"
 #include "mozilla/dom/WindowBinding.h"
@@ -76,9 +79,8 @@ AccessCheck::wrapperSubsumes(JSObject* wrapper)
 bool
 AccessCheck::isChrome(JSCompartment* compartment)
 {
-    bool privileged;
     nsIPrincipal* principal = GetCompartmentPrincipal(compartment);
-    return NS_SUCCEEDED(nsXPConnect::SecurityManager()->IsSystemPrincipal(principal, &privileged)) && privileged;
+    return nsXPConnect::SystemPrincipal() == principal;
 }
 
 bool
@@ -274,6 +276,42 @@ AccessCheck::checkPassToPrivilegedCode(JSContext* cx, HandleObject wrapper, cons
     return true;
 }
 
+void
+AccessCheck::reportCrossOriginDenial(JSContext* cx, JS::HandleId id,
+                                     const nsACString& accessType)
+{
+    // This function exists because we want to report DOM SecurityErrors, not JS
+    // Errors, when denying access on cross-origin DOM objects.  It's
+    // conceptually pretty similar to
+    // AutoEnterPolicy::reportErrorIfExceptionIsNotPending.
+    if (JS_IsExceptionPending(cx)) {
+        return;
+    }
+
+    nsAutoCString message;
+    if (JSID_IS_VOID(id)) {
+        message = NS_LITERAL_CSTRING("Permission denied to access object");
+    } else {
+        // We want to use JS_ValueToSource here, because that most closely
+        // matches what AutoEnterPolicy::reportErrorIfExceptionIsNotPending
+        // does.
+        JS::RootedValue idVal(cx, js::IdToValue(id));
+        nsAutoJSString propName;
+        JS::RootedString idStr(cx, JS_ValueToSource(cx, idVal));
+        if (!idStr || !propName.init(cx, idStr)) {
+            return;
+        }
+        message = NS_LITERAL_CSTRING("Permission denied to ") +
+                  accessType +
+                  NS_LITERAL_CSTRING(" property ") +
+                  NS_ConvertUTF16toUTF8(propName) +
+                  NS_LITERAL_CSTRING(" on cross-origin object");
+    }
+    ErrorResult rv;
+    rv.ThrowDOMException(NS_ERROR_DOM_SECURITY_ERR, message);
+    MOZ_ALWAYS_TRUE(rv.MaybeSetPendingException(cx));
+}
+
 enum Access { READ = (1<<0), WRITE = (1<<1), NO_ACCESS = 0 };
 
 static void
@@ -305,7 +343,6 @@ ExposedPropertiesOnly::check(JSContext* cx, HandleObject wrapper, HandleId id, W
     //
     // Unfortunately, |cx| can be in either compartment when we call ::check. :-(
     JSAutoCompartment ac(cx, wrappedObject);
-
     // Proxies are not allowed in the proto chain.
     RootedObject o(cx, wrappedObject);
     while (o) {
@@ -454,13 +491,15 @@ ExposedPropertiesOnly::check(JSContext* cx, HandleObject wrapper, HandleId id, W
 }
 
 bool
-ExposedPropertiesOnly::deny(js::Wrapper::Action act, HandleId id)
+ExposedPropertiesOnly::deny(JSContext* cx, js::Wrapper::Action act, HandleId id,
+                            bool mayThrow)
 {
     // Fail silently for GET, ENUMERATE, and GET_PROPERTY_DESCRIPTOR.
     if (act == js::Wrapper::GET || act == js::Wrapper::ENUMERATE ||
         act == js::Wrapper::GET_PROPERTY_DESCRIPTOR)
     {
-        AutoJSContext cx;
+        // Note that ReportWrapperDenial doesn't do any _exception_ reporting,
+        // so we want to do this regardless of the value of mayThrow.
         return ReportWrapperDenial(cx, id, WrapperDenialForCOW,
                                    "Access to privileged JS object not permitted");
     }

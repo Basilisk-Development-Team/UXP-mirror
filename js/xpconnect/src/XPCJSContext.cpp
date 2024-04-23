@@ -22,7 +22,6 @@
 #include "nsIObserverService.h"
 #include "nsIDebug2.h"
 #include "nsIDocShell.h"
-#include "nsIInputStream.h"
 #include "nsIRunnable.h"
 #include "amIAddonManager.h"
 #include "nsPIDOMWindow.h"
@@ -41,7 +40,6 @@
 #include "mozilla/dom/GeneratedAtomList.h"
 #include "mozilla/dom/BindingUtils.h"
 #include "mozilla/dom/Element.h"
-#include "mozilla/dom/Promise.h"
 #include "mozilla/dom/ScriptLoader.h"
 #include "mozilla/dom/WindowBinding.h"
 #include "mozilla/jsipc/CrossProcessObjectWrappers.h"
@@ -50,6 +48,7 @@
 #include "mozilla/Preferences.h"
 #include "mozilla/ProcessHangMonitor.h"
 #include "mozilla/Sprintf.h"
+#include "mozilla/ThreadLocal.h"
 #include "mozilla/UniquePtrExtensions.h"
 #include "mozilla/Unused.h"
 #include "AccessCheck.h"
@@ -57,6 +56,7 @@
 #include "nsAboutProtocolUtils.h"
 
 #include "GeckoProfiler.h"
+#include "nsIInputStream.h"
 #include "nsIXULRuntime.h"
 #include "nsJSPrincipals.h"
 
@@ -73,7 +73,6 @@
 #endif
 
 using namespace mozilla;
-using namespace mozilla::dom;
 using namespace xpc;
 using namespace JS;
 using mozilla::dom::PerThreadAtomCache;
@@ -335,6 +334,7 @@ PrincipalImmuneToScriptPolicy(nsIPrincipal* aPrincipal)
     nsCOMPtr<nsIURI> principalURI;
     aPrincipal->GetURI(getter_AddRefs(principalURI));
     MOZ_ASSERT(principalURI);
+
     bool isAbout;
     nsresult rv = principalURI->SchemeIs("about", &isAbout);
     if (NS_SUCCEEDED(rv) && isAbout) {
@@ -784,12 +784,13 @@ XPCJSContext::FinalizeCallback(JSFreeOp* fop,
 
             MOZ_ASSERT(self->mGCIsRunning, "bad state");
             self->mGCIsRunning = false;
+
             break;
         }
         case JSFINALIZE_GROUP_END:
         {
 			// Sweep scopes needing cleanup
-            XPCWrappedNativeScope::KillDyingScopes();
+			XPCWrappedNativeScope::KillDyingScopes();
 
             MOZ_ASSERT(self->mDoingFinalization, "bad state");
             self->mDoingFinalization = false;
@@ -798,6 +799,7 @@ XPCJSContext::FinalizeCallback(JSFreeOp* fop,
         }
         case JSFINALIZE_COLLECTION_END:
         {
+
             MOZ_ASSERT(!self->mGCIsRunning, "bad state");
             self->mGCIsRunning = true;
 
@@ -1534,6 +1536,12 @@ ReloadPrefsCallback(const char* pref, void* data)
     bool useBaselineEager = Preferences::GetBool(JS_OPTIONS_DOT_STR
                                                  "baselinejit.unsafe_eager_compilation");
     bool useIonEager = Preferences::GetBool(JS_OPTIONS_DOT_STR "ion.unsafe_eager_compilation");
+#ifdef DEBUG
+    bool fullJitDebugChecks = Preferences::GetBool(JS_OPTIONS_DOT_STR "jit.full_debug_checks");
+#endif
+
+    int32_t baselineThreshold = Preferences::GetInt(JS_OPTIONS_DOT_STR "baselinejit.threshold", -1);
+    int32_t ionThreshold = Preferences::GetInt(JS_OPTIONS_DOT_STR "ion.threshold", -1);
 
     sDiscardSystemSource = Preferences::GetBool(JS_OPTIONS_DOT_STR "discardSystemSource");
 
@@ -1548,17 +1556,28 @@ ReloadPrefsCallback(const char* pref, void* data)
     bool werror = Preferences::GetBool(JS_OPTIONS_DOT_STR "werror");
 
     bool extraWarnings = Preferences::GetBool(JS_OPTIONS_DOT_STR "strict");
-    
-    bool streams = Preferences::GetBool(JS_OPTIONS_DOT_STR "streams");
 
-    bool unboxedObjects = Preferences::GetBool(JS_OPTIONS_DOT_STR "unboxed_objects");
-    
-    bool inlining = Preferences::GetBool(JS_OPTIONS_DOT_STR "ion.inlining");
-    
+    bool unboxedObjects =
+      Preferences::GetBool(JS_OPTIONS_DOT_STR "unboxed_objects");
+
     sSharedMemoryEnabled = Preferences::GetBool(JS_OPTIONS_DOT_STR "shared_memory");
 
 #ifdef DEBUG
     sExtraWarningsForSystemJS = Preferences::GetBool(JS_OPTIONS_DOT_STR "strict.debug");
+#endif
+
+#ifdef JS_GC_ZEAL
+    int32_t zeal = Preferences::GetInt(JS_OPTIONS_DOT_STR "gczeal", -1);
+    int32_t zeal_frequency =
+        Preferences::GetInt(JS_OPTIONS_DOT_STR "gczeal.frequency",
+                            JS_DEFAULT_ZEAL_FREQ);
+    if (zeal >= 0) {
+        JS_SetGCZeal(cx, (uint8_t)zeal, zeal_frequency);
+    }
+#endif // JS_GC_ZEAL
+
+#ifdef FUZZING
+    bool fuzzingEnabled = Preferences::GetBool("fuzzing.enabled");
 #endif
 
     bool arrayProtoValues = Preferences::GetBool(JS_OPTIONS_DOT_STR "array_prototype_values");
@@ -1574,20 +1593,23 @@ ReloadPrefsCallback(const char* pref, void* data)
                              .setThrowOnDebuggeeWouldRun(throwOnDebuggeeWouldRun)
                              .setDumpStackOnDebuggeeWouldRun(dumpStackOnDebuggeeWouldRun)
                              .setWerror(werror)
+#ifdef FUZZING
+                             .setFuzzing(fuzzingEnabled)
+#endif
                              .setExtraWarnings(extraWarnings)
-                             .setArrayProtoValues(arrayProtoValues)
-                             .setStreams(streams);
+                             .setArrayProtoValues(arrayProtoValues);
 
     JS_SetParallelParsingEnabled(cx, parallelParsing);
     JS_SetOffthreadIonCompilationEnabled(cx, offthreadIonCompilation);
     JS_SetGlobalJitCompilerOption(cx, JSJITCOMPILER_BASELINE_WARMUP_TRIGGER,
-                                  useBaselineEager ? 0 : -1);
+                                  useBaselineEager ? 0 : baselineThreshold);
     JS_SetGlobalJitCompilerOption(cx, JSJITCOMPILER_ION_WARMUP_TRIGGER,
-                                  useIonEager ? 0 : -1);
+                                  useIonEager ? 0 : ionThreshold);
+#ifdef DEBUG
+    JS_SetGlobalJitCompilerOption(cx, JSJITCOMPILER_FULL_DEBUG_CHECKS, fullJitDebugChecks);
+#endif
     JS_SetGlobalJitCompilerOption(cx, JSJITCOMPILER_UNBOXED_OBJECTS,
                                   unboxedObjects);
-    JS_SetGlobalJitCompilerOption(cx, JSJITCOMPILER_ION_INLINING,
-                                  inlining);
 }
 
 XPCJSContext::~XPCJSContext()
@@ -1977,7 +1999,6 @@ ReportZoneStats(const JS::ZoneStats& zStats,
     ZCREPORT_BYTES(pathPrefix + NS_LITERAL_CSTRING("jit-cached-cfg"),
         zStats.cachedCFG,
         "The cached CFG to construct Ion code out of it.");
-
 
     size_t stringsNotableAboutMemoryGCHeap = 0;
     size_t stringsNotableAboutMemoryMallocHeap = 0;
@@ -2893,6 +2914,8 @@ JSReporter::CollectReports(WindowPaths* windowPaths,
         return;
     }
 
+    JS::CollectTraceLoggerStateStats(&rtStats);
+
     size_t xpcJSRuntimeSize = xpccx->SizeOfIncludingThis(JSMallocSizeOf);
 
     size_t wrappedJSSize = xpccx->GetMultiCompartmentWrappedJSMap()->SizeOfWrappedJS(JSMallocSizeOf);
@@ -2928,6 +2951,11 @@ JSReporter::CollectReports(WindowPaths* windowPaths,
     REPORT_BYTES(NS_LITERAL_CSTRING("js-main-runtime/runtime"),
         KIND_OTHER, rtTotal,
         "The sum of all measurements under 'explicit/js-non-window/runtime/'.");
+
+     // Report the numbers for memory used by tracelogger.
+    REPORT_BYTES(NS_LITERAL_CSTRING("tracelogger"),
+        KIND_OTHER, rtStats.runtime.tracelogger,
+        "The memory used for the tracelogger, including the graph and events.");
 
     // Report the numbers for memory outside of compartments.
 
@@ -3194,7 +3222,7 @@ ReadSourceFromFilename(JSContext* cx, const char* filename, char16_t** src, size
     }
 
     rv = ScriptLoader::ConvertToUTF16(scriptChannel, buf.get(), rawLen, EmptyString(),
-                                      nullptr, *src, *len);
+                                        nullptr, *src, *len);
     NS_ENSURE_SUCCESS(rv, rv);
 
     if (!*src)
@@ -3237,6 +3265,8 @@ static const JSWrapObjectCallbacks WrapObjectCallbacks = {
     xpc::WrapperFactory::PrepareForWrapping
 };
 
+
+
 XPCJSContext::XPCJSContext()
  : mCallContext(nullptr),
    mAutoRoots(nullptr),
@@ -3260,6 +3290,7 @@ XPCJSContext::XPCJSContext()
    mSlowScriptSecondHalf(false),
    mPendingResult(NS_OK)
 {
+    MOZ_COUNT_CTOR_INHERITED(XPCJSContext, CycleCollectedJSContext);
 }
 
 #ifdef XP_WIN
@@ -3457,6 +3488,11 @@ XPCJSContext::Initialize()
     JS_AddWeakPointerCompartmentCallback(cx, WeakPointerCompartmentCallback, this);
     JS_SetWrapObjectCallbacks(cx, &WrapObjectCallbacks);
     js::SetPreserveWrapperCallback(cx, PreserveWrapper);
+
+#ifdef MOZ_GECKO_PROFILER
+    profiler_set_js_context(cx);
+#endif
+
     js::SetActivityCallback(cx, ActivityCallback, this);
     JS_AddInterruptCallback(cx, InterruptCallback);
     js::SetWindowProxyClass(cx, &OuterWindowProxyClass);
@@ -3563,7 +3599,6 @@ bool
 XPCJSContext::DescribeCustomObjects(JSObject* obj, const js::Class* clasp,
                                     char (&name)[72]) const
 {
-    XPCNativeScriptableInfo* si = nullptr;
 
     if (!IS_PROTO_CLASS(clasp)) {
         return false;
@@ -3571,13 +3606,13 @@ XPCJSContext::DescribeCustomObjects(JSObject* obj, const js::Class* clasp,
 
     XPCWrappedNativeProto* p =
         static_cast<XPCWrappedNativeProto*>(xpc_GetJSPrivate(obj));
-    si = p->GetScriptableInfo();
-
-    if (!si) {
+    nsCOMPtr<nsIXPCScriptable> scr = p->GetScriptable();
+    if (!scr) {
         return false;
     }
 
-    SprintfLiteral(name, "JS Object (%s - %s)", clasp->name, si->GetJSClass()->name);
+    SprintfLiteral(name, "JS Object (%s - %s)",
+                   clasp->name, scr->GetJSClass()->name);
     return true;
 }
 
@@ -3691,7 +3726,7 @@ XPCJSContext::DebugDump(int16_t depth)
             XPC_LOG_OUTDENT();
         }
 
-        XPC_LOG_ALWAYS(("mPendingResult of %x", mPendingResult));
+        XPC_LOG_ALWAYS(("mPendingResult of x", static_cast<uint32_t>(mPendingResult)));
 
         XPC_LOG_OUTDENT();
 #endif

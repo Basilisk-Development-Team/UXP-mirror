@@ -123,7 +123,7 @@ interface ScheduledGCCallback : nsISupports
 /**
 * interface of Components.utils
 */
-[scriptable, uuid(a6e66965-4b9a-4846-8985-985e71aaf549)]
+[scriptable, uuid(86003fe3-ee9a-4620-91dc-eef8b1e58815)]
 interface nsIXPCComponents_Utils : nsISupports
 {
 
@@ -528,6 +528,15 @@ interface nsIXPCComponents_Utils : nsISupports
 
     [implicit_jscontext]
     attribute boolean ion;
+
+    // Returns true if we're running in automation and certain security
+    // restrictions can be eased.
+    readonly attribute boolean isInAutomation;
+
+    void crashIfNotInAutomation();
+
+    [implicit_jscontext]
+    void setGCZeal(in long zeal);
 
     [implicit_jscontext]
     void nukeSandbox(in jsval obj);

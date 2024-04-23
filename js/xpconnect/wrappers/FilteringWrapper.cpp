@@ -1,4 +1,5 @@
 /* -*- Mode: C++; tab-width: 8; indent-tabs-mode: nil; c-basic-offset: 4 -*- */
+/* vim: set ts=8 sts=4 et sw=4 tw=99: */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -7,6 +8,8 @@
 #include "AccessCheck.h"
 #include "ChromeObjectWrapper.h"
 #include "XrayWrapper.h"
+#include "nsJSUtils.h"
+#include "mozilla/ErrorResult.h"
 
 #include "jsapi.h"
 
@@ -191,10 +194,12 @@ FilteringWrapper<Base, Policy>::getPrototype(JSContext* cx, JS::HandleObject wra
 template <typename Base, typename Policy>
 bool
 FilteringWrapper<Base, Policy>::enter(JSContext* cx, HandleObject wrapper,
-                                      HandleId id, Wrapper::Action act, bool* bp) const
+                                      HandleId id, Wrapper::Action act,
+                                      bool mayThrow, bool* bp) const
 {
     if (!Policy::check(cx, wrapper, id, act)) {
-        *bp = JS_IsExceptionPending(cx) ? false : Policy::deny(act, id);
+        *bp = JS_IsExceptionPending(cx) ?
+            false : Policy::deny(cx, act, id, mayThrow);
         return false;
     }
     *bp = true;
@@ -284,7 +289,7 @@ CrossOriginXrayWrapper::defineProperty(JSContext* cx, JS::Handle<JSObject*> wrap
                                        JS::Handle<PropertyDescriptor> desc,
                                        JS::ObjectOpResult& result) const
 {
-    JS_ReportErrorASCII(cx, "Permission denied to define property on cross-origin object");
+    AccessCheck::reportCrossOriginDenial(cx, id, NS_LITERAL_CSTRING("define"));
     return false;
 }
 
@@ -292,8 +297,30 @@ bool
 CrossOriginXrayWrapper::delete_(JSContext* cx, JS::Handle<JSObject*> wrapper,
                                 JS::Handle<jsid> id, JS::ObjectOpResult& result) const
 {
-    JS_ReportErrorASCII(cx, "Permission denied to delete property on cross-origin object");
+    AccessCheck::reportCrossOriginDenial(cx, id, NS_LITERAL_CSTRING("delete"));
     return false;
+}
+
+bool
+CrossOriginXrayWrapper::setPrototype(JSContext* cx, JS::HandleObject wrapper,
+                                     JS::HandleObject proto,
+                                     JS::ObjectOpResult& result) const
+{
+    // https://html.spec.whatwg.org/multipage/browsers.html#windowproxy-setprototypeof
+    // and
+    // https://html.spec.whatwg.org/multipage/browsers.html#location-setprototypeof
+    // both say to call SetImmutablePrototype, which does nothing and just
+    // returns whether the passed-in value equals the current prototype.  Our
+    // current prototype is always null, so this just comes down to returning
+    // whether null was passed in.
+    //
+    // In terms of ObjectOpResult that means calling one of the fail*() things
+    // on it if non-null was passed, and it's got one that does just what we
+    // want.
+    if (!proto) {
+        return result.succeed();
+    }
+    return result.failCantSetProto();
 }
 
 #define XOW FilteringWrapper<CrossOriginXrayWrapper, CrossOriginAccessiblePropertiesOnly>
