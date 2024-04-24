@@ -210,8 +210,8 @@ var ignoreFunctions = {
 
     "float64 JS_GetCurrentEmbedderTime()" : true,
 
-    "uint64 js::TenuringTracer::moveObjectToTenured(JSObject*, JSObject*, int32)" : true,
-    "uint32 js::TenuringTracer::moveObjectToTenured(JSObject*, JSObject*, int32)" : true,
+    // This calls any JSObjectMovedOp for the tenured object via an indirect call.
+    "JSObject* js::TenuringTracer::moveToTenuredSlow(JSObject*)" : true,
     "void js::Nursery::freeMallocedBuffers()" : true,
 
     // It would be cool to somehow annotate that nsTHashtable<T> will use
