@@ -43,7 +43,7 @@ class WasmInstanceObject;
 
 typedef HashSet<ReadBarrieredGlobalObject,
                 MovableCellHasher<ReadBarrieredGlobalObject>,
-                RuntimeAllocPolicy> WeakGlobalObjectSet;
+                ZoneAllocPolicy> WeakGlobalObjectSet;
 
 /*
  * A weakmap from GC thing keys to JSObject values that supports the keys being
@@ -80,7 +80,7 @@ class DebuggerWeakMap : private WeakMap<HeapPtr<UnbarrieredKey>, HeapPtr<JSObjec
     typedef HashMap<JS::Zone*,
                     uintptr_t,
                     DefaultHasher<JS::Zone*>,
-                    RuntimeAllocPolicy> CountMap;
+                    ZoneAllocPolicy> CountMap;
 
     CountMap zoneCounts;
     JSCompartment* compartment;
@@ -90,7 +90,7 @@ class DebuggerWeakMap : private WeakMap<HeapPtr<UnbarrieredKey>, HeapPtr<JSObjec
 
     explicit DebuggerWeakMap(JSContext* cx)
         : Base(cx),
-          zoneCounts(cx->runtime()),
+          zoneCounts(cx->zone()),
           compartment(cx->compartment())
     { }
 
@@ -379,7 +379,7 @@ class Debugger : private mozilla::LinkedListElement<Debugger>
 
     // The set of GC numbers for which one or more of this Debugger's observed
     // debuggees participated in.
-    using GCNumberSet = HashSet<uint64_t, DefaultHasher<uint64_t>, RuntimeAllocPolicy>;
+    using GCNumberSet = HashSet<uint64_t, DefaultHasher<uint64_t>, ZoneAllocPolicy>;
     GCNumberSet observedGCs;
 
     using AllocationsLog = js::TraceableFifo<AllocationsLogEntry>;
@@ -457,7 +457,7 @@ class Debugger : private mozilla::LinkedListElement<Debugger>
     typedef HashMap<AbstractFramePtr,
                     HeapPtr<DebuggerFrame*>,
                     DefaultHasher<AbstractFramePtr>,
-                    RuntimeAllocPolicy> FrameMap;
+                    ZoneAllocPolicy> FrameMap;
     FrameMap frames;
 
     /* An ephemeral map from JSScript* to Debugger.Script instances. */

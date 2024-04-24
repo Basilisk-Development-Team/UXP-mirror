@@ -22,7 +22,6 @@
  *       - TempAllocPolicy: Adds automatic error reporting to the provided
  *         JSContext when allocations fail.
  *
- *       - RuntimeAllocPolicy: Forwards to the JSRuntime MallocProvider.
  *
  *       - ZoneAllocPolicy: Forwards to the Zone MallocProvider.
  *

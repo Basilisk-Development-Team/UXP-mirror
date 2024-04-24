@@ -7878,8 +7878,6 @@ BytecodeEmitter::emitIncOrDec(UnaryNode* incDec)
       default:
         return emitNameIncDec(incDec);
     }
-
-    return true;
 }
 
 // Using MOZ_NEVER_INLINE in here is a workaround for llvm.org/pr14047. See

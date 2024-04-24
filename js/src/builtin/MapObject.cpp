@@ -556,7 +556,7 @@ MapObject::set(JSContext* cx, HandleObject obj, HandleValue k, HandleValue v)
 MapObject*
 MapObject::create(JSContext* cx, HandleObject proto /* = nullptr */)
 {
-    auto map = cx->make_unique<ValueMap>(cx->runtime(),
+    auto map = cx->make_unique<ValueMap>(cx->zone(),
                                          cx->compartment()->randomHashCodeScrambler());
     if (!map || !map->init()) {
         ReportOutOfMemory(cx);
@@ -1145,7 +1145,7 @@ SetObject::add(JSContext* cx, HandleObject obj, HandleValue k)
 SetObject*
 SetObject::create(JSContext* cx, HandleObject proto /* = nullptr */)
 {
-    auto set = cx->make_unique<ValueSet>(cx->runtime(),
+    auto set = cx->make_unique<ValueSet>(cx->zone(),
                                          cx->compartment()->randomHashCodeScrambler());
     if (!set || !set->init()) {
         ReportOutOfMemory(cx);

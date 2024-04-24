@@ -16,7 +16,6 @@
 
 #include "jscompartment.h"
 
-#include "gc/Zone.h"
 #include "vm/Runtime.h"
 
 
