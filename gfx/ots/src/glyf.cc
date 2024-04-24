@@ -255,9 +255,11 @@ bool OpenTypeGLYF::Parse(const uint8_t *data, size_t length) {
   uint32_t current_offset = 0;
 
   for (unsigned i = 0; i < num_glyphs; ++i) {
+
     Buffer glyph(GetGlyphBufferSection(data, length, offsets, i));
     if (!glyph.buffer())
       return false;
+
     if (!glyph.length()) {
       resulting_offsets[i] = current_offset;
       continue;
@@ -299,6 +301,7 @@ bool OpenTypeGLYF::Parse(const uint8_t *data, size_t length) {
         return Error("Failed to parse glyph %d", i);
       }
     } else {
+
       ComponentPointCount component_point_count;
       if (!ParseCompositeGlyph(glyph, &component_point_count)) {
         return Error("Failed to parse glyph %d", i);

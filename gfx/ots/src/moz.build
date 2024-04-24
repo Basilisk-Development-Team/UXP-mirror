@@ -29,7 +29,6 @@ UNIFIED_SOURCES += [
     'hdmx.cc',
     'head.cc',
     'hhea.cc',
-    'hmtx.cc',
     'hvar.cc',
     'kern.cc',
     'layout.cc',
@@ -51,7 +50,6 @@ UNIFIED_SOURCES += [
     'variations.cc',
     'vdmx.cc',
     'vhea.cc',
-    'vmtx.cc',
     'vorg.cc',
     'vvar.cc',
 ]
