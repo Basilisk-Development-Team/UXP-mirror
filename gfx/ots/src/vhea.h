@@ -16,11 +16,8 @@ class OpenTypeVHEA : public OpenTypeMetricsHeader {
       : OpenTypeMetricsHeader(font, tag, tag) { }
 
   bool Parse(const uint8_t *data, size_t length);
-  bool Serialize(OTSStream *out);
-  bool ShouldSerialize();
 };
 
 }  // namespace ots
 
 #endif  // OTS_VHEA_H_
-
