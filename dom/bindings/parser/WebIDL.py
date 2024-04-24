@@ -4116,15 +4116,19 @@ class IDLAttribute(IDLInterfaceMember):
 
     def handleExtendedAttribute(self, attr):
         identifier = attr.identifier()
-        if identifier == "SetterThrows" and self.readonly:
+        if ((identifier == "SetterThrows" or identifier == "SetterCanOOM")
+            and self.readonly):
             raise WebIDLError("Readonly attributes must not be flagged as "
-                              "[SetterThrows]",
+                              "[%s]" % identifier,
                               [self.location])
-        elif (((identifier == "Throws" or identifier == "GetterThrows") and
+        elif (((identifier == "Throws" or identifier == "GetterThrows" or
+                identifier == "CanOOM" or identifier == "GetterCanOOM") and
                self.getExtendedAttribute("StoreInSlot")) or
               (identifier == "StoreInSlot" and
                (self.getExtendedAttribute("Throws") or
-                self.getExtendedAttribute("GetterThrows")))):
+                self.getExtendedAttribute("GetterThrows") or
+                self.getExtendedAttribute("CanOOM") or
+                self.getExtendedAttribute("GetterCanOOM")))):
             raise WebIDLError("Throwing things can't be [StoreInSlot]",
                               [attr.location])
         elif identifier == "LenientThis":
@@ -4287,6 +4291,9 @@ class IDLAttribute(IDLInterfaceMember):
               identifier == "SetterThrows" or
               identifier == "Throws" or
               identifier == "GetterThrows" or
+              identifier == "SetterCanOOM" or
+              identifier == "CanOOM" or
+              identifier == "GetterCanOOM" or
               identifier == "ChromeOnly" or
               identifier == "Func" or
               identifier == "SecureContext" or
@@ -4934,13 +4941,12 @@ class IDLMethod(IDLInterfaceMember, IDLScope):
 
     def handleExtendedAttribute(self, attr):
         identifier = attr.identifier()
-        if identifier == "GetterThrows":
+        if (identifier == "GetterThrows" or
+            identifier == "SetterThrows" or
+            identifier == "GetterCanOOM" or
+            identifier == "SetterCanOOM"):
             raise WebIDLError("Methods must not be flagged as "
-                              "[GetterThrows]",
-                              [attr.location, self.location])
-        elif identifier == "SetterThrows":
-            raise WebIDLError("Methods must not be flagged as "
-                              "[SetterThrows]",
+                              "[%s]" % identifier,
                               [attr.location, self.location])
         elif identifier == "Unforgeable":
             if self.isStatic():
@@ -5017,6 +5023,7 @@ class IDLMethod(IDLInterfaceMember, IDLScope):
                                   "attribute, setter, and deleter",
                                   [attr.location, self.location])
         elif (identifier == "Throws" or
+              identifier == "CanOOM" or
               identifier == "NewObject" or
               identifier == "ChromeOnly" or
               identifier == "UnsafeInPrerendering" or
