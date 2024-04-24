@@ -514,9 +514,9 @@ InterruptCheck(JSContext* cx)
 }
 
 void*
-MallocWrapper(JSRuntime* rt, size_t nbytes)
+MallocWrapper(JS::Zone* zone, size_t nbytes)
 {
-    return rt->pod_malloc<uint8_t>(nbytes);
+    return zone->pod_malloc<uint8_t>(nbytes);
 }
 
 JSObject*

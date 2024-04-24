@@ -12,7 +12,6 @@
 #include "jsatom.h"
 
 #include "builtin/SelfHostingDefines.h"
-#include "gc/Zone.h"
 #include "js/GCVector.h"
 #include "js/Id.h"
 #include "vm/NativeObject.h"

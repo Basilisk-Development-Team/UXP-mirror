@@ -253,7 +253,7 @@ struct Zone : public JS::shadow::Zone,
     }
 
     bool isCollecting() const {
-        MOZ_ASSERT(CurrentThreadCanAccessRuntime(runtimeFromActiveCooperatingThread()));
+        MOZ_ASSERT(js::CurrentThreadCanAccessRuntime(runtimeFromActiveCooperatingThread()));
         return isCollectingFromAnyThread();
     }
 
@@ -435,7 +435,7 @@ struct Zone : public JS::shadow::Zone,
     bool triggerGCForTooMuchMalloc() {
         JSRuntime* rt = runtimeFromAnyThread();
 
-        if (CurrentThreadCanAccessRuntime(rt))
+        if (js::CurrentThreadCanAccessRuntime(rt)) {
             return rt->gc.triggerZoneGC(this, JS::gcreason::TOO_MUCH_MALLOC);
         else
             return false;
@@ -619,7 +619,7 @@ struct Zone : public JS::shadow::Zone,
     void transferUniqueId(js::gc::Cell* tgt, js::gc::Cell* src) {
         MOZ_ASSERT(src != tgt);
         MOZ_ASSERT(!IsInsideNursery(tgt));
-        MOZ_ASSERT(CurrentThreadCanAccessRuntime(runtimeFromActiveCooperatingThread()));
+        MOZ_ASSERT(js::CurrentThreadCanAccessRuntime(runtimeFromActiveCooperatingThread()));
         MOZ_ASSERT(js::CurrentThreadCanAccessZone(this));
         MOZ_ASSERT(!uniqueIds().has(tgt));
         uniqueIds().rekeyIfMoved(src, tgt);
@@ -653,6 +653,28 @@ struct Zone : public JS::shadow::Zone,
     }
     void setKeepShapeTables(bool b) {
         keepShapeTables_ = b;
+    }
+
+    /*
+     * This variation of calloc will call the large-allocation-failure callback
+     * on OOM and retry the allocation.
+     */
+    template <typename T>
+    T* pod_callocCanGC(size_t numElems) {
+        T* p = pod_calloc<T>(numElems);
+        if (MOZ_LIKELY(!!p))
+            return p;
+        size_t bytes;
+        if (MOZ_UNLIKELY(!js::CalculateAllocSize<T>(numElems, &bytes))) {
+            reportAllocationOverflow();
+            return nullptr;
+        }
+        JSRuntime* rt = runtimeFromActiveCooperatingThread();
+        p = static_cast<T*>(rt->onOutOfMemoryCanGC(js::AllocFunction::Calloc, bytes));
+        if (!p)
+            return nullptr;
+        updateMallocCounter(bytes);
+        return p;
     }
 
   private:
@@ -888,61 +910,47 @@ class CompartmentsIterT
 
 typedef CompartmentsIterT<ZonesIter> CompartmentsIter;
 
-/*
- * Allocation policy that uses Zone::pod_malloc and friends, so that memory
- * pressure is accounted for on the zone. This is suitable for memory associated
- * with GC things allocated in the zone.
- *
- * Since it doesn't hold a JSContext (those may not live long enough), it can't
- * report out-of-memory conditions itself; the caller must check for OOM and
- * take the appropriate action.
- *
- * FIXME bug 647103 - replace these *AllocPolicy names.
- */
-class ZoneAllocPolicy
+template <typename T>
+inline T*
+ZoneAllocPolicy::maybe_pod_malloc(size_t numElems)
 {
-    Zone* const zone;
+    return zone->maybe_pod_malloc<T>(numElems);
+}
 
-  public:
-    MOZ_IMPLICIT ZoneAllocPolicy(Zone* zone) : zone(zone) {}
+template <typename T>
+inline T*
+ZoneAllocPolicy::maybe_pod_calloc(size_t numElems)
+{
+    return zone->maybe_pod_calloc<T>(numElems);
+}
 
-    template <typename T>
-    T* maybe_pod_malloc(size_t numElems) {
-        return zone->maybe_pod_malloc<T>(numElems);
-    }
+template <typename T>
+inline T*
+ZoneAllocPolicy::maybe_pod_realloc(T* p, size_t oldSize, size_t newSize)
+{
+    return zone->maybe_pod_realloc<T>(p, oldSize, newSize);
+}
 
-    template <typename T>
-    T* maybe_pod_calloc(size_t numElems) {
-        return zone->maybe_pod_calloc<T>(numElems);
-    }
+template <typename T>
+inline T*
+ZoneAllocPolicy::pod_malloc(size_t numElems)
+{
+    return zone->pod_malloc<T>(numElems);
+}
 
-    template <typename T>
-    T* maybe_pod_realloc(T* p, size_t oldSize, size_t newSize) {
-        return zone->maybe_pod_realloc<T>(p, oldSize, newSize);
-    }
+template <typename T>
+inline T*
+ZoneAllocPolicy::pod_calloc(size_t numElems)
+{
+    return zone->pod_calloc<T>(numElems);
+}
 
-    template <typename T>
-    T* pod_malloc(size_t numElems) {
-        return zone->pod_malloc<T>(numElems);
-    }
-
-    template <typename T>
-    T* pod_calloc(size_t numElems) {
-        return zone->pod_calloc<T>(numElems);
-    }
-
-    template <typename T>
-    T* pod_realloc(T* p, size_t oldSize, size_t newSize) {
-        return zone->pod_realloc<T>(p, oldSize, newSize);
-    }
-
-    void free_(void* p) { js_free(p); }
-    void reportAllocOverflow() const {}
-
-    [[nodiscard]] bool checkSimulatedOOM() const {
-        return !js::oom::ShouldFailWithOOM();
-    }
-};
+template <typename T>
+inline T*
+ZoneAllocPolicy::pod_realloc(T* p, size_t oldSize, size_t newSize)
+{
+    return zone->pod_realloc<T>(p, oldSize, newSize);
+}
 
 /*
  * Provides a delete policy that can be used for objects which have their

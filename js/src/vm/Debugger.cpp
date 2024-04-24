@@ -624,18 +624,18 @@ Breakpoint::nextInSite()
 
 Debugger::Debugger(JSContext* cx, NativeObject* dbg)
   : object(dbg),
-    debuggees(cx->runtime()),
+    debuggees(cx->zone()),
     uncaughtExceptionHook(nullptr),
     enabled(true),
     allowUnobservedAsmJS(false),
     collectCoverageInfo(false),
-    observedGCs(cx->runtime()),
+    observedGCs(cx->zone()),
     allocationsLog(cx),
     trackingAllocationSites(false),
     allocationSamplingProbability(1.0),
     maxAllocationsLogLength(DEFAULT_MAX_LOG_LENGTH),
     allocationsLogOverflowed(false),
-    frames(cx->runtime()),
+    frames(cx->zone()),
     scripts(cx),
     sources(cx),
     objects(cx),
@@ -4095,12 +4095,12 @@ class MOZ_STACK_CLASS Debugger::ScriptQuery
         cx(cx),
         debugger(dbg),
         iterMarker(&cx->runtime()->gc),
-        compartments(cx->runtime()),
+        compartments(cx->zone()),
         url(cx),
         displayURLString(cx),
         hasSource(false),
         source(cx, AsVariant(static_cast<ScriptSourceObject*>(nullptr))),
-        innermostForCompartment(cx->runtime()),
+        innermostForCompartment(cx->zone()),
         vector(cx, ScriptVector(cx)),
         wasmInstanceVector(cx, WasmInstanceObjectVector(cx))
     {}
@@ -4350,7 +4350,7 @@ class MOZ_STACK_CLASS Debugger::ScriptQuery
     /* Require the set of compartments to stay fixed while the ScriptQuery is alive. */
     gc::AutoEnterIteration iterMarker;
 
-    typedef HashSet<JSCompartment*, DefaultHasher<JSCompartment*>, RuntimeAllocPolicy>
+    typedef HashSet<JSCompartment*, DefaultHasher<JSCompartment*>, ZoneAllocPolicy>
         CompartmentSet;
 
     /* A script must be in one of these compartments to match the query. */
@@ -4383,7 +4383,7 @@ class MOZ_STACK_CLASS Debugger::ScriptQuery
     /* True if the query has an 'innermost' property whose value is true. */
     bool innermost;
 
-    typedef HashMap<JSCompartment*, JSScript*, DefaultHasher<JSCompartment*>, RuntimeAllocPolicy>
+    typedef HashMap<JSCompartment*, JSScript*, DefaultHasher<JSCompartment*>, ZoneAllocPolicy>
         CompartmentToScriptMap;
 
     /*
@@ -11151,7 +11151,7 @@ namespace dbg {
 /* static */ GarbageCollectionEvent::Ptr
 GarbageCollectionEvent::Create(JSRuntime* rt, ::js::gcstats::Statistics& stats, uint64_t gcNumber)
 {
-    auto data = rt->make_unique<GarbageCollectionEvent>(gcNumber);
+    auto data = MakeUnique<GarbageCollectionEvent>(gcNumber);
     if (!data)
         return nullptr;
 
