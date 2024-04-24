@@ -3660,6 +3660,8 @@ js::DumpBacktrace(JSContext* cx)
 js::gc::AllocKind
 JSObject::allocKindForTenure(const js::Nursery& nursery) const
 {
+    MOZ_ASSERT(IsInsideNursery(this));
+
     if (is<ArrayObject>()) {
         const ArrayObject& aobj = as<ArrayObject>();
         MOZ_ASSERT(aobj.numFixedSlots() == 0);
@@ -3670,6 +3672,12 @@ JSObject::allocKindForTenure(const js::Nursery& nursery) const
 
         size_t nelements = aobj.getDenseCapacity();
         return GetBackgroundAllocKind(GetGCArrayKind(nelements));
+    }
+
+    // Unboxed plain objects are sized according to the data they store.
+    if (is<UnboxedPlainObject>()) {
+        size_t nbytes = as<UnboxedPlainObject>().layoutDontCheckGeneration().size();
+        return GetGCObjectKindForBytes(UnboxedPlainObject::offsetOfData() + nbytes);
     }
 
     if (is<JSFunction>())
@@ -3689,12 +3697,6 @@ JSObject::allocKindForTenure(const js::Nursery& nursery) const
     // Proxies that are CrossCompartmentWrappers may be nursery allocated.
     if (IsProxy(this))
         return as<ProxyObject>().allocKindForTenure();
-
-    // Unboxed plain objects are sized according to the data they store.
-    if (is<UnboxedPlainObject>()) {
-        size_t nbytes = as<UnboxedPlainObject>().layoutDontCheckGeneration().size();
-        return GetGCObjectKindForBytes(UnboxedPlainObject::offsetOfData() + nbytes);
-    }
 
     // Unboxed arrays use inline data if their size is small enough.
     if (is<UnboxedArrayObject>()) {
@@ -3722,13 +3724,7 @@ JSObject::allocKindForTenure(const js::Nursery& nursery) const
         return AllocKind::OBJECT0;
 
     // All nursery allocatable non-native objects are handled above.
-    MOZ_ASSERT(isNative());
-
-    AllocKind kind = GetGCObjectFixedSlotsKind(as<NativeObject>().numFixedSlots());
-    MOZ_ASSERT(!IsBackgroundFinalized(kind));
-    if (!CanBeFinalizedInBackground(kind, getClass()))
-        return kind;
-    return GetBackgroundAllocKind(kind);
+    return as<NativeObject>().allocKindForTenure();
 }
 
 void
