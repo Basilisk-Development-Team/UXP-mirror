@@ -68,7 +68,7 @@ class CompartmentChecker
 
     void check(JSObject* obj) {
         if (obj) {
-            MOZ_ASSERT_IF(obj, !JS::ObjectIsMarkedGray(obj));
+            MOZ_ASSERT(JS::ObjectIsNotGray(obj));
             MOZ_ASSERT(!js::gc::IsAboutToBeFinalizedUnbarriered(&obj));
             check(obj->compartment());
         }
@@ -100,7 +100,7 @@ class CompartmentChecker
     }
 
     void check(JSString* str) {
-        MOZ_ASSERT(!js::gc::detail::CellIsMarkedGray(str));
+        MOZ_ASSERT(JS::CellIsNotGray(str));
         if (str->isAtom()) {
             checkAtom(&str->asAtom());
         } else {
@@ -151,7 +151,7 @@ class CompartmentChecker
     }
 
     void check(JSScript* script) {
-        MOZ_ASSERT_IF(script, !JS::ScriptIsMarkedGray(script));
+        MOZ_ASSERT(JS::CellIsNotGray(script));
         if (script)
             check(script->compartment());
     }
