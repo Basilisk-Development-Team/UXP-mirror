@@ -83,16 +83,6 @@ enum class IntegrityLevel {
 bool PreventExtensions(JSContext* cx, JS::HandleObject obj, JS::ObjectOpResult& result, IntegrityLevel level = IntegrityLevel::Sealed);
 bool SetImmutablePrototype(JSContext* cx, JS::HandleObject obj, bool* succeeded);
 
-#ifdef DEBUG
-inline bool
-IsObjectValueInCompartment(const Value& v, JSCompartment* comp)
-{
-    if (!v.isObject())
-        return true;
-    return v.toObject().compartment() == comp;
-}
-#endif
-
 }  /* namespace js */
 
 /*
@@ -1369,6 +1359,15 @@ SpeciesConstructor(JSContext* cx, HandleObject obj, JSProtoKey ctorKey,
 
 extern bool
 GetObjectFromIncumbentGlobal(JSContext* cx, MutableHandleObject obj);
+#ifdef DEBUG
+inline bool
+IsObjectValueInCompartment(const Value& v, JSCompartment* comp)
+{
+    if (!v.isObject())
+        return true;
+    return v.toObject().compartment() == comp;
+}
+#endif
 
 }  /* namespace js */
 

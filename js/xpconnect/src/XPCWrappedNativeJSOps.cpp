@@ -118,7 +118,7 @@ XPC_WN_Shared_toPrimitive(JSContext* cx, unsigned argc, Value* vp)
         return true;
     }
 
-    MOZ_ASSERT(hint == JSTYPE_STRING || hint == JSTYPE_UNDEFINED);
+    MOZ_ASSERT(hint == JSTYPE_STRING || hint == JSTYPE_VOID);
     ccx.SetName(ccx.GetContext()->GetStringID(XPCJSContext::IDX_TO_STRING));
     ccx.SetArgsAndResultPtr(0, nullptr, args.rval().address());
 

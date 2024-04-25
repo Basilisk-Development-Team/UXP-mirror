@@ -828,6 +828,9 @@ class Debugger : private mozilla::LinkedListElement<Debugger>
     static void sweepAll(FreeOp* fop);
     static void detachAllDebuggersFromGlobal(FreeOp* fop, GlobalObject* global);
     static void findZoneEdges(JS::Zone* v, gc::ZoneComponentFinder& finder);
+#ifdef DEBUG
+    static bool isDebuggerCrossCompartmentEdge(JSObject* obj, const js::gc::Cell* cell);
+#endif
 
     // Checks it the current compartment is allowed to execute code.
     [[nodiscard]] static inline bool checkNoExecute(JSContext* cx, HandleScript script);
