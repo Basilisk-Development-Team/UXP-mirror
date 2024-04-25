@@ -7710,6 +7710,7 @@ NewGlobalObject(JSContext* cx, JS::CompartmentOptions& options,
         if (!DefineOS(cx, glob, fuzzingSafe, &gOutFile, &gErrFile))
             return nullptr;
 
+#ifdef MOZ_DEVTOOLS_SERVER
         RootedObject performanceObj(cx, JS_NewObject(cx, nullptr));
         if (!performanceObj)
             return nullptr;
@@ -7725,6 +7726,7 @@ NewGlobalObject(JSContext* cx, JS::CompartmentOptions& options,
             return nullptr;
         if (!JS_DefineProperty(cx, mozMemoryObj, "gc", gcObj, JSPROP_ENUMERATE))
             return nullptr;
+#endif
 
         /* Initialize FakeDOMObject. */
         static const js::DOMCallbacks DOMcallbacks = {
@@ -7739,9 +7741,9 @@ NewGlobalObject(JSContext* cx, JS::CompartmentOptions& options,
 
         /* Initialize FakeDOMObject.prototype */
         InitDOMObject(domProto);
+    }
 
     JS_FireOnNewGlobalObject(cx, glob);
-    }
 
     return glob;
 }
