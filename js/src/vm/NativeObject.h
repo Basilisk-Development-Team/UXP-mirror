@@ -1364,6 +1364,7 @@ class NativeObject : public ShapedObject
 
     void updateShapeAfterMovingGC();
     void sweepDictionaryListPointer();
+    void updateDictionaryListPointerAfterMinorGC(NativeObject* old);
 
     /* JIT Accessors */
     static size_t offsetOfElements() { return offsetof(NativeObject, elements_); }
