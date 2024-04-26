@@ -81,11 +81,6 @@ class TypedArrayObject : public NativeObject
     static_assert(js::detail::TypedArrayLengthSlot == LENGTH_SLOT,
                   "bad inlined constant in jsfriendapi.h");
 
-    typedef TypedArrayObject SomeTypedArray;
-    typedef ArrayBufferObject BufferType;
-
-    template<typename T> struct OfType;
-
     static bool sameBuffer(Handle<TypedArrayObject*> a, Handle<TypedArrayObject*> b) {
         // Inline buffers.
         if (!a->hasBuffer() || !b->hasBuffer())
@@ -312,6 +307,9 @@ class TypedArrayObject : public NativeObject
     static bool is(HandleValue v);
 
     static bool set(JSContext* cx, unsigned argc, Value* vp);
+
+  private:
+    static bool set_impl(JSContext* cx, const CallArgs& args);
 
     bool convertForSideEffect(JSContext* cx, HandleValue v) const;
 };
