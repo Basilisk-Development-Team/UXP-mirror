@@ -18,6 +18,7 @@
 #include "js/GCHashTable.h"
 #include "js/TracingAPI.h"
 #include "vm/MallocProvider.h"
+#include "vm/RegExpObject.h"
 #include "vm/TypeInference.h"
 
 namespace js {
@@ -203,6 +204,7 @@ struct Zone : public JS::shadow::Zone,
 
     void addSizeOfIncludingThis(mozilla::MallocSizeOf mallocSizeOf,
                                 size_t* typePool,
+                                size_t* regexpZone,
                                 size_t* jitZone,
                                 size_t* baselineStubsOptimized,
                                 size_t* cachedCFG,
@@ -424,6 +426,7 @@ struct Zone : public JS::shadow::Zone,
     js::gc::MemoryCounter<Zone> jitCodeCounter;
 
   public:
+    js::RegExpZone regExps;
 
     JS::WeakCache<TypeDescrObjectSet>& typeDescrObjects() { return typeDescrObjects_.ref(); }
 
