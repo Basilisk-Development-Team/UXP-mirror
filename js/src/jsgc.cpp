@@ -1168,7 +1168,7 @@ GCRuntime::init(uint32_t maxbytes, uint32_t maxNurseryBytes)
          */
         MOZ_ALWAYS_TRUE(tunables.setParameter(JSGC_MAX_BYTES, maxbytes, lock));
         MOZ_ALWAYS_TRUE(tunables.setParameter(JSGC_MAX_NURSERY_BYTES, maxNurseryBytes, lock));
-        setMaxMallocBytes(maxbytes);
+        setMaxMallocBytes(maxbytes, lock);
 
         const char* size = getenv("JSGC_MARK_STACK_LIMIT");
         if (size)
@@ -1245,9 +1245,7 @@ GCRuntime::setParameter(JSGCParamKey key, uint32_t value, AutoLockGC& lock)
 {
     switch (key) {
       case JSGC_MAX_MALLOC_BYTES:
-        setMaxMallocBytes(value);
-        for (ZonesIter zone(rt, WithAtoms); !zone.done(); zone.next())
-            zone->setGCMaxMallocBytes(maxMallocBytesAllocated() * 0.9);
+        setMaxMallocBytes(value, lock);
         break;
       case JSGC_SLICE_TIME_BUDGET:
         defaultTimeBudget_ = value ? value : SliceBudget::UnlimitedTimeBudget;
@@ -1657,19 +1655,11 @@ js::RemoveRawValueRoot(JSContext* cx, Value* vp)
 }
 
 void
-GCRuntime::setMaxMallocBytes(size_t value)
+GCRuntime::setMaxMallocBytes(size_t value, const AutoLockGC& lock)
 {
-    mallocCounter.setMax(value);
+    mallocCounter.setMax(value, lock);
     for (ZonesIter zone(rt, WithAtoms); !zone.done(); zone.next())
-        zone->setGCMaxMallocBytes(value);
-}
-
-void
-GCRuntime::updateMallocCounter(JS::Zone* zone, size_t nbytes)
-{
-    bool triggered = mallocCounter.update(this, nbytes);
-    if (!triggered && zone)
-        zone->updateMallocCounter(nbytes);
+        zone->setGCMaxMallocBytes(value * 0.9, lock);
 }
 
 double
@@ -3990,6 +3980,8 @@ GCRuntime::beginMarkPhase(JS::gcreason::Reason reason, AutoLockForExclusiveAcces
         }
     }
 
+     updateMallocCountersOnGC();
+
     /*
      * Process any queued source compressions during the start of a major
      * GC.
@@ -4112,6 +4104,28 @@ GCRuntime::markCompartments()
          if (!comp->maybeAlive && !rt->isAtomsCompartment(comp))
              comp->scheduledForDestruction = true;
     }
+}
+
+void
+GCRuntime::updateMallocCountersOnGC()
+{
+    AutoLockGC lock(rt);
+
+    size_t totalBytesInCollectedZones = 0;
+    for (ZonesIter zone(rt, WithAtoms); !zone.done(); zone.next()) {
+        if (zone->isCollecting()) {
+            totalBytesInCollectedZones += zone->GCMallocBytes();
+            zone->updateGCMallocBytesOnGC(lock);
+        }
+    }
+
+    // Update the runtime malloc counter. If we are doing a full GC then clear
+    // it, otherwise decrement it by the previous malloc bytes count for the
+    // zones we did collect.
+    if (isFull)
+        mallocCounter.updateOnGC(lock);
+    else
+        mallocCounter.decrement(totalBytesInCollectedZones);
 }
 
 template <class ZoneIterT>
@@ -6815,11 +6829,6 @@ GCRuntime::gcCycle(bool nonincrementalByAPI, SliceBudget& budget, JS::gcreason::
     /* Keeping these around after a GC is dangerous. */
     clearSelectedForMarking();
 #endif
-    /* Clear gcMallocBytes for all zones. */
-    for (ZonesIter zone(rt, WithAtoms); !zone.done(); zone.next())
-        zone->resetAllMallocBytes();
-
-    resetMallocBytes();
 
     TraceMajorGCEnd();
 

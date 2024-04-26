@@ -753,7 +753,7 @@ ArrayBufferObject::createForWasm(JSContext* cx, uint32_t initialSize, Maybe<uint
 
     auto contents = BufferContents::create<WASM>(wasmBuf->dataPointer());
     buffer->initialize(initialSize, contents, OwnsData);
-    cx->zone()->updateMallocCounter(wasmBuf->mappedSize());
+    cx->updateMallocCounter(wasmBuf->mappedSize());
     return buffer;
 }
 
@@ -798,7 +798,7 @@ ArrayBufferObject::prepareForAsmJS(JSContext* cx, Handle<ArrayBufferObject*> buf
         buffer->changeContents(cx, BufferContents::create<WASM>(data), OwnsData);
         buffer->setIsPreparedForAsmJS();
         MOZ_ASSERT(data == buffer->dataPointer());
-        cx->zone()->updateMallocCounter(wasmBuf->mappedSize());
+        cx->updateMallocCounter(wasmBuf->mappedSize());
         return true;
     }
 
@@ -1057,7 +1057,7 @@ ArrayBufferObject::create(JSContext* cx, uint32_t nbytes, BufferContents content
                 nAllocated = JS_ROUNDUP(nbytes, js::gc::SystemPageSize());
             else if (contents.kind() == WASM)
                 nAllocated = contents.wasmBuffer()->allocatedBytes();
-            cx->zone()->updateMallocCounter(nAllocated);
+            cx->updateMallocCounter(nAllocated);
         }
     } else {
         MOZ_ASSERT(ownsState == OwnsData);
