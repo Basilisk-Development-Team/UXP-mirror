@@ -11,6 +11,7 @@
 #include "mozilla/Array.h"
 #include "mozilla/Maybe.h"
 
+#include "jscompartment.h"
 #include "jsiter.h"
 #include "jspubtd.h"
 

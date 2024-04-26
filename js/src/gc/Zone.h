@@ -18,7 +18,7 @@
 #include "js/GCHashTable.h"
 #include "js/TracingAPI.h"
 #include "vm/MallocProvider.h"
-#include "vm/RegExpObject.h"
+#include "vm/RegExpShared.h"
 #include "vm/TypeInference.h"
 
 namespace js {
@@ -435,7 +435,7 @@ struct Zone : public JS::shadow::Zone,
     bool triggerGCForTooMuchMalloc() {
         JSRuntime* rt = runtimeFromAnyThread();
 
-        if (js::CurrentThreadCanAccessRuntime(rt)) {
+        if (js::CurrentThreadCanAccessRuntime(rt))
             return rt->gc.triggerZoneGC(this, JS::gcreason::TOO_MUCH_MALLOC);
         else
             return false;
