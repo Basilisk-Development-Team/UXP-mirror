@@ -13,7 +13,7 @@
 #include "js/Value.h"
 #include "vm/Debugger.h"
 #include "vm/EqualityOperations.h"  // js::SameValue
-#include "vm/TypedArrayCommon.h"
+#include "vm/TypedArrayObject.h"
 
 #include "jsobjinlines.h"
 
