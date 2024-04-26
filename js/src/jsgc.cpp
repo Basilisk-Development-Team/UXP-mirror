@@ -261,6 +261,42 @@ using mozilla::TimeStamp;
 
 using JS::AutoGCRooter;
 
+/*
+ * Default settings for tuning the GC.  Some of these can be set at runtime,
+ * This list is not complete, some tuning parameters are not listed here.
+ */
+namespace js {
+namespace gc {
+namespace TuningDefaults {
+
+    static const size_t GCZoneAllocThresholdBase = 30 * 1024 * 1024;
+     static const float ZoneAllocThresholdFactor = 0.9f;
+     static const float ZoneAllocThresholdFactorAvoidInterrupt = 0.95f;
+    static const size_t ZoneAllocDelayBytes = 1024 * 1024;
+    static const bool DynamicHeapGrowthEnabled = false;
+    static const uint64_t HighFrequencyThresholdUsec = 1000000;
+    static const uint64_t HighFrequencyLowLimitBytes = 100 * 1024 * 1024;
+    static const uint64_t HighFrequencyHighLimitBytes = 500 * 1024 * 1024;
+    static const double HighFrequencyHeapGrowthMax = 3.0;
+    static const double HighFrequencyHeapGrowthMin = 1.5;
+    static const double LowFrequencyHeapGrowth = 1.5;
+    static const bool DynamicMarkSliceEnabled = false;
+    static const bool RefreshFrameSlicesEnabled = true;
+    static const uint32_t MinEmptyChunkCount = 1;
+    static const uint32_t MaxEmptyChunkCount = 30;
+
+    /*
+     * JSGC_SLICE_TIME_BUDGET.
+     * javascript.options.mem.gc_incremental_slice_ms
+     */
+    static const int64_t DefaultTimeBudget =
+        SliceBudget::UnlimitedTimeBudget;
+
+    static const JSGCMode Mode = JSGC_MODE_INCREMENTAL;
+
+    static const bool CompactingEnabled = true;
+}}} // namespace js::gc::TuningDefaults
+
 /* Increase the IGC marking slice time if we are in highFrequencyGC mode. */
 static const int IGC_MARK_SLICE_MULTIPLIER = 2;
 
@@ -899,7 +935,7 @@ GCRuntime::GCRuntime(JSRuntime* rt) :
     verifyPreData(nullptr),
     chunkAllocationSinceLastGC(false),
     lastGCTime(PRMJ_Now()),
-    mode(JSGC_MODE_INCREMENTAL),
+    mode(TuningDefaults::Mode),
     numActiveZoneIters(0),
     cleanUpEverything(false),
     grayBufferState(GCRuntime::GrayBufferState::Unused),
@@ -930,9 +966,9 @@ GCRuntime::GCRuntime(JSRuntime* rt) :
     markingValidator(nullptr),
 #endif
     interFrameGC(false),
-    defaultTimeBudget_((int64_t) SliceBudget::UnlimitedTimeBudget),
+    defaultTimeBudget_(TuningDefaults::DefaultTimeBudget),
     incrementalAllowed(true),
-    compactingEnabled(true),
+    compactingEnabled(TuningDefaults::CompactingEnabled),
     rootsRemoved(false),
 #ifdef JS_GC_ZEAL
     zealModeBits(0),
@@ -1299,20 +1335,14 @@ GCSchedulingTunables::setParameter(JSGCParamKey key, uint32_t value, const AutoL
         uint64_t newLimit = (uint64_t)value * 1024 * 1024;
         if (newLimit == UINT64_MAX)
             return false;
-        highFrequencyLowLimitBytes_ = newLimit;
-        if (highFrequencyLowLimitBytes_ >= highFrequencyHighLimitBytes_)
-            highFrequencyHighLimitBytes_ = highFrequencyLowLimitBytes_ + 1;
-        MOZ_ASSERT(highFrequencyHighLimitBytes_ > highFrequencyLowLimitBytes_);
+        setHighFrequencyLowLimit(newLimit);
         break;
       }
       case JSGC_HIGH_FREQUENCY_HIGH_LIMIT: {
         uint64_t newLimit = (uint64_t)value * 1024 * 1024;
         if (newLimit == 0)
             return false;
-        highFrequencyHighLimitBytes_ = newLimit;
-        if (highFrequencyHighLimitBytes_ <= highFrequencyLowLimitBytes_)
-            highFrequencyLowLimitBytes_ = highFrequencyHighLimitBytes_ - 1;
-        MOZ_ASSERT(highFrequencyHighLimitBytes_ > highFrequencyLowLimitBytes_);
+        setHighFrequencyHighLimit(newLimit);
         break;
       }
       case JSGC_HIGH_FREQUENCY_HEAP_GROWTH_MAX: {
@@ -1349,16 +1379,10 @@ GCSchedulingTunables::setParameter(JSGCParamKey key, uint32_t value, const AutoL
         gcZoneAllocThresholdBase_ = value * 1024 * 1024;
         break;
       case JSGC_MIN_EMPTY_CHUNK_COUNT:
-        minEmptyChunkCount_ = value;
-        if (minEmptyChunkCount_ > maxEmptyChunkCount_)
-            maxEmptyChunkCount_ = minEmptyChunkCount_;
-        MOZ_ASSERT(maxEmptyChunkCount_ >= minEmptyChunkCount_);
+        setMinEmptyChunkCount(value);
         break;
       case JSGC_MAX_EMPTY_CHUNK_COUNT:
-        maxEmptyChunkCount_ = value;
-        if (minEmptyChunkCount_ > maxEmptyChunkCount_)
-            minEmptyChunkCount_ = maxEmptyChunkCount_;
-        MOZ_ASSERT(maxEmptyChunkCount_ >= minEmptyChunkCount_);
+        setMaxEmptyChunkCount(value);
         break;
       case JSGC_REFRESH_FRAME_SLICES_ENABLED:
         refreshFrameSlicesEnabled_ = value != 0;
@@ -1368,6 +1392,158 @@ GCSchedulingTunables::setParameter(JSGCParamKey key, uint32_t value, const AutoL
     }
 
     return true;
+}
+
+void
+GCSchedulingTunables::setMaxMallocBytes(size_t value)
+{
+    maxMallocBytes_ = value;
+}
+
+void
+GCSchedulingTunables::setHighFrequencyLowLimit(uint64_t newLimit)
+{
+    highFrequencyLowLimitBytes_ = newLimit;
+    if (highFrequencyLowLimitBytes_ >= highFrequencyHighLimitBytes_)
+        highFrequencyHighLimitBytes_ = highFrequencyLowLimitBytes_ + 1;
+    MOZ_ASSERT(highFrequencyHighLimitBytes_ > highFrequencyLowLimitBytes_);
+}
+
+void
+GCSchedulingTunables::setHighFrequencyHighLimit(uint64_t newLimit)
+{
+    highFrequencyHighLimitBytes_ = newLimit;
+    if (highFrequencyHighLimitBytes_ <= highFrequencyLowLimitBytes_)
+        highFrequencyLowLimitBytes_ = highFrequencyHighLimitBytes_ - 1;
+    MOZ_ASSERT(highFrequencyHighLimitBytes_ > highFrequencyLowLimitBytes_);
+}
+
+void
+GCSchedulingTunables::setMinEmptyChunkCount(uint32_t value)
+{
+    minEmptyChunkCount_ = value;
+    if (minEmptyChunkCount_ > maxEmptyChunkCount_)
+        maxEmptyChunkCount_ = minEmptyChunkCount_;
+    MOZ_ASSERT(maxEmptyChunkCount_ >= minEmptyChunkCount_);
+}
+
+void
+GCSchedulingTunables::setMaxEmptyChunkCount(uint32_t value)
+{
+    maxEmptyChunkCount_ = value;
+    if (minEmptyChunkCount_ > maxEmptyChunkCount_)
+        minEmptyChunkCount_ = maxEmptyChunkCount_;
+    MOZ_ASSERT(maxEmptyChunkCount_ >= minEmptyChunkCount_);
+}
+
+GCSchedulingTunables::GCSchedulingTunables()
+  : gcMaxBytes_(0),
+    maxMallocBytes_(TuningDefaults::MaxMallocBytes),
+    gcMaxNurseryBytes_(0),
+    gcZoneAllocThresholdBase_(TuningDefaults::GCZoneAllocThresholdBase),
+    zoneAllocThresholdFactor_(TuningDefaults::ZoneAllocThresholdFactor),
+    zoneAllocThresholdFactorAvoidInterrupt_(
+        TuningDefaults::ZoneAllocThresholdFactorAvoidInterrupt),
+    zoneAllocDelayBytes_(TuningDefaults::ZoneAllocDelayBytes),
+    dynamicHeapGrowthEnabled_(TuningDefaults::DynamicHeapGrowthEnabled),
+    highFrequencyThresholdUsec_(TuningDefaults::HighFrequencyThresholdUsec),
+    highFrequencyLowLimitBytes_(TuningDefaults::HighFrequencyLowLimitBytes),
+    highFrequencyHighLimitBytes_(TuningDefaults::HighFrequencyHighLimitBytes),
+    highFrequencyHeapGrowthMax_(TuningDefaults::HighFrequencyHeapGrowthMax),
+    highFrequencyHeapGrowthMin_(TuningDefaults::HighFrequencyHeapGrowthMin),
+    lowFrequencyHeapGrowth_(TuningDefaults::LowFrequencyHeapGrowth),
+    dynamicMarkSliceEnabled_(TuningDefaults::DynamicMarkSliceEnabled),
+    refreshFrameSlicesEnabled_(TuningDefaults::RefreshFrameSlicesEnabled),
+    minEmptyChunkCount_(TuningDefaults::MinEmptyChunkCount),
+    maxEmptyChunkCount_(TuningDefaults::MaxEmptyChunkCount)
+{}
+
+void
+GCRuntime::resetParameter(JSGCParamKey key, AutoLockGC& lock)
+{
+    switch (key) {
+      case JSGC_MAX_MALLOC_BYTES:
+        setMaxMallocBytes(0xffffffff);
+        for (ZonesIter zone(rt, WithAtoms); !zone.done(); zone.next())
+            zone->setGCMaxMallocBytes(maxMallocBytesAllocated() * 0.9);
+        break;
+      case JSGC_SLICE_TIME_BUDGET:
+        defaultTimeBudget_ =
+            defaultTimeBudget_ = TuningDefaults::DefaultTimeBudget;
+        break;
+      case JSGC_MARK_STACK_LIMIT:
+        setMarkStackLimit(MarkStack::DefaultCapacity, lock);
+        break;
+      case JSGC_MODE:
+        mode = TuningDefaults::Mode;
+        break;
+      case JSGC_COMPACTING_ENABLED:
+        compactingEnabled = TuningDefaults::CompactingEnabled;
+        break;
+      default:
+        tunables.resetParameter(key, lock);
+        for (ZonesIter zone(rt, WithAtoms); !zone.done(); zone.next()) {
+            zone->threshold.updateAfterGC(zone->usage.gcBytes(), GC_NORMAL,
+                tunables, schedulingState, lock);
+        }
+    }
+}
+
+void
+GCSchedulingTunables::resetParameter(JSGCParamKey key, const AutoLockGC& lock)
+{
+    switch(key) {
+      case JSGC_MAX_BYTES:
+        gcMaxBytes_ = 0xffffffff;
+        break;
+      case JSGC_MAX_NURSERY_BYTES:
+        gcMaxNurseryBytes_ = JS::DefaultNurseryBytes;
+        break;
+      case JSGC_HIGH_FREQUENCY_TIME_LIMIT:
+        highFrequencyThresholdUsec_ =
+            TuningDefaults::HighFrequencyThresholdUsec;
+        break;
+      case JSGC_HIGH_FREQUENCY_LOW_LIMIT:
+        setHighFrequencyLowLimit(TuningDefaults::HighFrequencyLowLimitBytes);
+        break;
+      case JSGC_HIGH_FREQUENCY_HIGH_LIMIT:
+        setHighFrequencyHighLimit(TuningDefaults::HighFrequencyHighLimitBytes);
+        break;
+      case JSGC_HIGH_FREQUENCY_HEAP_GROWTH_MAX:
+        highFrequencyHeapGrowthMax_ =
+            TuningDefaults::HighFrequencyHeapGrowthMax;
+        MOZ_ASSERT(highFrequencyHeapGrowthMax_ / 0.85 > 1.0);
+        break;
+      case JSGC_HIGH_FREQUENCY_HEAP_GROWTH_MIN:
+        highFrequencyHeapGrowthMin_ =
+            TuningDefaults::HighFrequencyHeapGrowthMin;
+        MOZ_ASSERT(highFrequencyHeapGrowthMin_ / 0.85 > 1.0);
+        break;
+      case JSGC_LOW_FREQUENCY_HEAP_GROWTH:
+        lowFrequencyHeapGrowth_ = TuningDefaults::LowFrequencyHeapGrowth;
+        MOZ_ASSERT(lowFrequencyHeapGrowth_ / 0.9 > 1.0);
+        break;
+      case JSGC_DYNAMIC_HEAP_GROWTH:
+        dynamicHeapGrowthEnabled_ = TuningDefaults::DynamicHeapGrowthEnabled;
+        break;
+      case JSGC_DYNAMIC_MARK_SLICE:
+        dynamicMarkSliceEnabled_ = TuningDefaults::DynamicMarkSliceEnabled;
+        break;
+      case JSGC_ALLOCATION_THRESHOLD:
+        gcZoneAllocThresholdBase_ = TuningDefaults::GCZoneAllocThresholdBase;
+        break;
+      case JSGC_MIN_EMPTY_CHUNK_COUNT:
+        setMinEmptyChunkCount(TuningDefaults::MinEmptyChunkCount);
+        break;
+      case JSGC_MAX_EMPTY_CHUNK_COUNT:
+        setMaxEmptyChunkCount(TuningDefaults::MaxEmptyChunkCount);
+        break;
+      case JSGC_REFRESH_FRAME_SLICES_ENABLED:
+        refreshFrameSlicesEnabled_ = TuningDefaults::RefreshFrameSlicesEnabled;
+        break;
+      default:
+        MOZ_CRASH("Unknown GC parameter.");
+    }
 }
 
 uint32_t
@@ -1657,9 +1833,10 @@ js::RemoveRawValueRoot(JSContext* cx, Value* vp)
 void
 GCRuntime::setMaxMallocBytes(size_t value, const AutoLockGC& lock)
 {
+    tunables.setMaxMallocBytes(value);
     mallocCounter.setMax(value, lock);
     for (ZonesIter zone(rt, WithAtoms); !zone.done(); zone.next())
-        zone->setGCMaxMallocBytes(value * 0.9, lock);
+        zone->setGCMaxMallocBytes(value, lock);
 }
 
 double
@@ -1754,7 +1931,6 @@ ZoneHeapThreshold::updateForRemovedArena(const GCSchedulingTunables& tunables)
 MemoryCounter::MemoryCounter()
   : bytes_(0),
     maxBytes_(0),
-    initialMaxBytes_(0),
     triggered_(NoTrigger)
 {}
 
@@ -1774,7 +1950,7 @@ MemoryCounter::updateOnGCEnd(const GCSchedulingTunables& tunables, const AutoLoc
     if (shouldTriggerGC(tunables))
         maxBytes_ *= 2;
     else
-        maxBytes_ = std::max(initialMaxBytes_.ref(), size_t(maxBytes_ * 0.9));
+        maxBytes_ = std::max(tunables.maxMallocBytes(), size_t(maxBytes_ * 0.9));
     bytes_ -= bytesAtStartOfGC_;
     triggered_ = NoTrigger;
 }
@@ -1782,8 +1958,7 @@ MemoryCounter::updateOnGCEnd(const GCSchedulingTunables& tunables, const AutoLoc
 void
 MemoryCounter::setMax(size_t newMax, const AutoLockGC& lock)
 {
-    initialMaxBytes_ = newMax;
-    maxBytes_ = initialMaxBytes_;
+    maxBytes_ = newMax;
     reset();
 }
 
