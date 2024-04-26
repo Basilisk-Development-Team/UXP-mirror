@@ -3012,56 +3012,74 @@ GCRuntime::triggerGC(JS::gcreason::Reason reason)
 }
 
 void
-GCRuntime::maybeAllocTriggerZoneGC(Zone* zone, const AutoLockGC& lock)
+GCRuntime::maybeAllocTriggerGC(Zone* zone, const AutoLockGC& lock)
 {
-    size_t usedBytes = zone->usage.gcBytes();
-    size_t thresholdBytes = zone->threshold.gcTriggerBytes();
+    MOZ_ASSERT(!JS::CurrentThreadIsHeapCollecting());
 
     if (!CurrentThreadCanAccessRuntime(rt)) {
-        /* Zones in use by a helper thread can't be collected. */
+        // Zones in use by a helper thread can't be collected.
         MOZ_ASSERT(zone->usedByHelperThread() || zone->isAtomsZone());
         return;
     }
 
+    // Check GC bytes triggers.
+    size_t usedBytes = zone->usage.gcBytes();
+    size_t thresholdBytes = zone->threshold.gcTriggerBytes();
+
     if (usedBytes >= thresholdBytes) {
-        /*
-         * The threshold has been surpassed, immediately trigger a GC,
-         * which will be done non-incrementally.
-         */
+        // The threshold has been surpassed, immediately trigger a GC, which
+        // will be done non-incrementally.
         triggerZoneGC(zone, JS::gcreason::ALLOC_TRIGGER);
-    } else {
-        bool wouldInterruptCollection;
-        size_t igcThresholdBytes;
-        double zoneAllocThresholdFactor;
+    return;
+    }
 
-        wouldInterruptCollection = isIncrementalGCInProgress() &&
-            !zone->isCollecting();
-        zoneAllocThresholdFactor = wouldInterruptCollection ?
-            tunables.zoneAllocThresholdFactorAvoidInterrupt() :
-            tunables.zoneAllocThresholdFactor();
+    bool wouldInterruptCollection = isIncrementalGCInProgress() && !zone->isCollecting();
+    float zoneGCThresholdFactor =
+        wouldInterruptCollection ? tunables.allocThresholdFactorAvoidInterrupt()
+                                 : tunables.allocThresholdFactor();
 
-        igcThresholdBytes = thresholdBytes * zoneAllocThresholdFactor;
+    size_t igcThresholdBytes = thresholdBytes * zoneGCThresholdFactor;
 
-        if (usedBytes >= igcThresholdBytes) {
-            // Reduce the delay to the start of the next incremental slice.
-            if (zone->gcDelayBytes < ArenaSize)
-                zone->gcDelayBytes = 0;
-            else
-                zone->gcDelayBytes -= ArenaSize;
+    if (usedBytes >= igcThresholdBytes) {
+        // Reduce the delay to the start of the next incremental slice.
+        if (zone->gcDelayBytes < ArenaSize)
+            zone->gcDelayBytes = 0;
+        else
+            zone->gcDelayBytes -= ArenaSize;
 
-            if (!zone->gcDelayBytes) {
-                // Start or continue an in progress incremental GC. We do this
-                // to try to avoid performing non-incremental GCs on zones
-                // which allocate a lot of data, even when incremental slices
-                // can't be triggered via scheduling in the event loop.
-                triggerZoneGC(zone, JS::gcreason::ALLOC_TRIGGER);
+        if (!zone->gcDelayBytes) {
+            // Start or continue an in progress incremental GC. We do this
+            // to try to avoid performing non-incremental GCs on zones
+            // which allocate a lot of data, even when incremental slices
+            // can't be triggered via scheduling in the event loop.
+            triggerZoneGC(zone, JS::gcreason::ALLOC_TRIGGER, usedBytes, igcThresholdBytes);
 
-                // Delay the next slice until a certain amount of allocation
-                // has been performed.
-                zone->gcDelayBytes = tunables.zoneAllocDelayBytes();
-            }
+            // Delay the next slice until a certain amount of allocation
+            // has been performed.
+            zone->gcDelayBytes = tunables.zoneAllocDelayBytes();
+            return;
         }
     }
+
+    // Check malloc bytes triggers.
+
+    wouldInterruptCollection = isIncrementalGCInProgress() && !isFull;
+    float fullGCThresholdFactor =
+        wouldInterruptCollection ? tunables.allocThresholdFactorAvoidInterrupt()
+                                 : tunables.allocThresholdFactor();
+
+    size_t mallocBytes = mallocCounter.bytes();
+    size_t mallocThesholdBytes = mallocCounter.maxBytes() * fullGCThresholdFactor;
+    if (mallocBytes > mallocThesholdBytes) {
+        stats().recordTrigger(mallocBytes, mallocThesholdBytes);
+        MOZ_ALWAYS_TRUE(triggerGC(JS::gcreason::TOO_MUCH_MALLOC));
+        return;
+    }
+
+    mallocBytes = zone->GCMallocBytes();
+    mallocThesholdBytes = zone->GCMaxMallocBytes() * zoneGCThresholdFactor;
+    if (mallocBytes > mallocThesholdBytes)
+        triggerZoneGC(zone, JS::gcreason::TOO_MUCH_MALLOC, mallocBytes, mallocThesholdBytes);
 }
 
 bool
@@ -7226,7 +7244,7 @@ GCRuntime::minorGC(JS::gcreason::Reason reason, gcstats::Phase phase)
     {
         AutoLockGC lock(rt);
         for (ZonesIter zone(rt, WithAtoms); !zone.done(); zone.next())
-            maybeAllocTriggerZoneGC(zone, lock);
+            maybeAllocTriggerGC(zone, lock);
     }
 }
 

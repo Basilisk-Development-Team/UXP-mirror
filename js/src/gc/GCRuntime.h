@@ -150,9 +150,9 @@ class GCSchedulingTunables
     ActiveThreadOrGCTaskData<size_t> gcZoneAllocThresholdBase_;
 
     /* Fraction of threshold.gcBytes() which triggers an incremental GC. */
-    UnprotectedData<double> zoneAllocThresholdFactor_;
+	UnprotectedData<double> allocThresholdFactor_;
     /* The same except when doing so would interrupt an already running GC. */
-    UnprotectedData<double> zoneAllocThresholdFactorAvoidInterrupt_;
+    UnprotectedData<double> allocThresholdFactorAvoidInterrupt_;
 
     /*
      * Number of bytes to allocate between incremental slices in GCs triggered
@@ -227,8 +227,8 @@ class GCSchedulingTunables
     size_t gcMaxBytes() const { return gcMaxBytes_; }
     size_t gcMaxNurseryBytes() const { return gcMaxNurseryBytes_; }
     size_t gcZoneAllocThresholdBase() const { return gcZoneAllocThresholdBase_; }
-    double zoneAllocThresholdFactor() const { return zoneAllocThresholdFactor_; }
-    double zoneAllocThresholdFactorAvoidInterrupt() const { return zoneAllocThresholdFactorAvoidInterrupt_; }
+    double allocThresholdFactor() const { return allocThresholdFactor_; }
+    double allocThresholdFactorAvoidInterrupt() const { return allocThresholdFactorAvoidInterrupt_; }
     size_t zoneAllocDelayBytes() const { return zoneAllocDelayBytes_; }
     bool isDynamicHeapGrowthEnabled() const { return dynamicHeapGrowthEnabled_; }
     uint64_t highFrequencyThresholdUsec() const { return highFrequencyThresholdUsec_; }
@@ -708,7 +708,7 @@ class GCRuntime
     uint32_t getParameter(JSGCParamKey key, const AutoLockGC& lock);
 
     [[nodiscard]] bool triggerGC(JS::gcreason::Reason reason);
-    void maybeAllocTriggerZoneGC(Zone* zone, const AutoLockGC& lock);
+    void maybeAllocTriggerGC(Zone* zone, const AutoLockGC& lock);
     // The return value indicates if we were able to do the GC.
     bool triggerZoneGC(Zone* zone, JS::gcreason::Reason reason);
     void maybeGC(Zone* zone);
