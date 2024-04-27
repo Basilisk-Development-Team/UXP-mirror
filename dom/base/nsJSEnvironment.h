@@ -14,6 +14,7 @@
 #include "nsIXPConnect.h"
 #include "nsIArray.h"
 #include "mozilla/Attributes.h"
+#include "mozilla/TimeStamp.h"
 #include "nsThreadUtils.h"
 #include "xpcpublic.h"
 
@@ -90,7 +91,7 @@ public:
                               int32_t aExtraForgetSkippableCalls = 0);
 
   // Run a cycle collector slice, using a heuristic to decide how long to run it.
-  static void RunCycleCollectorSlice();
+  static void RunCycleCollectorSlice(mozilla::TimeStamp aDeadline);
 
   // Run a cycle collector slice, using the given work budget.
   static void RunCycleCollectorWorkSlice(int64_t aWorkBudget);
@@ -112,10 +113,10 @@ public:
   static void KillShrinkingGCTimer();
 
   static void MaybePokeCC();
-  static void KillCCTimer();
-  static void KillICCTimer();
+  static void KillCCRunner();
+  static void KillICCRunner();
   static void KillFullGCTimer();
-  static void KillInterSliceGCTimer();
+  static void KillInterSliceGCRunner();
 
   // Calling LikelyShortLivingObjectCreated() makes a GC more likely.
   static void LikelyShortLivingObjectCreated();
@@ -130,7 +131,6 @@ public:
     return global ? mGlobalObjectRef.get() : nullptr;
   }
 
-  static void NotifyDidPaint();
 protected:
   virtual ~nsJSContext();
 
