@@ -142,6 +142,7 @@ nsTimer::Release(void)
 }
 
 nsTimerImpl::nsTimerImpl(nsITimer* aTimer) :
+  mHolder(nullptr),
   mGeneration(0),
   mDelay(0),
   mITimer(aTimer),
@@ -643,6 +644,12 @@ nsTimerImpl::LogFiring(const Callback& aCallback, uint8_t aType, uint32_t aDelay
       break;
     }
   }
+}
+
+void
+nsTimerImpl::SetHolder(nsTimerImplHolder* aHolder)
+{
+  mHolder = aHolder;
 }
 
 nsTimer::~nsTimer()
