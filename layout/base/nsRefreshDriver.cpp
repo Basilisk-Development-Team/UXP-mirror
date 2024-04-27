@@ -226,12 +226,12 @@ public:
     return mLastFireSkipped;
   }
 
-  Maybe<TimeStamp> GetIdleDeadlineHint()
+  TimeStamp GetIdleDeadlineHint(TimeStamp aDefault)
   {
     MOZ_ASSERT(NS_IsMainThread());
 
     if (LastTickSkippedAnyPaints()) {
-      return Some(TimeStamp());
+      return TimeStamp::Now();
     }
 
     TimeStamp mostRecentRefresh = MostRecentRefresh();
@@ -241,11 +241,12 @@ public:
     if (idleEnd +
           refreshRate * nsLayoutUtils::QuiescentFramesBeforeIdlePeriod() <
         TimeStamp::Now()) {
-      return Nothing();
+      return aDefault;
     }
 
-    return Some(idleEnd - TimeDuration::FromMilliseconds(
-                            nsLayoutUtils::IdlePeriodDeadlineLimit()));
+    idleEnd = idleEnd - TimeDuration::FromMilliseconds(
+      nsLayoutUtils::IdlePeriodDeadlineLimit());
+    return idleEnd < aDefault ? idleEnd : aDefault;
   }
 
 protected:
@@ -2224,13 +2225,14 @@ nsRefreshDriver::CancelPendingEvents(nsIDocument* aDocument)
   }
 }
 
-/* static */ Maybe<TimeStamp>
-nsRefreshDriver::GetIdleDeadlineHint()
+/* static */ TimeStamp
+nsRefreshDriver::GetIdleDeadlineHint(TimeStamp aDefault)
 {
   MOZ_ASSERT(NS_IsMainThread());
+  MOZ_ASSERT(!aDefault.IsNull());
 
   if (!sRegularRateTimer) {
-    return Nothing();
+    return aDefault;
   }
 
   // For computing idleness of refresh drivers we only care about
@@ -2239,7 +2241,7 @@ nsRefreshDriver::GetIdleDeadlineHint()
   // resulting from a tick on the sRegularRateTimer counts as being
   // busy but tasks resulting from a tick on sThrottledRateTimer
   // counts as being idle.
-  return sRegularRateTimer->GetIdleDeadlineHint();
+  return sRegularRateTimer->GetIdleDeadlineHint(aDefault);
 }
 
 void
