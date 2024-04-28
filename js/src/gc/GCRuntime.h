@@ -234,13 +234,12 @@ class GCSchedulingTunables
     [[nodiscard]] bool setParameter(JSGCParamKey key, uint32_t value, const AutoLockGC& lock);
     void resetParameter(JSGCParamKey key, const AutoLockGC& lock);
 
+    void setMaxMallocBytes(size_t value);
 private:
     void setHighFrequencyLowLimit(uint64_t value);
     void setHighFrequencyHighLimit(uint64_t value);
     void setMinEmptyChunkCount(uint32_t value);
     void setMaxEmptyChunkCount(uint32_t value);
-
-    void setMaxMallocBytes(size_t value);
 
 };
 
@@ -817,10 +816,15 @@ class GCRuntime
         if (MOZ_LIKELY(trigger == NoTrigger) || trigger <= mallocCounter.triggered())
             return false;
     if (!triggerGC(JS::gcreason::TOO_MUCH_MALLOC))
-             return false;
+            return false;
 
-    mallocCounter.recordTrigger(trigger);
-         return true;
+        // Even though this method may be called off the main thread it is safe
+        // to access mallocCounter here since triggerGC() will return false in
+        // that case.
+        stats().recordTrigger(mallocCounter.bytes(), mallocCounter.maxBytes());
+
+        mallocCounter.recordTrigger(trigger);
+        return true;
     }
 
     void updateMallocCountersOnGCStart();
