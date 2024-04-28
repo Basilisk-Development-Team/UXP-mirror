@@ -449,6 +449,9 @@ class CGDOMJSClass(CGThing):
             traceHook = 'nullptr'
             reservedSlots = slotCount
         if self.descriptor.interface.isProbablyShortLivingObject():
+            if not self.descriptor.wrapperCache:
+                raise TypeError("Need a wrapper cache to support nursery "
+                                "allocation of DOM objects")
             classFlags += " | JSCLASS_SKIP_NURSERY_FINALIZE"
         if self.descriptor.interface.getExtendedAttribute("NeedResolve"):
             resolveHook = RESOLVE_HOOK_NAME
@@ -12227,6 +12230,21 @@ class CGDOMJSProxyHandler_isCallable(ClassMethod):
             return true;
         """)
 
+class CGDOMJSProxyHandler_canNurseryAllocate(ClassMethod):
+    """
+    Override the default canNurseryAllocate in BaseProxyHandler, for cases when
+    we should be nursery-allocated.
+    """
+    def __init__(self):
+        ClassMethod.__init__(self, "canNurseryAllocate", "bool",
+                             [],
+                             virtual=True, override=True, const=True)
+
+    def getBody(self):
+        return dedent("""
+            return true;
+        """)
+
 
 class CGDOMJSProxyHandler(CGClass):
     def __init__(self, descriptor):
@@ -12264,6 +12282,11 @@ class CGDOMJSProxyHandler(CGClass):
         if descriptor.operations['LegacyCaller']:
             methods.append(CGDOMJSProxyHandler_call())
             methods.append(CGDOMJSProxyHandler_isCallable())
+        if descriptor.interface.isProbablyShortLivingObject():
+            if not descriptor.wrapperCache:
+                raise TypeError("Need a wrapper cache to support nursery "
+                                "allocation of DOM objects")
+            methods.append(CGDOMJSProxyHandler_canNurseryAllocate())
 
         if descriptor.interface.getExtendedAttribute('OverrideBuiltins'):
             parentClass = 'ShadowingDOMProxyHandler'
