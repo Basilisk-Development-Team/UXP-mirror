@@ -3260,7 +3260,7 @@ GCRuntime::maybeAllocTriggerZoneGC(Zone* zone, const AutoLockGC& lock)
     if (usedBytes >= thresholdBytes) {
         // The threshold has been surpassed, immediately trigger a GC, which
         // will be done non-incrementally.
-        triggerZoneGC(zone, JS::gcreason::ALLOC_TRIGGER);
+        triggerZoneGC(zone, JS::gcreason::ALLOC_TRIGGER, usedBytes, thresholdBytes);
     return;
     }
 
@@ -3294,7 +3294,7 @@ GCRuntime::maybeAllocTriggerZoneGC(Zone* zone, const AutoLockGC& lock)
 }
 
 bool
-GCRuntime::triggerZoneGC(Zone* zone, JS::gcreason::Reason reason)
+GCRuntime::triggerZoneGC(Zone* zone, JS::gcreason::Reason reason, size_t used, size_t threshold)
 {
     MOZ_ASSERT(CurrentThreadCanAccessRuntime(rt));
 
@@ -3316,10 +3316,12 @@ GCRuntime::triggerZoneGC(Zone* zone, JS::gcreason::Reason reason)
             fullGCForAtomsRequested_ = true;
             return false;
         }
+        stats().recordTrigger(used, threshold);
         MOZ_RELEASE_ASSERT(triggerGC(reason));
         return true;
     }
 
+    stats().recordTrigger(used, threshold);
     PrepareZoneForGC(zone);
     requestMajorGC(reason);
     return true;
@@ -3340,11 +3342,12 @@ GCRuntime::maybeGC(Zone* zone)
     if (gcIfRequested())
         return;
 
-    if (zone->usage.gcBytes() > 1024 * 1024 &&
-        zone->usage.gcBytes() >= zone->threshold.allocTrigger(schedulingState.inHighFrequencyGCMode()) &&
-        !isIncrementalGCInProgress() &&
-        !isBackgroundSweeping())
+    double threshold = zone->threshold.allocTrigger(schedulingState.inHighFrequencyGCMode());
+    double usedBytes = zone->usage.gcBytes();
+    if (usedBytes > 1024 * 1024 && usedBytes >= threshold &&
+        !isIncrementalGCInProgress() && !isBackgroundSweeping())
     {
+        stats().recordTrigger(usedBytes, threshold);
         PrepareZoneForGC(zone);
         startGC(GC_NORMAL, JS::gcreason::EAGER_ALLOC_TRIGGER);
     }
