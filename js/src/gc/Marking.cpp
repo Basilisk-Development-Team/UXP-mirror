@@ -2944,6 +2944,8 @@ js::TenuringTracer::moveToTenuredSlow(JSObject* src)
         // inline ProxyValueArray.
         MOZ_ASSERT(src->as<ProxyObject>().usingInlineValueArray());
         dst->as<ProxyObject>().setInlineValueArray();
+        if (JSObjectMovedOp op = dst->getClass()->extObjectMovedOp())
+            op(dst, src);
     } else if (JSObjectMovedOp op = dst->getClass()->extObjectMovedOp()) {
         // Tell the hazard analysis that the object moved hook can't GC.
         JS::AutoSuppressGCAnalysis nogc;
