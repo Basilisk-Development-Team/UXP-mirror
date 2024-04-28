@@ -628,18 +628,17 @@ enum TriggerKind
 
 class MemoryCounter
 {
+    // Bytes counter to measure memory pressure for GC scheduling. It counts
+    // upwards from zero.
+    mozilla::Atomic<size_t, mozilla::ReleaseAcquire> bytes_;
+
+    // GC trigger threshold for memory allocations.
+    size_t maxBytes_;
     // The counter value at the start of a GC.
     ActiveThreadData<size_t> bytesAtStartOfGC_;
 
     // Which kind of GC has been triggered if any.
     mozilla::Atomic<TriggerKind, mozilla::ReleaseAcquire> triggered_;
-
-    // GC trigger threshold for memory allocations.
-    size_t maxBytes_;
-
-    // Whether a GC has been triggered as a result of bytes_ exceeding
-    // maxBytes_.
-    mozilla::Atomic<bool, mozilla::ReleaseAcquire> triggered_;
 
   public:
     MemoryCounter();
@@ -675,7 +674,7 @@ class MemoryCounter
     void updateOnGCStart();
     void updateOnGCEnd(const GCSchedulingTunables& tunables, const AutoLockGC& lock);
 
-    private:
+  private:
     void reset();
 };
 
@@ -703,7 +702,8 @@ class GCRuntime
     [[nodiscard]] bool triggerGC(JS::gcreason::Reason reason);
     void maybeAllocTriggerZoneGC(Zone* zone, const AutoLockGC& lock);
     // The return value indicates if we were able to do the GC.
-    bool triggerZoneGC(Zone* zone, JS::gcreason::Reason reason);
+    bool triggerZoneGC(Zone* zone, JS::gcreason::Reason reason,
+                       size_t usedBytes, size_t thresholdBytes);
     void maybeGC(Zone* zone);
     // The return value indicates whether a major GC was performed.
     bool gcIfRequested();
