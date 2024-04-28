@@ -1395,6 +1395,12 @@ GCSchedulingTunables::setParameter(JSGCParamKey key, uint32_t value, const AutoL
 }
 
 void
+GCSchedulingTunables::setMaxMallocBytes(size_t value)
+{
+    maxMallocBytes_ = value;
+}
+
+void
 GCSchedulingTunables::setHighFrequencyLowLimit(uint64_t newLimit)
 {
     highFrequencyLowLimitBytes_ = newLimit;
@@ -1432,6 +1438,7 @@ GCSchedulingTunables::setMaxEmptyChunkCount(uint32_t value)
 
 GCSchedulingTunables::GCSchedulingTunables()
   : gcMaxBytes_(0),
+    maxMallocBytes_(TuningDefaults::MaxMallocBytes),
     gcMaxNurseryBytes_(0),
     gcZoneAllocThresholdBase_(TuningDefaults::GCZoneAllocThresholdBase),
     zoneAllocThresholdFactor_(TuningDefaults::ZoneAllocThresholdFactor),
@@ -1537,13 +1544,6 @@ GCSchedulingTunables::resetParameter(JSGCParamKey key, const AutoLockGC& lock)
       default:
         MOZ_CRASH("Unknown GC parameter.");
     }
-}
-
-
-void
-GCSchedulingTunables::setMaxMallocBytes(size_t value)
-{
-    maxMallocBytes_ = value;
 }
 
 uint32_t

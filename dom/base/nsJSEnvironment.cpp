@@ -2188,11 +2188,11 @@ SetMemoryPrefChangedCallbackMB(const char* aPrefName, void* aClosure)
 {
   int32_t prefMB = Preferences::GetInt(aPrefName, -1);
   // handle overflow and negative pref values
-  int32_t prefB = int32_t (prefMB) * 1024 * 1024;
+  CheckedInt<int32_t> prefB = CheckedInt<int32_t>(prefMB) * 1024 * 1024;
   if (prefB.isValid() && prefB.value() >= 0) {
-    SetGCParameter((JSGCParamKey)(uintptr_t)aClosure, prefB.value());
+    JS_SetGCParameter(sContext, (JSGCParamKey)(uintptr_t)aClosure, prefB.value());
   } else {
-    ResetGCParameter((JSGCParamKey)(uintptr_t)aClosure);
+    JS_ResetGCParameter(sContext, (JSGCParamKey)(uintptr_t)aClosure);
   }
 }
 
@@ -2203,9 +2203,9 @@ static void
   // handle overflow and negative pref values
   CheckedInt<int32_t> prefB = CheckedInt<int32_t>(prefMB) * 1024;
   if (prefB.isValid() && prefB.value() >= 0) {
-    SetGCParameter((JSGCParamKey)(uintptr_t)aClosure, prefB.value());
+    JS_SetGCParameter(sContext, (JSGCParamKey)(uintptr_t)aClosure, prefB.value());
   } else {
-    ResetGCParameter((JSGCParamKey)(uintptr_t)aClosure);
+    JS_ResetGCParameter(sContext, (JSGCParamKey)(uintptr_t)aClosure);
   }
 }
 
@@ -2214,9 +2214,9 @@ SetMemoryPrefChangedCallbackInt(const char* aPrefName, void* aClosure)
 {   int32_t pref = Preferences::GetInt(aPrefName, -1);
    // handle overflow and negative pref values
 	if (pref >= 0 && pref < 10000) {
-    SetGCParameter((JSGCParamKey)(uintptr_t)aClosure, pref);
+    JS_SetGCParameter(sContext, (JSGCParamKey)(uintptr_t)aClosure, pref);
   } else {
-    ResetGCParameter((JSGCParamKey)(uintptr_t)aClosure);
+    JS_ResetGCParameter(sContext, (JSGCParamKey)(uintptr_t)aClosure);
   }
 }
 
@@ -2224,7 +2224,7 @@ static void
 SetMemoryPrefChangedCallbackBool(const char* aPrefName, void* aClosure)
 {
   bool pref = Preferences::GetBool(aPrefName);
-  SetGCParameter((JSGCParamKey)(uintptr_t)aClosure, pref);
+  JS_SetGCParameter(sContext, (JSGCParamKey)(uintptr_t)aClosure, pref);
 }
 static void
 SetMemoryGCModePrefChangedCallback(const char* aPrefName, void* aClosure)
@@ -2250,7 +2250,7 @@ SetMemoryGCSliceTimePrefChangedCallback(const char* aPrefName, void* aClosure)
   if (pref > 0 && pref < 100000) {
     JS_SetGCParameter(sContext, JSGC_SLICE_TIME_BUDGET, pref);
  } else {
-    ResetGCParameter(JSGC_SLICE_TIME_BUDGET);
+    JS_ResetGCParameter(sContext, JSGC_SLICE_TIME_BUDGET);
  }
 }
 
@@ -2394,7 +2394,6 @@ nsJSContext::EnsureStatics()
                                        (void*)JSGC_MAX_BYTES);
 
   Preferences::RegisterCallbackAndCall(SetMemoryNurseryMaxPrefChangedCallback,
--                                      "javascript.options.mem.nursery.max_kb");
                                        "javascript.options.mem.nursery.max_kb",
                                        (void*)JSGC_MAX_NURSERY_BYTES);
 

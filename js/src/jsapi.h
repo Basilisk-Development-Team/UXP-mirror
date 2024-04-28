@@ -1781,7 +1781,7 @@ typedef enum JSGCParamKey {
     /** Maximum nominal heap before last ditch GC. */
     JSGC_MAX_BYTES          = 0,
 
-    /** Initial value for the malloc bytes threshold.
+    /** Initial value for the malloc bytes threshold. */
     JSGC_MAX_MALLOC_BYTES   = 1,
 
     /** Maximum size of the generational GC nurseries. */
