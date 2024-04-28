@@ -710,7 +710,7 @@ class GCRuntime
     void triggerFullGCForAtoms(JSContext* cx);
 
     void runDebugGC();
-    inline void poke();
+    void notifyRootsRemoved();
 
     enum TraceOrMarkRuntime {
         TraceRuntime,
@@ -1295,7 +1295,7 @@ class GCRuntime
      */
     ActiveThreadData<bool> compactingEnabled;
 
-    ActiveThreadData<bool> poked;
+    ActiveThreadData<bool> rootsRemoved;
 
     /*
      * These options control the zealousness of the GC. At every allocation,
@@ -1311,7 +1311,8 @@ class GCRuntime
      *     (see the help for details)
      *
      * If gcZeal_ == 1 then we perform GCs in select places (during MaybeGC and
-     * whenever a GC poke happens). This option is mainly useful to embedders.
+     * whenever we are notified that GC roots have been removed). This option is
+     * mainly useful to embedders.
      *
      * We use zeal_ == 4 to enable write barrier verification. See the comment
      * in jsgc.cpp for more information about this.

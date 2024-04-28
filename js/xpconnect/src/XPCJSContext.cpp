@@ -3749,7 +3749,7 @@ void
 XPCRootSetElem::RemoveFromRootSet()
 {
     nsXPConnect* xpc = nsXPConnect::XPConnect();
-    JS::PokeGC(xpc->GetContext()->Context());
+    JS::NotifyGCRootsRemoved(xpc->GetContext()->Context());
 
     MOZ_ASSERT(mSelfp, "Must be linked");
 
