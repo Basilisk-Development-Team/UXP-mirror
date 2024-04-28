@@ -338,6 +338,13 @@ JSTracer::asCallbackTracer()
     return static_cast<JS::CallbackTracer*>(this);
 }
 
+namespace js {
+namespace gc {
+template <typename T>
+JS_PUBLIC_API(void) TraceExternalEdge(JSTracer* trc, T* thingp, const char* name);
+} // namespace gc
+} // namespace js
+
 namespace JS {
 
 // The JS::TraceEdge family of functions traces the given GC thing reference.
@@ -355,11 +362,24 @@ namespace JS {
 // Note that while |edgep| must never be null, it is fine for |*edgep| to be
 // nullptr.
 template <typename T>
-extern JS_PUBLIC_API(void)
-TraceEdge(JSTracer* trc, JS::Heap<T>* edgep, const char* name);
+inline void
+TraceEdge(JSTracer* trc, JS::Heap<T>* thingp, const char* name)
+{
+    MOZ_ASSERT(thingp);
+    if (*thingp)
+        js::gc::TraceExternalEdge(trc, thingp->unsafeGet(), name);
+}
 
-extern JS_PUBLIC_API(void)
-TraceEdge(JSTracer* trc, JS::TenuredHeap<JSObject*>* edgep, const char* name);
+template <typename T>
+inline void
+TraceEdge(JSTracer* trc, JS::TenuredHeap<T>* thingp, const char* name)
+{
+    MOZ_ASSERT(thingp);
+    if (T ptr = thingp->unbarrieredGetPtr()) {
+        js::gc::TraceExternalEdge(trc, &ptr, name);
+        thingp->setPtr(ptr);
+    }
+}
 
 // Edges that are always traced as part of root marking do not require
 // incremental barriers. This function allows for marking non-barriered
