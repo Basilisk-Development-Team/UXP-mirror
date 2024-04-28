@@ -101,6 +101,12 @@ public:
 
 class IncrementalFinalizeRunnable;
 
+struct JSHolderInfo
+{
+  void* mHolder;
+  nsScriptObjectTracer* mTracer;
+};
+
 // Contains various stats about the cycle collection.
 struct CycleCollectorResults
 {
@@ -459,7 +465,8 @@ private:
   JS::GCSliceCallback mPrevGCSliceCallback;
   JS::GCNurseryCollectionCallback mPrevGCNurseryCollectionCallback;
 
-  nsDataHashtable<nsPtrHashKey<void>, nsScriptObjectTracer*> mJSHolders;
+  SegmentedVector<JSHolderInfo, 1024, InfallibleAllocPolicy> mJSHolders;
+  nsDataHashtable<nsPtrHashKey<void>, JSHolderInfo*> mJSHolderMap;
 
   typedef nsDataHashtable<nsFuncPtrHashKey<DeferredFinalizeFunction>, void*>
     DeferredFinalizerTable;

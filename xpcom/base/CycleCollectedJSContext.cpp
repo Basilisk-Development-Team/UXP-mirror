@@ -440,7 +440,7 @@ CycleCollectedJSContext::CycleCollectedJSContext()
   , mJSContext(nullptr)
   , mPrevGCSliceCallback(nullptr)
   , mPrevGCNurseryCollectionCallback(nullptr)
-  , mJSHolders(256)
+  , mJSHolderMap(256)
   , mDoingStableStates(false)
   , mTargetedMicroTaskRecursionDepth(0)
   , mMicroTaskLevel(0)
@@ -567,7 +567,8 @@ CycleCollectedJSContext::SizeOfExcludingThis(MallocSizeOf aMallocSizeOf) const
 
   // We're deliberately not measuring anything hanging off the entries in
   // mJSHolders.
-  n += mJSHolders.ShallowSizeOfExcludingThis(aMallocSizeOf);
+  n += mJSHolders.SizeOfExcludingThis(aMallocSizeOf);
+  n += mJSHolderMap.ShallowSizeOfExcludingThis(aMallocSizeOf);
 
   return n;
 }
@@ -576,8 +577,8 @@ void
 CycleCollectedJSContext::UnmarkSkippableJSHolders()
 {
   for (auto iter = mJSHolders.Iter(); !iter.Done(); iter.Next()) {
-    void* holder = iter.Key();
-    nsScriptObjectTracer*& tracer = iter.Data();
+    void* holder = iter.Get().mHolder;
+    nsScriptObjectTracer* tracer = iter.Get().mTracer;
     tracer->CanSkip(holder, true);
   }
 }
@@ -767,8 +768,8 @@ CycleCollectedJSContext::TraverseNativeRoots(nsCycleCollectionNoteRootCallback& 
   TraverseAdditionalNativeRoots(aCb);
 
   for (auto iter = mJSHolders.Iter(); !iter.Done(); iter.Next()) {
-    void* holder = iter.Key();
-    nsScriptObjectTracer*& tracer = iter.Data();
+    void* holder = iter.Get().mHolder;
+    nsScriptObjectTracer* tracer = iter.Get().mTracer;
 
     bool noteRoot = false;
     if (MOZ_UNLIKELY(aCb.WantAllTraces())) {
@@ -1136,8 +1137,8 @@ CycleCollectedJSContext::TraceNativeGrayRoots(JSTracer* aTracer)
   TraceAdditionalNativeGrayRoots(aTracer);
 
   for (auto iter = mJSHolders.Iter(); !iter.Done(); iter.Next()) {
-    void* holder = iter.Key();
-    nsScriptObjectTracer*& tracer = iter.Data();
+    void* holder = iter.Get().mHolder;
+    nsScriptObjectTracer* tracer = iter.Get().mTracer;
     tracer->Trace(holder, JsGcTracer(), aTracer);
   }
 }
@@ -1146,7 +1147,15 @@ void
 CycleCollectedJSContext::AddJSHolder(void* aHolder, nsScriptObjectTracer* aTracer)
 {
   MOZ_ASSERT(mJSContext);
-  mJSHolders.Put(aHolder, aTracer);
+  JSHolderInfo* info = nullptr;
+  if (mJSHolderMap.Get(aHolder, &info)) {
+    MOZ_ASSERT(info->mHolder == aHolder);
+    info->mTracer = aTracer;
+    return;
+  }
+
+  mJSHolders.InfallibleAppend(JSHolderInfo {aHolder, aTracer});
+  mJSHolderMap.Put(aHolder, &mJSHolders.GetLast());
 }
 
 struct ClearJSHolder : public TraceCallbacks
@@ -1198,9 +1207,19 @@ CycleCollectedJSContext::RemoveJSHolder(void* aHolder)
 {
   MOZ_ASSERT(mJSContext);
 
-  if (auto entry = mJSHolders.Lookup(aHolder)) {
-    entry.Data()->Trace(aHolder, ClearJSHolder(), nullptr);
-    entry.Remove();
+  JSHolderInfo* info = nullptr;
+  if (mJSHolderMap.Get(aHolder, &info)) {
+    MOZ_ASSERT(info->mHolder == aHolder);
+    info->mTracer->Trace(aHolder, ClearJSHolder(), nullptr);
+
+    JSHolderInfo* lastInfo = &mJSHolders.GetLast();
+    if (info != lastInfo) {
+      *info = *lastInfo;
+      mJSHolderMap.Put(info->mHolder, info);
+    }
+
+    mJSHolders.PopLast();
+    mJSHolderMap.Remove(aHolder);
   }
 }
 
@@ -1209,7 +1228,7 @@ bool
 CycleCollectedJSContext::IsJSHolder(void* aHolder)
 {
   MOZ_ASSERT(mJSContext);
-  return mJSHolders.Get(aHolder, nullptr);
+  return mJSHolderMap.Get(aHolder, nullptr);
 }
 
 static void
@@ -1223,10 +1242,13 @@ CycleCollectedJSContext::AssertNoObjectsToTrace(void* aPossibleJSHolder)
 {
   MOZ_ASSERT(mJSContext);
 
-  nsScriptObjectTracer* tracer = mJSHolders.Get(aPossibleJSHolder);
-  if (tracer) {
-    tracer->Trace(aPossibleJSHolder, TraceCallbackFunc(AssertNoGcThing), nullptr);
+  JSHolderInfo* info = nullptr;
+  if (!mJSHolderMap.Get(aPossibleJSHolder, &info)) {
+    return;
   }
+
+  MOZ_ASSERT(info->mHolder == aPossibleJSHolder);
+  info->mTracer->Trace(aPossibleJSHolder, TraceCallbackFunc(AssertNoGcThing), nullptr);
 }
 #endif
 
