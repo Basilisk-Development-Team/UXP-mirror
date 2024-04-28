@@ -270,8 +270,10 @@ namespace gc {
 namespace TuningDefaults {
 
     static const size_t GCZoneAllocThresholdBase = 30 * 1024 * 1024;
-     static const float ZoneAllocThresholdFactor = 0.9f;
-     static const float ZoneAllocThresholdFactorAvoidInterrupt = 0.95f;
+     static const float AllocThresholdFactor = 0.9f;
+     static const float AllocThresholdFactorAvoidInterrupt = 0.95f;
+    /* JSGC_MAX_MALLOC_BYTES */
+    static const size_t MaxMallocBytes = 128 * 1024 * 1024;
     static const size_t ZoneAllocDelayBytes = 1024 * 1024;
     static const bool DynamicHeapGrowthEnabled = false;
     static const uint64_t HighFrequencyThresholdUsec = 1000000;
@@ -289,8 +291,7 @@ namespace TuningDefaults {
      * JSGC_SLICE_TIME_BUDGET.
      * javascript.options.mem.gc_incremental_slice_ms
      */
-    static const int64_t DefaultTimeBudget =
-        SliceBudget::UnlimitedTimeBudget;
+    static const int64_t DefaultTimeBudget = SliceBudget::UnlimitedTimeBudget;
 
     static const JSGCMode Mode = JSGC_MODE_INCREMENTAL;
 
@@ -1198,13 +1199,9 @@ GCRuntime::init(uint32_t maxbytes, uint32_t maxNurseryBytes)
     {
         AutoLockGC lock(rt);
 
-        /*
-         * Separate gcMaxMallocBytes from gcMaxBytes but initialize to maxbytes
-         * for default backward API compatibility.
-         */
         MOZ_ALWAYS_TRUE(tunables.setParameter(JSGC_MAX_BYTES, maxbytes, lock));
         MOZ_ALWAYS_TRUE(tunables.setParameter(JSGC_MAX_NURSERY_BYTES, maxNurseryBytes, lock));
-        setMaxMallocBytes(maxbytes, lock);
+        setMaxMallocBytes(TuningDefaults::MaxMallocBytes, lock);
 
         const char* size = getenv("JSGC_MARK_STACK_LIMIT");
         if (size)
@@ -1378,6 +1375,7 @@ GCSchedulingTunables::setParameter(JSGCParamKey key, uint32_t value, const AutoL
       case JSGC_ALLOCATION_THRESHOLD:
         gcZoneAllocThresholdBase_ = value * 1024 * 1024;
         break;
+
       case JSGC_MIN_EMPTY_CHUNK_COUNT:
         setMinEmptyChunkCount(value);
         break;
@@ -1441,9 +1439,9 @@ GCSchedulingTunables::GCSchedulingTunables()
     maxMallocBytes_(TuningDefaults::MaxMallocBytes),
     gcMaxNurseryBytes_(0),
     gcZoneAllocThresholdBase_(TuningDefaults::GCZoneAllocThresholdBase),
-    zoneAllocThresholdFactor_(TuningDefaults::ZoneAllocThresholdFactor),
-    zoneAllocThresholdFactorAvoidInterrupt_(
-        TuningDefaults::ZoneAllocThresholdFactorAvoidInterrupt),
+    allocThresholdFactor_(TuningDefaults::AllocThresholdFactor),
+    allocThresholdFactorAvoidInterrupt_(
+        TuningDefaults::AllocThresholdFactorAvoidInterrupt),
     zoneAllocDelayBytes_(TuningDefaults::ZoneAllocDelayBytes),
     dynamicHeapGrowthEnabled_(TuningDefaults::DynamicHeapGrowthEnabled),
     highFrequencyThresholdUsec_(TuningDefaults::HighFrequencyThresholdUsec),
@@ -1463,9 +1461,7 @@ GCRuntime::resetParameter(JSGCParamKey key, AutoLockGC& lock)
 {
     switch (key) {
       case JSGC_MAX_MALLOC_BYTES:
-        setMaxMallocBytes(0xffffffff);
-        for (ZonesIter zone(rt, WithAtoms); !zone.done(); zone.next())
-            zone->setGCMaxMallocBytes(maxMallocBytesAllocated() * 0.9);
+        setMaxMallocBytes(TuningDefaults::MaxMallocBytes, lock);
         break;
       case JSGC_SLICE_TIME_BUDGET:
         defaultTimeBudget_ =
