@@ -808,6 +808,7 @@ struct JSCompartment
     ~JSCompartment();
 
     [[nodiscard]] bool init(JSContext* maybecx);
+    void destroy(js::FreeOp* fop);
 
     [[nodiscard]] inline bool wrap(JSContext* cx, JS::MutableHandleValue vp);
 
