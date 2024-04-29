@@ -193,9 +193,11 @@
 #include "mozilla/Move.h"
 #include "mozilla/ScopeExit.h"
 #include "mozilla/TimeStamp.h"
+#include "mozilla/TypeTraits.h"
 #include "mozilla/Unused.h"
 
 #include <ctype.h>
+#include <initializer_list>
 #include <string.h>
 #ifndef XP_WIN
 # include <sys/mman.h>
@@ -256,6 +258,7 @@ using mozilla::ArrayLength;
 using mozilla::Get;
 using mozilla::HashCodeScrambler;
 using mozilla::Maybe;
+using mozilla::Move;
 using mozilla::Swap;
 using mozilla::TimeStamp;
 
@@ -387,16 +390,9 @@ static const FinalizePhase IncrementalFinalizePhases[] = {
             AllocKind::EXTERNAL_STRING
         }
     },
-    {
-        gcstats::PHASE_SWEEP_SCRIPT, {
-            AllocKind::SCRIPT
-        }
-    },
-    {
-        gcstats::PHASE_SWEEP_JITCODE, {
-            AllocKind::JITCODE
-        }
-    }
+    gcstats::PHASE_SWEEP_SCRIPT, {
+        AllocKind::SCRIPT,
+        AllocKind::JITCODE
 };
 
 /*
@@ -449,59 +445,6 @@ static const FinalizePhase BackgroundFinalizePhases[] = {
         }
     }
 };
-
-// Incremental sweeping is controlled by a list of actions that describe what
-// happens and in what order. Due to the incremental nature of sweeping an
-// action does not necessarily run to completion so the current state is tracked
-// in the GCRuntime by the performSweepActions() method. We may yield to the
-// mutator after running part of any action.
-//
-// There are two types of action: per-sweep-group and per-zone.
-//
-// Per-sweep-group actions are run first. Per-zone actions are grouped into
-// phases, with each phase run once per sweep group, and each action in it run
-// for every zone in the group.
-//
-// This is illustrated by the following pseudocode:
-//
-//   for each sweep group:
-//     for each per-sweep-group action:
-//       run part or all of action
-//       maybe yield to the mutator
-//     for each per-zone phase:
-//       for each zone in sweep group:
-//         for each action in phase:
-//           run part or all of action
-//           maybe yield to the mutator
-//
-// Progress through the loops is stored in GCRuntime, e.g. |sweepActionIndex|
-// for looping through the sweep actions.
-
-using PerZoneGroupSweepAction = IncrementalProgress (*)(GCRuntime* gc, SliceBudget& budget);
-
-struct PerZoneSweepAction
-{
-    using Func = IncrementalProgress (*)(GCRuntime* gc, FreeOp* fop, Zone* zone,
-                                         SliceBudget& budget, AllocKind kind);
-
-    Func func;
-    AllocKind kind;
-
-    PerZoneSweepAction(Func func, AllocKind kind) : func(func), kind(kind) {}
-};
-
-using PerZoneGroupActionVector = Vector<PerZoneGroupSweepAction, 0, SystemAllocPolicy>;
-using PerZoneSweepActionVector = Vector<PerZoneSweepAction, 0, SystemAllocPolicy>;
-using PerZoneSweepPhaseVector = Vector<PerZoneSweepActionVector, 0, SystemAllocPolicy>;
-
-static PerZoneGroupActionVector PerZoneGroupSweepActions;
-static PerZoneSweepPhaseVector PerZoneSweepPhases;
-
-bool
-js::gc::InitializeStaticData()
-{
-    return GCRuntime::initializeSweepActions();
-}
 
 template<>
 JSObject*
@@ -950,15 +893,18 @@ GCRuntime::GCRuntime(JSRuntime* rt) :
     startNumber(0),
     isFull(false),
     incrementalState(gc::State::NotActive),
+    initialState(gc::State::NotActive),
+#ifdef JS_GC_ZEAL
+    useZeal(false),
+#endif
     lastMarkSlice(false),
+    safeToYield(true),
     sweepOnBackgroundThread(false),
     blocksToFreeAfterSweeping((size_t) JSContext::TEMP_LIFO_ALLOC_PRIMARY_CHUNK_SIZE),
     zoneGroupIndex(0),
     zoneGroups(nullptr),
     currentZoneGroup(nullptr),
-    sweepPhaseIndex(0),
     sweepZone(nullptr),
-    sweepActionIndex(0),
     abortSweepAfterCurrentGroup(false),
     arenasAllocatedDuringSweep(nullptr),
     startedCompacting(false),
@@ -1222,6 +1168,9 @@ GCRuntime::init(uint32_t maxbytes, uint32_t maxNurseryBytes)
         return false;
 
     if (!marker.init(mode))
+        return false;
+
+    if (!initSweepActions())
         return false;
 
     return true;
@@ -5147,8 +5096,8 @@ js::NotifyGCPostSwap(JSObject* a, JSObject* b, unsigned removedFlags)
         DelayCrossCompartmentGrayMarking(a);
 }
 
-void
-GCRuntime::endMarkingZoneGroup()
+IncrementalProgress
+GCRuntime::endMarkingZoneGroup(FreeOp* fop, SliceBudget& budget)
 {
     gcstats::AutoPhase ap(stats(), gcstats::PHASE_SWEEP_MARK);
 
@@ -5186,6 +5135,11 @@ GCRuntime::endMarkingZoneGroup()
     }
     MOZ_ASSERT(marker.isDrained());
     marker.setMarkColorBlack();
+
+    /* We must not yield after this point before we start sweeping the group. */
+    safeToYield = false;
+
+    return Finished;
 }
 
 // Causes the given WeakCache to be swept when run.
@@ -5201,7 +5155,7 @@ class ImmediateSweepWeakCacheTask : public GCParallelTask
     {}
 
     ImmediateSweepWeakCacheTask(ImmediateSweepWeakCacheTask&& other)
-      : GCParallelTask(mozilla::Move(other)), cache(other.cache)
+      : GCParallelTask(Move(other)), cache(other.cache)
     {}
 
     void run() override {
@@ -5496,8 +5450,8 @@ class MOZ_RAII js::gc::AutoRunParallelTask : public GCParallelTask
     }
 };
 
-void
-GCRuntime::beginSweepingZoneGroup()
+IncrementalProgress
+GCRuntime::beginSweepingZoneGroup(FreeOp* fop, SliceBudget& budget)
 {
     /*
      * Begin sweeping the group of zones in gcCurrentZoneGroup,
@@ -5524,11 +5478,10 @@ GCRuntime::beginSweepingZoneGroup()
     }
 
     validateIncrementalMarking();
-    FreeOp fop(rt);
 
     {
         AutoPhase ap(stats(), PHASE_FINALIZE_START);
-        callFinalizeCallbacks(&fop, JSFINALIZE_GROUP_PREPARE);
+        callFinalizeCallbacks(fop, JSFINALIZE_GROUP_PREPARE);
         {
             AutoPhase ap2(stats(), PHASE_WEAK_ZONEGROUP_CALLBACK);
             callWeakPointerZoneGroupCallbacks();
@@ -5540,10 +5493,10 @@ GCRuntime::beginSweepingZoneGroup()
                     callWeakPointerCompartmentCallbacks(comp);
             }
         }
-        callFinalizeCallbacks(&fop, JSFINALIZE_GROUP_START);
+        callFinalizeCallbacks(fop, JSFINALIZE_GROUP_START);
     }
 
-    sweepDebuggerOnMainThread(&fop);
+    sweepDebuggerOnMainThread(fop);
 
     {
         AutoLockHelperThreadState lock;
@@ -5572,7 +5525,7 @@ GCRuntime::beginSweepingZoneGroup()
 
         {
             AutoUnlockHelperThreadState unlock(lock);
-            sweepJitDataOnMainThread(&fop);
+            sweepJitDataOnMainThread(fop);
         }
 
         for (auto& task : sweepCacheTasks)
@@ -5589,23 +5542,42 @@ GCRuntime::beginSweepingZoneGroup()
 
     for (GCZoneGroupIter zone(rt); !zone.done(); zone.next()) {
         gcstats::AutoSCC scc(stats(), zoneGroupIndex);
-        zone->arenas.queueForForegroundSweep(&fop, ForegroundObjectFinalizePhase);
-        for (unsigned i = 0; i < ArrayLength(IncrementalFinalizePhases); ++i)
-            zone->arenas.queueForForegroundSweep(&fop, IncrementalFinalizePhases[i]);
+        zone->arenas.queueForForegroundSweep(fop, ForegroundObjectFinalizePhase);
+        zone->arenas.queueForForegroundSweep(fop, ForegroundNonObjectFinalizePhase);
         for (unsigned i = 0; i < ArrayLength(BackgroundFinalizePhases); ++i)
-            zone->arenas.queueForBackgroundSweep(&fop, BackgroundFinalizePhases[i]);
-        zone->arenas.queueForegroundThingsForSweep(&fop);
+            zone->arenas.queueForBackgroundSweep(fop, BackgroundFinalizePhases[i]);
+
+        zone->arenas.queueForegroundThingsForSweep(fop);
     }
 
-    sweepActionList = PerZoneGroupActionList;
-    sweepActionIndex = 0;
-    sweepPhaseIndex = 0;
-    sweepZone = nullptr;
     sweepCache = nullptr;
+	safeToYield = true;
+
+    return Finished;
 }
 
-void
-GCRuntime::endSweepingZoneGroup()
+#ifdef JS_GC_ZEAL
+IncrementalProgress
+GCRuntime::maybeYieldForSweepingZeal(FreeOp* fop, SliceBudget& budget)
+{
+    /*
+     * Check whether we need to yield for GC zeal. We always yield when running
+     * in incremental multi-slice zeal mode so RunDebugGC can reset the slice
+     * budget.
+     */
+    if (isIncremental && useZeal && initialState != State::Sweep &&
+        (hasZealMode(ZealMode::IncrementalMultipleSlices) ||
+         hasZealMode(ZealMode::IncrementalSweepThenFinish)))
+    {
+        return NotFinished;
+    }
+
+    return Finished;
+}
+#endif
+
+IncrementalProgress
+GCRuntime::endSweepingZoneGroup(FreeOp* fop, SliceBudget& budget)
 {
      {
         gcstats::AutoPhase ap(stats(), gcstats::PHASE_FINALIZE_END);
@@ -5637,6 +5609,8 @@ GCRuntime::endSweepingZoneGroup()
         arenasAllocatedDuringSweep = arena->getNextAllocDuringSweep();
         arena->unsetAllocDuringSweep();
     }
+
+    return Finished;
 }
 
 void
@@ -5668,8 +5642,11 @@ GCRuntime::beginSweepPhase(JS::gcreason::Reason reason, AutoLockForExclusiveAcce
     DropStringWrappers(rt);
 
     findZoneGroups(reason, lock);
-    endMarkingZoneGroup();
-    beginSweepingZoneGroup();
+    sweepActions->assertFinished();
+
+    // We must not yield after this point until we start sweeping the first sweep
+    // group.
+    safeToYield = false;
 }
 
 bool
@@ -5752,9 +5729,8 @@ SweepArenaList(Arena** arenasToSweep, SliceBudget& sliceBudget, Args... args)
     return true;
 }
 
-/* static */ IncrementalProgress
-GCRuntime::sweepTypeInformation(GCRuntime* gc, FreeOp* fop, Zone* zone, SliceBudget& budget,
-                                AllocKind kind)
+IncrementalProgress
+GCRuntime::sweepTypeInformation(FreeOp* fop, SliceBudget& budget, Zone* zone)
 {
     // Sweep dead type information stored in scripts and object groups, but
     // don't finalize them yet. We have to sweep dead information from both live
@@ -5764,10 +5740,8 @@ GCRuntime::sweepTypeInformation(GCRuntime* gc, FreeOp* fop, Zone* zone, SliceBud
     // the sweep group finishes we won't be able to determine which things in
     // the zone are live.
 
-    MOZ_ASSERT(kind == AllocKind::LIMIT);
-
-    gcstats::AutoPhase ap1(gc->stats(), gcstats::PHASE_SWEEP_COMPARTMENTS);
-    gcstats::AutoPhase ap2(gc->stats(), gcstats::PHASE_SWEEP_TYPES);
+    gcstats::AutoPhase ap1(stats(), gcstats::PHASE_SWEEP_COMPARTMENTS);
+    gcstats::AutoPhase ap2(stats(), gcstats::PHASE_SWEEP_TYPES);
 
     ArenaLists& al = zone->arenas;
 
@@ -5781,22 +5755,20 @@ GCRuntime::sweepTypeInformation(GCRuntime* gc, FreeOp* fop, Zone* zone, SliceBud
 
     // Finish sweeping type information in the zone.
     {
-        gcstats::AutoPhase ap(gc->stats(), gcstats::PHASE_SWEEP_TYPES_END);
-        zone->types.endSweep(gc->rt);
+		gcstats::AutoPhase ap(stats(), gcstats::PHASE_SWEEP_TYPES_END);
+        zone->types.endSweep(rt);
     }
 
     return Finished;
 }
 
-/* static */ IncrementalProgress
-GCRuntime::mergeSweptObjectArenas(GCRuntime* gc, FreeOp* fop, Zone* zone, SliceBudget& budget,
-                                  AllocKind kind)
+IncrementalProgress
+GCRuntime::mergeSweptObjectArenas(FreeOp* fop, SliceBudget& budget, Zone* zone)
 {
     // Foreground finalized objects have already been finalized, and now their
     // arenas can be reclaimed by freeing empty ones and making non-empty ones
     // available for allocation.
 
-    MOZ_ASSERT(kind == AllocKind::LIMIT);
     zone->arenas.mergeForegroundSweptObjectArenas();
     return Finished;
 }
@@ -5822,18 +5794,12 @@ GCRuntime::startSweepingAtomsTable()
     maybeAtoms.emplace(*atomsTable);
 }
 
-/* static */ IncrementalProgress
-GCRuntime::sweepAtomsTable(GCRuntime* gc, SliceBudget& budget)
+IncrementalProgress
+GCRuntime::sweepAtomsTable(FreeOp* fop, SliceBudget& budget)
 {
-    if (!gc->atomsZone->isGCSweeping())
+    if (!atomsZone->isGCSweeping())
         return Finished;
 
-    return gc->sweepAtomsTable(budget);
-}
-
-IncrementalProgress
-GCRuntime::sweepAtomsTable(SliceBudget& budget)
-{
     gcstats::AutoPhase ap(stats(), gcstats::PHASE_SWEEP_ATOMS_TABLE);
 
     auto& maybeAtoms = maybeAtomsToSweep.ref();
@@ -5963,12 +5929,6 @@ class IncrementalSweepWeakCacheTask : public GCParallelTask
     }
 };
 
-/* static */ IncrementalProgress
-GCRuntime::sweepWeakCaches(GCRuntime* gc, SliceBudget& budget)
-{
-    return gc->sweepWeakCaches(budget);
-}
-
 static const size_t MaxWeakCacheSweepTasks = 8;
 
 static size_t
@@ -5979,7 +5939,7 @@ WeakCacheSweepTaskCount()
 }
 
 IncrementalProgress
-GCRuntime::sweepWeakCaches(SliceBudget& budget)
+GCRuntime::sweepWeakCaches(FreeOp* fop, SliceBudget& budget)
 {
     WeakCacheSweepIterator work(this);
 
@@ -5998,13 +5958,13 @@ GCRuntime::sweepWeakCaches(SliceBudget& budget)
     return work.empty(lock) ? Finished : NotFinished;
 }
 
-/* static */ IncrementalProgress
-GCRuntime::finalizeAllocKind(GCRuntime* gc, FreeOp* fop, Zone* zone, SliceBudget& budget,
+IncrementalProgress
+GCRuntime::finalizeAllocKind(FreeOp* fop, SliceBudget& budget, Zone* zone,
                              AllocKind kind)
 {
     // Set the number of things per arena for this AllocKind.
     size_t thingsPerArena = Arena::thingsPerArena(kind);
-    auto& sweepList = gc->incrementalSweepList.ref();
+    auto& sweepList = incrementalSweepList.ref();
     sweepList.setThingsPerArena(thingsPerArena);
 
     if (!zone->arenas.foregroundFinalize(fop, kind, budget, sweepList))
@@ -6016,15 +5976,12 @@ GCRuntime::finalizeAllocKind(GCRuntime* gc, FreeOp* fop, Zone* zone, SliceBudget
     return Finished;
 }
 
-/* static */ IncrementalProgress
-GCRuntime::sweepShapeTree(GCRuntime* gc, FreeOp* fop, Zone* zone, SliceBudget& budget,
-                          AllocKind kind)
+IncrementalProgress
+GCRuntime::sweepShapeTree(FreeOp* fop, SliceBudget& budget, Zone* zone)
 {
     // Remove dead shapes from the shape tree, but don't finalize them yet.
 
-    MOZ_ASSERT(kind == AllocKind::LIMIT);
-
-    gcstats::AutoPhase ap(gc->stats(), gcstats::PHASE_SWEEP_SHAPE);
+    gcstats::AutoPhase ap(stats(), gcstats::PHASE_SWEEP_SHAPE);
 
     ArenaLists& al = zone->arenas;
 
@@ -6037,60 +5994,338 @@ GCRuntime::sweepShapeTree(GCRuntime* gc, FreeOp* fop, Zone* zone, SliceBudget& b
     return Finished;
 }
 
-static void
-AddPerZoneGroupSweepAction(bool* ok, PerZoneGroupSweepAction action)
+// An iterator for a standard container that provides an STL-like begin()/end()
+// interface. This iterator provides a done()/get()/next() style interface.
+template <typename Container>
+class ContainerIter
 {
-    if (*ok)
-        *ok = PerZoneGroupSweepActions.emplaceBack(action);
-}
+    using Iter = decltype(mozilla::DeclVal<const Container>().begin());
+    using Elem = decltype(*mozilla::DeclVal<Iter>());
 
-static void
-AddPerZoneSweepPhase(bool* ok)
-{
-    if (*ok)
-        *ok = PerZoneSweepPhases.emplaceBack();
-}
+    Iter iter;
+    const Iter end;
 
-static void
-AddPerZoneSweepAction(bool* ok, PerZoneSweepAction::Func func, AllocKind kind = AllocKind::LIMIT)
-{
-    if (*ok)
-        *ok = PerZoneSweepPhases.back().emplaceBack(func, kind);
-}
+  public:
+    explicit ContainerIter(const Container& container)
+      : iter(container.begin()), end(container.end())
+    {}
 
-/* static */ bool
-GCRuntime::initializeSweepActions()
-{
-    bool ok = true;
-
-    AddPerZoneGroupSweepAction(&ok, GCRuntime::sweepAtomsTable);
-    AddPerZoneGroupSweepAction(&ok, GCRuntime::sweepWeakCaches);
-
-    AddPerZoneSweepPhase(&ok);
-    for (auto kind : ForegroundObjectFinalizePhase.kinds)
-        AddPerZoneSweepAction(&ok, GCRuntime::finalizeAllocKind, kind);
-
-    AddPerZoneSweepPhase(&ok);
-    AddPerZoneSweepAction(&ok, GCRuntime::sweepTypeInformation);
-    AddPerZoneSweepAction(&ok, GCRuntime::mergeSweptObjectArenas);
-
-    for (const auto& finalizePhase : IncrementalFinalizePhases) {
-        AddPerZoneSweepPhase(&ok);
-        for (auto kind : finalizePhase.kinds)
-            AddPerZoneSweepAction(&ok, GCRuntime::finalizeAllocKind, kind);
+    bool done() const {
+        return iter == end;
     }
 
-    AddPerZoneSweepPhase(&ok);
-    AddPerZoneSweepAction(&ok, GCRuntime::sweepShapeTree);
+    Elem get() const {
+        return *iter;
+    }
 
-    return ok;
+    void next() {
+        MOZ_ASSERT(!done());
+        ++iter;
+    }
+};
+
+// IncrementalIter is a template class that makes a normal iterator into one
+// that can be used to perform incremental work by using external state that
+// persists between instantiations. The state is only initialised on the first
+// use and subsequent uses carry on from the previous state.
+template <typename Iter>
+struct IncrementalIter
+{
+    using State = Maybe<Iter>;
+    using Elem = decltype(mozilla::DeclVal<Iter>().get());
+
+  private:
+    State& maybeIter;
+
+  public:
+    template <typename... Args>
+    explicit IncrementalIter(State& maybeIter, Args&&... args)
+      : maybeIter(maybeIter)
+    {
+        if (maybeIter.isNothing())
+            maybeIter.emplace(mozilla::Forward<Args>(args)...);
+    }
+
+    ~IncrementalIter() {
+        if (done())
+            maybeIter.reset();
+    }
+
+    bool done() const {
+        return maybeIter.ref().done();
+    }
+
+    Elem get() const {
+        return maybeIter.ref().get();
+    }
+
+    void next() {
+        maybeIter.ref().next();
+    }
+};
+
+// Iterate through the sweep groups created by GCRuntime::groupZonesForSweeping().
+class js::gc::ZoneGroupsIter2
+{
+    GCRuntime* gc;
+
+  public:
+    explicit ZoneGroupsIter2(JSRuntime* rt)
+      : gc(&rt->gc)
+    {
+        MOZ_ASSERT(gc->currentZoneGroup);
+    }
+
+    bool done() const {
+        return !gc->currentZoneGroup;
+    }
+
+    Zone* get() const {
+        return gc->currentZoneGroup;
+    }
+
+    void next() {
+        MOZ_ASSERT(!done());
+        gc->getNextZoneGroup();
+    }
+};
+
+namespace sweepaction {
+
+// Implementation of the SweepAction interface that calls a method on GCRuntime.
+template <typename... Args>
+class SweepActionCall final : public SweepAction<GCRuntime*, Args...>
+{
+    using Method = IncrementalProgress (GCRuntime::*)(Args...);
+
+    Method method;
+
+  public:
+    explicit SweepActionCall(Method m) : method(m) {}
+    IncrementalProgress run(GCRuntime* gc, Args... args) override {
+        return (gc->*method)(args...);
+    }
+    void assertFinished() const override { }
+};
+
+// Implementation of the SweepAction interface that calls a list of actions in
+// sequence.
+template <typename... Args>
+class SweepActionSequence final : public SweepAction<Args...>
+{
+    using Action = SweepAction<Args...>;
+    using ActionVector = Vector<UniquePtr<Action>, 0, SystemAllocPolicy>;
+    using Iter = IncrementalIter<ContainerIter<ActionVector>>;
+
+    ActionVector actions;
+    typename Iter::State iterState;
+
+  public:
+    bool init(UniquePtr<Action>* acts, size_t count) {
+        for (size_t i = 0; i < count; i++) {
+            if (!actions.emplaceBack(Move(acts[i])))
+                return false;
+        }
+        return true;
+    }
+
+    IncrementalProgress run(Args... args) override {
+        for (Iter iter(iterState, actions); !iter.done(); iter.next()) {
+            if (iter.get()->run(args...) == NotFinished)
+                return NotFinished;
+        }
+        return Finished;
+    }
+
+    void assertFinished() const override {
+        MOZ_ASSERT(iterState.isNothing());
+        for (const auto& action : actions)
+            action->assertFinished();
+    }
+};
+
+template <typename Iter, typename Init, typename... Args>
+class SweepActionForEach final : public SweepAction<Args...>
+{
+    using Elem = decltype(mozilla::DeclVal<Iter>().get());
+    using Action = SweepAction<Args..., Elem>;
+    using IncrIter = IncrementalIter<Iter>;
+
+    Init iterInit;
+    UniquePtr<Action> action;
+    typename IncrIter::State iterState;
+
+  public:
+    SweepActionForEach(const Init& init, UniquePtr<Action> action)
+      : iterInit(init), action(Move(action))
+    {}
+
+    IncrementalProgress run(Args... args) override {
+        for (IncrIter iter(iterState, iterInit); !iter.done(); iter.next()) {
+            if (action->run(args..., iter.get()) == NotFinished)
+                return NotFinished;
+        }
+        return Finished;
+    }
+
+    void assertFinished() const override {
+        MOZ_ASSERT(iterState.isNothing());
+        action->assertFinished();
+    }
+};
+
+template <typename Iter, typename Init, typename... Args>
+class SweepActionRepeatFor final : public SweepAction<Args...>
+{
+  protected:
+    using Action = SweepAction<Args...>;
+    using IncrIter = IncrementalIter<Iter>;
+
+    Init iterInit;
+    UniquePtr<Action> action;
+    typename IncrIter::State iterState;
+
+  public:
+    SweepActionRepeatFor(const Init& init, UniquePtr<Action> action)
+      : iterInit(init), action(Move(action))
+    {}
+
+    IncrementalProgress run(Args... args) override {
+        for (IncrIter iter(iterState, iterInit); !iter.done(); iter.next()) {
+            if (action->run(args...) == NotFinished)
+                return NotFinished;
+        }
+        return Finished;
+    }
+
+    void assertFinished() const override {
+        MOZ_ASSERT(iterState.isNothing());
+        action->assertFinished();
+    }
+};
+// Helper class to remove the last template parameter from the instantiation of
+// a variadic template. For example:
+//
+//   RemoveLastTemplateParameter<Foo<X, Y, Z>>::Type ==> Foo<X, Y>
+//
+// This works by recursively instantiating the Impl template with the contents
+// of the parameter pack so long as there are at least two parameters. The
+// specialization that matches when only one parameter remains discards it and
+// instantiates the target template with parameters previously processed.
+template <typename T>
+class RemoveLastTemplateParameter {};
+
+template <template <typename...> class Target, typename... Args>
+class RemoveLastTemplateParameter<Target<Args...>>
+{
+    template <typename... Ts>
+    struct List {};
+
+    template <typename R, typename... Ts>
+    struct Impl {};
+
+    template <typename... Rs, typename T>
+    struct Impl<List<Rs...>, T>
+    {
+        using Type = Target<Rs...>;
+    };
+
+    template <typename... Rs, typename H, typename T, typename... Ts>
+    struct Impl<List<Rs...>, H, T, Ts...>
+    {
+        using Type = typename Impl<List<Rs..., H>, T, Ts...>::Type;
+    };
+
+  public:
+    using Type = typename Impl<List<>, Args...>::Type;
+};
+
+template <typename... Args>
+static UniquePtr<SweepAction<GCRuntime*, Args...>>
+Call(IncrementalProgress (GCRuntime::*method)(Args...)) {
+    return MakeUnique<SweepActionCall<Args...>>(method);
 }
 
-static inline SweepActionList
-NextSweepActionList(SweepActionList list)
+template <typename... Args, typename... Rest>
+static UniquePtr<SweepAction<Args...>>
+Sequence(UniquePtr<SweepAction<Args...>> first, Rest... rest)
 {
-    MOZ_ASSERT(list < SweepActionListCount);
-    return SweepActionList(unsigned(list) + 1);
+    UniquePtr<SweepAction<Args...>> actions[] = { Move(first), Move(rest)... };
+    auto seq = MakeUnique<SweepActionSequence<Args...>>();
+    if (!seq || !seq->init(actions, ArrayLength(actions)))
+        return nullptr;
+
+    return UniquePtr<SweepAction<Args...>>(Move(seq));
+}
+
+template <typename... Args>
+static UniquePtr<SweepAction<Args...>>
+RepeatForZoneGroup(JSRuntime* rt, UniquePtr<SweepAction<Args...>> action)
+{
+    if (!action)
+        return nullptr;
+
+    using Action = SweepActionRepeatFor<ZoneGroupsIter2, JSRuntime*, Args...>;
+    return js::MakeUnique<Action>(rt, Move(action));
+}
+
+template <typename... Args>
+static UniquePtr<typename RemoveLastTemplateParameter<SweepAction<Args...>>::Type>
+ForEachZoneInZoneGroup(JSRuntime* rt, UniquePtr<SweepAction<Args...>> action)
+{
+    if (!action)
+        return nullptr;
+
+    using Action = typename RemoveLastTemplateParameter<
+        SweepActionForEach<GCZoneGroupIter, JSRuntime*, Args...>>::Type;
+    return js::MakeUnique<Action>(rt, Move(action));
+}
+
+template <typename... Args>
+static UniquePtr<typename RemoveLastTemplateParameter<SweepAction<Args...>>::Type>
+ForEachAllocKind(AllocKinds kinds, UniquePtr<SweepAction<Args...>> action)
+{
+    if (!action)
+        return nullptr;
+
+    using Action = typename RemoveLastTemplateParameter<
+        SweepActionForEach<ContainerIter<AllocKinds>, AllocKinds, Args...>>::Type;
+    return js::MakeUnique<Action>(kinds, Move(action));
+}
+
+} // namespace sweepaction
+
+bool
+GCRuntime::initSweepActions()
+{
+    using namespace sweepaction;
+    using sweepaction::Call;
+   
+    sweepActions.ref() =
+        RepeatForZoneGroup(rt,
+            Sequence(
+                Call(&GCRuntime::endMarkingZoneGroup),
+                Call(&GCRuntime::beginSweepingZoneGroup),
+#ifdef JS_GC_ZEAL
+                Call(&GCRuntime::maybeYieldForSweepingZeal),
+#endif
+                Call(&GCRuntime::sweepAtomsTable),
+                Call(&GCRuntime::sweepWeakCaches),
+                ForEachZoneInZoneGroup(rt,
+                    ForEachAllocKind(ForegroundObjectFinalizePhase.kinds,
+                        Call(&GCRuntime::finalizeAllocKind))),
+                ForEachZoneInZoneGroup(rt,
+                    Sequence(
+                        Call(&GCRuntime::sweepTypeInformation),
+                        Call(&GCRuntime::mergeSweptObjectArenas))),
+                ForEachZoneInZoneGroup(rt,
+                    ForEachAllocKind(ForegroundNonObjectFinalizePhase.kinds,
+                        Call(&GCRuntime::finalizeAllocKind))),
+                ForEachZoneInZoneGroup(rt,
+                    Call(&GCRuntime::sweepShapeTree)),
+                Call(&GCRuntime::endSweepingZoneGroup)));
+
+    return sweepActions != nullptr;
 }
 
 IncrementalProgress
@@ -6101,59 +6336,17 @@ GCRuntime::performSweepActions(SliceBudget& budget, AutoLockForExclusiveAccess& 
     gcstats::AutoPhase ap(stats(), gcstats::PHASE_SWEEP);
     FreeOp fop(rt);
 
-    if (drainMarkStack(budget, gcstats::PHASE_SWEEP_MARK) == NotFinished)
-        return NotFinished;
-
-
-    for (;;) {
-        for (; sweepActionList < SweepActionListCount;
-             sweepActionList = NextSweepActionList(sweepActionList))
-        {
-            switch (sweepActionList) {
-              case PerZoneGroupActionList: {
-                const auto& actions = PerZoneGroupSweepActions;
-                for (; sweepActionIndex < actions.length(); sweepActionIndex++) {
-                    auto action = actions[sweepActionIndex];
-                    if (action(this, budget) == NotFinished)
-                        return NotFinished;
-                }
-                // Reset action index to first.
-                sweepActionIndex = 0;
-                break;
-              }
-
-              case PerZoneActionList:
-                for (; sweepPhaseIndex < PerZoneSweepPhases.length(); sweepPhaseIndex++) {
-                    const auto& actions = PerZoneSweepPhases[sweepPhaseIndex];
-                    if (!sweepZone)
-                        sweepZone = currentZoneGroup;
-                    for (; sweepZone; sweepZone = sweepZone->nextNodeInGroup()) {
-                        for (; sweepActionIndex < actions.length(); sweepActionIndex++) {
-                            const auto& action = actions[sweepActionIndex];
-                            if (action.func(this, &fop, sweepZone, budget, action.kind) == NotFinished)
-                                return NotFinished;
-                        }
-                        sweepActionIndex = 0;
-                    }
-                    sweepZone = nullptr;
-                }
-                sweepPhaseIndex = 0;
-                break;
-
-              default:
-                MOZ_CRASH("Unexpected sweepActionList value");
-            }
-        }
-        sweepActionList = PerZoneGroupActionList;
-        
-        endSweepingZoneGroup();
-        getNextZoneGroup();
-        if (!currentZoneGroup)
-            return Finished;
-
-        endMarkingZoneGroup();
-        beginSweepingZoneGroup();
+    // Drain the mark stack, except in the first sweep slice where we must not
+    // yield to the mutator until we've starting sweeping a sweep group.
+    MOZ_ASSERT(initialState <= State::Sweep);
+    if (initialState != State::Sweep) {
+        MOZ_ASSERT(marker.isDrained());
+    } else {
+        if (drainMarkStack(budget, gcstats::PHASE_SWEEP_MARK) == NotFinished)
+            return NotFinished;
     }
+
+    return sweepActions->run(this, &fop, budget);
 }
 
 bool
@@ -6189,6 +6382,8 @@ GCRuntime::allCCVisibleZonesWereCollected() const
 void
 GCRuntime::endSweepPhase(bool destroyingRuntime, AutoLockForExclusiveAccess& lock)
 {
+    sweepActions->assertFinished();
+
     AutoSetThreadIsSweeping threadIsSweeping;
 
     gcstats::AutoPhase ap(stats(), gcstats::PHASE_SWEEP);
@@ -6635,18 +6830,16 @@ GCRuntime::incrementalCollectSlice(SliceBudget& budget, JS::gcreason::Reason rea
 
     bool destroyingRuntime = (reason == JS::gcreason::DESTROY_RUNTIME);
 
-    gc::State initialState = incrementalState;
-
-    bool useZeal = false;
+    initialState = incrementalState;
 #ifdef JS_GC_ZEAL
-    if (reason == JS::gcreason::DEBUG_GC && !budget.isUnlimited()) {
-        /*
-         * Do the incremental collection type specified by zeal mode if the
-         * collection was triggered by runDebugGC() and incremental GC has not
-         * been cancelled by resetIncrementalGC().
-         */
-        useZeal = true;
-    }
+    /*
+     * Do the incremental collection type specified by zeal mode if the
+     * collection was triggered by runDebugGC() and incremental GC has not been
+     * cancelled by resetIncrementalGC().
+     */
+    useZeal = reason == JS::gcreason::DEBUG_GC && !budget.isUnlimited();
+#else
+    bool useZeal = false;
 #endif
     MOZ_ASSERT_IF(isIncrementalGCInProgress(), isIncremental);
     isIncremental = !budget.isUnlimited();
@@ -6727,25 +6920,7 @@ GCRuntime::incrementalCollectSlice(SliceBudget& budget, JS::gcreason::Reason rea
 
         incrementalState = State::Sweep;
 
-        /*
-         * This runs to completion, but we don't continue if the budget is
-         * now exhasted.
-         */
         beginSweepPhase(reason, lock);
-        if (budget.isOverBudget())
-            break;
-            
-            
-        /*
-         * Always yield here when running in incremental multi-slice zeal
-         * mode, so RunDebugGC can reset the slice buget.
-         */
-        if (isIncremental && useZeal &&
-            (hasZealMode(ZealMode::IncrementalMultipleSlices) ||
-             hasZealMode(ZealMode::IncrementalSweepThenFinish)))
-        {
-            break;
-        }
 
         [[fallthrough]];
 
@@ -6826,6 +7001,8 @@ GCRuntime::incrementalCollectSlice(SliceBudget& budget, JS::gcreason::Reason rea
         incrementalState = State::NotActive;
         break;
     }
+
+    MOZ_ASSERT(safeToYield);
 }
 
 gc::AbortReason

@@ -190,7 +190,6 @@ struct DagChildEdge {
         { PHASE_SWEEP_SCOPE, "Sweep Scope", PHASE_SWEEP},
         { PHASE_SWEEP_REGEXP_SHARED, "Sweep RegExpShared", PHASE_SWEEP},
         { PHASE_SWEEP_SHAPE, "Sweep Shape", PHASE_SWEEP},
-        { PHASE_SWEEP_JITCODE, "Sweep JIT code", PHASE_SWEEP},
         { PHASE_FINALIZE_END, "Finalize End Callback", PHASE_SWEEP},
         { PHASE_DESTROY, "Deallocate", PHASE_SWEEP},
     { PHASE_COMPACT, "Compact", PHASE_NO_PARENT},

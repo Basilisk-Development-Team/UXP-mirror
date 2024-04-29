@@ -437,7 +437,6 @@ typedef CompartmentsIterT<GCZonesIter> GCCompartmentsIter;
 
 /* Iterates over all zones in the current zone group. */
 class GCZoneGroupIter {
-  private:
     JS::Zone* current;
 
   public:
