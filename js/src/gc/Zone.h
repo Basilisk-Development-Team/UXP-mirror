@@ -273,8 +273,7 @@ struct Zone : public JS::shadow::Zone,
     }
 
     bool shouldMarkInZone() const {
-        return needsIncrementalBarrier() ||
-               (gcState_ == Mark || gcState_ == MarkGray);
+        return needsIncrementalBarrier() || isGCMarking();
     }
 
     // Get a number that is incremented whenever this zone is collected, and
