@@ -384,15 +384,11 @@ static const FinalizePhase ForegroundObjectFinalizePhase = {
  /*
   * Finalization order for GC things swept incrementally on the active thread.
   */
-static const FinalizePhase IncrementalFinalizePhases[] = {
-    {
-        gcstats::PHASE_SWEEP_STRING, {
-            AllocKind::EXTERNAL_STRING
-        }
-    },
+static const FinalizePhase ForegroundNonObjectFinalizePhase = {
     gcstats::PHASE_SWEEP_SCRIPT, {
         AllocKind::SCRIPT,
         AllocKind::JITCODE
+    }
 };
 
 /*
@@ -430,6 +426,7 @@ static const FinalizePhase BackgroundFinalizePhases[] = {
         gcstats::PHASE_SWEEP_STRING, {
             AllocKind::FAT_INLINE_STRING,
             AllocKind::STRING,
+            AllocKind::EXTERNAL_STRING,
             AllocKind::FAT_INLINE_ATOM,
             AllocKind::ATOM,
             AllocKind::SYMBOL,
