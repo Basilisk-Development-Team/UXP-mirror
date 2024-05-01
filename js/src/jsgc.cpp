@@ -271,7 +271,6 @@ using JS::AutoGCRooter;
 namespace js {
 namespace gc {
 namespace TuningDefaults {
-
     static const size_t GCZoneAllocThresholdBase = 27 * 1024 * 1024;
      static const float AllocThresholdFactor = 1.12f;
      static const float AllocThresholdFactorAvoidInterrupt = 1.00f;
@@ -1321,7 +1320,20 @@ GCSchedulingTunables::setParameter(JSGCParamKey key, uint32_t value, const AutoL
       case JSGC_ALLOCATION_THRESHOLD:
         gcZoneAllocThresholdBase_ = value * 1024 * 1024;
         break;
-
+      case JSGC_ALLOCATION_THRESHOLD_FACTOR: {
+        float newFactor = value / 100.0;
+        if (newFactor < 1.0f)
+            return false;
+        allocThresholdFactor_ = newFactor;
+        break;
+      }
+      case JSGC_ALLOCATION_THRESHOLD_FACTOR_AVOID_INTERRUPT: {
+        float newFactor = value / 100.0;
+        if (newFactor < 1.0f)
+            return false;
+        allocThresholdFactorAvoidInterrupt_ = newFactor;
+        break;
+      }
       case JSGC_MIN_EMPTY_CHUNK_COUNT:
         setMinEmptyChunkCount(value);
         break;
@@ -1474,6 +1486,13 @@ GCSchedulingTunables::resetParameter(JSGCParamKey key, const AutoLockGC& lock)
       case JSGC_ALLOCATION_THRESHOLD:
         gcZoneAllocThresholdBase_ = TuningDefaults::GCZoneAllocThresholdBase;
         break;
+      case JSGC_ALLOCATION_THRESHOLD_FACTOR:
+        allocThresholdFactor_ = TuningDefaults::AllocThresholdFactor;
+        break;
+      case JSGC_ALLOCATION_THRESHOLD_FACTOR_AVOID_INTERRUPT:
+        allocThresholdFactorAvoidInterrupt_ =
+            TuningDefaults::AllocThresholdFactorAvoidInterrupt;
+        break;
       case JSGC_MIN_EMPTY_CHUNK_COUNT:
         setMinEmptyChunkCount(TuningDefaults::MinEmptyChunkCount);
         break;
@@ -1534,6 +1553,10 @@ GCRuntime::getParameter(JSGCParamKey key, const AutoLockGC& lock)
         return tunables.isDynamicMarkSliceEnabled();
       case JSGC_ALLOCATION_THRESHOLD:
         return tunables.gcZoneAllocThresholdBase() / 1024 / 1024;
+      case JSGC_ALLOCATION_THRESHOLD_FACTOR:
+        return uint32_t(tunables.allocThresholdFactor() * 100);
+      case JSGC_ALLOCATION_THRESHOLD_FACTOR_AVOID_INTERRUPT:
+        return uint32_t(tunables.allocThresholdFactorAvoidInterrupt() * 100);
       case JSGC_MIN_EMPTY_CHUNK_COUNT:
         return tunables.minEmptyChunkCount(lock);
       case JSGC_MAX_EMPTY_CHUNK_COUNT:
