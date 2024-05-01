@@ -1275,7 +1275,11 @@ pref("javascript.options.mem.gc_low_frequency_heap_growth", 150);
 pref("javascript.options.mem.gc_dynamic_heap_growth", true);
 pref("javascript.options.mem.gc_dynamic_mark_slice", true);
 pref("javascript.options.mem.gc_refresh_frame_slices_enabled", true);
-pref("javascript.options.mem.gc_allocation_threshold_mb", 30);
+pref("javascript.options.mem.gc_allocation_threshold_mb", 27);
+// JSGC_ALLOCATION_THRESHOLD_FACTOR
+pref("javascript.options.mem.gc_allocation_threshold_factor", 112);
+// JSGC_ALLOCATION_THRESHOLD_FACTOR_AVOID_INTERRUPT
+pref("javascript.options.mem.gc_allocation_threshold_factor_avoid_interrupt", 100);
 pref("javascript.options.mem.gc_min_empty_chunk_count", 1);
 pref("javascript.options.mem.gc_max_empty_chunk_count", 30);
 
