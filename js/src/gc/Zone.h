@@ -46,6 +46,9 @@ class ZoneHeapThreshold
 
     double gcHeapGrowthFactor() const { return gcHeapGrowthFactor_; }
     size_t gcTriggerBytes() const { return gcTriggerBytes_; }
+    size_t AllocThresholdFactorTriggerBytes(GCSchedulingTunables& tunables) const {
+    return gcTriggerBytes_ * tunables.allocThresholdFactor();
+    }
     double allocTrigger(bool highFrequencyGC) const;
 
     void updateAfterGC(size_t lastBytes, JSGCInvocationKind gckind,
@@ -514,7 +517,7 @@ struct Zone : public JS::shadow::Zone,
 
     // Amount of data to allocate before triggering a new incremental slice for
     // the current GC.
-    js::UnprotectedData<size_t> gcDelayBytes;
+    js::ActiveThreadData<size_t> gcDelayBytes;
 
   private:
     // Shared Shape property tree.
