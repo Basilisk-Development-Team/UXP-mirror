@@ -707,7 +707,7 @@ class GCRuntime
     uint32_t getParameter(JSGCParamKey key, const AutoLockGC& lock);
 
     [[nodiscard]] bool triggerGC(JS::gcreason::Reason reason);
-    void maybeAllocTriggerZoneGC(Zone* zone, const AutoLockGC& lock);
+    void maybeAllocTriggerZoneGC(Zone* zone, const AutoLockGC& lock, size_t nbytes = 0);
     // The return value indicates if we were able to do the GC.
     bool triggerZoneGC(Zone* zone, JS::gcreason::Reason reason,
                        size_t usedBytes, size_t thresholdBytes);

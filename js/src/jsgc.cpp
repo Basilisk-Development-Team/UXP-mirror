@@ -272,9 +272,9 @@ namespace js {
 namespace gc {
 namespace TuningDefaults {
 
-    static const size_t GCZoneAllocThresholdBase = 30 * 1024 * 1024;
-     static const float AllocThresholdFactor = 0.9f;
-     static const float AllocThresholdFactorAvoidInterrupt = 0.98f;
+    static const size_t GCZoneAllocThresholdBase = 27 * 1024 * 1024;
+     static const float AllocThresholdFactor = 1.12f;
+     static const float AllocThresholdFactorAvoidInterrupt = 1.00f;
     /* JSGC_MAX_MALLOC_BYTES */
     static const size_t MaxMallocBytes = 128 * 1024 * 1024;
     static const size_t ZoneAllocDelayBytes = 1024 * 1024;
@@ -1838,11 +1838,14 @@ ZoneHeapThreshold::computeZoneTriggerBytes(double growthFactor, size_t lastBytes
                                            const GCSchedulingTunables& tunables,
                                            const AutoLockGC& lock)
 {
-    size_t base = gckind == GC_SHRINK
-                ? Max(lastBytes, tunables.minEmptyChunkCount(lock) * ChunkSize)
-                : Max(lastBytes, tunables.gcZoneAllocThresholdBase());
+    size_t baseMin = gckind == GC_SHRINK
+                       ? tunables.minEmptyChunkCount(lock) * ChunkSize
+                       : tunables.gcZoneAllocThresholdBase();
+    size_t base = Max(lastBytes, baseMin);
     double trigger = double(base) * growthFactor;
-    return size_t(Min(double(tunables.gcMaxBytes()), trigger));
+    double triggerMax =
+      double(tunables.gcMaxBytes()) / tunables.allocThresholdFactor();
+  return size_t(Min(triggerMax, trigger));
 }
 
 void
@@ -3186,7 +3189,7 @@ GCRuntime::triggerGC(JS::gcreason::Reason reason)
 }
 
 void
-GCRuntime::maybeAllocTriggerZoneGC(Zone* zone, const AutoLockGC& lock)
+GCRuntime::maybeAllocTriggerZoneGC(Zone* zone, const AutoLockGC& lock, size_t nbytes)
 {
     MOZ_ASSERT(!JS::CurrentThreadIsHeapCollecting());
 
@@ -3196,43 +3199,49 @@ GCRuntime::maybeAllocTriggerZoneGC(Zone* zone, const AutoLockGC& lock)
         return;
     }
 
-    size_t usedBytes = zone->usage.gcBytes();
+    size_t usedBytes = zone->usage.gcBytes(); // This already includes |nbytes|.
     size_t thresholdBytes = zone->threshold.gcTriggerBytes();
 
-    if (usedBytes >= thresholdBytes) {
-        // The threshold has been surpassed, immediately trigger a GC, which
-        // will be done non-incrementally.
-        triggerZoneGC(zone, JS::gcreason::ALLOC_TRIGGER, usedBytes, thresholdBytes);
+    if (usedBytes < thresholdBytes) {
     return;
     }
 
-    bool wouldInterruptCollection = isIncrementalGCInProgress() && !zone->isCollecting();
-    float zoneGCThresholdFactor =
-        wouldInterruptCollection ? tunables.allocThresholdFactorAvoidInterrupt()
-                                 : tunables.allocThresholdFactor();
-
-    size_t igcThresholdBytes = thresholdBytes * zoneGCThresholdFactor;
-
-    if (usedBytes >= igcThresholdBytes) {
-        // Reduce the delay to the start of the next incremental slice.
-        if (zone->gcDelayBytes < ArenaSize)
-            zone->gcDelayBytes = 0;
-        else
-            zone->gcDelayBytes -= ArenaSize;
-
-        if (!zone->gcDelayBytes) {
-            // Start or continue an in progress incremental GC. We do this
-            // to try to avoid performing non-incremental GCs on zones
-            // which allocate a lot of data, even when incremental slices
-            // can't be triggered via scheduling in the event loop.
-            triggerZoneGC(zone, JS::gcreason::ALLOC_TRIGGER, usedBytes, igcThresholdBytes);
-
-            // Delay the next slice until a certain amount of allocation
-            // has been performed.
-            zone->gcDelayBytes = tunables.zoneAllocDelayBytes();
-            return;
-        }
+    size_t niThreshold = thresholdBytes * tunables.allocThresholdFactor();
+    if (usedBytes >= niThreshold) {
+    // We have passed the non-incremental threshold: immediately trigger a
+    // non-incremental GC.
+    triggerZoneGC(zone, JS::gcreason::ALLOC_TRIGGER, usedBytes, niThreshold);
+    return;
     }
+
+    // Use a higher threshold if starting a GC would reset an in-progress
+    // collection.
+    if (isIncrementalGCInProgress() && !zone->isCollecting() &&
+      usedBytes < thresholdBytes * tunables.allocThresholdFactorAvoidInterrupt()) {
+    return;
+    }
+
+    // During an incremental GC, reduce the delay to the start of the next
+  // incremental slice.
+  if (zone->gcDelayBytes < nbytes) {
+    zone->gcDelayBytes = 0;
+  } else {
+    zone->gcDelayBytes -= nbytes;
+  }
+
+    if (!zone->gcDelayBytes) {
+    // Start or continue an in progress incremental GC. We do this
+    // to try to avoid performing non-incremental GCs on zones
+    // which allocate a lot of data, even when incremental slices
+   // can't be triggered via scheduling in the event loop.
+    triggerZoneGC(zone, JS::gcreason::INCREMENTAL_ALLOC_TRIGGER, usedBytes,
+                  thresholdBytes);
+
+    // Delay the next slice until a certain amount of allocation
+    // has been performed.
+    zone->gcDelayBytes = tunables.zoneAllocDelayBytes();
+    return;
+   }
 }
 
 bool
@@ -6551,6 +6560,7 @@ GCRuntime::finishCollection(JS::gcreason::Reason reason)
         if (zone->isCollecting()) {
             MOZ_ASSERT(zone->isGCFinished());
             zone->setGCState(Zone::NoGC);
+            zone->gcDelayBytes = 0;
         }
 
         MOZ_ASSERT(!zone->isCollectingFromAnyThread());
@@ -6657,6 +6667,7 @@ GCRuntime::resetIncrementalGC(gc::AbortReason reason, AutoLockForExclusiveAccess
             MOZ_ASSERT(zone->shouldMarkInZone());
             zone->setNeedsIncrementalBarrier(false);
             zone->setGCState(Zone::NoGC);
+            zone->gcDelayBytes = 0;
         }
 
         blocksToFreeAfterSweeping.ref().freeAll();
@@ -7087,7 +7098,7 @@ GCRuntime::budgetIncrementalGC(bool nonincrementalByAPI, JS::gcreason::Reason re
 		if (!zone->canCollect())
             continue;
 
-        if (zone->usage.gcBytes() >= zone->threshold.gcTriggerBytes()) {
+        if (zone->usage.gcBytes() >= zone->threshold.AllocThresholdFactorTriggerBytes(tunables)) {
             CheckZoneIsScheduled(zone, reason, "GC bytes");
             budget.makeUnlimited();
             stats().nonincremental(AbortReason::GCBytesTrigger);

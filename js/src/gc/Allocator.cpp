@@ -238,7 +238,7 @@ GCRuntime::gcIfNeededAtAllocation(JSContext* cx)
     // an incremental GC, we're growing faster than we're GCing, so stop
     // the world and do a full, non-incremental GC right now, if possible.
     if (isIncrementalGCInProgress() &&
-        cx->zone()->usage.gcBytes() > cx->zone()->threshold.gcTriggerBytes())
+        cx->zone()->usage.gcBytes() > cx->zone()->threshold.AllocThresholdFactorTriggerBytes(tunables))
     {
         PrepareZoneForGC(cx->zone());
         gc(GC_NORMAL, JS::gcreason::INCREMENTAL_TOO_SLOW);
@@ -427,7 +427,7 @@ GCRuntime::allocateArena(Chunk* chunk, Zone* zone, AllocKind thingKind,
 
     // Trigger an incremental slice if needed.
     if (checkThresholds)
-        maybeAllocTriggerZoneGC(zone, lock);
+        maybeAllocTriggerZoneGC(zone, lock, ArenaSize);
 
     return arena;
 }

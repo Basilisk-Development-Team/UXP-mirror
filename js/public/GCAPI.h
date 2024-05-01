@@ -76,12 +76,12 @@ namespace JS {
     D(FULL_CELL_PTR_BUFFER)                     \
     D(FULL_SLOT_BUFFER)                         \
     D(FULL_SHAPE_BUFFER)                        \
+    D(INCREMENTAL_ALLOC_TRIGGER)                \
                                                 \
     /* These are reserved for future use. */    \
     D(RESERVED0)                                \
     D(RESERVED1)                                \
     D(RESERVED2)                                \
-    D(RESERVED3)                                \
     D(RESERVED4)                                \
     D(RESERVED5)                                \
     D(RESERVED6)                                \
