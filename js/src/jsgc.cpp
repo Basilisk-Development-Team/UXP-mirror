@@ -274,7 +274,7 @@ namespace TuningDefaults {
 
     static const size_t GCZoneAllocThresholdBase = 30 * 1024 * 1024;
      static const float AllocThresholdFactor = 0.9f;
-     static const float AllocThresholdFactorAvoidInterrupt = 0.95f;
+     static const float AllocThresholdFactorAvoidInterrupt = 0.98f;
     /* JSGC_MAX_MALLOC_BYTES */
     static const size_t MaxMallocBytes = 128 * 1024 * 1024;
     static const size_t ZoneAllocDelayBytes = 1024 * 1024;
