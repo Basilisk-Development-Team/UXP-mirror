@@ -3244,19 +3244,28 @@ GCRuntime::maybeAllocTriggerZoneGC(Zone* zone, const AutoLockGC& lock, size_t nb
     return;
     }
 
+    // Don't start subsequent incremental slices if we're already collecting this
+    // zone. This is different to our behaviour for GC allocation in
+    // maybeAllocTriggerZoneGC.
+    if (zone->wasGCStarted()) {
+      MOZ_ASSERT(isIncrementalGCInProgress());
+      return;
+    }
+
+
     // During an incremental GC, reduce the delay to the start of the next
-  // incremental slice.
-  if (zone->gcDelayBytes < nbytes) {
-    zone->gcDelayBytes = 0;
-  } else {
+    // incremental slice.
+    if (zone->gcDelayBytes < nbytes) {
+        zone->gcDelayBytes = 0;
+    } else {
     zone->gcDelayBytes -= nbytes;
-  }
+    }
 
     if (!zone->gcDelayBytes) {
     // Start or continue an in progress incremental GC. We do this
     // to try to avoid performing non-incremental GCs on zones
     // which allocate a lot of data, even when incremental slices
-   // can't be triggered via scheduling in the event loop.
+    // can't be triggered via scheduling in the event loop.
     triggerZoneGC(zone, JS::gcreason::INCREMENTAL_ALLOC_TRIGGER, usedBytes,
                   thresholdBytes);
 
