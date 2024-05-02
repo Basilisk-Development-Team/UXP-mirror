@@ -95,7 +95,7 @@ const size_t gStackSize = 8192;
 // doing the first GC.
 #define NS_FIRST_GC_DELAY           10000 // ms
 
-#define NS_FULL_GC_DELAY            60000 // ms
+#define NS_FULL_GC_DELAY            300000 // ms
 
 // The default amount of time to wait from the user being idle to starting a
 // shrinking GC.
