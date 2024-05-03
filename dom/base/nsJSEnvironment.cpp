@@ -109,9 +109,9 @@ const size_t gStackSize = 8192;
 
 // The amount of time we wait between a request to CC (after GC ran)
 // and doing the actual CC.
-#define NS_CC_DELAY                 6000 // ms
+#define NS_CC_DELAY                 60000 // ms
 
-#define NS_CC_SKIPPABLE_DELAY       250 // ms
+#define NS_CC_SKIPPABLE_DELAY       400 // ms
 
 // Maximum amount of time that should elapse between incremental CC slices
 static const int64_t kICCIntersliceDelay = 32; // ms
