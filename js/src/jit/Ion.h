@@ -29,7 +29,7 @@ enum MethodStatus
     Method_Compiled
 };
 
-enum class AbortReason {
+enum class AbortReason : uint8_t {
     Alloc,
     Inlining,
     PreliminaryObjects,
@@ -51,6 +51,11 @@ Err(E&& aErrorValue)
 {
     return mozilla::MakeGenericErrorResult(mozilla::Forward<E>(aErrorValue));
 }
+
+static_assert(sizeof(AbortReasonOr<Ok>) <= sizeof(uintptr_t),
+    "Unexpected size of AbortReasonOr<Ok>");
+static_assert(sizeof(AbortReasonOr<bool>) <= sizeof(uintptr_t),
+    "Unexpected size of AbortReasonOr<bool>");
 
 // A JIT context is needed to enter into either an JIT method or an instance
 // of a JIT compiler. It points to a temporary allocator and the active
