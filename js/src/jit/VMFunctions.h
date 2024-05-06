@@ -267,6 +267,7 @@ template <> struct TypeToDataType<NativeObject*> { static const DataType result 
 template <> struct TypeToDataType<PlainObject*> { static const DataType result = Type_Object; };
 template <> struct TypeToDataType<InlineTypedObject*> { static const DataType result = Type_Object; };
 template <> struct TypeToDataType<NamedLambdaObject*> { static const DataType result = Type_Object; };
+template <> struct TypeToDataType<LexicalEnvironmentObject*> { static const DataType result = Type_Object; };
 template <> struct TypeToDataType<ArrayObject*> { static const DataType result = Type_Object; };
 template <> struct TypeToDataType<TypedArrayObject*> { static const DataType result = Type_Object; };
 template <> struct TypeToDataType<JSString*> { static const DataType result = Type_Object; };
@@ -717,6 +718,8 @@ InitFunctionEnvironmentObjects(JSContext* cx, BaselineFrame* frame);
 
 [[nodiscard]] bool
 NewArgumentsObject(JSContext* cx, BaselineFrame* frame, MutableHandleValue res);
+
+JSObject* CopyLexicalEnvironmentObject(JSContext* cx, HandleObject env, bool copySlots);
 
 JSObject* InitRestParameter(JSContext* cx, uint32_t length, Value* rest, HandleObject templateObj,
                             HandleObject res);

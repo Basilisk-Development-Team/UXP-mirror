@@ -276,6 +276,8 @@
     _(StoreFixedSlotV)              \
     _(StoreFixedSlotT)              \
     _(FunctionEnvironment)          \
+    _(NewLexicalEnvironmentObject)  \
+    _(CopyLexicalEnvironmentObject) \
     _(HomeObject)                   \
     _(HomeObjectSuperBase)          \
     _(GetPropSuperCacheV)           \
