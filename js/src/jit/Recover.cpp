@@ -1369,6 +1369,44 @@ RNewArray::recover(JSContext* cx, SnapshotIterator& iter) const
 }
 
 bool
+MNewIterator::writeRecoverData(CompactBufferWriter& writer) const
+{
+    MOZ_ASSERT(canRecoverOnBailout());
+    writer.writeUnsigned(uint32_t(RInstruction::Recover_NewIterator));
+    writer.writeByte(type_);
+    return true;
+}
+
+RNewIterator::RNewIterator(CompactBufferReader& reader)
+{
+    type_ = reader.readByte();
+}
+
+bool
+RNewIterator::recover(JSContext* cx, SnapshotIterator& iter) const
+{
+    RootedObject templateObject(cx, &iter.read().toObject());
+    RootedValue result(cx);
+
+    JSObject* resultObject = nullptr;
+    switch (MNewIterator::Type(type_)) {
+      case MNewIterator::ArrayIterator:
+        resultObject = NewArrayIteratorObject(cx);
+        break;
+      case MNewIterator::StringIterator:
+        resultObject = NewStringIteratorObject(cx);
+        break;
+    }
+
+    if (!resultObject)
+        return false;
+
+    result.setObject(*resultObject);
+    iter.storeInstructionResult(result);
+    return true;
+}
+
+bool
 MNewDerivedTypedObject::writeRecoverData(CompactBufferWriter& writer) const
 {
     MOZ_ASSERT(canRecoverOnBailout());

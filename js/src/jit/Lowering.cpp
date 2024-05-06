@@ -243,6 +243,14 @@ LIRGenerator::visitNewArrayDynamicLength(MNewArrayDynamicLength* ins)
 }
 
 void
+LIRGenerator::visitNewIterator(MNewIterator* ins)
+{
+    LNewIterator* lir = new(alloc()) LNewIterator(temp());
+    define(lir, ins);
+    assignSafepoint(lir, ins);
+}
+
+void
 LIRGenerator::visitNewTypedArray(MNewTypedArray* ins)
 {
     LNewTypedArray* lir = new(alloc()) LNewTypedArray(temp(), temp());
@@ -1957,7 +1965,7 @@ LIRGenerator::visitFromCodePoint(MFromCodePoint* ins)
 
     MOZ_ASSERT(codePoint->type() == MIRType::Int32);
 
-    LFromCodePoint* lir = new(alloc()) LFromCodePoint(useRegister(codePoint));
+    LFromCodePoint* lir = new(alloc()) LFromCodePoint(useRegister(codePoint), temp(), temp());
     assignSnapshot(lir, Bailout_BoundsCheck);
     define(lir, ins);
     assignSafepoint(lir, ins);

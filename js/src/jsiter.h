@@ -144,11 +144,15 @@ class ArrayIteratorObject : public JSObject
     static const Class class_;
 };
 
+ArrayIteratorObject*
+NewArrayIteratorObject(JSContext* cx, NewObjectKind newKind = GenericObject);
 class StringIteratorObject : public JSObject
 {
   public:
     static const Class class_;
 };
+StringIteratorObject*
+NewStringIteratorObject(JSContext* cx, NewObjectKind newKind = GenericObject);
 
 class RegExpStringIteratorObject : public JSObject
 {

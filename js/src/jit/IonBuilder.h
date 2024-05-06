@@ -636,6 +636,9 @@ class IonBuilder
     InliningResult inlineArraySlice(CallInfo& callInfo);
     InliningResult inlineArrayJoin(CallInfo& callInfo);
 
+    // Iterator intrinsics.
+    InliningResult inlineNewIterator(CallInfo& callInfo, MNewIterator::Type type);
+
     // Math natives.
     InliningResult inlineMathAbs(CallInfo& callInfo);
     InliningResult inlineMathFloor(CallInfo& callInfo);

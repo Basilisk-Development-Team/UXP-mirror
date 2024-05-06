@@ -123,6 +123,8 @@
                                     \
     _(IntrinsicGuardToSetObject)    \
     _(IntrinsicGetNextSetEntryForIterator) \
+	_(IntrinsicNewArrayIterator)    \
+    _(IntrinsicNewStringIterator)   \
                                     \
     _(IntrinsicArrayBufferByteLength) \
     _(IntrinsicPossiblyWrappedArrayBufferByteLength) \
