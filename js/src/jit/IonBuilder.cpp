@@ -12006,7 +12006,7 @@ IonBuilder::jsop_pushlexicalenv(uint32_t index)
     current->add(ins);
     current->setEnvironmentChain(ins);
 
-    return resumeAfter(ins);
+    return Ok();
 }
 
 AbortReasonOr<Ok>
@@ -12020,7 +12020,7 @@ IonBuilder::jsop_copylexicalenv(bool copySlots)
     current->add(ins);
     current->setEnvironmentChain(ins);
 
-    return resumeAfter(ins);
+    return Ok();
 }
 
 AbortReasonOr<Ok>
