@@ -2059,6 +2059,16 @@ GetTemplateObjectForNative(JSContext* cx, HandleFunction target, const CallArgs&
         return !!res;
     }
 
+    if (native == js::intrinsic_NewArrayIterator) {
+        res.set(NewArrayIteratorObject(cx, TenuredObject));
+        return !!res;
+    }
+
+    if (native == js::intrinsic_NewStringIterator) {
+        res.set(NewStringIteratorObject(cx, TenuredObject));
+        return !!res;
+    }
+
     return true;
 }
 

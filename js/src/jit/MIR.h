@@ -2471,6 +2471,50 @@ class MNewObject
 };
 
 
+class MNewIterator
+  : public MUnaryInstruction,
+    public NoTypePolicy::Data
+{
+  public:
+    enum Type {
+        ArrayIterator,
+        StringIterator,
+    };
+
+private:
+    Type type_;
+
+    MNewIterator(CompilerConstraintList* constraints, MConstant* templateConst, Type type)
+      : MUnaryInstruction(classOpcode, templateConst),
+        type_(type)
+    {
+        setResultType(MIRType::Object);
+        setResultTypeSet(MakeSingletonTypeSet(constraints, templateObject()));
+        templateConst->setEmittedAtUses();
+    }
+
+  public:
+    INSTRUCTION_HEADER(NewIterator)
+    TRIVIAL_NEW_WRAPPERS
+
+    Type type() const {
+        return type_;
+    }
+
+    JSObject* templateObject() {
+        return getOperand(0)->toConstant()->toObjectOrNull();
+    }
+
+    AliasSet getAliasSet() const override {
+        return AliasSet::None();
+    }
+
+    [[nodiscard]] bool writeRecoverData(CompactBufferWriter& writer) const override;
+    bool canRecoverOnBailout() const override {
+        return true;
+    }
+};
+
 class MNewTypedObject : public MNullaryInstruction
 {
     CompilerGCPointer<InlineTypedObject*> templateObject_;

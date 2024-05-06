@@ -101,6 +101,7 @@ namespace jit {
     _(NewObject)                                \
     _(NewTypedArray)                            \
     _(NewArray)                                 \
+    _(NewIterator)                              \
     _(NewDerivedTypedObject)                    \
     _(CreateThisWithTemplate)                   \
     _(Lambda)                                   \
@@ -587,6 +588,17 @@ class RNewArray final : public RInstruction
 
   public:
     RINSTRUCTION_HEADER_NUM_OP_(NewArray, 1)
+
+    [[nodiscard]] bool recover(JSContext* cx, SnapshotIterator& iter) const override;
+};
+
+class RNewIterator final : public RInstruction
+{
+  private:
+    uint8_t type_;
+
+  public:
+    RINSTRUCTION_HEADER_NUM_OP_(NewIterator, 1)
 
     [[nodiscard]] bool recover(JSContext* cx, SnapshotIterator& iter) const override;
 };
