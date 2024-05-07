@@ -134,8 +134,6 @@ ForOfLoopControl::emitPrepareForNonLocalJumpFromScope(BytecodeEmitter* bce,
     // leaving try-catch block.  However, the performing IteratorClose can
     // reach the depth for try-catch, and effectively re-enter the
     // try-catch block.
-    if (!bce->emit1(JSOP_POP))                        // ITER RESULT
-        return false;
     if (!bce->emit1(JSOP_POP))                        // ITER
         return false;
 
