@@ -25,6 +25,7 @@
     _(AtomicsOr)                    \
     _(AtomicsXor)                   \
     _(AtomicsIsLockFree)            \
+    _(Boolean)                      \
                                     \
     _(IntlIsCollator)               \
     _(IntlIsDateTimeFormat)         \
