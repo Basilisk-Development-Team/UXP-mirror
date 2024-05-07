@@ -48,9 +48,9 @@ LoopControl::LoopControl(BytecodeEmitter* bce, StatementKind loopKind)
     loopDepth_ = enclosingLoop ? enclosingLoop->loopDepth_ + 1 : 1;
 
     int loopSlots;
-    if (loopKind == StatementKind::Spread || loopKind == StatementKind::ForOfLoop)
+    if (loopKind == StatementKind::Spread)
         loopSlots = 3;
-    else if (loopKind == StatementKind::ForInLoop)
+    else if (loopKind == StatementKind::ForInLoop || loopKind == StatementKind::ForOfLoop)
         loopSlots = 2;
     else
         loopSlots = 0;
@@ -64,6 +64,23 @@ LoopControl::LoopControl(BytecodeEmitter* bce, StatementKind loopKind)
         canIonOsr_ = stackDepth_ == loopSlots;
     }
 }
+
+bool
+LoopControl::emitSpecialBreakForDone(BytecodeEmitter* bce)
+{
+    // This doesn't pop stack values, nor handle any other controls.
+    // Should be called on the toplevel of the loop.
+    MOZ_ASSERT(bce->stackDepth == stackDepth_);
+    MOZ_ASSERT(bce->innermostNestableControl == this);
+
+    if (!bce->newSrcNote(SRC_BREAK))
+        return false;
+    if (!bce->emitJump(JSOP_GOTO, &breaks))
+        return false;
+
+    return true;
+}
+
 
 bool
 LoopControl::patchBreaksAndContinues(BytecodeEmitter* bce)

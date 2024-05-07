@@ -130,7 +130,7 @@ ForOfLoopControl::emitPrepareForNonLocalJumpFromScope(BytecodeEmitter* bce,
                                                       EmitterScope& currentScope,
                                                       bool isTarget)
 {
-    // Pop unnecessary values from the stack.  Effectively this means
+    // Pop unnecessary value from the stack.  Effectively this means
     // leaving try-catch block.  However, the performing IteratorClose can
     // reach the depth for try-catch, and effectively re-enter the
     // try-catch block.
@@ -152,10 +152,8 @@ ForOfLoopControl::emitPrepareForNonLocalJumpFromScope(BytecodeEmitter* bce,
     if (isTarget) {
         // At the level of the target block, there's bytecode after the
         // loop that will pop the iterator and the value, so push
-        // undefineds to balance the stack.
+        // an undefined to balance the stack.
         if (!bce->emit1(JSOP_UNDEFINED))              // UNDEF UNDEF
-            return false;
-        if (!bce->emit1(JSOP_UNDEFINED))              // UNDEF UNDEF UNDEF
             return false;
     } else {
         if (!bce->emit1(JSOP_POP))                    //
