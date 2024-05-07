@@ -1447,14 +1447,14 @@ DefinePropertyIsRedundant(JSContext* cx, HandleNativeObject obj, HandleId id,
 {
     *redundant = false;
 
-    if (desc.hasConfigurable() && desc.configurable() != ((shapeAttrs & JSPROP_PERMANENT) == 0))
+    if (desc.hasConfigurable() && desc.configurable() != IsConfigurable(shapeAttrs))
         return true;
-    if (desc.hasEnumerable() && desc.enumerable() != ((shapeAttrs & JSPROP_ENUMERATE) != 0))
+    if (desc.hasEnumerable() && desc.enumerable() != IsEnumerable(shapeAttrs))
         return true;
     if (desc.isDataDescriptor()) {
-        if ((shapeAttrs & (JSPROP_GETTER | JSPROP_SETTER)) != 0)
+        if (IsAccessorDescriptor(shapeAttrs))
             return true;
-        if (desc.hasWritable() && desc.writable() != ((shapeAttrs & JSPROP_READONLY) == 0))
+        if (desc.hasWritable() && desc.writable() != IsWritable(shapeAttrs))
             return true;
         if (desc.hasValue()) {
             // Get the current value of the existing property.
@@ -1701,6 +1701,10 @@ js::NativeDefineProperty(JSContext* cx, HandleNativeObject obj, HandleId id,
             }
         }
 
+        // Step 7.a.i.3.
+        if (frozen && !skipRedefineChecks)
+            return result.succeed();
+
         if (!desc.hasWritable())
             desc.setWritable(IsWritable(shapeAttrs));
     } else {
@@ -1734,9 +1738,11 @@ js::NativeDefineProperty(JSContext* cx, HandleNativeObject obj, HandleId id,
         }
     }
 
-    // Step 10.
+    // Step 9.
     if (!AddOrChangeProperty<IsAddOrChange::AddOrChange>(cx, obj, id, desc))
         return false;
+
+    // Step 10.
     return result.succeed();
 }
 
