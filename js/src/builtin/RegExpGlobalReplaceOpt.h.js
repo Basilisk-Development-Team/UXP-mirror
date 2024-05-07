@@ -31,10 +31,11 @@ function FUNC_NAME(rx, S, lengthS, replaceValue, fullUnicode
     var lastIndex = 0;
     rx.lastIndex = 0;
 
-#if defined(FUNCTIONAL) || defined(SUBSTITUTION)
-    // Clone RegExp object here to avoid the effect of RegExp#compile,
-    // that may be called in replaceValue function.
-    rx = regexp_clone(rx);
+#if defined(FUNCTIONAL)
+    // Save the original source and flags, so we can check if the replacer
+    // function recompiled the regexp.
+    var originalSource = UnsafeGetStringFromReservedSlot(rx, REGEXP_SOURCE_SLOT);
+    var originalFlags = UnsafeGetInt32FromReservedSlot(rx, REGEXP_FLAGS_SLOT);
 #endif
 
     // Step 12 (reordered).
@@ -54,8 +55,8 @@ function FUNC_NAME(rx, S, lengthS, replaceValue, fullUnicode
 
         var nCaptures;
 #if defined(FUNCTIONAL)
-        // Steps 14.a-b.
-        nCaptures = std_Math_max(result.length - 1, 0);
+        assert(result.length >= 1, "RegExpMatcher doesn't return an empty array");
+        var nCaptures = result.length - 1;
 #endif
 
         // Step 14.c (reordered).
@@ -71,9 +72,7 @@ function FUNC_NAME(rx, S, lengthS, replaceValue, fullUnicode
         // Steps g-l.
         var replacement;
 #if defined(FUNCTIONAL)
-        replacement = RegExpGetComplexReplacement(result, matched, S, position,
-                                                  nCaptures, replaceValue,
-                                                  true, -1);
+        replacement = RegExpGetFunctionalReplacement(result, S, position, replaceValue);
 #elif defined(SUBSTITUTION)        // Step l.i
         var namedCaptures = result.groups;
         if (namedCaptures !== undefined) {
@@ -85,21 +84,16 @@ function FUNC_NAME(rx, S, lengthS, replaceValue, fullUnicode
         if (IsObject(elemBase)) {
             var prop = GetStringDataProperty(elemBase, matched);
             if (prop !== undefined) {
-                assert(typeof prop === "string", "GetStringDataProperty should return either string or undefined");
+                assert(typeof prop === "string",
+                       "GetStringDataProperty should return either string or undefined");
                 replacement = prop;
             } else {
                 elemBase = undefined;
             }
         }
 
-        if (!IsObject(elemBase)) {
-            // Steps 14.a-b (reordered).
-            nCaptures = std_Math_max(result.length - 1, 0);
-
-            replacement = RegExpGetComplexReplacement(result, matched, S, position,
-                                                      nCaptures, replaceValue,
-                                                      true, -1);
-        }
+        if (!IsObject(elemBase))
+            replacement = RegExpGetFunctionalReplacement(result, S, position, replaceValue);
 #else
         replacement = replaceValue;
 #endif
@@ -118,6 +112,17 @@ function FUNC_NAME(rx, S, lengthS, replaceValue, fullUnicode
                 break;
             lastIndex |= 0;
         }
+
+#if defined(FUNCTIONAL)
+        // Ensure the current source and flags match the original regexp, the
+        // replaceValue function may have called RegExp#compile.
+        if (UnsafeGetStringFromReservedSlot(rx, REGEXP_SOURCE_SLOT) !== originalSource ||
+            UnsafeGetInt32FromReservedSlot(rx, REGEXP_FLAGS_SLOT) !== originalFlags)
+        {
+            rx = regexp_construct_raw_flags(originalSource, originalFlags);
+        }
+#endif
+
     }
 
     // Step 15.
