@@ -770,7 +770,7 @@ NonLocalExitControl::prepareForNonLocalJump(NestableControl* target)
     bool emitIteratorCloseAtTarget = emitIteratorClose && kind_ != Continue;
 
     auto flushPops = [&npops](BytecodeEmitter* bce) {
-        if (npops && !bce->emitUint16Operand(JSOP_POPN, npops))
+        if (npops && !bce->emitPopN(npops))
             return false;
         npops = 0;
         return true;
@@ -2901,9 +2901,7 @@ BytecodeEmitter::emitIteratorCloseInScope(EmitterScope& currentScope,
         // Restore stack.
         if (!emit2(JSOP_UNPICK, 2))                       // ... RESULT RET ITER
             return false;
-        if (!emit1(JSOP_POP))                             // ... RESULT RET
-            return false;
-        if (!emit1(JSOP_POP))                             // ... RESULT
+        if (!emitPopN(2))                                 // ... RESULT
             return false;
     } else {
         if (!emitCheckIsObj(CheckIsObjectKind::IteratorReturn)) // ... RVAL? RESULT
@@ -5005,7 +5003,7 @@ BytecodeEmitter::emitSpread(bool allowSelfHosted)
     if (!emit2(JSOP_PICK, 3))                             // ARR FINAL_INDEX RESULT ITER
         return false;
 
-    return emitUint16Operand(JSOP_POPN, 2);               // ARR FINAL_INDEX
+    return emitPopN(2);               // ARR FINAL_INDEX
 }
 
 bool
@@ -5262,7 +5260,7 @@ BytecodeEmitter::emitForOf(ForNode* forNode, const EmitterScope* headLexicalEmit
     if (!tryNoteList.append(JSTRY_FOR_OF, stackDepth, top.offset, breakTarget.offset))
         return false;
 
-    return emitUint16Operand(JSOP_POPN, 2);               //
+    return emitPopN(2);               //
 }
 
 bool
@@ -5802,7 +5800,7 @@ BytecodeEmitter::emitComprehensionForOf(ForNode* forNode)
     }
 
     // Pop the result and the iter.
-    return emitUint16Operand(JSOP_POPN, 2);               //
+    return emitPopN(2);               //
 }
 
 bool
@@ -6732,7 +6730,7 @@ BytecodeEmitter::emitYieldStar(ParseNode* iter)
         return false;
     if (!emit2(JSOP_UNPICK, 3))                           // ITER RESULT OLDRESULT FTYPE FVALUE
         return false;
-    if (!emitUint16Operand(JSOP_POPN, 3))                 // ITER RESULT
+    if (!emitPopN(3))                 // ITER RESULT
         return false;
     {
         // goto tryStart;
@@ -6747,9 +6745,7 @@ BytecodeEmitter::emitYieldStar(ParseNode* iter)
 
     if (!ifReturnMethodIsDefined.emitElse())              // ITER RESULT FTYPE FVALUE ITER RET
         return false;
-    if (!emit1(JSOP_POP))                                 // ITER RESULT FTYPE FVALUE ITER
-        return false;
-    if (!emit1(JSOP_POP))                                 // ITER RESULT FTYPE FVALUE
+    if (!emitPopN(2))                                     // ITER RESULT FTYPE FVALUE
         return false;
     if (!ifReturnMethodIsDefined.emitEnd())
         return false;
