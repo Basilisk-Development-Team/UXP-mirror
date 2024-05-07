@@ -131,6 +131,7 @@ class LoopControl : public BreakableControl
         return canIonOsr_;
     }
 
+    [[nodiscard]] bool emitSpecialBreakForDone(BytecodeEmitter* bce);
     [[nodiscard]] bool patchBreaksAndContinues(BytecodeEmitter* bce);
 };
 template <>
