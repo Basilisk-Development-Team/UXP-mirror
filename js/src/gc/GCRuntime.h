@@ -960,8 +960,7 @@ class GCRuntime
     void startTask(GCParallelTask& task, gcstats::Phase phase, AutoLockHelperThreadState& locked);
     void joinTask(GCParallelTask& task, gcstats::Phase phase, AutoLockHelperThreadState& locked);
 
-  // Delete an empty zone group after its contents have been merged.
-    void deleteEmptyZoneGroup(ZoneGroup* group);
+    void mergeCompartments(JSCompartment* source, JSCompartment* target);
 
   private:
     enum IncrementalResult
@@ -969,6 +968,9 @@ class GCRuntime
         Reset = 0,
         Ok
     };
+
+    // Delete an empty zone group after its contents have been merged.
+    void deleteEmptyZoneGroup(ZoneGroup* group);
 
     // For ArenaLists::allocateFromArena()
     friend class ArenaLists;
