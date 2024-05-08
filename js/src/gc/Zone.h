@@ -465,6 +465,9 @@ struct Zone : public JS::shadow::Zone,
     void updateMallocCounter(size_t nbytes) {
         updateMemoryCounter(gcMallocCounter, nbytes);
     }
+    void adoptMallocBytes(Zone* other) {
+        gcMallocCounter.adopt(other->gcMallocCounter);
+    }
     size_t GCMaxMallocBytes() const { return gcMallocCounter.maxBytes(); }
     size_t GCMallocBytes() const { return gcMallocCounter.bytes(); }
 

@@ -7880,6 +7880,9 @@ gc::MergeCompartments(JSCompartment* source, JSCompartment* target)
 {
     JSRuntime* rt = source->runtimeFromActiveCooperatingThread();
     rt->gc.mergeCompartments(source, target);
+
+    AutoLockGC lock(rt);
+    rt->gc.maybeAllocTriggerZoneGC(target->zone(), lock);
 }
 
 void
@@ -7967,6 +7970,7 @@ GCRuntime::mergeCompartments(JSCompartment* source, JSCompartment* target)
     target->zone()->arenas.adoptArenas(rt, &source->zone()->arenas, targetZoneIsCollecting);
     target->zone()->usage.adopt(source->zone()->usage);
     target->zone()->adoptUniqueIds(source->zone());
+    target->zone()->adoptMallocBytes(source->zone());
 
     // Merge other info in source's zone into target's zone.
     target->zone()->types.typeLifoAlloc.ref().transferFrom(&source->zone()->types.typeLifoAlloc.ref());
