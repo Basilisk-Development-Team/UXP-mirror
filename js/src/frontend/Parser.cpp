@@ -443,7 +443,7 @@ FunctionBox::FunctionBox(JSContext* cx, LifoAlloc& alloc, TraceListNode* traceLi
                          Directives directives, bool extraWarnings,
                          GeneratorKind generatorKind, FunctionAsyncKind asyncKind)
   : ObjectBox(fun, traceListHead),
-    SharedContext(cx, Kind::ObjectBox, directives, extraWarnings),
+    SharedContext(cx, Kind::FunctionBox, directives, extraWarnings),
     enclosingScope_(nullptr),
     namedLambdaBindings_(nullptr),
     functionScopeBindings_(nullptr),
