@@ -127,15 +127,17 @@ namespace jit {
             return m_oom;
         }
 
-        const unsigned char* acquireBuffer() const
+        const unsigned char* buffer() const
         {
             MOZ_RELEASE_ASSERT(!m_oom);
-            return m_buffer.acquire();
+            return m_buffer.begin();
         }
 
-        void releaseBuffer() const { m_buffer.release(); }
-        unsigned char* acquireData() { return m_buffer.acquire(); }
-        void releaseData() const { m_buffer.release(); }
+        unsigned char* data()
+        {
+            return m_buffer.begin();
+        }
+
         void disableProtection() { m_buffer.disableProtection(); }
         void enableProtection() { m_buffer.enableProtection(); }
         void setLowerBoundForProtection(size_t size)
@@ -166,15 +168,14 @@ namespace jit {
          *
          * See also the |buffer| method.
          */
-        void oomDetected() {
+        void oomDetected()
+        {
             m_oom = true;
             m_buffer.clear();
         }
 
-        PageProtectingVector<unsigned char, 256, SystemAllocPolicy,
-                             /* ProtectUsed = */ false, /* ProtectUnused = */ false,
-                             /* GuardAgainstReentrancy = */ true,
-                             /* InitialLowerBound = */ 32 * 1024> m_buffer;
+        PageProtectingVector<unsigned char, 256, ProtectedReallocPolicy,
+                             /* ProtectUsed = */ false, /* ProtectUnused = */ false> m_buffer;
         bool m_oom;
     };
 
@@ -184,11 +185,10 @@ namespace jit {
 
       public:
 
-        GenericAssembler()
-          : printer(NULL)
-        {}
+        GenericAssembler() : printer(nullptr) {}
 
-        void setPrinter(Sprinter* sp) {
+        void setPrinter(Sprinter* sp)
+        {
             printer = sp;
         }
 
