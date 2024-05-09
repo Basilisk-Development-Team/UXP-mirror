@@ -7,10 +7,12 @@
 #define ds_PageProtectingVector_h
 
 #include "mozilla/Atomics.h"
+#include "mozilla/PodOperations.h"
 #include "mozilla/Vector.h"
 
 #include "ds/MemoryProtectionExceptionHandler.h"
 #include "gc/Memory.h"
+#include "js/Utility.h"
 
 namespace js {
 
@@ -33,8 +35,9 @@ template<typename T,
          class AllocPolicy = mozilla::MallocAllocPolicy,
          bool ProtectUsed = true,
          bool ProtectUnused = true,
-         bool GuardAgainstReentrancy = true,
-         size_t InitialLowerBound = 0>
+         size_t InitialLowerBound = 0,
+         bool PoisonUnused = true,
+         uint8_t PoisonPattern = 0xe3>
 class PageProtectingVector final
 {
     mozilla::Vector<T, MinInlineCapacity, AllocPolicy> vector;
@@ -95,9 +98,6 @@ class PageProtectingVector final
     bool protectUsedEnabled;
     bool protectUnusedEnabled;
 
-    bool reentrancyGuardEnabled;
-    mutable mozilla::Atomic<bool, mozilla::ReleaseAcquire> reentrancyGuard;
-
     MOZ_ALWAYS_INLINE void resetTest() {
         MOZ_ASSERT(protectUsedEnabled || protectUnusedEnabled);
         size_t nextPage = (pageSize - (uintptr_t(begin() + length()) & pageMask)) >> elemShift;
@@ -123,9 +123,15 @@ class PageProtectingVector final
                              (uintptr_t(begin()) & elemMask) == 0 && capacity() >= lowerBound;
         protectUnusedEnabled = ProtectUnused && usable && enabled && initPage <= lastPage &&
                                (uintptr_t(begin()) & elemMask) == 0 && capacity() >= lowerBound;
-        reentrancyGuardEnabled = GuardAgainstReentrancy && enabled && initPage <= lastPage &&
-                                 capacity() >= lowerBound;
         setTestInitial();
+    }
+
+    MOZ_ALWAYS_INLINE void poisonNewBuffer() {
+        if (!PoisonUnused)
+            return;
+        T* addr = begin() + length();
+        size_t toPoison = (capacity() - length()) * sizeof(T);
+        memset(addr, PoisonPattern, toPoison);
     }
 
     MOZ_ALWAYS_INLINE void addExceptionHandler() {
@@ -181,6 +187,7 @@ class PageProtectingVector final
     MOZ_ALWAYS_INLINE void protectNewBuffer() {
         resetForNewBuffer();
         addExceptionHandler();
+        poisonNewBuffer();
         protectUsed();
         protectUnused();
     }
@@ -281,41 +288,6 @@ class PageProtectingVector final
     template<typename U>
     MOZ_NEVER_INLINE [[nodiscard]] bool appendSlow(const U* values, size_t size);
 
-    MOZ_ALWAYS_INLINE void lock() const {
-        if (MOZ_LIKELY(!GuardAgainstReentrancy || !reentrancyGuardEnabled))
-            return;
-        if (MOZ_UNLIKELY(!reentrancyGuard.compareExchange(false, true)))
-            lockSlow();
-    }
-
-    MOZ_ALWAYS_INLINE void unlock() const {
-        if (!GuardAgainstReentrancy)
-            return;
-        reentrancyGuard = false;
-    }
-
-    MOZ_NEVER_INLINE void lockSlow() const;
-
-    /* A helper class to guard against concurrent access. */
-    class AutoGuardAgainstReentrancy
-    {
-        PageProtectingVector& vector;
-
-      public:
-        MOZ_ALWAYS_INLINE explicit AutoGuardAgainstReentrancy(PageProtectingVector& holder)
-          : vector(holder)
-        {
-            vector.lock();
-        }
-
-        MOZ_ALWAYS_INLINE ~AutoGuardAgainstReentrancy() {
-            vector.unlock();
-        }
-    };
-
-    MOZ_ALWAYS_INLINE T* begin() { return vector.begin(); }
-    MOZ_ALWAYS_INLINE const T* begin() const { return vector.begin(); }
-
   public:
     explicit PageProtectingVector(AllocPolicy policy = AllocPolicy())
       : vector(policy),
@@ -330,9 +302,7 @@ class PageProtectingVector final
         usable(true),
         enabled(true),
         protectUsedEnabled(false),
-        protectUnusedEnabled(false),
-        reentrancyGuardEnabled(false),
-        reentrancyGuard(false)
+        protectUnusedEnabled(false)
     {
         if (gc::SystemPageSize() != pageSize)
             usable = false;
@@ -395,29 +365,16 @@ class PageProtectingVector final
     MOZ_ALWAYS_INLINE size_t capacity() const { return vector.capacity(); }
     MOZ_ALWAYS_INLINE size_t length() const { return vector.length(); }
 
-    MOZ_ALWAYS_INLINE T* acquire() {
-        lock();
-        return begin();
-    }
-
-    MOZ_ALWAYS_INLINE const T* acquire() const {
-        lock();
-        return begin();
-    }
-
-    MOZ_ALWAYS_INLINE void release() const {
-        unlock();
-    }
+    MOZ_ALWAYS_INLINE T* begin() { return vector.begin(); }
+    MOZ_ALWAYS_INLINE const T* begin() const { return vector.begin(); }
 
     void clear() {
-        AutoGuardAgainstReentrancy guard(*this);
         unprotectOldBuffer();
         vector.clear();
         protectNewBuffer();
     }
 
     MOZ_ALWAYS_INLINE [[nodiscard]] bool reserve(size_t size) {
-        AutoGuardAgainstReentrancy guard(*this);
         if (MOZ_LIKELY(size <= capacity()))
             return vector.reserve(size);
         return reserveSlow(size);
@@ -425,7 +382,6 @@ class PageProtectingVector final
 
     template<typename U>
     MOZ_ALWAYS_INLINE void infallibleAppend(const U* values, size_t size) {
-        AutoGuardAgainstReentrancy guard(*this);
         elemsUntilTest -= size;
         if (MOZ_LIKELY(elemsUntilTest >= 0))
             return vector.infallibleAppend(values, size);
@@ -434,7 +390,6 @@ class PageProtectingVector final
 
     template<typename U>
     MOZ_ALWAYS_INLINE [[nodiscard]] bool append(const U* values, size_t size) {
-        AutoGuardAgainstReentrancy guard(*this);
         elemsUntilTest -= size;
         if (MOZ_LIKELY(elemsUntilTest >= 0))
             return vector.append(values, size);
@@ -442,9 +397,9 @@ class PageProtectingVector final
     }
 };
 
-template<typename T, size_t N, class AP, bool P, bool Q, bool G, size_t I>
+template<typename T, size_t A, class B, bool C, bool D, size_t E, bool F, uint8_t G>
 MOZ_NEVER_INLINE void
-PageProtectingVector<T, N, AP, P, Q, G, I>::unprotectRegionSlow(uintptr_t l, uintptr_t r)
+PageProtectingVector<T, A, B, C, D, E, F, G>::unprotectRegionSlow(uintptr_t l, uintptr_t r)
 {
     if (l < initPage)
         l = initPage;
@@ -455,9 +410,9 @@ PageProtectingVector<T, N, AP, P, Q, G, I>::unprotectRegionSlow(uintptr_t l, uin
     gc::UnprotectPages(addr, size);
 }
 
-template<typename T, size_t N, class AP, bool P, bool Q, bool G, size_t I>
+template<typename T, size_t A, class B, bool C, bool D, size_t E, bool F, uint8_t G>
 MOZ_NEVER_INLINE void
-PageProtectingVector<T, N, AP, P, Q, G, I>::reprotectRegionSlow(uintptr_t l, uintptr_t r)
+PageProtectingVector<T, A, B, C, D, E, F, G>::reprotectRegionSlow(uintptr_t l, uintptr_t r)
 {
     if (l < initPage)
         l = initPage;
@@ -468,17 +423,17 @@ PageProtectingVector<T, N, AP, P, Q, G, I>::reprotectRegionSlow(uintptr_t l, uin
     gc::MakePagesReadOnly(addr, size);
 }
 
-template<typename T, size_t N, class AP, bool P, bool Q, bool G, size_t I>
+template<typename T, size_t A, class B, bool C, bool D, size_t E, bool F, uint8_t G>
 MOZ_NEVER_INLINE [[nodiscard]] bool
-PageProtectingVector<T, N, AP, P, Q, G, I>::reserveSlow(size_t size)
+PageProtectingVector<T, A, B, C, D, E, F, G>::reserveSlow(size_t size)
 {
     return reserveNewBuffer(size);
 }
 
-template<typename T, size_t N, class AP, bool P, bool Q, bool G, size_t I>
+template<typename T, size_t A, class B, bool C, bool D, size_t E, bool F, uint8_t G>
 template<typename U>
 MOZ_NEVER_INLINE void
-PageProtectingVector<T, N, AP, P, Q, G, I>::infallibleAppendSlow(const U* values, size_t size)
+PageProtectingVector<T, A, B, C, D, E, F, G>::infallibleAppendSlow(const U* values, size_t size)
 {
     // Ensure that we're here because we reached a page
     // boundary and not because of a buffer overflow.
@@ -487,22 +442,70 @@ PageProtectingVector<T, N, AP, P, Q, G, I>::infallibleAppendSlow(const U* values
     infallibleAppendNewPage(values, size);
 }
 
-template<typename T, size_t N, class AP, bool P, bool Q, bool G, size_t I>
+template<typename T, size_t A, class B, bool C, bool D, size_t E, bool F, uint8_t G>
 template<typename U>
 MOZ_NEVER_INLINE [[nodiscard]] bool
-PageProtectingVector<T, N, AP, P, Q, G, I>::appendSlow(const U* values, size_t size)
+PageProtectingVector<T, A, B, C, D, E, F, G>::appendSlow(const U* values, size_t size)
 {
     if (MOZ_LIKELY(length() + size <= capacity()))
         return appendNewPage(values, size);
     return appendNewBuffer(values, size);
 }
 
-template<typename T, size_t N, class AP, bool P, bool Q, bool G, size_t I>
-MOZ_NEVER_INLINE void
-PageProtectingVector<T, N, AP, P, Q, G, I>::lockSlow() const
+class ProtectedReallocPolicy
 {
-    MOZ_CRASH("Cannot access PageProtectingVector from more than one thread at a time!");
-}
+
+  public:
+    template <typename T> T* maybe_pod_malloc(size_t numElems) {
+        return js_pod_malloc<T>(numElems);
+    }
+    template <typename T> T* maybe_pod_calloc(size_t numElems) {
+        return js_pod_calloc<T>(numElems);
+    }
+    template <typename T> T* maybe_pod_realloc(T* oldAddr, size_t oldSize, size_t newSize) {
+        MOZ_ASSERT_IF(oldAddr, oldSize);
+        if (MOZ_UNLIKELY(!newSize))
+            return nullptr;
+        if (MOZ_UNLIKELY(!oldAddr))
+            return js_pod_malloc<T>(newSize);
+
+        T* tmpAddr = js_pod_malloc<T>(newSize);
+        if (MOZ_UNLIKELY(!tmpAddr))
+            return js_pod_realloc<T>(oldAddr, oldSize, newSize);
+
+        size_t bytes = (newSize >= oldSize ? oldSize : newSize) * sizeof(T);
+        memcpy(tmpAddr, oldAddr, bytes);
+
+        T* newAddr = js_pod_realloc<T>(oldAddr, oldSize, newSize);
+        if (MOZ_UNLIKELY(!newAddr)) {
+            js_free(tmpAddr);
+            return js_pod_realloc<T>(oldAddr, oldSize, newSize);
+        }
+
+        const uint8_t* newAddrBytes = reinterpret_cast<const uint8_t*>(newAddr);
+        const uint8_t* tmpAddrBytes = reinterpret_cast<const uint8_t*>(tmpAddr);
+        if (!mozilla::PodEqual(tmpAddrBytes, newAddrBytes, bytes)) {
+            if (oldAddr == newAddr)
+                MOZ_CRASH("New buffer doesn't match the old buffer (newAddr == oldAddr)!");
+            else
+                MOZ_CRASH("New buffer doesn't match the old buffer (newAddr != oldAddr)!");
+        }
+
+        js_free(tmpAddr);
+        return newAddr;
+    }
+
+    template <typename T> T* pod_malloc(size_t numElems) { return maybe_pod_malloc<T>(numElems); }
+    template <typename T> T* pod_calloc(size_t numElems) { return maybe_pod_calloc<T>(numElems); }
+    template <typename T> T* pod_realloc(T* p, size_t oldSize, size_t newSize) {
+        return maybe_pod_realloc<T>(p, oldSize, newSize);
+    }
+    void free_(void* p) { js_free(p); }
+    void reportAllocOverflow() const {}
+    bool checkSimulatedOOM() const {
+        return !js::oom::ShouldFailWithOOM();
+    }
+};
 
 } /* namespace js */
 
