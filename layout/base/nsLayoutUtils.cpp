@@ -114,8 +114,7 @@
 #include "mozilla/EventDispatcher.h"
 #include "mozilla/EventStateManager.h"
 #include "mozilla/RuleNodeCacheConditions.h"
-#include "mozilla/StyleSetHandle.h"
-#include "mozilla/StyleSetHandleInlines.h"
+#include "nsStyleSet.h"
 #include "RegionBuilder.h"
 #include "SVGSVGElement.h"
 #include "nsDocument.h"
@@ -123,8 +122,7 @@
 #include "GeckoProfiler.h"
 #include "nsAnimationManager.h"
 #include "nsTransitionManager.h"
-#include "mozilla/RestyleManagerHandle.h"
-#include "mozilla/RestyleManagerHandleInlines.h"
+#include "mozilla/RestyleManager.h"
 #include "LayoutLogging.h"
 
 // Make sure getpid() works.
@@ -177,9 +175,6 @@ typedef nsStyleTransformMatrix::TransformReferenceBox TransformReferenceBox;
 /* static */ bool nsLayoutUtils::sInterruptibleReflowEnabled;
 /* static */ bool nsLayoutUtils::sSVGTransformBoxEnabled;
 /* static */ bool nsLayoutUtils::sTextCombineUprightDigitsEnabled;
-#ifdef MOZ_STYLO
-/* static */ bool nsLayoutUtils::sStyloEnabled;
-#endif
 /* static */ uint32_t nsLayoutUtils::sIdlePeriodDeadlineLimit;
 /* static */ uint32_t nsLayoutUtils::sQuiescentFramesBeforeIdlePeriod;
 
@@ -4725,8 +4720,8 @@ GetDefiniteSizeTakenByBoxSizing(StyleBoxSizing aBoxSizing,
 }
 
 // Handles only max-content and min-content, and
-// -moz-fit-content for min-width and max-width, since the others
-// (-moz-fit-content for width, and -moz-available) have no effect on
+// fit-content for min-width and max-width, since the others
+// (fit-content for width, and -moz-available) have no effect on
 // intrinsic widths.
 enum eWidthProperty { PROP_WIDTH, PROP_MAX_WIDTH, PROP_MIN_WIDTH };
 static bool
@@ -5037,7 +5032,7 @@ nsLayoutUtils::IntrinsicForAxis(PhysicalAxis              aAxis,
   if (styleISize.GetUnit() == eStyleUnit_Enumerated &&
       (styleISize.GetIntValue() == NS_STYLE_WIDTH_MAX_CONTENT ||
        styleISize.GetIntValue() == NS_STYLE_WIDTH_MIN_CONTENT)) {
-    // -moz-fit-content and -moz-available enumerated widths compute intrinsic
+    // fit-content and -moz-available enumerated widths compute intrinsic
     // widths just like auto.
     // For max-content and min-content, we handle them like
     // specified widths, but ignore box-sizing.
@@ -5053,7 +5048,7 @@ nsLayoutUtils::IntrinsicForAxis(PhysicalAxis              aAxis,
     ++gNoiseIndent;
 #endif
     if (aType != MIN_ISIZE) {
-      // At this point, |styleISize| is auto/-moz-fit-content/-moz-available or
+      // At this point, |styleISize| is auto/fit-content/-moz-available or
       // has a percentage.  The intrinisic size for those under a max-content
       // constraint is the max-content contribution which we shouldn't clamp.
       aMarginBoxMinSizeClamp = NS_MAXSIZE;
@@ -7620,10 +7615,6 @@ nsLayoutUtils::Initialize()
                                "svg.transform-box.enabled");
   Preferences::AddBoolVarCache(&sTextCombineUprightDigitsEnabled,
                                "layout.css.text-combine-upright-digits.enabled");
-#ifdef MOZ_STYLO
-  Preferences::AddBoolVarCache(&sStyloEnabled,
-                               "layout.css.servo.enabled");
-#endif
   Preferences::AddUintVarCache(&sIdlePeriodDeadlineLimit,
                                "layout.idle_period.time_limit",
                                DEFAULT_IDLE_PERIOD_TIME_LIMIT);
@@ -9120,14 +9111,6 @@ nsLayoutUtils::GetCumulativeApzCallbackTransform(nsIFrame* aFrame)
     content = frame ? frame->GetContent() : nullptr;
   }
   return delta;
-}
-
-/* static */ bool
-nsLayoutUtils::SupportsServoStyleBackend(nsIDocument* aDocument)
-{
-  return StyloEnabled() &&
-         aDocument->IsHTMLOrXHTML() &&
-         static_cast<nsDocument*>(aDocument)->IsContentDocument();
 }
 
 static
