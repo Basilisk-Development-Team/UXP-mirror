@@ -11,6 +11,7 @@
 #include "nsIRunnable.h"
 #include "nsThreadUtils.h"
 
+#include "mozilla/CycleCollectedJSContext.h"
 #include "mozilla/DebugOnly.h"
 #include "mozilla/ErrorResult.h"
 #include "mozilla/Unused.h"
@@ -230,6 +231,24 @@ WorkerRunnable::Run()
 {
   bool targetIsWorkerThread = mBehavior == WorkerThreadModifyBusyCount ||
                               mBehavior == WorkerThreadUnchangedBusyCount;
+  bool alreadyCanceled = IsCanceled() && !mCallingCancelWithinRun;
+  bool shouldCancelWorker = targetIsWorkerThread &&
+                            mWorkerPrivate->AllPendingRunnablesShouldBeCanceled() &&
+                            !IsCanceled() && !mCallingCancelWithinRun;
+  bool runnableWillRun = !alreadyCanceled && !shouldCancelWorker;
+
+  if (targetIsWorkerThread && runnableWillRun) {
+    // On a worker thread, a WorkerRunnable should only run when there is an
+    // underlying WorkerThreadPrimaryRunnable active, which means we should
+    // find a CycleCollectedJSContext.
+    if (!CycleCollectedJSContext::Get()) {
+      MOZ_DIAGNOSTIC_ASSERT(false,
+                            "A WorkerRunnable was executed after "
+                            "WorkerThreadPrimaryRunnable ended.");
+
+      return NS_OK;
+    }
+  }
 
 #ifdef DEBUG
   MOZ_ASSERT_IF(mCallingCancelWithinRun, targetIsWorkerThread);
@@ -242,14 +261,11 @@ WorkerRunnable::Run()
   }
 #endif
 
-  if (IsCanceled() && !mCallingCancelWithinRun) {
+  if (alreadyCanceled) {
     return NS_OK;
   }
 
-  if (targetIsWorkerThread &&
-      mWorkerPrivate->AllPendingRunnablesShouldBeCanceled() &&
-      !IsCanceled() && !mCallingCancelWithinRun) {
-
+  if (shouldCancelWorker) {
     // Prevent recursion.
     mCallingCancelWithinRun = true;
 
