@@ -300,6 +300,22 @@ namespace TuningDefaults {
     static const bool CompactingEnabled = true;
 }}} // namespace js::gc::TuningDefaults
 
+/*
+ * We may start to collect a zone before its trigger threshold is reached if
+ * GCRuntime::maybeGC() is called for that zone or we start collecting other
+ * zones. These eager threshold factors are not configurable.
+ */
+static const float HighFrequencyEagerAllocTriggerFactor = 0.85f;
+static const float LowFrequencyEagerAllocTriggerFactor = 0.9f;
+
+/*
+ * Don't allow heap growth factors to be set so low that eager collections could
+ * reduce the trigger threshold.
+ */
+static const float MinHeapGrowthFactor =
+    1.0f / Min(HighFrequencyEagerAllocTriggerFactor,
+               LowFrequencyEagerAllocTriggerFactor);
+
 /* Increase the IGC marking slice time if we are in highFrequencyGC mode. */
 static const int IGC_MARK_SLICE_MULTIPLIER = 2;
 
@@ -1289,26 +1305,26 @@ GCSchedulingTunables::setParameter(JSGCParamKey key, uint32_t value, const AutoL
       }
       case JSGC_HIGH_FREQUENCY_HEAP_GROWTH_MAX: {
         double newGrowth = value / 100.0;
-        if (newGrowth <= 0.85 || newGrowth > MaxHeapGrowthFactor)
+        if (newGrowth < MinHeapGrowthFactor || newGrowth > MaxHeapGrowthFactor)
             return false;
         highFrequencyHeapGrowthMax_ = newGrowth;
-        MOZ_ASSERT(highFrequencyHeapGrowthMax_ / 0.85 > 1.0);
+        MOZ_ASSERT(highFrequencyHeapGrowthMax_ > 1.0 / 0.85);
         break;
       }
       case JSGC_HIGH_FREQUENCY_HEAP_GROWTH_MIN: {
         double newGrowth = value / 100.0;
-        if (newGrowth <= 0.85 || newGrowth > MaxHeapGrowthFactor)
+        if (newGrowth < MinHeapGrowthFactor || newGrowth > MaxHeapGrowthFactor)
             return false;
         highFrequencyHeapGrowthMin_ = newGrowth;
-        MOZ_ASSERT(highFrequencyHeapGrowthMin_ / 0.85 > 1.0);
+        MOZ_ASSERT(highFrequencyHeapGrowthMin_ <= highFrequencyHeapGrowthMax_);
         break;
       }
       case JSGC_LOW_FREQUENCY_HEAP_GROWTH: {
         double newGrowth = value / 100.0;
-        if (newGrowth <= 0.9 || newGrowth > MaxHeapGrowthFactor)
+        if (newGrowth < MinHeapGrowthFactor || newGrowth > MaxHeapGrowthFactor)
             return false;
         lowFrequencyHeapGrowth_ = newGrowth;
-        MOZ_ASSERT(lowFrequencyHeapGrowth_ / 0.9 > 1.0);
+        MOZ_ASSERT(lowFrequencyHeapGrowth_ >= MinHeapGrowthFactor);
         break;
       }
       case JSGC_DYNAMIC_HEAP_GROWTH:
@@ -1466,16 +1482,16 @@ GCSchedulingTunables::resetParameter(JSGCParamKey key, const AutoLockGC& lock)
       case JSGC_HIGH_FREQUENCY_HEAP_GROWTH_MAX:
         highFrequencyHeapGrowthMax_ =
             TuningDefaults::HighFrequencyHeapGrowthMax;
-        MOZ_ASSERT(highFrequencyHeapGrowthMax_ / 0.85 > 1.0);
+        MOZ_ASSERT(highFrequencyHeapGrowthMax_ > 1.0 / 0.85);
         break;
       case JSGC_HIGH_FREQUENCY_HEAP_GROWTH_MIN:
         highFrequencyHeapGrowthMin_ =
             TuningDefaults::HighFrequencyHeapGrowthMin;
-        MOZ_ASSERT(highFrequencyHeapGrowthMin_ / 0.85 > 1.0);
+        MOZ_ASSERT(highFrequencyHeapGrowthMin_ <= highFrequencyHeapGrowthMax_);
         break;
       case JSGC_LOW_FREQUENCY_HEAP_GROWTH:
         lowFrequencyHeapGrowth_ = TuningDefaults::LowFrequencyHeapGrowth;
-        MOZ_ASSERT(lowFrequencyHeapGrowth_ / 0.9 > 1.0);
+        MOZ_ASSERT(lowFrequencyHeapGrowth_ >= MinHeapGrowthFactor);
         break;
       case JSGC_DYNAMIC_HEAP_GROWTH:
         dynamicHeapGrowthEnabled_ = TuningDefaults::DynamicHeapGrowthEnabled;
@@ -1805,9 +1821,11 @@ GCRuntime::setMaxMallocBytes(size_t value, const AutoLockGC& lock)
 }
 
 double
-ZoneHeapThreshold::allocTrigger(bool highFrequencyGC) const
+ZoneHeapThreshold::eagerAllocTrigger(bool highFrequencyGC) const
 {
-    return (highFrequencyGC ? 0.85 : 0.9) * gcTriggerBytes();
+    double eagerTriggerFactor = highFrequencyGC ? HighFrequencyEagerAllocTriggerFactor
+                                                : LowFrequencyEagerAllocTriggerFactor;
+    return eagerTriggerFactor * gcTriggerBytes();
 }
 
 /* static */ double
@@ -3325,7 +3343,7 @@ GCRuntime::maybeGC(Zone* zone)
     if (gcIfRequested())
         return;
 
-    double threshold = zone->threshold.allocTrigger(schedulingState.inHighFrequencyGCMode());
+    double threshold = zone->threshold.eagerAllocTrigger(schedulingState.inHighFrequencyGCMode());
     double usedBytes = zone->usage.gcBytes();
     if (usedBytes > 1024 * 1024 && usedBytes >= threshold &&
         !isIncrementalGCInProgress() && !isBackgroundSweeping())
@@ -7181,11 +7199,9 @@ class AutoScheduleZonesForGC
                 zone->scheduleGC();
 
             // This is a heuristic to reduce the total number of collections.
-            if (zone->usage.gcBytes() >=
-                zone->threshold.allocTrigger(rt->gc.schedulingState.inHighFrequencyGCMode()))
-            {
+            bool inHighFrequencyMode = rt->gc.schedulingState.inHighFrequencyGCMode();
+            if (zone->usage.gcBytes() >= zone->threshold.eagerAllocTrigger(inHighFrequencyMode))
                 zone->scheduleGC();
-            }
 
             // This ensures we collect zones that have reached the malloc limit.
             if (zone->shouldTriggerGCForTooMuchMalloc())
@@ -8714,7 +8730,7 @@ ZoneGCAllocTriggerGetter(JSContext* cx, unsigned argc, Value* vp)
 {
     CallArgs args = CallArgsFromVp(argc, vp);
     bool highFrequency = cx->runtime()->gc.schedulingState.inHighFrequencyGCMode();
-    args.rval().setNumber(double(cx->zone()->threshold.allocTrigger(highFrequency)));
+    args.rval().setNumber(double(cx->zone()->threshold.eagerAllocTrigger(highFrequency)));
     return true;
 }
 
