@@ -281,7 +281,7 @@ public:
   {
   }
 
-  NS_IMETHOD Run() override
+  NS_IMETHOD Run()
   {
     if (!mRunnable) {
       return NS_OK;
@@ -299,7 +299,7 @@ public:
     runnable->Run();
   }
 
-  void SetTimer(uint32_t aDelay, nsIEventTarget* aTarget) override
+  void SetTimer(uint32_t aDelay, nsIEventTarget* aTarget)
   {
     MOZ_ASSERT(aTarget);
     MOZ_ASSERT(!mTimer);
