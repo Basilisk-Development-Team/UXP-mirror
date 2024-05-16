@@ -4,6 +4,8 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 #include "nsCycleCollectionParticipant.h"
+#include "mozilla/CycleCollectedJSContext.h"
+#include "nsCOMPtr.h"
 #include "jsapi.h"
 #include "jsfriendapi.h"
 
