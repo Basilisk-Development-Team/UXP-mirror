@@ -734,7 +734,7 @@ NS_IMPL_ISUPPORTS(TimerCallbackForRunnable, nsITimerCallback)
 
 nsresult
 XPCJSContext::ScheduleTimerForThread(nsITimer* aTimer,
-                                     nsICancelableRunnable* aRunnable,
+                                     nsIRunnable* aRunnable,
                                      uint32_t aDelay)
 {	
     nsCOMPtr<nsITimerCallback> callback =

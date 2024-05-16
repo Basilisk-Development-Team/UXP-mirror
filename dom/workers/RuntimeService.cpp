@@ -1114,7 +1114,7 @@ public:
   }
 
     nsresult ScheduleTimerForThread(nsITimer* aTimer,
-                                  nsICancelableRunnable* aRunnable,
+                                  nsIRunnable* aRunnable,
                                   uint32_t aDelay) override
   {
     NS_ENSURE_STATE(mWorkerPrivate);

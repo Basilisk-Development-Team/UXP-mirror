@@ -394,7 +394,7 @@ public:
   // Because of our Web Worker setup being broken, we need to specially initiate
   // timers for Worker threads.
   static nsresult ScheduleTimer(nsITimer* aTimer,
-                                nsICancelableRunnable* aRunnable,
+                                nsIRunnable* aRunnable,
                                 uint32_t aDelay)
   {
     CycleCollectedJSContext* context = Get();
@@ -403,7 +403,7 @@ public:
   }	
 
   virtual nsresult ScheduleTimerForThread(nsITimer* aTimer,
-                                          nsICancelableRunnable* aRunnable,
+                                          nsIRunnable* aRunnable,
                                           uint32_t aDelay) = 0;
 
   // Add aZone to the set of zones waiting for a GC.

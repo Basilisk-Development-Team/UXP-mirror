@@ -148,7 +148,7 @@ private:
   LinkedList<ScheduledSlowTask> mScheduledSlowTasks;
   nsCOMPtr<nsITimer> mTimer;
   mozilla::TimeStamp mTimerTime;
-  nsCOMPtr<nsICancelableRunnable> mTimerCallback;
+  nsCOMPtr<nsIRunnable> mTimerCallback;
   mozilla::TimeStamp mExpectedNonTimerTick;
 
   bool mShuttingDown;
