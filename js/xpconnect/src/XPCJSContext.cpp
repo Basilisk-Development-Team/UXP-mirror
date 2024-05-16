@@ -711,6 +711,38 @@ XPCJSContext::DispatchDeferredDeletion(bool aContinuation, bool aPurge)
     mAsyncSnowWhiteFreer->Dispatch(aContinuation, aPurge);
 }
 
+class TimerCallbackForRunnable : public nsITimerCallback
+{
+public:
+    TimerCallbackForRunnable(nsIRunnable* aRunnable)
+    : mRunnable(aRunnable)
+    {}
+
+    NS_DECL_ISUPPORTS	
+    NS_IMETHOD Notify(nsITimer* aTimer) final
+    {
+        mRunnable->Run();
+        return NS_OK;
+    }
+
+    nsCOMPtr<nsIRunnable> mRunnable;
+private:	
+    virtual ~TimerCallbackForRunnable() {}
+};
+
+NS_IMPL_ISUPPORTS(TimerCallbackForRunnable, nsITimerCallback)
+
+nsresult
+XPCJSContext::ScheduleTimerForThread(nsITimer* aTimer,
+                                     nsICancelableRunnable* aRunnable,
+                                     uint32_t aDelay)
+{	
+    nsCOMPtr<nsITimerCallback> callback =
+        new TimerCallbackForRunnable(aRunnable);
+    aTimer->InitWithCallback(callback, aDelay, nsITimer::TYPE_ONE_SHOT);
+    return NS_OK;
+}
+
 void
 xpc_UnmarkSkippableJSHolders()
 {
@@ -1611,6 +1643,8 @@ ReloadPrefsCallback(const char* pref, void* data)
 
 XPCJSContext::~XPCJSContext()
 {
+    mSATS.Shutdown();
+
     // Elsewhere we abort immediately if XPCJSContext initialization fails.
     // Therefore the context must be non-null.
     MOZ_ASSERT(MaybeContext());

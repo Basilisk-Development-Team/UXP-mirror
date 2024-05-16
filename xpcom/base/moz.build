@@ -85,6 +85,7 @@ EXPORTS.mozilla += [
     'Logging.h',
     'nsMemoryInfoDumper.h',
     'OwningNonNull.h',
+    'SlowAsynchronousTaskScheduler.h',
     'StaticMutex.h',
     'StaticPtr.h',
     'SystemMemoryReporter.h',
@@ -128,6 +129,7 @@ UNIFIED_SOURCES += [
     'nsTraceRefcnt.cpp',
     'nsUUIDGenerator.cpp',
     'nsVersionComparatorImpl.cpp',
+    'SlowAsynchronousTaskScheduler.cpp',
 ]
 
 if CONFIG['OS_ARCH'] == 'Linux':

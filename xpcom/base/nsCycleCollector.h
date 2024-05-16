@@ -46,7 +46,8 @@ already_AddRefed<nsICycleCollectorLogSink> nsCycleCollector_createLogSink();
 
 void nsCycleCollector_collect(nsICycleCollectorListener* aManualListener);
 
-void nsCycleCollector_collectSlice(js::SliceBudget& budget,
+// Returns true if CC was finished.
+bool nsCycleCollector_collectSlice(js::SliceBudget& budget,
                                    bool aPreferShorterSlices = false);
 
 uint32_t nsCycleCollector_suspectedCount();

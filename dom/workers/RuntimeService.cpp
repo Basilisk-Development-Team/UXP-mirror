@@ -1019,6 +1019,12 @@ static const JSWrapObjectCallbacks WrapObjectCallbacks = {
   nullptr,
 };
 
+void
+DummyCallback(nsITimer* aTimer, void* aClosure) 	
+{
+  // Nothing.
+}
+
 class MOZ_STACK_CLASS WorkerJSContext final : public mozilla::CycleCollectedJSContext
 {
 public:
@@ -1037,6 +1043,8 @@ public:
 
   ~WorkerJSContext()
   {
+    mSATS.Shutdown();
+
     MOZ_COUNT_DTOR_INHERITED(WorkerJSContext, CycleCollectedJSContext);
     JSContext* cx = MaybeContext();
     if (!cx) {
@@ -1103,6 +1111,20 @@ public:
 
     // Do it immediately, no need for asynchronous behavior here.
     nsCycleCollector_doDeferredDeletion();
+  }
+
+    nsresult ScheduleTimerForThread(nsITimer* aTimer,
+                                  nsICancelableRunnable* aRunnable,
+                                  uint32_t aDelay) override
+  {
+    NS_ENSURE_STATE(mWorkerPrivate);
+    nsRefPtr<ExternalRunnableWrapper> wrapper =
+      new ExternalRunnableWrapper(mWorkerPrivate, aRunnable);
+    nsRefPtr<TimerThreadEventTarget> target =
+      new TimerThreadEventTarget(mWorkerPrivate, wrapper);
+    aTimer->SetTarget(target);
+    return aTimer->InitWithFuncCallback(DummyCallback, nullptr, aDelay,
+                                        nsITimer::TYPE_ONE_SHOT);
   }
 
   virtual void CustomGCCallback(JSGCStatus aStatus) override

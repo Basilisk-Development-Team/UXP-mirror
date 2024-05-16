@@ -11,6 +11,7 @@
 #include "mozilla/DeferredFinalize.h"
 #include "mozilla/mozalloc.h"
 #include "mozilla/MemoryReporting.h"
+#include "mozilla/SlowAsynchronousTaskScheduler.h"
 #include "mozilla/SegmentedVector.h"
 #include "mozilla/dom/Promise.h"
 #include "jsapi.h"
@@ -384,6 +385,27 @@ public:
   // isn't one.
   static CycleCollectedJSContext* Get();
 
+  static SlowAsynchronousTaskScheduler* GetScheduler()
+  {
+    CycleCollectedJSContext* context = Get();
+    return context ? &context->mSATS : nullptr;
+  }
+
+  // Because of our Web Worker setup being broken, we need to specially initiate
+  // timers for Worker threads.
+  static nsresult ScheduleTimer(nsITimer* aTimer,
+                                nsICancelableRunnable* aRunnable,
+                                uint32_t aDelay)
+  {
+    CycleCollectedJSContext* context = Get();
+    NS_ENSURE_STATE(context);
+    return context->ScheduleTimerForThread(aTimer, aRunnable, aDelay);
+  }	
+
+  virtual nsresult ScheduleTimerForThread(nsITimer* aTimer,
+                                          nsICancelableRunnable* aRunnable,
+                                          uint32_t aDelay) = 0;
+
   // Add aZone to the set of zones waiting for a GC.
   void AddZoneWaitingForGC(JS::Zone* aZone)
   {
@@ -527,6 +549,9 @@ private:
 
   OOMState mOutOfMemoryState;
   OOMState mLargeAllocationFailureState;
+
+  protected:
+  mozilla::SlowAsynchronousTaskScheduler mSATS;
 
   static const size_t kSegmentSize = 512;
   SegmentedVector<nsWrapperCache*, kSegmentSize, InfallibleAllocPolicy>
