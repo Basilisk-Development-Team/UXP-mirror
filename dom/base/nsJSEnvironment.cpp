@@ -176,7 +176,7 @@ static DependentSlowTask sMainThreadCollectorScheduling[]
   { CollectorSchedule::eGCSlice,             100,    TriggerGCSlice },
   { CollectorSchedule::eFullGC,              60000,  TriggerFullGC },
   { CollectorSchedule::eShrinkingGC,         300000, TriggerShrinkingGC },
-  { CollectorSchedule::eForgetSkippable,     400,    TriggerForgetSkippable },
+  { CollectorSchedule::eForgetSkippable,     250,    TriggerForgetSkippable },
   { CollectorSchedule::eCCSlice,             32,     TriggerICCSlice },
   { CollectorSchedule::eNone,                0,      nullptr }
 };
