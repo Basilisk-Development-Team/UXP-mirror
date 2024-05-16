@@ -290,7 +290,7 @@ SlowAsynchronousTaskScheduler::IsScheduled(DependentSlowTask* aTasks,
   return false;
 }
 
-class SATSTimerTick : public nsCancelableRunnable
+class SATSTimerTick : public CancelableRunnable
 {
 public:
   NS_IMETHOD Run()
