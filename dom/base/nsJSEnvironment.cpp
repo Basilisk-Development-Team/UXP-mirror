@@ -98,7 +98,7 @@ const size_t gStackSize = 8192;
 
 // The amount of time we wait between a request to CC (after GC ran)
 // and doing the actual CC.
-#define NS_CC_DELAY                 60000 // ms
+#define NS_CC_DELAY                 20000 // ms
 
 #define NS_CC_SKIPPABLE_DELAY       250 // ms
 
