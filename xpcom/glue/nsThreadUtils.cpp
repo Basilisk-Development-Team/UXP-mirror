@@ -299,7 +299,7 @@ public:
     runnable->Run();
   }
 
-  void SetTimer(uint32_t aDelay, nsIEventTarget* aTarget)
+  void SetTimer(uint32_t aDelay, nsIThread* aTarget)
   {
     MOZ_ASSERT(aTarget);
     MOZ_ASSERT(!mTimer);
