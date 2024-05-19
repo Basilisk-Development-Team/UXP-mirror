@@ -149,6 +149,9 @@ static SATSState
 TriggerShrinkingGC(uint32_t aCurrentID, void* aData);
 
 static SATSState
+CCDelay(uint32_t aCurrentID, void* aData);
+
+static SATSState
 TriggerForgetSkippable(uint32_t aCurrentID, void* aData);
 
 static SATSState
@@ -164,7 +167,8 @@ public:
     eGCSlice,
     eFullGC,	
     eShrinkingGC,
-    eForgetSkippable,	
+    eCCDelay,
+    eForgetSkippable,
     eCCSlice,
     eNone	
   };
@@ -178,6 +182,7 @@ static DependentSlowTask sMainThreadCollectorScheduling[]
   { CollectorSchedule::eGCSlice,             100,    TriggerGCSlice },
   { CollectorSchedule::eFullGC,              60000,  TriggerFullGC },
   { CollectorSchedule::eShrinkingGC,         300000, TriggerShrinkingGC },
+  { CollectorSchedule::eCCDelay,             20000,  CCDelay },
   { CollectorSchedule::eForgetSkippable,     250,    TriggerForgetSkippable },
   { CollectorSchedule::eCCSlice,             32,     TriggerICCSlice },
   { CollectorSchedule::eNone,                0,      nullptr }
@@ -1205,6 +1210,13 @@ FinishAnyIncrementalGC()
   }
 }
 
+static SATSState
+CCDelay(uint32_t aCurrentID, void* aData)
+{
+  static uint32_t CCDelay = NS_CC_DELAY;
+  return CollectorSchedule::eCCDelay;
+}
+
 static void
 FireForgetSkippable(uint32_t aSuspected, bool aRemoveChildless)
 {
@@ -2193,6 +2205,8 @@ mozilla::dom::StartupJSEnvironment()
   MOZ_ASSERT(sScheduler);
   MOZ_ASSERT(sMainThreadCollectorScheduling[CollectorSchedule::eGC].mDelayMillis ==
              NS_GC_DELAY);
+  MOZ_ASSERT(sMainThreadCollectorScheduling[CollectorSchedule::eCCDelay].mDelayMillis ==
+             NS_CC_DELAY);
   MOZ_ASSERT(sMainThreadCollectorScheduling[CollectorSchedule::eForgetSkippable].mDelayMillis ==
              NS_CC_SKIPPABLE_DELAY);
   MOZ_ASSERT(sMainThreadCollectorScheduling[CollectorSchedule::eCCSlice].mDelayMillis ==
