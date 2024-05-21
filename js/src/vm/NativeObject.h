@@ -1018,13 +1018,13 @@ class NativeObject : public ShapedObject
 
     void setFixedSlot(uint32_t slot, const Value& value) {
         MOZ_ASSERT(slot < numFixedSlots());
-        MOZ_ASSERT(IsObjectValueInCompartment(value, compartment()));
+        checkStoredValue(value);
         fixedSlots()[slot].set(this, HeapSlot::Slot, slot, value);
     }
 
     void initFixedSlot(uint32_t slot, const Value& value) {
         MOZ_ASSERT(slot < numFixedSlots());
-        MOZ_ASSERT(IsObjectValueInCompartment(value, compartment()));
+        checkStoredValue(value);
         fixedSlots()[slot].init(this, HeapSlot::Slot, slot, value);
     }
 
