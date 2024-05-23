@@ -5529,10 +5529,6 @@ class MPow
         setMovable();
     }
 
-    // Helpers for `foldsTo`
-    MDefinition* foldsConstant(TempAllocator &alloc);
-    MDefinition* foldsConstantPower(TempAllocator &alloc);
-
   public:
     INSTRUCTION_HEADER(Pow)
     TRIVIAL_NEW_WRAPPERS
