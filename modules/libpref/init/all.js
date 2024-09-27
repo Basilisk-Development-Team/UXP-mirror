@@ -1200,6 +1200,12 @@ pref("dom.cycle_collector.incremental", false);
 pref("content.sink.pending_event_mode", 0);
 #endif
 
+// Is support for CORS enabled?
+pref("content.cors.disable", false);
+
+// Should preflight requests be bypassed when CORS is disabled?
+pref("content.cors.bypass_preflight_request", false);
+
 // Disable popups from plugins by default
 //   0 = openAllowed
 //   1 = openControlled
@@ -1306,6 +1312,9 @@ pref("javascript.options.streams", true);
 // advanced prefs
 pref("advanced.mailftp",                    false);
 pref("image.animation_mode",                "normal");
+
+// Same-origin policy for all URIs.
+pref("security.same_origin_policy.enabled", true);
 
 // Same-origin policy for file URIs, "false" is traditional
 pref("security.fileuri.strict_origin_policy", true);
@@ -1853,6 +1862,16 @@ pref("network.dns.disablePrefetch", false);
 // This preference controls whether .onion hostnames are
 // rejected before being given to DNS. RFC 7686
 pref("network.dns.blockDotOnion", true);
+
+// This preference controls whether to block access to 0.0.0.0
+// to mitigate local access issues in *NIX network stacks.
+#if defined(XP_WIN)
+// Windows is not affected, so don't block it there.
+// XXX: any other OSes not having this issue?
+pref("network.dns.blockQuad0", false);
+#else
+pref("network.dns.blockQuad0", true);
+#endif
 
 // These domains are treated as localhost equivalent
 pref("network.dns.localDomains", "");
