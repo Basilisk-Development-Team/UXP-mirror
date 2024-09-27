@@ -197,7 +197,7 @@ FetchName(JSContext* cx, HandleObject receiver, HandleObject holder, HandlePrope
     }
 
     /* Take the slow path if shape was not found in a native object. */
-    if (!receiver->isNative() || !holder->isNative()) {
+    if (!receiver->isNative() || !holder->isNative() ||
         receiver->is<WithEnvironmentObject>()) {
         Rooted<jsid> id(cx, NameToId(name));
         if (!GetProperty(cx, receiver, receiver, id, vp))
