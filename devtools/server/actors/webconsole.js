@@ -309,7 +309,7 @@ WebConsoleActor.prototype =
   actorPrefix: "console",
 
   get globalDebugObject() {
-    return this.parentActor.threadActor.globalDebugObject;
+    return this.parentActor.?threadActor.?globalDebugObject;
   },
 
   grip: function WCA_grip()
@@ -1071,6 +1071,42 @@ WebConsoleActor.prototype =
       ConsoleAPIStorage.clearEvents(aId);
     });
 
+    if (this._actorPool && this.networkMonitor) {
+      // Clear NetworkEventActor items from its NetworkMonitor
+      let actor, aid, n;
+      let allActors = this._actorPool._actors;
+      let voidActor = {actorID:0,
+                       release:function(){},
+                       stub:true};
+
+      // Build list of NetworkEventActors
+      let netActors = [];
+      for (n in allActors)  {
+        if (n.indexOf('netEvent')>=0) {
+          netActors.push(allActors[n]);
+        }
+      }
+      // ... and release them.
+      for (actor of netActors) {
+        if(actor) {
+          if (actor.release) {
+            actor.release();
+          }
+        }
+      }
+      // XXX: Sometimes the actors are not removed upon calling release() (async?)
+      // Force the issue by unlinking the actor from active scripting and deleting.
+      for (actor of netActors) {
+        if(actor) {
+          aid = actor.actorID;
+          if (aid && allActors[aid]) {
+            allActors[aid] = voidActor;
+            delete allActors[aid];
+          }
+        }
+      }
+    }
+    
     if (this.parentActor.isRootActor) {
       Services.console.logStringMessage(null); // for the Error Console
       Services.console.reset();

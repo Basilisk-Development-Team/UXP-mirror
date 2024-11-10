@@ -250,6 +250,39 @@ ConsoleOutput.prototype = {
   },
 
   /**
+   * Clear the netRequests Map in this.owner.window.
+   * Items of NetRequest() in chrome/devtools/modules/devtools/client/webconsole/net/net-request.js
+   * netRequest.file holds response
+   * netRequest.parentNode holds div above bodyWrapper here in console-output.js
+   */
+  onConsoleClear: function() {
+    let netRequests = this.owner.?window.?netRequests;
+    let toClear = [];
+    if(netRequests && netRequests.forEach){
+      // Build list of items to clear
+      netRequests.forEach(
+        function(netReq,key){
+          if (netReq.parentNode && !netReq.parentNode.parentNode) {
+            // DOM node was removed from the browser console output, but still referenced...
+            toClear.push({netReq:netReq,
+                          key:key});
+          }
+        });
+      // ... and clean them up
+      toClear.forEach(
+        function(item){
+          let netReq = item.netReq, key = item.key;
+          let file = netReq.file || {};
+          netReq.parentNode = file.node = null;
+          file.request = file.response = file.cause = file.updates = null;
+          netReq.client = netReq.owner = netReq.file = null;
+          item.netReq = null;
+          netRequests.delete(key);
+        });
+    }
+  },
+
+  /**
    * Get an array of selected messages. This list is based on the text selection
    * start and end points.
    *

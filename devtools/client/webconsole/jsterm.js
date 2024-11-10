@@ -960,6 +960,10 @@ JSTerm.prototype = {
       hud.newConsoleOutput.dispatchMessagesClear();
     }
 
+    if(hud.output && hud.output.onConsoleClear) {
+      hud.output.onConsoleClear();
+    }
+
     this.emit("messages-cleared");
   },
 
