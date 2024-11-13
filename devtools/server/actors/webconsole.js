@@ -309,7 +309,7 @@ WebConsoleActor.prototype =
   actorPrefix: "console",
 
   get globalDebugObject() {
-    return this.parentActor.?threadActor.?globalDebugObject;
+    return this.parentActor?.threadActor?.globalDebugObject;
   },
 
   grip: function WCA_grip()
