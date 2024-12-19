@@ -20,7 +20,11 @@ import subprocess
 import sys
 import tempfile
 
-from mozpack import path as mozpath
+#from mozpack import path as mozpath
+# Decouple from build system so it can be run separately
+# (this is close enough)
+import os.path as mozpath
+mozpath.normsep = lambda p: p
 
 # The following files have been determined to be dead/unused by a
 # semi-automated analysis. You can just remove any of the files below
@@ -81,7 +85,6 @@ UNUSED_SOURCES = sets.Set([
     'intl/icu/source/i18n/translit.cpp',
     'intl/icu/source/i18n/transreg.cpp',
     'intl/icu/source/i18n/tridpars.cpp',
-    'intl/icu/source/i18n/udateintervalformat.cpp',
     'intl/icu/source/i18n/unesctrn.cpp',
     'intl/icu/source/i18n/uni2name.cpp',
     'intl/icu/source/i18n/uregexc.cpp',

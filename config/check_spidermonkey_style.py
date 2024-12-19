@@ -86,6 +86,7 @@ included_inclnames_to_ignore = set([
     'unicode/uclean.h',         # ICU
     'unicode/ucol.h',           # ICU
     'unicode/udat.h',           # ICU
+    'unicode/udateintervalformat.h',  # ICU
     'unicode/udatpg.h',         # ICU
     'unicode/udisplaycontext.h',# ICU
     'unicode/uenum.h',          # ICU
