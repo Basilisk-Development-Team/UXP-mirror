@@ -8928,7 +8928,7 @@ static inline bool
 CanCheckGrayBits(const Cell* cell)
 {
     MOZ_ASSERT(cell);
-    if (!cell->isTenured())
+    if (!cell || !cell->isTenured())
         return false;
 
     auto tc = &cell->asTenured();

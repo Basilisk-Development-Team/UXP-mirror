@@ -364,7 +364,7 @@ XMLHttpRequestMainThread::IsCertainlyAliveForCC() const
 }
 
 // QueryInterface implementation for XMLHttpRequestMainThread
-NS_INTERFACE_MAP_BEGIN_CYCLE_COLLECTION_INHERITED(XMLHttpRequestMainThread)
+NS_INTERFACE_MAP_BEGIN_CYCLE_COLLECTION(XMLHttpRequestMainThread)
   NS_INTERFACE_MAP_ENTRY(nsIXMLHttpRequest)
   NS_INTERFACE_MAP_ENTRY(nsIJSXMLHttpRequest)
   NS_INTERFACE_MAP_ENTRY(nsIRequestObserver)
@@ -2433,9 +2433,10 @@ XMLHttpRequestMainThread::InitiateFetch(nsIInputStream* aUploadStream,
     if (!IsSystemXHR()) {
       nsCOMPtr<nsPIDOMWindowInner> owner = GetOwner();
       nsCOMPtr<nsIDocument> doc = owner ? owner->GetExtantDoc() : nullptr;
+      mozilla::net::ReferrerPolicy referrerPolicy = doc ?
+        doc->GetReferrerPolicy() : mozilla::net::RP_Default;
       nsContentUtils::SetFetchReferrerURIWithPolicy(mPrincipal, doc,
-                                                    httpChannel,
-                                                    mozilla::net::RP_Default);
+                                                    httpChannel, referrerPolicy);
     }
 
     // Some extensions override the http protocol handler and provide their own
