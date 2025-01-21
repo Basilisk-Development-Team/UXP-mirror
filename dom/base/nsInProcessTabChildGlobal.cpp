@@ -88,21 +88,24 @@ nsInProcessTabChildGlobal::DoSendAsyncMessage(JSContext* aCx,
 nsInProcessTabChildGlobal::nsInProcessTabChildGlobal(nsIDocShell* aShell,
                                                      nsIContent* aOwner,
                                                      nsFrameMessageManager* aChrome)
-: mDocShell(aShell), mInitialized(false), mLoadingScript(false),
-  mPreventEventsEscaping(false),
-  mOwner(aOwner), mChromeMessageManager(aChrome)
+: mDocShell(aShell)
+, mInitialized(false)
+, mLoadingScript(false)
+, mPreventEventsEscaping(false)
+, mOwner(aOwner)
+, mChromeMessageManager(aChrome)
 {
   SetIsNotDOMBinding();
   mozilla::HoldJSObjects(this);
 
-  // If owner corresponds to an <iframe mozbrowser> or <iframe mozapp>, we'll
+  // If owner corresponds to an <iframe mozbrowser>, we'll have to tweak our
   // GetEventTargetParent implementation.
   nsCOMPtr<nsIMozBrowserFrame> browserFrame = do_QueryInterface(mOwner);
   if (browserFrame) {
-    mIsBrowserOrAppFrame = browserFrame->GetReallyIsBrowserOrApp();
+    mIsBrowserFrame = browserFrame->GetReallyIsBrowser();
   }
   else {
-    mIsBrowserOrAppFrame = false;
+    mIsBrowserFrame = false;
   }
 }
 
@@ -159,7 +162,7 @@ NS_IMPL_CYCLE_COLLECTION_UNLINK_BEGIN_INHERITED(nsInProcessTabChildGlobal,
    tmp->UnlinkHostObjectURIs();
 NS_IMPL_CYCLE_COLLECTION_UNLINK_END
 
-NS_INTERFACE_MAP_BEGIN_CYCLE_COLLECTION_INHERITED(nsInProcessTabChildGlobal)
+NS_INTERFACE_MAP_BEGIN_CYCLE_COLLECTION(nsInProcessTabChildGlobal)
   NS_INTERFACE_MAP_ENTRY(nsIMessageListenerManager)
   NS_INTERFACE_MAP_ENTRY(nsIMessageSender)
   NS_INTERFACE_MAP_ENTRY(nsISyncMessageSender)
@@ -272,7 +275,7 @@ nsInProcessTabChildGlobal::GetEventTargetParent(EventChainPreVisitor& aVisitor)
     return NS_OK;
   }
 
-  if (mIsBrowserOrAppFrame &&
+  if (mIsBrowserFrame &&
       (!mOwner || !nsContentUtils::IsInChromeDocshell(mOwner->OwnerDoc()))) {
     if (mOwner) {
       if (nsPIDOMWindowInner* innerWindow = mOwner->OwnerDoc()->GetInnerWindow()) {

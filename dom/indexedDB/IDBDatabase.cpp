@@ -1074,7 +1074,7 @@ IDBDatabase::GetQuotaInfo(nsACString& aOrigin,
       MOZ_CRASH("Is this needed?!");
 
     case PrincipalInfo::TSystemPrincipalInfo:
-      QuotaManager::GetInfoForChrome(nullptr, nullptr, &aOrigin, nullptr);
+      QuotaManager::GetInfoForChrome(nullptr, nullptr, &aOrigin);
       return NS_OK;
 
     case PrincipalInfo::TContentPrincipalInfo: {
@@ -1088,8 +1088,7 @@ IDBDatabase::GetQuotaInfo(nsACString& aOrigin,
       rv = QuotaManager::GetInfoFromPrincipal(principal,
                                               nullptr,
                                               nullptr,
-                                              &aOrigin,
-                                              nullptr);
+                                              &aOrigin);
       if (NS_WARN_IF(NS_FAILED(rv))) {
         return rv;
       }
@@ -1233,7 +1232,7 @@ IDBDatabase::LogWarning(const char* aMessageName,
 NS_IMPL_ADDREF_INHERITED(IDBDatabase, IDBWrapperCache)
 NS_IMPL_RELEASE_INHERITED(IDBDatabase, IDBWrapperCache)
 
-NS_INTERFACE_MAP_BEGIN_CYCLE_COLLECTION_INHERITED(IDBDatabase)
+NS_INTERFACE_MAP_BEGIN_CYCLE_COLLECTION(IDBDatabase)
 NS_INTERFACE_MAP_END_INHERITING(IDBWrapperCache)
 
 NS_IMPL_CYCLE_COLLECTION_CLASS(IDBDatabase)

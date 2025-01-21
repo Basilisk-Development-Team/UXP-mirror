@@ -399,6 +399,7 @@ pref("media.ffmpeg.enabled", false);
 #else
 pref("media.ffmpeg.enabled", true);
 #endif
+pref("media.libavcodec.allow-obsolete", false);
 #endif
 #if defined(MOZ_FFVPX)
 pref("media.ffvpx.enabled", true);
@@ -938,8 +939,6 @@ pref("devtools.debugger.force-local", true);
 pref("devtools.debugger.prompt-connection", true);
 // Block tools from seeing / interacting with certified apps
 pref("devtools.debugger.forbid-certified-apps", true);
-// List of permissions that a sideloaded app can't ask for
-pref("devtools.apps.forbidden-permissions", "embed-apps");
 
 // DevTools default color unit
 pref("devtools.defaultColorUnit", "authored");
@@ -4868,9 +4867,6 @@ pref("layout.accessiblecaret.hide_carets_for_mouse_input", true);
 
 // Wakelock is disabled by default.
 pref("dom.wakelock.enabled", false);
-
-// disable mozsample size for now
-pref("image.mozsamplesize.enabled", false);
 
 pref("beacon.enabled", true);
 
