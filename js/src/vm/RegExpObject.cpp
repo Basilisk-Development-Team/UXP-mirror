@@ -1273,7 +1273,7 @@ RegExpShared::sizeOfExcludingThis(mozilla::MallocSizeOf mallocSizeOf)
 /* RegExpCompartment */
 
 RegExpCompartment::RegExpCompartment(Zone* zone)
-    optimizableRegExpPrototypeShape_(nullptr),
+    : optimizableRegExpPrototypeShape_(nullptr),
     optimizableRegExpInstanceShape_(nullptr)
 {
   for (auto& templateObj : matchResultTemplateObjects_) {
