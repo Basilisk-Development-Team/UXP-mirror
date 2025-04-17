@@ -336,6 +336,13 @@ GetPropIRGenerator::tryAttachTypedObject(CacheIRWriter& writer, HandleObject obj
     if (!fieldDescr->is<SimpleTypeDescr>())
         return true;
 
+    if (fieldDescr->is<ScalarTypeDescr>()) {
+        Scalar::Type type = fieldDescr->as<ScalarTypeDescr>().type();
+        if (Scalar::isBigIntType(type)) {
+            return true;
+        }
+    }
+
     Shape* shape = typedObj->maybeShape();
     TypedThingLayout layout = GetTypedThingLayout(shape->getObjectClass());
 

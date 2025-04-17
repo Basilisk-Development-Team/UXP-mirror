@@ -9417,6 +9417,11 @@ IonBuilder::checkTypedObjectIndexInBounds(uint32_t elemSize,
     return indexAsByteOffset->add(index, AssertedCast<int32_t>(elemSize));
 }
 
+static bool CheckTypedObjectSupportedType(Scalar::Type type) {
+  // FIXME: Enable TypedArray JIT optimizations for Big(U)Int64Array
+  return !Scalar::isBigIntType(type);
+}
+
 bool
 IonBuilder::getElemTryScalarElemOfTypedObject(bool* emitted,
                                               MDefinition* obj,
@@ -9430,6 +9435,10 @@ IonBuilder::getElemTryScalarElemOfTypedObject(bool* emitted,
     // Must always be loading the same scalar type
     ScalarTypeDescr::Type elemType = elemPrediction.scalarType();
     MOZ_ASSERT(elemSize == ScalarTypeDescr::alignment(elemType));
+
+    if (!CheckTypedObjectSupportedType(elemType)) {
+        return true;
+    }
 
     LinearSum indexAsByteOffset(alloc());
     if (!checkTypedObjectIndexInBounds(elemSize, obj, index, objPrediction, &indexAsByteOffset))
@@ -10522,6 +10531,10 @@ IonBuilder::setElemTryScalarElemOfTypedObject(bool* emitted,
     // Must always be loading the same scalar type
     ScalarTypeDescr::Type elemType = elemPrediction.scalarType();
     MOZ_ASSERT(elemSize == ScalarTypeDescr::alignment(elemType));
+
+    if (!CheckTypedObjectSupportedType(elemType)) {
+        return true;
+    }
 
     LinearSum indexAsByteOffset(alloc());
     if (!checkTypedObjectIndexInBounds(elemSize, obj, index, objPrediction, &indexAsByteOffset))
@@ -12110,6 +12123,10 @@ IonBuilder::getPropTryScalarPropOfTypedObject(bool* emitted, MDefinition* typedO
     // Must always be loading the same scalar type
     Scalar::Type fieldType = fieldPrediction.scalarType();
 
+    if (!CheckTypedObjectSupportedType(fieldType)) {
+        return true;
+    }
+
     // Don't optimize if the typed object's underlying buffer may be detached.
     TypeSet::ObjectKey* globalKey = TypeSet::ObjectKey::get(&script()->global());
     if (globalKey->hasFlags(constraints(), OBJECT_FLAG_TYPED_OBJECT_HAS_DETACHED_BUFFER))
@@ -13195,6 +13212,10 @@ IonBuilder::setPropTryScalarPropOfTypedObject(bool* emitted,
 {
     // Must always be loading the same scalar type
     Scalar::Type fieldType = fieldPrediction.scalarType();
+
+    if (!CheckTypedObjectSupportedType(fieldType)) {
+        return true;
+    }
 
     // Don't optimize if the typed object's underlying buffer may be detached.
     TypeSet::ObjectKey* globalKey = TypeSet::ObjectKey::get(&script()->global());
