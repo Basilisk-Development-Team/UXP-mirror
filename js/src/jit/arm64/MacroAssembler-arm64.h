@@ -907,6 +907,14 @@ class MacroAssemblerCompat : public vixl::MacroAssembler
         storePtr(src.reg, address);
     }
 
+    void store64(Register64 src, const BaseIndex& address) {
+        storePtr(src.reg, address);
+    }
+
+    void store64(Imm64 imm, const BaseIndex& address) {
+        storePtr(ImmWord(imm.value), address);
+    }
+
     // StackPointer manipulation.
     template <typename T> void addToStackPtr(T t);
     template <typename T> void addStackPtrTo(T t);
@@ -2302,3 +2310,4 @@ typedef MacroAssemblerCompat MacroAssemblerSpecific;
 } // namespace js
 
 #endif // jit_arm64_MacroAssembler_arm64_h
+    void store64(Register64 src, const BaseIndex& address) {

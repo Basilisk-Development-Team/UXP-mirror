@@ -1328,6 +1328,74 @@ MacroAssembler::loadStringChar(Register str, Register index, Register output)
     bind(&done);
 }
 
+void MacroAssembler::loadBigInt64(Register bigInt, Register64 dest) {
+  // This code follows the implementation of |BigInt::toUint64()|. We're also
+  // using it for inline callers of |BigInt::toInt64()|, which works, because
+  // all supported Jit architectures use a two's complement representation for
+  // int64 values, which means the WrapToSigned call in toInt64() is a no-op.
+
+  Label done, nonZero;
+
+  branch32(Assembler::NotEqual, Address(bigInt, BigInt::offsetOfLength()),
+           Imm32(0), &nonZero);
+  {
+    move64(Imm64(0), dest);
+    jump(&done);
+  }
+  bind(&nonZero);
+
+#ifdef JS_PUNBOX64
+  Register digits = dest.reg;
+#else
+  Register digits = dest.high;
+#endif
+  MOZ_ASSERT(digits != bigInt);
+
+  Label isInline, inlineDone;
+
+  branch32(Assembler::NonZero, Address(bigInt, BigInt::offsetOfLength()),
+           Imm32(int32_t(BigInt::nonInlineDigitsLengthMask())),
+           &isInline);
+  
+  load64(Address(bigInt, BigInt::nonInlineDigitsLengthMask()), dest);
+  jump(&inlineDone);
+
+  bind(&isInline); 
+  // Load the inline digits.
+  computeEffectiveAddress(Address(bigInt, BigInt::offsetOfInlineDigits()),
+                          digits);
+
+  bind(&inlineDone);
+
+#if JS_PUNBOX64
+  // Load the first digit into the destination register.
+  load64(Address(digits, 0), dest);
+#else
+  // Load the first digit into the destination register's low value.
+  load32(Address(digits, 0), dest.low);
+
+  // And conditionally load the second digit into the high value register.
+  Label twoDigits, digitsDone;
+  branch32(Assembler::GreaterThan, Address(bigInt, BigInt::offsetOfLength()),
+           Imm32(1), &twoDigits);
+  {
+    move32(Imm32(0), dest.high);
+    jump(&digitsDone);
+  }
+  {
+    bind(&twoDigits);
+    load32(Address(digits, sizeof(BigInt::Digit)), dest.high);
+  }
+  bind(&digitsDone);
+#endif
+
+  branchTest32(Assembler::Zero, Address(bigInt, BigInt::offsetOfFlags()),
+               Imm32(BigInt::signBitMask()), &done);
+  neg64(dest);
+
+  bind(&done);
+}
+
 static void
 BailoutReportOverRecursed(JSContext* cx)
 {

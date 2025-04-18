@@ -972,7 +972,7 @@ void MacroAssembler::branchTestBigIntTruthy(bool b, const ValueOperand& value, L
 {
     Register bi = value.payloadReg();
     SecondScratchRegisterScope scratch2(*this);
-    ma_lw(scratch2, Address(bi, BigInt::offsetOfLengthSignAndReservedBits()));
+    ma_lw(scratch2, Address(bi, BigInt::offsetOfDigitLength()));
     ma_b(scratch2, Imm32(0), label, b ? NotEqual : Equal);
 }
 

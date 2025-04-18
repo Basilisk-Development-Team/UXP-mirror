@@ -123,9 +123,9 @@ static inline unsigned DigitLeadingZeroes(BigInt::Digit x) {
                         : mozilla::CountLeadingZeroes64(x);
 }
 
-BigInt* BigInt::createUninitialized(ExclusiveContext* cx, size_t length,
+BigInt* BigInt::createUninitialized(ExclusiveContext* cx, size_t digitLength,
                                     bool isNegative) {
-  if (length > MaxDigitLength) {
+  if (digitLength > MaxDigitLength) {
     if (cx->isJSContext()) {
       JS_ReportErrorNumberASCII(cx->asJSContext(), GetErrorMessage, nullptr,
                                     JSMSG_BIGINT_TOO_LARGE);
@@ -134,8 +134,8 @@ BigInt* BigInt::createUninitialized(ExclusiveContext* cx, size_t length,
   }
 
   UniquePtr<Digit[], JS::FreePolicy> heapDigits;
-  if (length > InlineDigitsLength) {
-    heapDigits = cx->make_pod_array<Digit>(length);
+  if (digitLength > InlineDigitsLength) {
+    heapDigits = cx->make_pod_array<Digit>(digitLength);
     if (!heapDigits) {
       return nullptr;
     }
@@ -148,9 +148,9 @@ BigInt* BigInt::createUninitialized(ExclusiveContext* cx, size_t length,
     return nullptr;
   }
 
-  x->lengthSignAndReservedBits_ =
-      (length << LengthShift) | (isNegative ? SignBit : 0);
-  MOZ_ASSERT(x->digitLength() == length);
+  x->setLengthAndFlags(digitLength, isNegative ? SignBit : 0);
+
+  MOZ_ASSERT(x->digitLength() == digitLength);
   MOZ_ASSERT(x->isNegative() == isNegative);
 
   if (heapDigits) {
@@ -211,7 +211,7 @@ BigInt* BigInt::neg(ExclusiveContext* cx, HandleBigInt x) {
   if (!result) {
     return nullptr;
   }
-  result->lengthSignAndReservedBits_ ^= SignBit;
+  result->toggleFlagBit(SignBit);
   return result;
 }
 
@@ -1612,7 +1612,7 @@ BigInt* BigInt::createFromInt64(ExclusiveContext* cx, int64_t n) {
   }
 
   if (n < 0) {
-    res->lengthSignAndReservedBits_ |= SignBit;
+    res->setFlagBit(SignBit);
   }
   MOZ_ASSERT(res->isNegative() == (n < 0));
 

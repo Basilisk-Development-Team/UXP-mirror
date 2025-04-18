@@ -39,18 +39,21 @@ bool XDRBigInt(XDRState<mode>* xdr, MutableHandle<JS::BigInt*> bi);
 
 namespace JS {
 
-class BigInt final : public js::gc::TenuredCell {
+class BigInt final
+    : public js::gc::CellWithLengthAndFlags<js::gc::TenuredCell> {
+  using Base = js::gc::CellWithLengthAndFlags<js::gc::TenuredCell>;
+
  public:
   using Digit = uintptr_t;
 
  private:
-  // The low js::gc::Cell::ReservedBits are reserved.
-  static constexpr uintptr_t SignBit = JS_BIT(js_gc_Cell_ReservedBits);
-  static constexpr uintptr_t LengthShift = js_gc_Cell_ReservedBits + 1;
+  // The low NumFlagBitsReservedForGC flag bits are reserved.
+  static constexpr uintptr_t SignBit = JS_BIT(Base::NumFlagBitsReservedForGC);
   static constexpr size_t InlineDigitsLength =
-      (js_gc_MinCellSize - sizeof(uintptr_t)) / sizeof(Digit);
+      (js_gc_MinCellSize - sizeof(Base)) / sizeof(Digit);
 
-  uintptr_t lengthSignAndReservedBits_;
+  // Note: 32-bit length and flags fields are inherited from
+  // CellWithLengthAndFlags.
 
   // The digit storage starts with the least significant digit (little-endian
   // digit order).  Byte order within a digit is of course native endian.
@@ -62,8 +65,11 @@ class BigInt final : public js::gc::TenuredCell {
  public:
   static const JS::TraceKind TraceKind = JS::TraceKind::BigInt;
 
-  size_t digitLength() const {
-    return lengthSignAndReservedBits_ >> LengthShift;
+  size_t digitLength() const { return lengthField(); }
+
+  // Offset for direct access from JIT code.
+  static constexpr size_t offsetOfDigitLength() {
+    return Base::offsetOfLength();
   }
 
   bool hasInlineDigits() const { return digitLength() <= InlineDigitsLength; }
@@ -78,12 +84,7 @@ class BigInt final : public js::gc::TenuredCell {
   void setDigit(size_t idx, Digit digit) { digits()[idx] = digit; }
 
   bool isZero() const { return digitLength() == 0; }
-  bool isNegative() const { return lengthSignAndReservedBits_ & SignBit; }
-
-  // Offset for direct access from JIT code.
-  static constexpr size_t offsetOfLengthSignAndReservedBits() {
-    return offsetof(BigInt, lengthSignAndReservedBits_);
-  }
+  bool isNegative() const { return flagsField() & SignBit; }
 
   void initializeDigitsToZero();
 
@@ -92,7 +93,7 @@ class BigInt final : public js::gc::TenuredCell {
   js::HashNumber hash();
   size_t sizeOfExcludingThis(mozilla::MallocSizeOf mallocSizeOf) const;
 
-  static BigInt* createUninitialized(js::ExclusiveContext* cx, size_t length,
+  static BigInt* createUninitialized(js::ExclusiveContext* cx, size_t digitLength,
                                      bool isNegative);
   static BigInt* createFromDouble(js::ExclusiveContext* cx, double d);
   static BigInt* createFromUint64(js::ExclusiveContext* cx, uint64_t n);
@@ -354,7 +355,29 @@ class BigInt final : public js::gc::TenuredCell {
   BigInt() = delete;
   BigInt(const BigInt& other) = delete;
   void operator=(const BigInt& other) = delete;
-};
+
+ private:
+  // To help avoid writing Spectre-unsafe code, we only allow MacroAssembler to
+  // call the methods below.
+  friend class js::jit::MacroAssembler;
+
+  // Make offset accessors accessible to the MacroAssembler.
+  using Base::offsetOfFlags;
+  using Base::offsetOfLength;
+
+  static size_t offsetOfInlineDigits() {
+    return offsetof(BigInt, inlineDigits_);
+  }
+
+  static size_t offsetOfHeapDigits() { return offsetof(BigInt, heapDigits_); }
+
+  static constexpr size_t nonInlineDigitsLengthMask() {
+    static_assert(mozilla::IsPowerOfTwo(InlineDigitsLength),
+                  "inline digits length is a power of two");
+    return ~(InlineDigitsLength - 1) & ~InlineDigitsLength;
+  }
+
+  static constexpr size_t signBitMask() { return SignBit; }};
 
 static_assert(
     sizeof(BigInt) >= js_gc_MinCellSize,

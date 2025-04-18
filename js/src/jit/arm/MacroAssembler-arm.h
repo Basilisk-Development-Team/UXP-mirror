@@ -1077,7 +1077,17 @@ class MacroAssemblerARMCompat : public MacroAssemblerARM
         store32(src.high, Address(address.base, address.offset + INT64HIGH_OFFSET));
     }
 
+    void store64(Register64 src, const BaseIndex& address) {
+        store32(src.low, Address(address.base, address.offset + INT64LOW_OFFSET));
+        store32(src.high, Address(address.base, address.offset + INT64HIGH_OFFSET));
+    }
+
     void store64(Imm64 imm, Address address) {
+        store32(imm.low(), Address(address.base, address.offset + INT64LOW_OFFSET));
+        store32(imm.hi(), Address(address.base, address.offset + INT64HIGH_OFFSET));
+    }
+
+    void store64(Imm64 imm, const BaseIndex& address) {
         store32(imm.low(), Address(address.base, address.offset + INT64LOW_OFFSET));
         store32(imm.hi(), Address(address.base, address.offset + INT64HIGH_OFFSET));
     }
