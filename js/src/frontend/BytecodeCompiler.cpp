@@ -16,6 +16,7 @@
 #include "frontend/FoldConstants.h"
 #include "frontend/NameFunctions.h"
 #include "frontend/Parser.h"
+#include "js/SourceBufferHolder.h"
 #include "vm/GlobalObject.h"
 #include "vm/TraceLogging.h"
 #include "wasm/AsmJS.h"
@@ -27,8 +28,13 @@
 
 using namespace js;
 using namespace js::frontend;
+
 using mozilla::Maybe;
 using mozilla::Nothing;
+
+using JS::CompileOptions;
+using JS::ReadOnlyCompileOptions;
+using JS::SourceBufferHolder;
 
 class MOZ_STACK_CLASS AutoCompilationTraceLogger
 {
@@ -560,7 +566,7 @@ frontend::CompileEvalScript(JSContext* cx, LifoAlloc& alloc,
 }
 
 ModuleObject*
-frontend::CompileModule(JSContext* cx, const ReadOnlyCompileOptions& optionsInput,
+frontend::CompileModule(JSContext* cx, const JS::ReadOnlyCompileOptions& optionsInput,
                         SourceBufferHolder& srcBuf, LifoAlloc& alloc,
                         ScriptSourceObject** sourceObjectOut)
 {
@@ -603,7 +609,7 @@ frontend::CompileLazyFunction(JSContext* cx, Handle<LazyScript*> lazy, const cha
 {
     MOZ_ASSERT(cx->compartment() == lazy->functionNonDelazifying()->compartment());
 
-    CompileOptions options(cx, lazy->version());
+    JS::CompileOptions options(cx, lazy->version());
     options.setMutedErrors(lazy->mutedErrors())
            .setFileAndLine(lazy->filename(), lazy->lineno())
            .setColumn(lazy->column())
@@ -669,7 +675,7 @@ frontend::CompileLazyFunction(JSContext* cx, Handle<LazyScript*> lazy, const cha
 
 bool
 frontend::CompileStandaloneFunction(JSContext* cx, MutableHandleFunction fun,
-                                    const ReadOnlyCompileOptions& options,
+                                    const JS::ReadOnlyCompileOptions& options,
                                     JS::SourceBufferHolder& srcBuf,
                                     Maybe<uint32_t> parameterListEnd,
                                     HandleScope enclosingScope /* = nullptr */)
@@ -685,7 +691,7 @@ frontend::CompileStandaloneFunction(JSContext* cx, MutableHandleFunction fun,
 
 bool
 frontend::CompileStandaloneGenerator(JSContext* cx, MutableHandleFunction fun,
-                                     const ReadOnlyCompileOptions& options,
+                                     const JS::ReadOnlyCompileOptions& options,
                                      JS::SourceBufferHolder& srcBuf,
                                      Maybe<uint32_t> parameterListEnd)
 {
@@ -698,7 +704,7 @@ frontend::CompileStandaloneGenerator(JSContext* cx, MutableHandleFunction fun,
 
 bool
 frontend::CompileStandaloneAsyncFunction(JSContext* cx, MutableHandleFunction fun,
-                                         const ReadOnlyCompileOptions& options,
+                                         const JS::ReadOnlyCompileOptions& options,
                                          JS::SourceBufferHolder& srcBuf,
                                          Maybe<uint32_t> parameterListEnd)
 {
@@ -711,7 +717,7 @@ frontend::CompileStandaloneAsyncFunction(JSContext* cx, MutableHandleFunction fu
 
 bool
 frontend::CompileStandaloneAsyncGenerator(JSContext* cx, MutableHandleFunction fun,
-                                          const ReadOnlyCompileOptions& options,
+                                          const JS::ReadOnlyCompileOptions& options,
                                           JS::SourceBufferHolder& srcBuf,
                                           Maybe<uint32_t> parameterListEnd)
 {

@@ -2227,6 +2227,7 @@ MacroAssembler::convertTypedOrValueToInt(TypedOrValueRegister src, FloatRegister
       case MIRType::String:
       case MIRType::Symbol:
       case MIRType::Object:
+      case MIRType::BigInt:
         jump(fail);
         break;
       default:

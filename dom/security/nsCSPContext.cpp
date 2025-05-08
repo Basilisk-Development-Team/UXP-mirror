@@ -263,7 +263,7 @@ nsCSPContext::permitsInternal(CSPDirective aDir,
       // Do not send a report or notify observers if this is a preload - the
       // decision may be wrong due to the inability to get the nonce, and will
       // incorrectly fail the unit tests.
-      if (!aIsPreload && aSendViolationReports) {
+      if (CSPService::sCSPReportingEnabled && !aIsPreload && aSendViolationReports) {
         uint32_t lineNumber = 0;
         uint32_t columnNumber = 0;
         nsAutoCString spec;
@@ -395,48 +395,6 @@ nsCSPContext::GetEnforcesFrameAncestors(bool *outEnforcesFrameAncestors)
       return NS_OK;
     }
   }
-  return NS_OK;
-}
-
-NS_IMETHODIMP
-nsCSPContext::GetReferrerPolicy(uint32_t* outPolicy, bool* outIsSet)
-{
-  *outIsSet = false;
-  *outPolicy = mozilla::net::RP_Default;
-  nsAutoString refpol;
-  mozilla::net::ReferrerPolicy previousPolicy = mozilla::net::RP_Default;
-  for (uint32_t i = 0; i < mPolicies.Length(); i++) {
-    mPolicies[i]->getReferrerPolicy(refpol);
-    // only set the referrer policy if not delievered through a CSPRO and
-    // note that and an empty string in refpol means it wasn't set
-    // (that's the default in nsCSPPolicy).
-    if (!mPolicies[i]->getReportOnlyFlag() && !refpol.IsEmpty()) {
-      // Referrer Directive in CSP is no more used and going to be replaced by
-      // Referrer-Policy HTTP header. But we still keep using referrer directive,
-      // and would remove it later.
-      // Referrer Directive specs is not fully compliant with new referrer policy
-      // specs. What we are using here:
-      // - If the value of the referrer directive is invalid, the user agent
-      // should set the referrer policy to no-referrer.
-      // - If there are two policies that specify a referrer policy, then they
-      // must agree or the employed policy is no-referrer.
-      if (!mozilla::net::IsValidReferrerPolicy(refpol)) {
-        *outPolicy = mozilla::net::RP_No_Referrer;
-        *outIsSet = true;
-        return NS_OK;
-      }
-
-      uint32_t currentPolicy = mozilla::net::ReferrerPolicyFromString(refpol);
-      if (*outIsSet && previousPolicy != currentPolicy) {
-        *outPolicy = mozilla::net::RP_No_Referrer;
-        return NS_OK;
-      }
-
-      *outPolicy = currentPolicy;
-      *outIsSet = true;
-    }
-  }
-
   return NS_OK;
 }
 
@@ -601,13 +559,15 @@ nsCSPContext::GetAllowsInline(CSPDirective aDirective,
       }
       nsAutoString violatedDirective;
       mPolicies[i]->getDirectiveStringForContentType(aDirective, violatedDirective);
-      reportInlineViolation(aDirective,
-                            aNonce,
-                            aContent,
-                            violatedDirective,
-                            i,
-                            aLineNumber,
-                            aColumnNumber);
+      if(CSPService::sCSPReportingEnabled) {
+        reportInlineViolation(aDirective,
+                              aNonce,
+                              aContent,
+                              violatedDirective,
+                              i,
+                              aLineNumber,
+                              aColumnNumber);
+      }
     }
   }
   return NS_OK;
@@ -648,7 +608,8 @@ nsCSPContext::GetAllowsInline(CSPDirective aDirective,
     PR_BEGIN_MACRO                                                             \
     static_assert(directive##_SRC_DIRECTIVE == SCRIPT_SRC_DIRECTIVE ||         \
                   directive##_SRC_DIRECTIVE == STYLE_SRC_DIRECTIVE);           \
-    if (!mPolicies[p]->allows(directive##_SRC_DIRECTIVE, keyword, nonceOrHash, \
+    if(CSPService::sCSPReportingEnabled &&                                     \
+       !mPolicies[p]->allows(directive##_SRC_DIRECTIVE, keyword, nonceOrHash,  \
                               false)) {                                        \
       nsAutoString violatedDirective;                                          \
       mPolicies[p]->getDirectiveStringForContentType(                          \

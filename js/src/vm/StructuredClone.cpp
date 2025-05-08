@@ -1067,6 +1067,11 @@ JSStructuredCloneWriter::reportDataCloneError(uint32_t errorId)
 bool
 JSStructuredCloneWriter::writeString(uint32_t tag, JSString* str)
 {
+    // Nullcheck input
+    if (!str) {
+      return false;
+    }
+    
     JSLinearString* linear = str->ensureLinear(context());
     if (!linear)
         return false;
@@ -1087,6 +1092,11 @@ JSStructuredCloneWriter::writeString(uint32_t tag, JSString* str)
 bool
 JSStructuredCloneWriter::writeBigInt(uint32_t tag, BigInt* bi)
 {
+    // Nullcheck input
+    if (!bi) {
+      return false;
+    }
+    
     bool signBit = bi->isNegative();
     size_t length = bi->digitLength();
     // The length must fit in 31 bits to leave room for a sign bit.
@@ -1199,9 +1209,12 @@ JSStructuredCloneWriter::writeSharedArrayBuffer(HandleObject obj)
     Rooted<SharedArrayBufferObject*> sharedArrayBuffer(context(), &CheckedUnwrap(obj)->as<SharedArrayBufferObject>());
     SharedArrayRawBuffer* rawbuf = sharedArrayBuffer->rawBufferObject();
 
-    // Avoids a race condition where the parent thread frees the buffer
+    // Adding the reference here avoids a race condition where the parent thread frees the buffer
     // before the child has accepted the transferable.
-    rawbuf->addReference();
+    if (!rawbuf->addReference()) {
+        JS_ReportErrorNumberASCII(context(), GetErrorMessage, nullptr, JSMSG_SC_SAB_TOO_MANY_REFS);
+        return false;
+    }
 
     intptr_t p = reinterpret_cast<intptr_t>(rawbuf);
     return out.writePair(SCTAG_SHARED_ARRAY_BUFFER_OBJECT, static_cast<uint32_t>(sizeof(p))) &&
@@ -1703,6 +1716,8 @@ JSStructuredCloneWriter::write(HandleValue v)
                 return false;
 
             if (cls == ESClass::Map) {
+                if (!counts.back())
+                    return false;
                 counts.back()--;
                 RootedValue val(context(), entries.back());
                 entries.popBack();

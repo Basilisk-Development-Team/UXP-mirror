@@ -6,11 +6,18 @@
 # Due to duplicate file names, we compile libavcodec/x86 in its own
 # moz.build file.
 if CONFIG['FFVPX_ASFLAGS']:
-    DIRS += ['x86']
+    if CONFIG['CPU_ARCH'].startswith('x86'):
+        DIRS += ['x86']
+    elif CONFIG['CPU_ARCH'].startswith('arm'):
+        DIRS += ['arm']
+
+if CONFIG['CPU_ARCH'] == 'aarch64':
+    DIRS += ['aarch64']
 
 SharedLibrary('mozavcodec')
 SOURCES += [
     'allcodecs.c',
+    'avcodec.c',
     'avpacket.c',
     'avpicture.c',
     'bitstream.c',
@@ -18,13 +25,15 @@ SOURCES += [
     'bitstream_filters.c',
     'bsf.c',
     'codec_desc.c',
+    'codec_par.c',
     'decode.c',
-    'dummy_funcs.c',
+    'encode.c',
     'flac.c',
     'flac_parser.c',
     'flacdata.c',
     'flacdec.c',
     'flacdsp.c',
+    'get_buffer.c',
     'golomb.c',
     'h264pred.c',
     'imgconvert.c',
@@ -42,9 +51,10 @@ SOURCES += [
     'raw.c',
     'reverse.c',
     'utils.c',
+    'version.c',
     'videodsp.c',
+    'vlc.c',
     'vorbis_parser.c',
-    'vp56rac.c',
     'vp8.c',
     'vp8_parser.c',
     'vp8dsp.c',
@@ -61,6 +71,7 @@ SOURCES += [
     'vp9mvs.c',
     'vp9prob.c',
     'vp9recon.c',
+    'vpx_rac.c',
     'xiph.c'
 ]
 

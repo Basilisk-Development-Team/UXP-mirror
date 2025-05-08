@@ -25,7 +25,7 @@ pref("general.useragent.locale", "chrome://global/locale/intl.properties");
 // Platform User-agent compatibility mode default settings
 pref("general.useragent.compatMode.gecko", false);
 pref("general.useragent.compatMode.firefox", false);
-pref("general.useragent.compatMode.version", "102.0");
+pref("general.useragent.compatMode.version", "128.0");
 pref("general.useragent.appVersionIsBuildID", false);
 
 // In order to disable all overrides by default, don't initialize
@@ -399,7 +399,6 @@ pref("media.ffmpeg.enabled", false);
 #else
 pref("media.ffmpeg.enabled", true);
 #endif
-pref("media.libavcodec.allow-obsolete", false);
 #endif
 #if defined(MOZ_FFVPX)
 pref("media.ffvpx.enabled", true);
@@ -787,7 +786,6 @@ pref("gfx.canvas.skiagl.dynamic-cache", true);
 pref("gfx.text.disable-aa", false);
 
 pref("gfx.work-around-driver-bugs", true);
-pref("gfx.prefer-mesa-llvmpipe", false);
 
 pref("gfx.draw-color-bars", false);
 
@@ -1470,8 +1468,18 @@ pref("network.http.request.max-attempts", 10);
 
 // Headers
 pref("network.http.accept.default", "*/*");
-pref("network.http.accept.navigation", "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8");
-pref("network.http.accept.image", "image/png,image/svg+xml,image/*;q=0.8,*/*;q=0.5");
+// Top-level navigation should include all non-ubiquitous mime types in front of */*
+// including image and video/audio types that are handled top-level.
+#ifdef MOZ_JXL
+pref("network.http.accept.navigation", "text/html,application/xhtml+xml,application/xml;q=0.9,image/jxl,image/webp,image/apng,video/x-matroska,video/webm,*/*;q=0.8");
+#else
+pref("network.http.accept.navigation", "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,video/x-matroska,video/webm,*/*;q=0.8");
+#endif
+#ifdef MOZ_JXL
+pref("network.http.accept.image", "image/jxl,image/webp,image/apng,image/png,image/svg+xml,image/*;q=0.8,*/*;q=0.5");
+#else
+pref("network.http.accept.image", "image/webp,image/apng,image/png,image/svg+xml,image/*;q=0.8,*/*;q=0.5");
+#endif
 pref("network.http.accept.style", "text/css,*/*;q=0.1");
 
 // Prefs allowing granular control of referers
@@ -2182,7 +2190,7 @@ pref("security.notification_enable_delay", 500);
 pref("security.csp.enable", true);
 pref("security.csp.experimentalEnabled", false);
 pref("security.csp.enableStrictDynamic", true);
-pref("security.csp.reporting.enabled", true);
+pref("security.csp.reporting.enabled", false);
 
 // Default Content Security Policy to apply to signed contents.
 pref("security.signed_content.CSP.default", "script-src 'self'; style-src 'self'");
@@ -3590,6 +3598,14 @@ pref("ui.osk.require_win10", false);
 // or appearing when it is not expected.
 pref("ui.osk.debug.keyboardDisplayReason", "");
 
+// Whether to follow `.lnk` (etc.) shortcuts in the Windows file-open dialog.
+//
+// Valid values:
+//  * 0: never
+//  * 1: always
+//  * 2: auto
+pref("widget.windows.follow_shortcuts_on_file_open", 1);
+
 # XP_WIN
 #endif
 
@@ -3944,9 +3960,9 @@ pref("autocomplete.ungrab_during_mode_switch", true);
 // toggling to use the XUL filepicker
 pref("ui.allow_platform_file_picker", true);
 
+#ifdef MOZ_WIDGET_GTK
 // Allow for using the native GTK file picker. If the application is not run
 // with GTK_USE_PORTAL=1 this pref has no effect.
-#ifdef MOZ_WIDGET_GTK
 pref("widget.allow-gtk-native-file-chooser", false);
 #endif
 
@@ -4731,41 +4747,6 @@ pref("dom.browserElement.maxScreenshotDelayMS", 2000);
 
 // Whether we should show the placeholder when the element is focused but empty.
 pref("dom.placeholder.show_on_focus", true);
-
-// MMS UA Profile settings
-pref("wap.UAProf.url", "");
-pref("wap.UAProf.tagname", "x-wap-profile");
-
-// MMS version 1.1 = 0x11 (or decimal 17)
-// MMS version 1.3 = 0x13 (or decimal 19)
-// @see OMA-TS-MMS_ENC-V1_3-20110913-A clause 7.3.34
-pref("dom.mms.version", 19);
-
-pref("dom.mms.requestStatusReport", true);
-
-// Retrieval mode for MMS
-// manual: Manual retrieval mode.
-// automatic: Automatic retrieval mode even in roaming.
-// automatic-home: Automatic retrieval mode in home network.
-// never: Never retrieval mode.
-pref("dom.mms.retrieval_mode", "manual");
-
-pref("dom.mms.sendRetryCount", 3);
-pref("dom.mms.sendRetryInterval", "10000,60000,180000");
-
-pref("dom.mms.retrievalRetryCount", 4);
-pref("dom.mms.retrievalRetryIntervals", "60000,300000,600000,1800000");
-// Numeric default service id for MMS API calls with |serviceId| parameter
-// omitted.
-pref("dom.mms.defaultServiceId", 0);
-// Debug enabler for MMS.
-pref("mms.debugging.enabled", false);
-
-// Request read report while sending MMS.
-pref("dom.mms.requestReadReport", true);
-
-// Number of RadioInterface instances to create.
-pref("ril.numRadioInterfaces", 0);
 
 // If the user puts a finger down on an element and we think the user
 // might be executing a pan gesture, how long do we wait before

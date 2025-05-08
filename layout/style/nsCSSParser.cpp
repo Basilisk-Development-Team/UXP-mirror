@@ -143,14 +143,24 @@ struct ReduceNumberCalcOps : public mozilla::css::BasicFloatCalcOps,
 {
   result_type ComputeLeafValue(const nsCSSValue& aValue)
   {
-    // FIXME: Restore this assertion once ParseColor no longer uses this class.
-    //MOZ_ASSERT(aValue.GetUnit() == eCSSUnit_Number, "unexpected unit");
+    MOZ_ASSERT(aValue.GetUnit() == eCSSUnit_Number, "unexpected unit");
     return aValue.GetFloatValue();
   }
 
   float ComputeNumber(const nsCSSValue& aValue)
   {
     return mozilla::css::ComputeCalc(aValue, *this);
+  }
+};
+
+// Same as above, but reduces leaves as <percentage>. You normally don't want to use this.
+// Only useful in parsing percentage saturation and lightness values by ParseColorComponent.
+struct ReducePercentageCalcOps : ReduceNumberCalcOps
+{
+  result_type ComputeLeafValue(const nsCSSValue& aValue)
+  {
+    MOZ_ASSERT(aValue.GetUnit() == eCSSUnit_Percent, "unexpected unit");
+    return aValue.GetPercentValue();
   }
 };
 
@@ -7319,7 +7329,7 @@ CSSParserImpl::ParseColorComponent(float& aComponent, Maybe<char> aSeparator)
     if (!ParseCalc(aValue, VARIANT_LPN | VARIANT_CALC)) {
       return false;
     }
-    ReduceNumberCalcOps ops;
+    ReducePercentageCalcOps ops;
     value = mozilla::css::ComputeCalc(aValue, ops);
   } else {
     REPORT_UNEXPECTED_TOKEN(PEExpectedPercent);
@@ -10540,7 +10550,7 @@ CSSParserImpl::ParsePlaceSelf()
   return true;
 }
 
-// <color-stop> : <color> [ <percentage> | <length> ]?
+// <color-stop> : <color> [ <percentage> | <length> ]? [ <percentage> | <length> ]?
 bool
 CSSParserImpl::ParseColorStop(nsCSSValueGradient* aGradient)
 {
@@ -10563,6 +10573,27 @@ CSSParserImpl::ParseColorStop(nsCSSValueGradient* aGradient)
     }
     stop->mLocation.SetNoneValue();
   }
+
+  // Parse double-location stop second arg if present, no error if missing (normal stop).
+  // First, append another stop. For the parsing logic to work, we always need to append
+  // a stop first so the parsed values have somewhere to go. This does mean we're losing
+  // some performance because if the shorthand isn't present the stop has to be removed
+  // again, causing unnecessary array element juggling.
+  // See issue #2720
+  nsCSSValueGradientStop* stop2 = aGradient->mStops.AppendElement();
+  result = ParseVariant(stop2->mLocation, VARIANT_LP | VARIANT_CALC, nullptr);
+  if (result != CSSParseResult::NotFound) {
+    if (result == CSSParseResult::Error) {
+      // We didn't get a parseable stop, remove the additional stop again and throw.
+      aGradient->mStops.SetLength(aGradient->mStops.Length()-1);
+      return false;
+    }
+    stop2->mColor = stop->mColor; // copy color from first stop arg
+  } else {
+    // We didn't get a second stop after all, remove the additional stop again.
+    aGradient->mStops.SetLength(aGradient->mStops.Length()-1);
+  }    
+
   return true;
 }
 
