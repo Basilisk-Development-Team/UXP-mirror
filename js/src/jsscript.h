@@ -22,6 +22,7 @@
 #include "gc/Barrier.h"
 #include "gc/Rooting.h"
 #include "jit/IonCode.h"
+#include "js/CompileOptions.h"
 #include "js/UbiNode.h"
 #include "js/UniquePtr.h"
 #include "vm/NativeObject.h"
@@ -521,7 +522,8 @@ class ScriptSource
         if (--refs == 0)
             js_delete(this);
     }
-    bool initFromOptions(JSContext* cx, const ReadOnlyCompileOptions& options,
+
+    bool initFromOptions(JSContext* cx, const JS::ReadOnlyCompileOptions& options,
                          mozilla::Maybe<uint32_t> parameterListEnd = mozilla::Nothing());
     bool setSourceCopy(JSContext* cx, JS::SourceBufferHolder& srcBuf);
     void setSourceRetrievable() { sourceRetrievable_ = true; }
@@ -703,7 +705,7 @@ class ScriptSourceObject : public NativeObject
     // Initialize those properties of this ScriptSourceObject whose values
     // are provided by |options|, re-wrapping as necessary.
     static bool initFromOptions(JSContext* cx, HandleScriptSource source,
-                                const ReadOnlyCompileOptions& options);
+                                const JS::ReadOnlyCompileOptions& options);
 
     ScriptSource* source() const {
         return static_cast<ScriptSource*>(getReservedSlot(SOURCE_SLOT).toPrivate());

@@ -11,6 +11,7 @@
 #include "prsystem.h"
 #include "jsapi.h"
 #include "jsfriendapi.h"
+#include "js/SourceBufferHolder.h"
 #include "xpcpublic.h"
 #include "nsCycleCollectionParticipant.h"
 #include "nsIContent.h"
@@ -2384,10 +2385,7 @@ ScriptLoader::EvaluateScript(ScriptLoadRequest* aRequest)
             rv = exec.Compile(options, srcBuf);
           }
           if (rv == NS_OK) {
-             JS::Rooted<JSScript*> script(cx);
-             script = exec.GetScript();
-
-             // With scripts disabled GetScript() will return nullptr
+             JS::Rooted<JSScript*> script(cx, exec.GetScript());
              if (script) {
                  // Create a ClassicScript object and associate it with the
                  // JSScript.
