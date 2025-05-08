@@ -314,7 +314,7 @@ class MOZ_STACK_CLASS JS_FRIEND_API(CompileOptions) final : public ReadOnlyCompi
 
   public:
     explicit CompileOptions(JSContext* cx, JSVersion version = JSVERSION_UNKNOWN);
-    CompileOptions(js::ContextFriendFields* cx, const ReadOnlyCompileOptions& rhs)
+    CompileOptions(JSContext* cx, const ReadOnlyCompileOptions& rhs)
       : ReadOnlyCompileOptions(), elementRoot(cx), elementAttributeNameRoot(cx),
         introductionScriptRoot(cx)
     {
@@ -328,7 +328,7 @@ class MOZ_STACK_CLASS JS_FRIEND_API(CompileOptions) final : public ReadOnlyCompi
         introductionScriptRoot = rhs.introductionScript();
     }
 
-    CompileOptions(js::ContextFriendFields* cx, const TransitiveCompileOptions& rhs)
+    CompileOptions(JSContext* cx, const TransitiveCompileOptions& rhs)
       : ReadOnlyCompileOptions(), elementRoot(cx), elementAttributeNameRoot(cx),
         introductionScriptRoot(cx)
     {

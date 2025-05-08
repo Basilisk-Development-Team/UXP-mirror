@@ -29,7 +29,6 @@ class AutoObjectVector : public Rooted<GCVector<JSObject*, 8>> {
     using Base = Rooted<Vec>;
   public:
     explicit AutoObjectVector(JSContext* cx) : Base(cx, Vec(cx)) {}
-    explicit AutoObjectVector(js::ContextFriendFields* cx) : Base(cx, Vec(cx)) {}
 };
 
 class SourceBufferHolder;

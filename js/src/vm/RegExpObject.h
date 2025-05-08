@@ -75,12 +75,12 @@ class RegExpObject : public NativeObject
 
     static RegExpObject*
     create(JSContext* cx, const char16_t* chars, size_t length, RegExpFlag flags,
-           const ReadOnlyCompileOptions* options, frontend::TokenStream* ts, LifoAlloc& alloc,
+           const JS::ReadOnlyCompileOptions* options, frontend::TokenStream* ts, LifoAlloc& alloc,
            NewObjectKind newKind);
 
     static RegExpObject*
     create(JSContext* cx, HandleAtom atom, RegExpFlag flags,
-           const ReadOnlyCompileOptions* options, frontend::TokenStream* ts, LifoAlloc& alloc,
+           const JS::ReadOnlyCompileOptions* options, frontend::TokenStream* ts, LifoAlloc& alloc,
            NewObjectKind newKind);
 
     /*
