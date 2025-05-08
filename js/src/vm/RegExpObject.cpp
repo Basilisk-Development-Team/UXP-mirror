@@ -239,7 +239,7 @@ const Class RegExpObject::protoClass_ = {
 
 RegExpObject*
 RegExpObject::create(JSContext* cx, const char16_t* chars, size_t length, RegExpFlag flags,
-                     const ReadOnlyCompileOptions* options, TokenStream* tokenStream,
+                     const JS::ReadOnlyCompileOptions* options, TokenStream* tokenStream,
                      LifoAlloc& alloc, NewObjectKind newKind)
 {
     RootedAtom source(cx, AtomizeChars(cx, chars, length));
@@ -251,7 +251,7 @@ RegExpObject::create(JSContext* cx, const char16_t* chars, size_t length, RegExp
 
 RegExpObject*
 RegExpObject::create(JSContext* cx, HandleAtom source, RegExpFlag flags,
-                     const ReadOnlyCompileOptions* options, TokenStream* tokenStream,
+                     const JS::ReadOnlyCompileOptions* options, TokenStream* tokenStream,
                      LifoAlloc& alloc, NewObjectKind newKind)
 {
     Maybe<CompileOptions> dummyOptions;
@@ -1568,7 +1568,7 @@ js::XDRScriptRegExpObject(XDRState<mode>* xdr, MutableHandle<RegExpObject*> objp
         return false;
     if (mode == XDR_DECODE) {
         RegExpFlag flags = RegExpFlag(flagsword);
-        const ReadOnlyCompileOptions* options = nullptr;
+        const JS::ReadOnlyCompileOptions* options = nullptr;
         if (xdr->hasOptions())
             options = &xdr->options();
         RegExpObject* reobj = RegExpObject::create(xdr->cx(), source, flags,
