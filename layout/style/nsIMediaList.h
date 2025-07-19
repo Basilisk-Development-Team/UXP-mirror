@@ -33,7 +33,15 @@ class DocumentRule;
 } // namespace mozilla
 
 struct nsMediaExpression {
-  enum Range { eMin, eMax, eEqual };
+  enum Range {
+    eMin,
+    eMax,
+    eEqual,
+    eLessThan,
+    eGreaterThan,
+    eLessThanOrEqual,
+    eGreaterThanOrEqual
+  };
 
   const nsMediaFeature *mFeature;
   Range mRange;

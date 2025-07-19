@@ -283,6 +283,14 @@ nsMediaExpression::Matches(nsPresContext *aPresContext,
       return cmp != 1;
     case nsMediaExpression::eEqual:
       return cmp == 0;
+    case nsMediaExpression::eLessThan:
+      return cmp == -1;
+    case nsMediaExpression::eGreaterThan:
+      return cmp == 1;
+    case nsMediaExpression::eLessThanOrEqual:
+      return cmp != 1;
+    case nsMediaExpression::eGreaterThanOrEqual:
+      return cmp != -1;
   }
   NS_NOTREACHED("unexpected mRange");
   return false;
@@ -482,6 +490,16 @@ nsMediaQuery::AppendToString(nsAString& aString) const
       aString.AppendLiteral("min-");
     } else if (expr.mRange == nsMediaExpression::eMax) {
       aString.AppendLiteral("max-");
+    } else if (expr.mRange == nsMediaExpression::eLessThan) {
+      aString.AppendLiteral("< ");
+    } else if (expr.mRange == nsMediaExpression::eGreaterThan) {
+      aString.AppendLiteral("> ");
+    } else if (expr.mRange == nsMediaExpression::eLessThanOrEqual) {
+      aString.AppendLiteral("<= ");
+    } else if (expr.mRange == nsMediaExpression::eGreaterThanOrEqual) {
+      aString.AppendLiteral(">= ");
+    } else if (expr.mRange == nsMediaExpression::eEqual) {
+      aString.AppendLiteral("= ");
     }
 
     aString.Append(nsDependentAtomString(*feature->mName));
