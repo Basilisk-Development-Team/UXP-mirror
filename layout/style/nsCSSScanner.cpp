@@ -331,6 +331,21 @@ nsCSSToken::AppendToString(nsString& aBuffer) const
     case eCSSToken_Containsmatch:
       aBuffer.AppendLiteral("*=");
       break;
+    case eCSSToken_LessThan:
+      aBuffer.Append(char16_t('<'));
+      break;
+    case eCSSToken_GreaterThan:
+      aBuffer.Append(char16_t('>'));
+      break;
+    case eCSSToken_LessThanOrEqual:
+      aBuffer.AppendLiteral("<=");
+      break;
+    case eCSSToken_GreaterThanOrEqual:
+      aBuffer.AppendLiteral(">=");
+      break;
+    case eCSSToken_Equals:
+      aBuffer.Append(char16_t('='));
+      break;
 
     default:
       NS_ERROR("invalid token type");
@@ -1344,6 +1359,32 @@ nsCSSScanner::Next(nsCSSToken& aToken, nsCSSScannerExclude aSkip)
   // STRING
   if (ch == '"' || ch == '\'') {
     return ScanString(aToken);
+  }
+
+  // Media Query Range Context operators: < > <= >= =
+  switch (ch) {
+    case '=':
+      aToken.mType = eCSSToken_Equals;
+      Advance();
+      return true;
+    case '<':
+      if (Peek(1) == '=') {
+        aToken.mType = eCSSToken_LessThanOrEqual;
+        Advance(2);
+      } else {
+        aToken.mType = eCSSToken_LessThan;
+        Advance();
+      }
+      return true;
+    case '>':
+      if (Peek(1) == '=') {
+        aToken.mType = eCSSToken_GreaterThanOrEqual;
+        Advance(2);
+      } else {
+        aToken.mType = eCSSToken_GreaterThan;
+        Advance();
+      }
+      return true;
   }
 
   // Match operators: ~= |= ^= $= *=

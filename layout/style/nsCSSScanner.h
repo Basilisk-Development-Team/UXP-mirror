@@ -78,6 +78,13 @@ enum nsCSSTokenType {
   eCSSToken_Endsmatch,      // $=
   eCSSToken_Containsmatch,  // *=
 
+  // Media Query Range Context operators.
+  eCSSToken_LessThan,       // <
+  eCSSToken_GreaterThan,    // >
+  eCSSToken_LessThanOrEqual,// <=
+  eCSSToken_GreaterThanOrEqual, // >=
+  eCSSToken_Equals,         // =
+
   // Unicode-range token: currently used only in @font-face.
   // The lexical rule for this token includes several forms that are
   // semantically invalid.  Therefore, mIdent always holds the
@@ -130,6 +137,10 @@ enum nsCSSTokenSerializationType {
   eCSSTokenSerialization_Symbol_Bar,          // '|'
   eCSSTokenSerialization_Symbol_Slash,        // '/'
   eCSSTokenSerialization_Symbol_Asterisk,     // '*'
+  eCSSTokenSerialization_Symbol_LessThan,     // '<'
+  eCSSTokenSerialization_Symbol_GreaterThan,  // '>'
+  eCSSTokenSerialization_Symbol_LessThanOrEqual, // '<='
+  eCSSTokenSerialization_Symbol_GreaterThanOrEqual, // '>='
   eCSSTokenSerialization_Other                // anything else
 };
 
