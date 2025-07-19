@@ -3794,7 +3794,42 @@ CSSParserImpl::ParseMediaQueryExpression(nsMediaQuery* aQuery)
     expr->mRange = nsMediaExpression::eMax;
     featureString.Rebind(featureString, 4);
   } else {
-    expr->mRange = nsMediaExpression::eEqual;
+    // Check for new comparison operators
+    nsCSSScannerPosition pos;
+    mScanner->SavePosition(pos);
+    if (GetToken(true)) {
+      if (mToken.IsSymbol('<')) {
+        if (GetToken(true) && mToken.IsSymbol('=')) {
+          expr->mRange = nsMediaExpression::eLessThanOrEqual;
+        } else {
+          UngetToken();
+          expr->mRange = nsMediaExpression::eLessThan;
+        }
+      } else if (mToken.IsSymbol('>')) {
+        if (GetToken(true) && mToken.IsSymbol('=')) {
+          expr->mRange = nsMediaExpression::eGreaterThanOrEqual;
+        } else {
+          UngetToken();
+          expr->mRange = nsMediaExpression::eGreaterThan;
+        }
+      } else if (mToken.IsSymbol('=')) {
+        expr->mRange = nsMediaExpression::eEqual;
+      } else {
+        // If it's not a comparison operator, put the token back and
+        // assume it's a boolean feature or an equality comparison.
+        UngetToken();
+        expr->mRange = nsMediaExpression::eEqual;
+      }
+    } else {
+      // If EOF, assume it's a boolean feature or an equality comparison.
+      expr->mRange = nsMediaExpression::eEqual;
+    }
+    // If we parsed a comparison operator, we need to restore the scanner
+    // position to before the operator was consumed, so that the subsequent
+    // parsing of the feature value can consume it.
+    if (expr->mRange != nsMediaExpression::eEqual) {
+      mScanner->RestoreSavedPosition(pos);
+    }
   }
 
   nsCOMPtr<nsIAtom> mediaFeatureAtom = NS_Atomize(featureString);
