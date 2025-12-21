@@ -1721,9 +1721,6 @@ js::ToLengthClamped(JSContext* cx, HandleValue v, uint32_t* out, bool* overflow)
     return true;
 }
 
-template bool
-js::ToLengthClamped<JSContext>(JSContext*, HandleValue, uint32_t*, bool*);
-
 //Non-standard: Used by Atomics.
 bool
 js::NonStandardToIndex(JSContext* cx, HandleValue v, uint64_t* index)
