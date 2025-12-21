@@ -8928,6 +8928,7 @@ static inline bool
 CanCheckGrayBits(const Cell* cell)
 {
     MOZ_ASSERT(cell);
+    // Cells should always be tenured cells, here.
     if (!cell || !cell->isTenured())
         return false;
 

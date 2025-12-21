@@ -27,7 +27,6 @@
 #include "nsIContentIterator.h"
 #include "nsFocusManager.h"
 #include "nsFrameManager.h"
-#include "nsILinkHandler.h"
 #include "nsIScriptGlobalObject.h"
 #include "nsIURL.h"
 #include "nsContainerFrame.h"
@@ -106,7 +105,7 @@
 #include "nsIScrollableFrame.h"
 #include "mozilla/css/StyleRule.h" /* For nsCSSSelectorList */
 #include "mozilla/css/Declaration.h"
-#include "nsCSSRuleProcessor.h"
+#include "nsCSSRuleUtils.h"
 #include "nsRuleProcessorData.h"
 #include "nsTextNode.h"
 
@@ -144,6 +143,8 @@
 #include "nsComputedDOMStyle.h"
 #include "nsDOMStringMap.h"
 #include "DOMIntersectionObserver.h"
+
+#include "nsDocShell.h" // for ::Cast
 
 using namespace mozilla;
 using namespace mozilla::dom;
@@ -196,8 +197,7 @@ Element::QueryInterface(REFNSIID aIID, void** aInstancePtr)
 EventStates
 Element::IntrinsicState() const
 {
-  return IsEditable() ? NS_EVENT_STATE_MOZ_READWRITE :
-                        NS_EVENT_STATE_MOZ_READONLY;
+  return IsEditable() ? NS_EVENT_STATE_READWRITE : NS_EVENT_STATE_READONLY;
 }
 
 void
@@ -283,11 +283,11 @@ Element::UpdateEditableState(bool aNotify)
     // insertion into the document and UpdateState can be slow for
     // some kinds of elements even when not notifying.
     if (IsEditable()) {
-      RemoveStatesSilently(NS_EVENT_STATE_MOZ_READONLY);
-      AddStatesSilently(NS_EVENT_STATE_MOZ_READWRITE);
+      RemoveStatesSilently(NS_EVENT_STATE_READONLY);
+      AddStatesSilently(NS_EVENT_STATE_READWRITE);
     } else {
-      RemoveStatesSilently(NS_EVENT_STATE_MOZ_READWRITE);
-      AddStatesSilently(NS_EVENT_STATE_MOZ_READONLY);
+      RemoveStatesSilently(NS_EVENT_STATE_READWRITE);
+      AddStatesSilently(NS_EVENT_STATE_READONLY);
     }
   }
 }
@@ -1256,6 +1256,7 @@ Element::ToggleAttribute(const nsAString& aName,
 void
 Element::SetAttribute(const nsAString& aName,
                       const nsAString& aValue,
+                      nsIPrincipal* aTriggeringPrincipal,
                       ErrorResult& aError)
 {
   aError = nsContentUtils::CheckQName(aName, false);
@@ -1271,12 +1272,12 @@ Element::SetAttribute(const nsAString& aName,
       aError.Throw(NS_ERROR_OUT_OF_MEMORY);
       return;
     }
-    aError = SetAttr(kNameSpaceID_None, nameAtom, aValue, true);
+    aError = SetAttr(kNameSpaceID_None, nameAtom, aValue, aTriggeringPrincipal, true);
     return;
   }
 
   aError = SetAttr(name->NamespaceID(), name->LocalName(), name->GetPrefix(),
-                   aValue, true);
+                   aValue, aTriggeringPrincipal, true);
   return;
 }
 
@@ -1359,6 +1360,7 @@ void
 Element::SetAttributeNS(const nsAString& aNamespaceURI,
                         const nsAString& aQualifiedName,
                         const nsAString& aValue,
+                        nsIPrincipal* aTriggeringPrincipal,
                         ErrorResult& aError)
 {
   RefPtr<mozilla::dom::NodeInfo> ni;
@@ -1372,7 +1374,7 @@ Element::SetAttributeNS(const nsAString& aNamespaceURI,
   }
 
   aError = SetAttr(ni->NamespaceID(), ni->NameAtom(), ni->GetPrefixAtom(),
-                   aValue, true);
+                   aValue, aTriggeringPrincipal, true);
 }
 
 void
@@ -2253,12 +2255,15 @@ Element::GetPrimaryFrame(mozFlushType aType)
 nsresult
 Element::LeaveLink(nsPresContext* aPresContext)
 {
-  nsILinkHandler *handler = aPresContext->GetLinkHandler();
-  if (!handler) {
+  if (!aPresContext || !aPresContext->Document()->LinkHandlingEnabled()) {
     return NS_OK;
   }
 
-  return handler->OnLeaveLink();
+  nsIDocShell* shell = aPresContext->Document()->GetDocShell();
+  if (!shell) {
+    return NS_OK;
+  }
+  return nsDocShell::Cast(shell)->OnLeaveLink();
 }
 
 nsresult
@@ -2415,6 +2420,7 @@ Element::SetSingleClassFromParser(nsIAtom* aSingleClassName)
                           nullptr, // prefix
                           nullptr, // old value
                           value,
+                          nullptr, // subject principal
                           static_cast<uint8_t>(nsIDOMMutationEvent::ADDITION),
                           false, // hasListeners
                           false, // notify
@@ -2426,6 +2432,7 @@ Element::SetSingleClassFromParser(nsIAtom* aSingleClassName)
 nsresult
 Element::SetAttr(int32_t aNamespaceID, nsIAtom* aName,
                  nsIAtom* aPrefix, const nsAString& aValue,
+                 nsIPrincipal* aSubjectPrincipal,
                  bool aNotify)
 {
   // Keep this in sync with SetParsedAttr below and SetSingleClassFromParser
@@ -2485,7 +2492,8 @@ Element::SetAttr(int32_t aNamespaceID, nsIAtom* aName,
 
   return SetAttrAndNotify(aNamespaceID, aName, aPrefix,
                           oldValueSet ? &oldValue : nullptr,
-                          attrValue, modType, hasListeners, aNotify,
+                          attrValue, aSubjectPrincipal, modType,
+                          hasListeners, aNotify,
                           kCallAfterSetAttr, document, updateBatch);
 }
 
@@ -2530,7 +2538,7 @@ Element::SetParsedAttr(int32_t aNamespaceID, nsIAtom* aName,
   mozAutoDocUpdate updateBatch(document, UPDATE_CONTENT_MODEL, aNotify);
   return SetAttrAndNotify(aNamespaceID, aName, aPrefix,
                           oldValueSet ? &oldValue : nullptr,
-                          aParsedValue, modType, hasListeners, aNotify,
+                          aParsedValue, nullptr, modType, hasListeners, aNotify,
                           kCallAfterSetAttr, document, updateBatch);
 }
 
@@ -2540,6 +2548,7 @@ Element::SetAttrAndNotify(int32_t aNamespaceID,
                           nsIAtom* aPrefix,
                           const nsAttrValue* aOldValue,
                           nsAttrValue& aParsedValue,
+                          nsIPrincipal* aSubjectPrincipal,
                           uint8_t aModType,
                           bool aFireMutation,
                           bool aNotify,
@@ -2646,7 +2655,7 @@ Element::SetAttrAndNotify(int32_t aNamespaceID,
 
   if (aCallAfterSetAttr) {
     rv = AfterSetAttr(aNamespaceID, aName, &valueForAfterSetAttr, oldValue,
-                      aNotify);
+                      aSubjectPrincipal, aNotify);
     NS_ENSURE_SUCCESS(rv, rv);
 
     if (aNamespaceID == kNameSpaceID_None && aName == nsGkAtoms::dir) {
@@ -2942,7 +2951,7 @@ Element::UnsetAttr(int32_t aNameSpaceID, nsIAtom* aName,
     }
   }
 
-  rv = AfterSetAttr(aNameSpaceID, aName, nullptr, &oldValue, aNotify);
+  rv = AfterSetAttr(aNameSpaceID, aName, nullptr, &oldValue, nullptr, aNotify);
   NS_ENSURE_SUCCESS(rv, rv);
 
   UpdateState(aNotify);
@@ -3165,7 +3174,6 @@ Element::CheckHandleEventForLinksPrecondition(EventChainVisitor& aVisitor,
        (aVisitor.mEvent->mMessage != eMouseClick) &&
        (aVisitor.mEvent->mMessage != eKeyPress) &&
        (aVisitor.mEvent->mMessage != eLegacyDOMActivate)) ||
-      !aVisitor.mPresContext ||
       aVisitor.mEvent->mFlags.mMultipleActionsPrevented) {
     return false;
   }
@@ -3210,7 +3218,7 @@ Element::GetEventTargetParentForLinks(EventChainPreVisitor& aVisitor)
     if (!focusEvent || !focusEvent->mIsRefocus) {
       nsAutoString target;
       GetLinkTarget(target);
-      nsContentUtils::TriggerLink(this, aVisitor.mPresContext, absURI, target,
+      nsContentUtils::TriggerLink(this, absURI, target,
                                   false, true, true);
       // Make sure any ancestor links don't also TriggerLink
       aVisitor.mEvent->mFlags.mMultipleActionsPrevented = true;
@@ -3262,20 +3270,20 @@ Element::PostHandleEventForLinks(EventChainPostVisitor& aVisitor)
   switch (aVisitor.mEvent->mMessage) {
   case eMouseDown:
     {
-      if (aVisitor.mEvent->AsMouseEvent()->button ==
-            WidgetMouseEvent::eLeftButton) {
-        // don't make the link grab the focus if there is no link handler
-        nsILinkHandler *handler = aVisitor.mPresContext->GetLinkHandler();
-        nsIDocument *document = GetComposedDoc();
-        if (handler && document) {
+      if (aVisitor.mEvent->AsMouseEvent()->button == WidgetMouseEvent::eLeftButton &&
+          OwnerDoc()->LinkHandlingEnabled()) {
+        aVisitor.mEvent->mFlags.mMultipleActionsPrevented = true;
+        
+        if (IsInComposedDoc()) {
           nsIFocusManager* fm = nsFocusManager::GetFocusManager();
           if (fm) {
-            aVisitor.mEvent->mFlags.mMultipleActionsPrevented = true;
             nsCOMPtr<nsIDOMElement> elem = do_QueryInterface(this);
             fm->SetFocus(elem, nsIFocusManager::FLAG_BYMOUSE |
                                nsIFocusManager::FLAG_NOSCROLL);
           }
-
+        }
+        
+        if (aVisitor.mPresContext) {
           EventStateManager::SetActiveManager(
             aVisitor.mPresContext->EventStateManager(), this);
         }
@@ -3292,19 +3300,18 @@ Element::PostHandleEventForLinks(EventChainPostVisitor& aVisitor)
       }
 
       // The default action is simply to dispatch DOMActivate
-      nsCOMPtr<nsIPresShell> shell = aVisitor.mPresContext->GetPresShell();
-      if (shell) {
-        // single-click
-        nsEventStatus status = nsEventStatus_eIgnore;
-        // DOMActive event should be trusted since the activation is actually
-        // occurred even if the cause is an untrusted click event.
-        InternalUIEvent actEvent(true, eLegacyDOMActivate, mouseEvent);
-        actEvent.mDetail = 1;
-
-        rv = shell->HandleDOMEventWithTarget(this, &actEvent, &status);
-        if (NS_SUCCEEDED(rv)) {
-          aVisitor.mEventStatus = nsEventStatus_eConsumeNoDefault;
-        }
+      nsEventStatus status = nsEventStatus_eIgnore;
+      // The DOMActive event should be trusted since the activation has actually
+      // occurred even if the cause is an untrusted click event.
+      // This is a hack to allow click events to happen on anchors outside document
+      // contexts (where there is no presShell)... Thanks, Google, for another ugly one.
+      InternalUIEvent actEvent(true, eLegacyDOMActivate, mouseEvent);
+      actEvent.mDetail = 1;
+      
+      rv = EventDispatcher::Dispatch(this, aVisitor.mPresContext, &actEvent,
+                                     nullptr, &status);
+      if (NS_SUCCEEDED(rv)) {
+        aVisitor.mEventStatus = nsEventStatus_eConsumeNoDefault;
       }
     }
     break;
@@ -3316,7 +3323,7 @@ Element::PostHandleEventForLinks(EventChainPostVisitor& aVisitor)
         GetLinkTarget(target);
         const InternalUIEvent* activeEvent = aVisitor.mEvent->AsUIEvent();
         MOZ_ASSERT(activeEvent);
-        nsContentUtils::TriggerLink(this, aVisitor.mPresContext, absURI, target,
+        nsContentUtils::TriggerLink(this, absURI, target,
                                     true, true, activeEvent->IsTrustable());
         aVisitor.mEventStatus = nsEventStatus_eConsumeNoDefault;
       }
@@ -3423,9 +3430,9 @@ Element::Closest(const nsAString& aSelector, ErrorResult& aResult)
   matchingContext.AddScopeElement(this);
   for (nsINode* node = this; node; node = node->GetParentNode()) {
     if (node->IsElement() &&
-        nsCSSRuleProcessor::RestrictedSelectorListMatches(node->AsElement(),
-                                                          matchingContext,
-                                                          selectorList)) {
+        nsCSSRuleUtils::RestrictedSelectorListMatches(node->AsElement(),
+                                                      matchingContext,
+                                                      selectorList)) {
       return node->AsElement();
     }
   }
@@ -3449,9 +3456,9 @@ Element::Matches(const nsAString& aSelector, ErrorResult& aError)
                                    TreeMatchContext::eNeverMatchVisited);
   matchingContext.SetHasSpecifiedScope();
   matchingContext.AddScopeElement(this);
-  return nsCSSRuleProcessor::RestrictedSelectorListMatches(this,
-                                                           matchingContext,
-                                                           selectorList);
+  return nsCSSRuleUtils::RestrictedSelectorListMatches(this,
+                                                       matchingContext,
+                                                       selectorList);
 }
 
 static const nsAttrValue::EnumTable kCORSAttributeTable[] = {
@@ -4043,9 +4050,16 @@ Element::GetReferrerPolicyAsEnum()
   if (Preferences::GetBool("network.http.enablePerElementReferrer", true) &&
       IsHTMLElement()) {
     const nsAttrValue* referrerValue = GetParsedAttr(nsGkAtoms::referrerpolicy);
-    if (referrerValue && referrerValue->Type() == nsAttrValue::eEnum) {
-      return net::ReferrerPolicy(referrerValue->GetEnumValue());
-    }
+    return ReferrerPolicyFromAttr(referrerValue);
+  }
+  return net::RP_Unset;
+}
+
+net::ReferrerPolicy
+Element::ReferrerPolicyFromAttr(const nsAttrValue* aValue)
+{
+  if (aValue && aValue->Type() == nsAttrValue::eEnum) {
+    return net::ReferrerPolicy(aValue->GetEnumValue());
   }
   return net::RP_Unset;
 }

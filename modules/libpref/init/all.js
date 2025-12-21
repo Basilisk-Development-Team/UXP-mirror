@@ -248,7 +248,6 @@ pref("browser.sessionhistory.max_total_viewers", -1);
 // See https://github.com/MoonchildProductions/UXP/issues/719
 pref("browser.newtabpage.add_to_session_history", false);
 
-
 // Determines whether the browser's current theme should be light or dark.
 // 0 = feature disabled
 // 1 = default: light theme
@@ -256,6 +255,11 @@ pref("browser.newtabpage.add_to_session_history", false);
 pref("ui.color_scheme", 1);
 
 pref("ui.use_native_colors", true);
+
+// Whether websites should use reduced animation styles.
+// Used for CSS @media query.
+pref("ui.prefersReducedMotion", 0);
+
 #ifdef MOZ_WIDGET_GTK
 // Determines whether the menubar is shown in the global menubar or not.
 pref("ui.use_global_menubar", false);
@@ -1306,6 +1310,9 @@ pref("javascript.options.dynamicImport", true);
 // Streams API
 pref("javascript.options.streams", true);
 
+// Enable garbage collection of weakrefed objects
+pref("javascript.options.weakrefs", false);
+
 // advanced prefs
 pref("advanced.mailftp",                    false);
 pref("image.animation_mode",                "normal");
@@ -1470,16 +1477,8 @@ pref("network.http.request.max-attempts", 10);
 pref("network.http.accept.default", "*/*");
 // Top-level navigation should include all non-ubiquitous mime types in front of */*
 // including image and video/audio types that are handled top-level.
-#ifdef MOZ_JXL
 pref("network.http.accept.navigation", "text/html,application/xhtml+xml,application/xml;q=0.9,image/jxl,image/webp,image/apng,video/x-matroska,video/webm,*/*;q=0.8");
-#else
-pref("network.http.accept.navigation", "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,video/x-matroska,video/webm,*/*;q=0.8");
-#endif
-#ifdef MOZ_JXL
 pref("network.http.accept.image", "image/jxl,image/webp,image/apng,image/png,image/svg+xml,image/*;q=0.8,*/*;q=0.5");
-#else
-pref("network.http.accept.image", "image/webp,image/apng,image/png,image/svg+xml,image/*;q=0.8,*/*;q=0.5");
-#endif
 pref("network.http.accept.style", "text/css,*/*;q=0.1");
 
 // Prefs allowing granular control of referers
@@ -2673,6 +2672,12 @@ pref("layout.css.resizeobserver.enabled", true);
 // Is support for cascade layers enabled?
 pref("layout.css.cascade-layers.enabled", true);
 
+// Should rules in imported style sheets be added based on the order
+// of appearance of their respective @import rules in the parent
+// style sheet? Otherwise, they are added before rules preceding
+// @import are processed, which is problematic for cascade layers.
+pref("layout.css.load-imported-sheets-in-order", true);
+
 // pref for which side vertical scrollbars should be on
 // 0 = end-side in UI direction
 // 1 = end-side in document/content direction
@@ -2696,18 +2701,6 @@ pref("layout.frame_rate", -1);
 // pref to dump the display list to the log. Useful for debugging drawing.
 pref("layout.display-list.dump", false);
 pref("layout.display-list.dump-content", false);
-
-// pref to control precision of the frame rate timer. When true,
-// we use a "precise" timer, which means each notification fires
-// Nms after the start of the last notification. That means if the
-// processing of the notification is slow, the timer can fire immediately
-// after we've just finished processing the last notification, which might
-// lead to starvation problems.
-// When false, we use a "slack" timer which fires Nms after the *end*
-// of the last notification. This can give less tight frame rates
-// but provides more time for other operations when the browser is
-// heavily loaded.
-pref("layout.frame_rate.precise", false);
 
 // pref to control whether layout warnings that are hit quite often are enabled
 pref("layout.spammy_warnings.enabled", false);
@@ -4879,6 +4872,9 @@ pref("intl.allow-insecure-text-input", false);
 
 // Enable meta-viewport support in remote APZ-enabled frames.
 pref("dom.meta-viewport.enabled", false);
+
+// Enable the Visual Viewport API?
+pref("dom.visualviewport.enabled", true);
 
 // Disable <meta http-equiv=set-cookie> support. See m-c bug 1457503 / UXP #1102.
 pref("dom.meta-set-cookie.enabled", false);

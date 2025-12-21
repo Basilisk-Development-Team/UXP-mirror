@@ -287,6 +287,7 @@ ArrayBufferObject::class_constructor(JSContext* cx, unsigned argc, Value* vp)
         return false;
     }
 
+    // Step 3.
     RootedObject proto(cx);
     RootedObject newTarget(cx, &args.newTarget().toObject());
     if (!GetPrototypeFromConstructor(cx, newTarget, &proto))

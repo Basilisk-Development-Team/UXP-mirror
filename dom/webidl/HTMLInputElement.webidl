@@ -81,7 +81,7 @@ interface HTMLInputElement : HTMLElement {
            attribute boolean required;
   [CEReactions, Pure, SetterThrows]
            attribute unsigned long size;
-  [CEReactions, Pure, SetterThrows]
+  [CEReactions, Pure, NeedsSubjectPrincipal, SetterThrows]
            attribute DOMString src;
   [CEReactions, Pure, SetterThrows]
            attribute DOMString step;
@@ -200,6 +200,13 @@ partial interface HTMLInputElement {
   // for example will be dispatched when focusing out the element.
   [Func="IsChromeOrXBL", NeedsSubjectPrincipal]
   void setUserInput(DOMString input);
+
+  // Sets or clears the autofilled state of this input element.
+  // This is used by the browser's autofill system to indicate when
+  // a value has been automatically filled (e.g., from saved passwords
+  // or form data).
+  [ChromeOnly]
+  void setAutofilled(boolean autofilled);
 };
 
 partial interface HTMLInputElement {
