@@ -5,9 +5,9 @@
 #ifndef __FFmpegLibWrapper_h__
 #define __FFmpegLibWrapper_h__
 
-#include "FFmpegRDFTTypes.h" // for AvRdftInitFn, etc.
 #include "mozilla/Attributes.h"
 #include "mozilla/Types.h"
+#include "ffvpx/tx.h"
 
 struct AVCodec;
 struct AVCodecContext;
@@ -62,11 +62,9 @@ struct FFmpegLibWrapper
   int (*av_parser_parse2)(AVCodecParserContext* s, AVCodecContext* avctx, uint8_t** poutbuf, int* poutbuf_size, const uint8_t* buf, int buf_size, int64_t pts, int64_t dts, int64_t pos);
   int (*avcodec_send_packet)(AVCodecContext* avctx, const AVPacket* avpkt);
   int (*avcodec_receive_frame)(AVCodecContext* avctx, AVFrame* frame);
-
-  // libavcodec optional
-  AvRdftInitFn av_rdft_init;
-  AvRdftCalcFn av_rdft_calc;
-  AvRdftEndFn av_rdft_end;
+  // libavcodec >= 61
+  AVPacket* (*av_packet_alloc)();
+  void (*av_packet_free)(AVPacket** pkt);
 
   // libavutil
   void (*av_log_set_level)(int level);
@@ -77,6 +75,10 @@ struct FFmpegLibWrapper
   void (*av_frame_unref)(AVFrame* frame);
   int (*av_frame_get_colorspace)(const AVFrame *frame);
   int (*av_frame_get_color_range)(const AVFrame *frame);
+
+  // Only ever used with ffvpx
+  decltype(::av_tx_init)* av_tx_init;
+  decltype(::av_tx_uninit)* av_tx_uninit;
 
   PRLibrary* mAVCodecLib;
   PRLibrary* mAVUtilLib;
