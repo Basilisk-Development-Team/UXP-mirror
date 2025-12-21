@@ -56,14 +56,18 @@ var windows_versions = [
   "windows-win7",
   "windows-win8",
   "windows-win10",
-  "windows-win11"
 ];
 
 // Possible values for '-moz-windows-theme'
 var windows_themes = [
   "aero",
   "aero-lite",
+  "luna-blue",
+  "luna-olive",
+  "luna-silver",
+  "royale",
   "generic",
+  "zune"
 ];
 
 // Read the current OS.
