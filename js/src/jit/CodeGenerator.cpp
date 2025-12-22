@@ -691,7 +691,7 @@ CodeGenerator::testValueTruthyKernel(const ValueOperand& value,
     int tagCount = int(mightBeUndefined) + int(mightBeNull) +
         int(mightBeBoolean) + int(mightBeInt32) + int(mightBeObject) +
         int(mightBeString) + int(mightBeSymbol) + int(mightBeDouble) + 
-        int(mightBeBigInt);;
+        int(mightBeBigInt);
 
     MOZ_ASSERT_IF(!valueMIR->emptyResultTypeSet(), tagCount > 0);
 
