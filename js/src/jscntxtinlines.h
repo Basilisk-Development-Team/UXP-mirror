@@ -84,6 +84,10 @@ class CompartmentChecker
         check(handle.get());
     }
 
+    template<typename T>
+    void check(MutableHandle<T> handle) {
+        check(handle.get());
+    }
     template <typename T>
     void checkAtom(T* thing) {
         static_assert(mozilla::IsSame<T, JSAtom>::value ||
@@ -119,6 +123,20 @@ class CompartmentChecker
             check(v.toString());
         else if (v.isSymbol())
             check(v.toSymbol());
+    }
+
+    // Check the contents of any container class that supports the C++
+    // iteration protocol, eg GCVector<jsid>.
+    template <typename Container>
+    typename mozilla::EnableIf<
+        mozilla::IsSame<
+            decltype(((Container*)nullptr)->begin()),
+            decltype(((Container*)nullptr)->end())
+        >::value
+    >::Type
+    check(const Container& container) {
+        for (auto i : container)
+            check(i);
     }
 
     void check(const ValueArray& arr) {
