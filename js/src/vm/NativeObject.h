@@ -548,7 +548,7 @@ class NativeObject : public ShapedObject
     create(JSContext* cx, js::gc::AllocKind kind, js::gc::InitialHeap heap,
            js::HandleShape shape, js::HandleObjectGroup group);
 
-    static inline NativeObject*
+    static inline JS::Result<NativeObject*, JS::OOM&>
     createWithTemplate(JSContext* cx, js::gc::InitialHeap heap, HandleObject templateObject);
 
   protected:
@@ -1355,7 +1355,7 @@ class NativeObject : public ShapedObject
         return privateRef(nfixed);
     }
 
-    static inline NativeObject*
+    static inline JS::Result<NativeObject*, JS::OOM&>
     copy(JSContext* cx, gc::AllocKind kind, gc::InitialHeap heap,
          HandleNativeObject templateObject);
 

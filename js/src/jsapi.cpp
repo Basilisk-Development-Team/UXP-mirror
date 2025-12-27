@@ -160,6 +160,7 @@ JS::ObjectOpResult::reportStrictErrorOrWarning(JSContext* cx, HandleObject obj, 
                   "unsigned value of OkCode must not be an error code");
     MOZ_ASSERT(code_ != Uninitialized);
     MOZ_ASSERT(!ok());
+    assertSameCompartment(cx, obj);
 
     unsigned flags = strict ? JSREPORT_ERROR : (JSREPORT_WARNING | JSREPORT_STRICT);
     if (code_ == JSMSG_OBJECT_NOT_EXTENSIBLE || code_ == JSMSG_SET_NON_OBJECT_RECEIVER) {
@@ -194,6 +195,7 @@ JS::ObjectOpResult::reportStrictErrorOrWarning(JSContext* cx, HandleObject obj, 
     MOZ_ASSERT(code_ != Uninitialized);
     MOZ_ASSERT(!ok());
     MOZ_ASSERT(!ErrorTakesArguments(code_));
+    assertSameCompartment(cx, obj);
 
     unsigned flags = strict ? JSREPORT_ERROR : (JSREPORT_WARNING | JSREPORT_STRICT);
     return JS_ReportErrorFlagsAndNumberASCII(cx, flags, GetErrorMessage, nullptr, code_);
@@ -1614,6 +1616,7 @@ JS::ToPrimitive(JSContext* cx, HandleObject obj, JSType hint, MutableHandleValue
 {
     AssertHeapIsIdle();
     CHECK_REQUEST(cx);
+    assertSameCompartment(cx, obj);
     MOZ_ASSERT(obj != nullptr);
     MOZ_ASSERT(hint == JSTYPE_VOID || hint == JSTYPE_STRING || hint == JSTYPE_NUMBER);
     vp.setObject(*obj);
@@ -1919,6 +1922,7 @@ JS_FireOnNewGlobalObject(JSContext* cx, JS::HandleObject global)
     // to be able to throw errors during delicate global creation routines.
     // This infallibility will eat OOM and slow script, but if that happens
     // we'll likely run up into them again soon in a fallible context.
+    assertSameCompartment(cx, global);
     Rooted<js::GlobalObject*> globalObject(cx, &global->as<GlobalObject>());
     Debugger::onNewGlobalObject(cx, globalObject);
 }
@@ -1999,6 +2003,7 @@ JS::AssertObjectBelongsToCurrentThread(JSObject* obj)
 JS_PUBLIC_API(bool)
 JS_GetPrototype(JSContext* cx, HandleObject obj, MutableHandleObject result)
 {
+    assertSameCompartment(cx, obj);
     return GetPrototype(cx, obj, result);
 }
 
@@ -2016,24 +2021,28 @@ JS_PUBLIC_API(bool)
 JS_GetPrototypeIfOrdinary(JSContext* cx, HandleObject obj, bool* isOrdinary,
                           MutableHandleObject result)
 {
+    assertSameCompartment(cx, obj);
     return GetPrototypeIfOrdinary(cx, obj, isOrdinary, result);
 }
 
 JS_PUBLIC_API(bool)
 JS_IsExtensible(JSContext* cx, HandleObject obj, bool* extensible)
 {
+    assertSameCompartment(cx, obj);
     return IsExtensible(cx, obj, extensible);
 }
 
 JS_PUBLIC_API(bool)
 JS_PreventExtensions(JSContext* cx, JS::HandleObject obj, ObjectOpResult& result)
 {
+    assertSameCompartment(cx, obj);
     return PreventExtensions(cx, obj, result);
 }
 
 JS_PUBLIC_API(bool)
 JS_SetImmutablePrototype(JSContext *cx, JS::HandleObject obj, bool *succeeded)
 {
+    assertSameCompartment(cx, obj);
     return SetImmutablePrototype(cx, obj, succeeded);
 }
 
@@ -2043,6 +2052,7 @@ JS_GetOwnPropertyDescriptorById(JSContext* cx, HandleObject obj, HandleId id,
 {
     AssertHeapIsIdle();
     CHECK_REQUEST(cx);
+    assertSameCompartment(cx, obj, id);
 
     return GetOwnPropertyDescriptor(cx, obj, id, desc);
 }
@@ -2487,6 +2497,7 @@ static bool
 DefineElement(JSContext* cx, HandleObject obj, uint32_t index, HandleValue value,
               unsigned attrs, Native getter, Native setter)
 {
+    assertSameCompartment(cx, obj, value);
     AutoRooterGetterSetter gsRoot(cx, attrs, &getter, &setter);
     AssertHeapIsIdle();
     CHECK_REQUEST(cx);
@@ -2553,6 +2564,7 @@ JS_HasPropertyById(JSContext* cx, HandleObject obj, HandleId id, bool* foundp)
 {
     AssertHeapIsIdle();
     CHECK_REQUEST(cx);
+    assertSameCompartment(cx, obj, id);
 
     return HasProperty(cx, obj, id, foundp);
 }
@@ -3292,6 +3304,9 @@ JS::ObjectToCompletePropertyDescriptor(JSContext* cx,
                                        HandleValue descObj,
                                        MutableHandle<PropertyDescriptor> desc)
 {
+    // |obj| can be in a different compartment here. The caller is responsible
+    // for wrapping it (see JS_WrapPropertyDescriptor).
+    assertSameCompartment(cx, descObj);
     if (!ToPropertyDescriptor(cx, descObj, true, desc))
         return false;
     CompletePropertyDescriptor(desc);
