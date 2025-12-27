@@ -1644,6 +1644,9 @@ ReloadPrefsCallback(const char* pref, void* data)
                                   useBaselineEager ? 0 : baselineThreshold);
     JS_SetGlobalJitCompilerOption(cx, JSJITCOMPILER_ION_WARMUP_TRIGGER,
                                   useIonEager ? 0 : ionThreshold);
+#ifdef DEBUG
+    JS_SetGlobalJitCompilerOption(cx, JSJITCOMPILER_FULL_DEBUG_CHECKS, fullJitDebugChecks);
+#endif
     JS_SetGlobalJitCompilerOption(cx, JSJITCOMPILER_UNBOXED_OBJECTS,
                                   unboxedObjects);
 }
