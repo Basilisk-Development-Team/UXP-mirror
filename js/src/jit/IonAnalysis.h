@@ -81,13 +81,13 @@ BuildDominatorTree(MIRGraph& graph);
 BuildPhiReverseMapping(MIRGraph& graph);
 
 void
-AssertBasicGraphCoherency(MIRGraph& graph);
+AssertBasicGraphCoherency(MIRGraph& graph, bool force = false);
 
 void
-AssertGraphCoherency(MIRGraph& graph);
+AssertGraphCoherency(MIRGraph& graph, bool force = false);
 
 void
-AssertExtendedGraphCoherency(MIRGraph& graph, bool underValueNumberer = false);
+AssertExtendedGraphCoherency(MIRGraph& graph, bool underValueNumberer = false, bool force = false);
 
 [[nodiscard]] bool
 EliminateRedundantChecks(MIRGraph& graph);
