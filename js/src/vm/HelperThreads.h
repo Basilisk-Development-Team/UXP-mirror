@@ -238,9 +238,16 @@ class GlobalHelperThreadState
         numWasmFailedJobs = 0;
         return n;
     }
+	UniqueChars harvestWasmError(const AutoLockHelperThreadState&) {
+        return Move(firstWasmError);
+    }
     void noteWasmFailure(const AutoLockHelperThreadState&) {
         // Be mindful to signal the active thread after calling this function.
         numWasmFailedJobs++;
+    }
+	void setWasmError(const AutoLockHelperThreadState&, UniqueChars error) {
+        if (!firstWasmError)
+          firstWasmError = Move(error);
     }
     bool wasmFailed(const AutoLockHelperThreadState&) {
         return bool(numWasmFailedJobs);
@@ -261,6 +268,12 @@ class GlobalHelperThreadState
      * Their parent is logically the active thread, and this number serves for harvesting.
      */
     uint32_t numWasmFailedJobs;
+
+    /*
+     * Error string from wasm validation. Arbitrarily choose to keep the first one that gets
+     * reported. Nondeterministic if multiple threads have errors.
+     */
+    UniqueChars firstWasmError;
 
   public:
     JSScript* finishScriptParseTask(JSContext* cx, void* token);
@@ -412,7 +425,7 @@ namespace wasm {
 
 // Performs MIR optimization and LIR generation on one or several functions.
 [[nodiscard]]  bool
-CompileFunction(CompileTask* task);
+CompileFunction(CompileTask* task, UniqueChars* error);
 
 }
 
