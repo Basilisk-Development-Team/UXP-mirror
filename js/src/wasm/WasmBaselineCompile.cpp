@@ -485,7 +485,7 @@ class BaseCompiler
         Eqz
     };
 
-    const ModuleGeneratorData&  mg_;
+    const ModuleEnvironment&    env_;
     BaseOpIter                  iter_;
     const FuncBytes&            func_;
     size_t                      lastReadCallSite_;
@@ -563,7 +563,7 @@ class BaseCompiler
     // More members: see the stk_ and ctl_ vectors, defined below.
 
   public:
-    BaseCompiler(const ModuleGeneratorData& mg,
+    BaseCompiler(const ModuleEnvironment& env,
                  Decoder& decoder,
                  const FuncBytes& func,
                  const ValTypeVector& locals,
@@ -2040,7 +2040,7 @@ class BaseCompiler
     void beginFunction() {
         JitSpew(JitSpew_Codegen, "# Emitting wasm baseline code");
 
-        SigIdDesc sigId = mg_.funcSigs[func_.index()]->id;
+        SigIdDesc sigId = env_.funcSigs[func_.index()]->id;
         GenerateFunctionPrologue(masm, localSize_, sigId, &offsets_);
 
         MOZ_ASSERT(masm.framePushed() == uint32_t(localSize_));
@@ -2384,12 +2384,12 @@ class BaseCompiler
     {
         loadI32(WasmTableCallIndexReg, indexVal);
 
-        const SigWithId& sig = mg_.sigs[sigIndex];
+        const SigWithId& sig = env_.sigs[sigIndex];
 
         CalleeDesc callee;
         if (isCompilingAsmJS()) {
             MOZ_ASSERT(sig.id.kind() == SigIdDesc::Kind::None);
-            const TableDesc& table = mg_.tables[mg_.asmJSSigToTableIndex[sigIndex]];
+            const TableDesc& table = env_.tables[env_.asmJSSigToTableIndex[sigIndex]];
 
             MOZ_ASSERT(IsPowerOfTwo(table.limits.initial));
             masm.andPtr(Imm32((table.limits.initial - 1)), WasmTableCallIndexReg);
@@ -2397,8 +2397,8 @@ class BaseCompiler
             callee = CalleeDesc::asmJSTable(table);
         } else {
             MOZ_ASSERT(sig.id.kind() != SigIdDesc::Kind::None);
-            MOZ_ASSERT(mg_.tables.length() == 1);
-            const TableDesc& table = mg_.tables[0];
+            MOZ_ASSERT(env_.tables.length() == 1);
+            const TableDesc& table = env_.tables[0];
 
             callee = CalleeDesc::wasmTable(table, sig.id);
         }
@@ -3696,7 +3696,7 @@ class BaseCompiler
     }
 
     bool isCompilingAsmJS() const {
-        return mg_.kind == ModuleKind::AsmJS;
+        return env_.kind == ModuleKind::AsmJS;
     }
 
     TrapOffset trapOffset() const {
@@ -5798,8 +5798,8 @@ BaseCompiler::emitCall()
 
     sync();
 
-    const Sig& sig = *mg_.funcSigs[funcIndex];
-    bool import = mg_.funcIsImport(funcIndex);
+    const Sig& sig = *env_.funcSigs[funcIndex];
+    bool import = env_.funcIsImport(funcIndex);
 
     uint32_t numArgs = sig.args().length();
     size_t stackSpace = stackConsumed(numArgs);
@@ -5814,7 +5814,7 @@ BaseCompiler::emitCall()
         return false;
 
     if (import)
-        callImport(mg_.funcImportGlobalDataOffsets[funcIndex], baselineCall);
+        callImport(env_.funcImportGlobalDataOffsets[funcIndex], baselineCall);
     else
         callDefinition(funcIndex, baselineCall);
 
@@ -5848,7 +5848,7 @@ BaseCompiler::emitCallIndirect(bool oldStyle)
 
     sync();
 
-    const SigWithId& sig = mg_.sigs[sigIndex];
+    const SigWithId& sig = env_.sigs[sigIndex];
 
     // new style: Stack: ... arg1 .. argn callee
     // old style: Stack: ... callee arg1 .. argn
@@ -6191,13 +6191,13 @@ bool
 BaseCompiler::emitGetGlobal()
 {
     uint32_t id;
-    if (!iter_.readGetGlobal(mg_.globals, &id))
+    if (!iter_.readGetGlobal(env_.globals, &id))
         return false;
 
     if (deadCode_)
         return true;
 
-    const GlobalDesc& global = mg_.globals[id];
+    const GlobalDesc& global = env_.globals[id];
 
     if (global.isConstant()) {
         Val value = global.constantValue();
@@ -6260,7 +6260,7 @@ BaseCompiler::emitSetOrTeeGlobal(uint32_t id)
     if (deadCode_)
         return true;
 
-    const GlobalDesc& global = mg_.globals[id];
+    const GlobalDesc& global = env_.globals[id];
 
     switch (global.type()) {
       case ValType::I32: {
@@ -6299,7 +6299,7 @@ BaseCompiler::emitSetGlobal()
 {
     uint32_t id;
     Nothing unused_value;
-    if (!iter_.readSetGlobal(mg_.globals, &id, &unused_value))
+    if (!iter_.readSetGlobal(env_.globals, &id, &unused_value))
         return false;
 
     return emitSetOrTeeGlobal<true>(id);
@@ -6310,7 +6310,7 @@ BaseCompiler::emitTeeGlobal()
 {
     uint32_t id;
     Nothing unused_value;
-    if (!iter_.readTeeGlobal(mg_.globals, &id, &unused_value))
+    if (!iter_.readTeeGlobal(env_.globals, &id, &unused_value))
         return false;
 
     return emitSetOrTeeGlobal<false>(id);
@@ -7400,13 +7400,13 @@ BaseCompiler::emitFunction()
     return true;
 }
 
-BaseCompiler::BaseCompiler(const ModuleGeneratorData& mg,
+BaseCompiler::BaseCompiler(const ModuleEnvironment& env,
                            Decoder& decoder,
                            const FuncBytes& func,
                            const ValTypeVector& locals,
                            TempAllocator* alloc,
                            MacroAssembler* masm)
-    : mg_(mg),
+    : env_(env),
       iter_(decoder, func.lineOrBytecode()),
       func_(func),
       lastReadCallSite_(0),
@@ -7635,7 +7635,7 @@ js::wasm::BaselineCompileFunction(CompileTask* task, FuncCompileUnit* unit)
     ValTypeVector locals;
     if (!locals.appendAll(func.sig().args()))
         return false;
-    if (!DecodeLocalEntries(d, task->mg().kind, &locals))
+    if (!DecodeLocalEntries(d, task->env().kind, &locals))
         return false;
 
     // The MacroAssembler will sometimes access the jitContext.
@@ -7644,7 +7644,7 @@ js::wasm::BaselineCompileFunction(CompileTask* task, FuncCompileUnit* unit)
 
     // One-pass baseline compilation.
 
-    BaseCompiler f(task->mg(), d, func, locals, &task->alloc(), &task->masm());
+    BaseCompiler f(task->env(), d, func, locals, &task->alloc(), &task->masm());
     if (!f.init())
         return false;
 

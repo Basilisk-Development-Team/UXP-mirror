@@ -20,17 +20,19 @@
 #define wasm_generator_h
 
 #include "jit/MacroAssembler.h"
-#include "wasm/WasmCompile.h"
+#include "wasm/WasmBinaryFormat.h"
 #include "wasm/WasmModule.h"
 
 namespace js {
 namespace wasm {
 
-struct ModuleGeneratorData;
+struct ModuleEnvironment;
 
 typedef Vector<jit::MIRType, 8, SystemAllocPolicy> MIRTypeVector;
 typedef jit::ABIArgIter<MIRTypeVector> ABIArgMIRTypeIter;
 typedef jit::ABIArgIter<ValTypeVector> ABIArgValTypeIter;
+
+struct CompileArgs;
 
 class FunctionGenerator;
 
@@ -138,7 +140,7 @@ typedef Vector<FuncCompileUnit, 8, SystemAllocPolicy> FuncCompileUnitVector;
 
 class CompileTask
 {
-    const ModuleGeneratorData&   mg_;
+    const ModuleEnvironment&   env_;
     LifoAlloc                  lifo_;
     Maybe<jit::TempAllocator>  alloc_;
     Maybe<jit::MacroAssembler> masm_;
@@ -153,8 +155,8 @@ class CompileTask
     }
 
   public:
-    CompileTask(const ModuleGeneratorData& mg, size_t defaultChunkSize)
-      : mg_(mg),
+    CompileTask(const ModuleEnvironment& env, size_t defaultChunkSize)
+      : env_(env),
         lifo_(defaultChunkSize)
     {
         init();
@@ -165,8 +167,8 @@ class CompileTask
     jit::TempAllocator& alloc() {
         return *alloc_;
     }
-    const ModuleGeneratorData& mg() const {
-        return mg_;
+    const ModuleEnvironment& env() const {
+        return env_;
     }
     jit::MacroAssembler& masm() {
         return *masm_;
@@ -189,43 +191,6 @@ class CompileTask
     }
 };
 
-// The ModuleGeneratorData holds all the state shared between the
-// ModuleGenerator thread and background compile threads. The background
-// threads are given a read-only view of the ModuleGeneratorData and the
-// ModuleGenerator is careful to initialize, and never subsequently mutate,
-// any given datum before being read by a background thread. In particular,
-// once created, the Vectors are never resized.
-
-struct ModuleGeneratorData
-{
-    ModuleKind                kind;
-    MemoryUsage               memoryUsage;
-    mozilla::Atomic<uint32_t> minMemoryLength;
-    Maybe<uint32_t>           maxMemoryLength;
-
-    SigWithIdVector           sigs;
-    SigWithIdPtrVector        funcSigs;
-    Uint32Vector              funcImportGlobalDataOffsets;
-    GlobalDescVector          globals;
-    TableDescVector           tables;
-    Uint32Vector              asmJSSigToTableIndex;
-
-    explicit ModuleGeneratorData(ModuleKind kind = ModuleKind::Wasm)
-      : kind(kind),
-        memoryUsage(MemoryUsage::None),
-        minMemoryLength(0)
-    {}
-
-    bool isAsmJS() const {
-        return kind == ModuleKind::AsmJS;
-    }
-    bool funcIsImport(uint32_t funcIndex) const {
-        return funcIndex < funcImportGlobalDataOffsets.length();
-    }
-};
-
-typedef UniquePtr<ModuleGeneratorData> UniqueModuleGeneratorData;
-
 // A ModuleGenerator encapsulates the creation of a wasm module. During the
 // lifetime of a ModuleGenerator, a sequence of FunctionGenerators are created
 // and destroyed to compile the individual function bodies. After generating all
@@ -246,13 +211,9 @@ class MOZ_STACK_CLASS ModuleGenerator
     Assumptions                     assumptions_;
     LinkData                        linkData_;
     MutableMetadata                 metadata_;
-    ExportVector                    exports_;
-    ImportVector                    imports_;
-    DataSegmentVector               dataSegments_;
-    ElemSegmentVector               elemSegments_;
 
     // Data scoped to the ModuleGenerator's lifetime
-    UniqueModuleGeneratorData       shared_;
+    UniqueModuleEnvironment         env_;
     uint32_t                        numSigs_;
     uint32_t                        numTables_;
     LifoAlloc                       lifo_;
@@ -295,59 +256,49 @@ private:
     [[nodiscard]] bool allocateGlobalBytes(uint32_t bytes, uint32_t align, uint32_t* globalDataOff);
     [[nodiscard]] bool allocateGlobal(GlobalDesc* global);
 
+    [[nodiscard]] bool initAsmJS(Metadata* asmJSMetadata);
+    [[nodiscard]] bool initWasm();
+
     [[nodiscard]] bool launchBatchCompile();
 
   public:
-    explicit ModuleGenerator(ImportVector&& imports);
+    explicit ModuleGenerator();
     ~ModuleGenerator();
 
-    [[nodiscard]] bool init(UniqueModuleGeneratorData shared, const CompileArgs& args,
+    [[nodiscard]] bool init(UniqueModuleEnvironment env, const CompileArgs& args,
                            Metadata* maybeAsmJSMetadata = nullptr);
+
+    const ModuleEnvironment& env() const { return *env_; }
 
     bool isAsmJS() const { return metadata_->kind == ModuleKind::AsmJS; }
     jit::MacroAssembler& masm() { return masm_; }
 
     // Memory:
-    bool usesMemory() const { return UsesMemory(shared_->memoryUsage); }
-    uint32_t minMemoryLength() const { return shared_->minMemoryLength; }
+    bool usesMemory() const { return env_->usesMemory(); }
+    uint32_t minMemoryLength() const { return env_->minMemoryLength; }
 
     // Tables:
     uint32_t numTables() const { return numTables_; }
-    const TableDescVector& tables() const { return shared_->tables; }
+    const TableDescVector& tables() const { return env_->tables; }
 
     // Signatures:
     uint32_t numSigs() const { return numSigs_; }
     const SigWithId& sig(uint32_t sigIndex) const;
     const SigWithId& funcSig(uint32_t funcIndex) const;
+    const SigWithIdPtrVector& funcSigs() const { return env_->funcSigs; }
 
     // Globals:
-    const GlobalDescVector& globals() const { return shared_->globals; }
+    const GlobalDescVector& globals() const { return env_->globals; }
 
     // Functions declarations:
     uint32_t numFuncDefs() const;
     uint32_t numFuncs() const;
-
-    // Exports:
-    [[nodiscard]] bool addFuncExport(UniqueChars fieldName, uint32_t funcIndex);
-    [[nodiscard]] bool addTableExport(UniqueChars fieldName);
-    [[nodiscard]] bool addMemoryExport(UniqueChars fieldName);
-    [[nodiscard]] bool addGlobalExport(UniqueChars fieldName, uint32_t globalIndex);
 
     // Function definitions:
     [[nodiscard]] bool startFuncDefs();
     [[nodiscard]] bool startFuncDef(uint32_t lineOrBytecode, FunctionGenerator* fg);
     [[nodiscard]] bool finishFuncDef(uint32_t funcIndex, FunctionGenerator* fg);
     [[nodiscard]] bool finishFuncDefs();
-
-    // Start function:
-    bool setStartFunction(uint32_t funcIndex);
-
-    // Segments:
-    void setDataSegments(DataSegmentVector&& segments);
-    [[nodiscard]] bool addElemSegment(InitExpr offset, Uint32Vector&& elemFuncIndices);
-
-    // Function names:
-    void setFuncNames(NameInBytecodeVector&& funcNames);
 
     // asm.js lazy initialization:
     void initSig(uint32_t sigIndex, Sig&& sig);
@@ -358,11 +309,13 @@ private:
     void initMemoryUsage(MemoryUsage memoryUsage);
     void bumpMinMemoryLength(uint32_t newMinMemoryLength);
     [[nodiscard]] bool addGlobal(ValType type, bool isConst, uint32_t* index);
+	[[nodiscard]] bool addExport(CacheableChars&& fieldChars, uint32_t funcIndex);
 
     // Finish compilation, provided the list of imports and source bytecode.
     // Both these Vectors may be empty (viz., b/c asm.js does different things
     // for imports and source).
-    SharedModule finish(const ShareableBytes& bytecode);
+    SharedModule finish(const ShareableBytes& bytecode, DataSegmentVector&& dataSegments,
+                        NameInBytecodeVector&& funcNames);
 };
 
 // A FunctionGenerator encapsulates the generation of a single function body.
