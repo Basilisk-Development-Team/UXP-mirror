@@ -21,6 +21,8 @@
 
 #include "mozilla/Attributes.h"
 
+#include "wasm/WasmTypes.h"
+
 namespace js {
 namespace wasm {
 
@@ -30,7 +32,7 @@ class FuncCompileUnit;
 // Generates very fast code at the expense of compilation time.
 
 [[nodiscard]] bool
-IonCompileFunction(CompileTask* task, FuncCompileUnit* unit);
+IonCompileFunction(CompileTask* task, FuncCompileUnit* unit, UniqueChars* error);
 
 } // namespace wasm
 } // namespace js
