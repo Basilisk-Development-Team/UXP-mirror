@@ -290,9 +290,6 @@ private:
     // Globals:
     const GlobalDescVector& globals() const { return env_->globals; }
 
-    // Functions declarations:
-    uint32_t numFuncDefs() const;
-
     // Function definitions:
     [[nodiscard]] bool startFuncDefs();
     [[nodiscard]] bool startFuncDef(uint32_t lineOrBytecode, FunctionGenerator* fg);
