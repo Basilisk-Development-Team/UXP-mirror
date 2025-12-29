@@ -741,7 +741,7 @@ Debugger::memory() const
 
 bool
 Debugger::getScriptFrameWithIter(JSContext* cx, AbstractFramePtr referent,
-                                 const ScriptFrameIter* maybeIter, MutableHandleValue vp)
+                                 const FrameIter* maybeIter, MutableHandleValue vp)
 {
     RootedDebuggerFrame result(cx);
     if (!Debugger::getScriptFrameWithIter(cx, referent, maybeIter, &result))
@@ -753,13 +753,13 @@ Debugger::getScriptFrameWithIter(JSContext* cx, AbstractFramePtr referent,
 
 bool
 Debugger::getScriptFrameWithIter(JSContext* cx, AbstractFramePtr referent,
-                                 const ScriptFrameIter* maybeIter,
+                                 const FrameIter* maybeIter,
                                  MutableHandleDebuggerFrame result)
 {
     MOZ_ASSERT_IF(maybeIter, maybeIter->abstractFramePtr() == referent);
-    MOZ_ASSERT(!referent.script()->selfHosted());
+    MOZ_ASSERT_IF(referent.hasScript(), !referent.script()->selfHosted());
 
-    if (!referent.script()->ensureHasAnalyzedArgsUsage(cx))
+    if (referent.hasScript() && !referent.script()->ensureHasAnalyzedArgsUsage(cx))
         return false;
 
     FrameMap::AddPtr p = frames.lookupForAdd(referent);
@@ -1019,7 +1019,7 @@ Debugger::slowPathOnExceptionUnwind(JSContext* cx, AbstractFramePtr frame)
         return JSTRAP_CONTINUE;
 
     // The Debugger API mustn't muck with frames from self-hosted scripts.
-    if (frame.script()->selfHosted())
+    if (frame.hasScript() && frame.script()->selfHosted())
         return JSTRAP_CONTINUE;
 
     RootedValue rval(cx);
@@ -1741,7 +1741,7 @@ Debugger::fireDebuggerStatement(JSContext* cx, MutableHandleValue vp)
     Maybe<AutoCompartment> ac;
     ac.emplace(cx, object);
 
-    ScriptFrameIter iter(cx);
+    FrameIter iter(cx);
     RootedValue scriptFrame(cx);
     if (!getScriptFrame(cx, iter, &scriptFrame))
         return reportUncaughtException(ac);
@@ -1771,7 +1771,7 @@ Debugger::fireExceptionUnwind(JSContext* cx, MutableHandleValue vp)
     RootedValue scriptFrame(cx);
     RootedValue wrappedExc(cx, exc);
 
-    ScriptFrameIter iter(cx);
+    FrameIter iter(cx);
     if (!getScriptFrame(cx, iter, &scriptFrame) || !wrapDebuggeeValue(cx, &wrappedExc))
         return reportUncaughtException(ac);
 
@@ -1796,7 +1796,7 @@ Debugger::fireEnterFrame(JSContext* cx, MutableHandleValue vp)
 
     RootedValue scriptFrame(cx);
 
-    ScriptFrameIter iter(cx);
+    FrameIter iter(cx);
     if (!getScriptFrame(cx, iter, &scriptFrame))
         return reportUncaughtException(ac);
 
@@ -1941,7 +1941,7 @@ Debugger::slowPathOnNewWasmInstance(JSContext* cx, Handle<WasmInstanceObject*> w
 /* static */ JSTrapStatus
 Debugger::onTrap(JSContext* cx, MutableHandleValue vp)
 {
-    ScriptFrameIter iter(cx);
+    FrameIter iter(cx);
     RootedScript script(cx, iter.script());
     MOZ_ASSERT(script->isDebuggee());
     Rooted<GlobalObject*> scriptGlobal(cx, &script->global());
@@ -2005,7 +2005,7 @@ Debugger::onTrap(JSContext* cx, MutableHandleValue vp)
 /* static */ JSTrapStatus
 Debugger::onSingleStep(JSContext* cx, MutableHandleValue vp)
 {
-    ScriptFrameIter iter(cx);
+    FrameIter iter(cx);
 
     /*
      * We may be stepping over a JSOP_EXCEPTION, that pushes the context's
@@ -2043,6 +2043,8 @@ Debugger::onSingleStep(JSContext* cx, MutableHandleValue vp)
                 for (FrameMap::Range r = dbg->frames.all(); !r.empty(); r.popFront()) {
                     AbstractFramePtr frame = r.front().key();
                     NativeObject* frameobj = r.front().value();
+                    if (frame.isWasmDebugFrame())
+                        continue;
                     if (frame.script() == trappingScript &&
                         !frameobj->getReservedSlot(JSSLOT_DEBUGFRAME_ONSTEP_HANDLER).isUndefined())
                     {
@@ -2342,9 +2344,10 @@ class MOZ_RAII ExecutionObservableCompartments : public Debugger::ExecutionObser
     bool shouldRecompileOrInvalidate(JSScript* script) const {
         return script->hasBaselineScript() && compartments_.has(script->compartment());
     }
-    bool shouldMarkAsDebuggee(ScriptFrameIter& iter) const {
-        // AbstractFramePtr can't refer to non-remateralized Ion frames, so if
-        // iter refers to one such, we know we don't match.
+    bool shouldMarkAsDebuggee(FrameIter& iter) const {
+        // AbstractFramePtr can't refer to non-remateralized Ion frames or
+        // non-debuggee wasm frames, so if iter refers to one such, we know we
+        // don't match.
         return iter.hasUsableAbstractFramePtr() && compartments_.has(iter.compartment());
     }
 
@@ -2403,9 +2406,10 @@ class MOZ_RAII ExecutionObservableFrame : public Debugger::ExecutionObservableSe
                script == frame_.asRematerializedFrame()->outerScript();
     }
 
-    bool shouldMarkAsDebuggee(ScriptFrameIter& iter) const {
-        // AbstractFramePtr can't refer to non-remateralized Ion frames, so if
-        // iter refers to one such, we know we don't match.
+    bool shouldMarkAsDebuggee(FrameIter& iter) const {
+        // AbstractFramePtr can't refer to non-remateralized Ion frames or
+        // non-debuggee wasm frames, so if iter refers to one such, we know we
+        // don't match.
         //
         // We never use this 'has' overload for frame invalidation, only for
         // frame debuggee marking; so this overload doesn't need a parallel to
@@ -2433,7 +2437,7 @@ class MOZ_RAII ExecutionObservableScript : public Debugger::ExecutionObservableS
     bool shouldRecompileOrInvalidate(JSScript* script) const {
         return script->hasBaselineScript() && script == script_;
     }
-    bool shouldMarkAsDebuggee(ScriptFrameIter& iter) const {
+    bool shouldMarkAsDebuggee(FrameIter& iter) const {
         // AbstractFramePtr can't refer to non-remateralized Ion frames, and
         // while a non-rematerialized Ion frame may indeed be running script_,
         // we cannot mark them as debuggees until they bail out.
@@ -2443,6 +2447,9 @@ class MOZ_RAII ExecutionObservableScript : public Debugger::ExecutionObservableS
         // debuggee. This is correct in that the only other way a frame may be
         // marked as debuggee is via Debugger.Frame reflection, which would
         // have rematerialized any Ion frames.
+        //
+        // Also AbstractFramePtr can't refer to non-debuggee wasm frames, so if
+        // iter refers to one such, we know we don't match.
         return iter.hasUsableAbstractFramePtr() && iter.abstractFramePtr().script() == script_;
     }
 
@@ -2464,7 +2471,7 @@ Debugger::updateExecutionObservabilityOfFrames(JSContext* cx, const ExecutionObs
     }
 
     AbstractFramePtr oldestEnabledFrame;
-    for (ScriptFrameIter iter(cx);
+    for (FrameIter iter(cx);
          !iter.done();
          ++iter)
     {
@@ -2474,6 +2481,8 @@ Debugger::updateExecutionObservabilityOfFrames(JSContext* cx, const ExecutionObs
                     oldestEnabledFrame = iter.abstractFramePtr();
                     oldestEnabledFrame.setIsDebuggee();
                 }
+				if (iter.abstractFramePtr().isWasmDebugFrame())
+                    iter.abstractFramePtr().asWasmDebugFrame()->observeFrame(cx);
             } else {
 #ifdef DEBUG
                 // Debugger.Frame lifetimes are managed by the debug epilogue,
@@ -2581,6 +2590,17 @@ UpdateExecutionObservabilityOfScriptsInZone(JSContext* cx, Zone* zone,
         FinishDiscardBaselineScript(fop, scripts[i]);
     }
 
+    // Iterate through all wasm instances to find ones that need to be updated.
+    for (JSCompartment* c : zone->compartments()) {
+        for (wasm::Instance* instance : c->wasm.instances()) {
+            if (!instance->debugEnabled())
+                continue;
+
+            bool enableTrap = observing == Debugger::IsObserving::Observing;
+            instance->ensureEnterFrameTrapsState(cx, enableTrap);
+        }
+    }
+
     return true;
 }
 
@@ -2604,7 +2624,7 @@ template <typename FrameFn>
 /* static */ void
 Debugger::forEachDebuggerFrame(AbstractFramePtr frame, FrameFn fn)
 {
-    GlobalObject* global = &frame.script()->global();
+    GlobalObject* global = frame.global();
     if (GlobalObject::DebuggerVector* debuggers = global->getDebuggers()) {
         for (auto p = debuggers->begin(); p != debuggers->end(); p++) {
             Debugger* dbg = *p;
@@ -2663,7 +2683,8 @@ Debugger::ensureExecutionObservabilityOfOsrFrame(JSContext* cx, InterpreterFrame
 /* static */ bool
 Debugger::ensureExecutionObservabilityOfFrame(JSContext* cx, AbstractFramePtr frame)
 {
-    MOZ_ASSERT_IF(frame.script()->isDebuggee(), frame.isDebuggee());
+    MOZ_ASSERT_IF(frame.hasScript() && frame.script()->isDebuggee(), frame.isDebuggee());
+    MOZ_ASSERT_IF(frame.isWasmDebugFrame(), frame.wasmInstance()->debugEnabled());
     if (frame.isDebuggee())
         return true;
     ExecutionObservableFrame obs(frame);
@@ -2769,7 +2790,7 @@ Debugger::updateObservesCoverageOnDebuggees(JSContext* cx, IsObserving observing
     // If any frame on the stack belongs to the debuggee, then we cannot update
     // the ScriptCounts, because this would imply to invalidate a Debugger.Frame
     // to recompile it with/without ScriptCount support.
-    for (ScriptFrameIter iter(cx);
+    for (FrameIter iter(cx);
          !iter.done();
          ++iter)
     {
@@ -3740,15 +3761,15 @@ Debugger::getNewestFrame(JSContext* cx, unsigned argc, Value* vp)
 {
     THIS_DEBUGGER(cx, argc, vp, "getNewestFrame", args, dbg);
 
-    /* Since there may be multiple contexts, use AllScriptFramesIter. */
-    for (AllScriptFramesIter i(cx); !i.done(); ++i) {
+    /* Since there may be multiple contexts, use AllFramesIter. */
+    for (AllFramesIter i(cx); !i.done(); ++i) {
         if (dbg->observesFrame(i)) {
             // Ensure that Ion frames are rematerialized. Only rematerialized
             // Ion frames may be used as AbstractFramePtrs.
             if (i.isIon() && !i.ensureHasRematerializedFrame(cx))
                 return false;
             AbstractFramePtr frame = i.abstractFramePtr();
-            ScriptFrameIter iter(i.activation()->cx());
+            FrameIter iter(i.activation()->cx());
             while (!iter.hasUsableAbstractFramePtr() || iter.abstractFramePtr() != frame)
                 ++iter;
             return dbg->getScriptFrame(cx, iter, args.rval());
@@ -4025,7 +4046,7 @@ Debugger::removeDebuggeeGlobal(FreeOp* fop, GlobalObject* global,
     for (FrameMap::Enum e(frames); !e.empty(); e.popFront()) {
         AbstractFramePtr frame = e.front().key();
         NativeObject* frameobj = e.front().value();
-        if (&frame.script()->global() == global) {
+        if (frame.global() == global) {
             DebuggerFrame_freeScriptFrameIterData(fop, frameobj);
             DebuggerFrame_maybeDecrementFrameScriptStepModeCount(fop, frame, frameobj);
             e.removeFront();
@@ -6271,6 +6292,8 @@ DebuggerScript_getLineOffsets(JSContext* cx, unsigned argc, Value* vp)
 bool
 Debugger::observesFrame(AbstractFramePtr frame) const
 {
+    if (frame.isWasmDebugFrame())
+        return observesWasm(frame.wasmInstance());
     return observesScript(frame.script());
 }
 
@@ -6284,7 +6307,7 @@ Debugger::observesFrame(const FrameIter& iter) const
             return false;
     }
     if (iter.isWasm())
-        return false;
+        return observesWasm(iter.wasmInstance());
     return observesScript(iter.script());
 }
 
@@ -6296,6 +6319,14 @@ Debugger::observesScript(JSScript* script) const
     // Don't ever observe self-hosted scripts: the Debugger API can break
     // self-hosted invariants.
     return observesGlobal(&script->global()) && !script->selfHosted();
+}
+
+bool
+Debugger::observesWasm(wasm::Instance* instance) const
+{
+    if (!enabled || !instance->debugEnabled())
+        return false;
+    return observesGlobal(&instance->object()->global());
 }
 
 /* static */ bool
@@ -7247,7 +7278,7 @@ DebuggerFrame::initClass(JSContext* cx, HandleObject dbgCtor, HandleObject obj)
 
 /* static */ DebuggerFrame*
 DebuggerFrame::create(JSContext* cx, HandleObject proto, AbstractFramePtr referent,
-                      const ScriptFrameIter* maybeIter, HandleNativeObject debugger)
+                      const FrameIter* maybeIter, HandleNativeObject debugger)
 {
   JSObject* obj = NewObjectWithGivenProto(cx, &DebuggerFrame::class_, proto);
   if (!obj)
@@ -7255,7 +7286,7 @@ DebuggerFrame::create(JSContext* cx, HandleObject proto, AbstractFramePtr refere
 
   DebuggerFrame& frame = obj->as<DebuggerFrame>();
 
-  // Eagerly copy ScriptFrameIter data if we've already walked the stack.
+  // Eagerly copy FrameIter data if we've already walked the stack.
   if (maybeIter) {
       AbstractFramePtr data = maybeIter->copyDataAsAbstractFramePtr();
       if (!data)
@@ -7293,10 +7324,10 @@ DebuggerFrame::getIsConstructing(JSContext* cx, HandleDebuggerFrame frame, bool&
 {
     MOZ_ASSERT(frame->isLive());
 
-    Maybe<ScriptFrameIter> maybeIter;
-    if (!DebuggerFrame::getScriptFrameIter(cx, frame, maybeIter))
+    Maybe<FrameIter> maybeIter;
+    if (!DebuggerFrame::getFrameIter(cx, frame, maybeIter))
         return false;
-    ScriptFrameIter& iter = *maybeIter;
+    FrameIter& iter = *maybeIter;
 
     result = iter.isFunctionFrame() && iter.isConstructing();
     return true;
@@ -7305,6 +7336,11 @@ DebuggerFrame::getIsConstructing(JSContext* cx, HandleDebuggerFrame frame, bool&
 static void
 UpdateFrameIterPc(FrameIter& iter)
 {
+    if (iter.abstractFramePtr().isWasmDebugFrame()) {
+        // Wasm debug frames don't need their pc updated -- it's null.
+        return;
+    }
+
     if (iter.abstractFramePtr().isRematerializedFrame()) {
 #ifdef DEBUG
         // Rematerialized frames don't need their pc updated. The reason we
@@ -7350,10 +7386,10 @@ DebuggerFrame::getEnvironment(JSContext* cx, HandleDebuggerFrame frame,
 
     Debugger* dbg = frame->owner();
 
-    Maybe<ScriptFrameIter> maybeIter;
-    if (!DebuggerFrame::getScriptFrameIter(cx, frame, maybeIter))
+    Maybe<FrameIter> maybeIter;
+    if (!DebuggerFrame::getFrameIter(cx, frame, maybeIter))
         return false;
-    ScriptFrameIter& iter = *maybeIter;
+    FrameIter& iter = *maybeIter;
 
     Rooted<Env*> env(cx);
     {
@@ -7370,8 +7406,9 @@ DebuggerFrame::getEnvironment(JSContext* cx, HandleDebuggerFrame frame,
 /* static */ bool
 DebuggerFrame::getIsGenerator(HandleDebuggerFrame frame)
 {
-    return DebuggerFrame::getReferent(frame).script()->isStarGenerator() ||
-           DebuggerFrame::getReferent(frame).script()->isLegacyGenerator();
+    AbstractFramePtr referent = DebuggerFrame::getReferent(frame);
+    return referent.hasScript() && referent.script()->isStarGenerator() ||
+           referent.hasScript() && referent.script()->isLegacyGenerator();
 }
 
 /* static */ bool
@@ -7379,10 +7416,13 @@ DebuggerFrame::getOffset(JSContext* cx, HandleDebuggerFrame frame, size_t& resul
 {
     MOZ_ASSERT(frame->isLive());
 
-    Maybe<ScriptFrameIter> maybeIter;
-    if (!DebuggerFrame::getScriptFrameIter(cx, frame, maybeIter))
+    if (!requireScriptReferent(cx, frame))
         return false;
-    ScriptFrameIter& iter = *maybeIter;
+
+    Maybe<FrameIter> maybeIter;
+    if (!DebuggerFrame::getFrameIter(cx, frame, maybeIter))
+        return false;
+    FrameIter& iter = *maybeIter;
 
     JSScript* script = iter.script();
     UpdateFrameIterPc(iter);
@@ -7399,10 +7439,10 @@ DebuggerFrame::getOlder(JSContext* cx, HandleDebuggerFrame frame,
 
     Debugger* dbg = frame->owner();
 
-    Maybe<ScriptFrameIter> maybeIter;
-    if (!DebuggerFrame::getScriptFrameIter(cx, frame, maybeIter))
+    Maybe<FrameIter> maybeIter;
+    if (!DebuggerFrame::getFrameIter(cx, frame, maybeIter))
         return false;
-    ScriptFrameIter& iter = *maybeIter;
+    FrameIter& iter = *maybeIter;
 
     for (++iter; !iter.done(); ++iter) {
         if (dbg->observesFrame(iter)) {
@@ -7420,13 +7460,15 @@ DebuggerFrame::getOlder(JSContext* cx, HandleDebuggerFrame frame,
 DebuggerFrame::getThis(JSContext* cx, HandleDebuggerFrame frame, MutableHandleValue result)
 {
     MOZ_ASSERT(frame->isLive());
+    if (!requireScriptReferent(cx, frame))
+        return false;
 
     Debugger* dbg = frame->owner();
 
-    Maybe<ScriptFrameIter> maybeIter;
-    if (!DebuggerFrame::getScriptFrameIter(cx, frame, maybeIter))
+    Maybe<FrameIter> maybeIter;
+    if (!DebuggerFrame::getFrameIter(cx, frame, maybeIter))
         return false;
-    ScriptFrameIter& iter = *maybeIter;
+    FrameIter& iter = *maybeIter;
 
     {
         AbstractFramePtr frame = iter.abstractFramePtr();
@@ -7458,6 +7500,8 @@ DebuggerFrame::getType(HandleDebuggerFrame frame)
         return DebuggerFrameType::Call;
     else if (referent.isModuleFrame())
         return DebuggerFrameType::Module;
+    else if (referent.isWasmDebugFrame())
+        return DebuggerFrameType::WasmCall;
     MOZ_CRASH("Unknown frame type");
 }
 
@@ -7470,6 +7514,8 @@ DebuggerFrame::getImplementation(HandleDebuggerFrame frame)
         return DebuggerFrameImplementation::Baseline;
     else if (referent.isRematerializedFrame())
         return DebuggerFrameImplementation::Ion;
+    else if (referent.isWasmDebugFrame())
+        return DebuggerFrameImplementation::Wasm;
     return DebuggerFrameImplementation::Interpreter;
 }
 
@@ -7537,7 +7583,7 @@ static bool
 DebuggerGenericEval(JSContext* cx, const mozilla::Range<const char16_t> chars,
                     HandleObject bindings, const EvalOptions& options,
                     JSTrapStatus& status, MutableHandleValue value,
-                    Debugger* dbg, HandleObject envArg, ScriptFrameIter* iter)
+                    Debugger* dbg, HandleObject envArg, FrameIter* iter)
 {
     /* Either we're specifying the frame, or a global. */
     MOZ_ASSERT_IF(iter, !envArg);
@@ -7629,13 +7675,15 @@ DebuggerFrame::eval(JSContext* cx, HandleDebuggerFrame frame, mozilla::Range<con
                     MutableHandleValue value)
 {
     MOZ_ASSERT(frame->isLive());
+    if (!requireScriptReferent(cx, frame))
+        return false;
 
     Debugger* dbg = frame->owner();
 
-    Maybe<ScriptFrameIter> maybeIter;
-    if (!DebuggerFrame::getScriptFrameIter(cx, frame, maybeIter))
+    Maybe<FrameIter> maybeIter;
+    if (!DebuggerFrame::getFrameIter(cx, frame, maybeIter))
         return false;
-    ScriptFrameIter& iter = *maybeIter;
+    FrameIter& iter = *maybeIter;
 
     UpdateFrameIterPc(iter);
 
@@ -7665,22 +7713,22 @@ DebuggerFrame::getReferent(HandleDebuggerFrame frame)
 {
     AbstractFramePtr referent = AbstractFramePtr::FromRaw(frame->getPrivate());
     if (referent.isScriptFrameIterData()) {
-        ScriptFrameIter iter(*(ScriptFrameIter::Data*)(referent.raw()));
+        FrameIter iter(*(FrameIter::Data*)(referent.raw()));
         referent = iter.abstractFramePtr();
     }
     return referent;
 }
 
 /* static */ bool
-DebuggerFrame::getScriptFrameIter(JSContext* cx, HandleDebuggerFrame frame,
-                                  Maybe<ScriptFrameIter>& result)
+DebuggerFrame::getFrameIter(JSContext* cx, HandleDebuggerFrame frame,
+                            Maybe<FrameIter>& result)
 {
     AbstractFramePtr referent = AbstractFramePtr::FromRaw(frame->getPrivate());
     if (referent.isScriptFrameIterData()) {
-        result.emplace(*reinterpret_cast<ScriptFrameIter::Data*>(referent.raw()));
+        result.emplace(*reinterpret_cast<FrameIter::Data*>(referent.raw()));
     } else {
-        result.emplace(cx, ScriptFrameIter::IGNORE_DEBUGGER_EVAL_PREV_LINK);
-        ScriptFrameIter& iter = *result;
+        result.emplace(cx, FrameIter::IGNORE_DEBUGGER_EVAL_PREV_LINK);
+        FrameIter& iter = *result;
         while (!iter.hasUsableAbstractFramePtr() || iter.abstractFramePtr() != referent)
             ++iter;
         AbstractFramePtr data = iter.copyDataAsAbstractFramePtr();
@@ -7691,12 +7739,26 @@ DebuggerFrame::getScriptFrameIter(JSContext* cx, HandleDebuggerFrame frame,
     return true;
 }
 
+/* static */ bool
+DebuggerFrame::requireScriptReferent(JSContext* cx, HandleDebuggerFrame frame)
+{
+    AbstractFramePtr referent = DebuggerFrame::getReferent(frame);
+    if (!referent.hasScript()) {
+        RootedValue frameobj(cx, ObjectValue(*frame));
+        ReportValueErrorFlags(cx, JSREPORT_ERROR, JSMSG_DEBUG_BAD_REFERENT,
+                              JSDVG_SEARCH_STACK, frameobj, nullptr,
+                              "a script frame", nullptr);
+        return false;
+    }
+    return true;
+}
+
 static void
 DebuggerFrame_freeScriptFrameIterData(FreeOp* fop, JSObject* obj)
 {
     AbstractFramePtr frame = AbstractFramePtr::FromRaw(obj->as<NativeObject>().getPrivate());
     if (frame.isScriptFrameIterData())
-        fop->delete_((ScriptFrameIter::Data*) frame.raw());
+        fop->delete_((FrameIter::Data*) frame.raw());
     obj->as<NativeObject>().setPrivate(nullptr);
 }
 
@@ -7785,20 +7847,20 @@ DebuggerFrame_checkThis(JSContext* cx, const CallArgs& args, const char* fnname,
     THIS_FRAME_THISOBJ(cx, argc, vp, fnname, args, thisobj);                   \
     AbstractFramePtr frame = AbstractFramePtr::FromRaw(thisobj->getPrivate()); \
     if (frame.isScriptFrameIterData()) {                                       \
-        ScriptFrameIter iter(*(ScriptFrameIter::Data*)(frame.raw()));          \
+        FrameIter iter(*(FrameIter::Data*)(frame.raw()));                      \
         frame = iter.abstractFramePtr();                                       \
     }
 
 #define THIS_FRAME_ITER(cx, argc, vp, fnname, args, thisobj, maybeIter, iter)  \
     THIS_FRAME_THISOBJ(cx, argc, vp, fnname, args, thisobj);                   \
-    Maybe<ScriptFrameIter> maybeIter;                                          \
+    Maybe<FrameIter> maybeIter;                                                \
     {                                                                          \
         AbstractFramePtr f = AbstractFramePtr::FromRaw(thisobj->getPrivate()); \
         if (f.isScriptFrameIterData()) {                                       \
-            maybeIter.emplace(*(ScriptFrameIter::Data*)(f.raw()));             \
+            maybeIter.emplace(*(FrameIter::Data*)(f.raw()));                   \
         } else {                                                               \
-            maybeIter.emplace(cx, ScriptFrameIter::IGNORE_DEBUGGER_EVAL_PREV_LINK); \
-            ScriptFrameIter& iter = *maybeIter;                                \
+            maybeIter.emplace(cx, FrameIter::IGNORE_DEBUGGER_EVAL_PREV_LINK);  \
+            FrameIter& iter = *maybeIter;                                      \
             while (!iter.hasUsableAbstractFramePtr() || iter.abstractFramePtr() != f) \
                 ++iter;                                                        \
             AbstractFramePtr data = iter.copyDataAsAbstractFramePtr();         \
@@ -7807,7 +7869,7 @@ DebuggerFrame_checkThis(JSContext* cx, const CallArgs& args, const char* fnname,
             thisobj->setPrivate(data.raw());                                   \
         }                                                                      \
     }                                                                          \
-    ScriptFrameIter& iter = *maybeIter
+    FrameIter& iter = *maybeIter
 
 #define THIS_FRAME_OWNER(cx, argc, vp, fnname, args, thisobj, frame, dbg)      \
     THIS_FRAME(cx, argc, vp, fnname, args, thisobj, frame);                    \
@@ -7838,6 +7900,9 @@ DebuggerFrame::typeGetter(JSContext* cx, unsigned argc, Value* vp)
       case DebuggerFrameType::Module:
         str = cx->names().module;
         break;
+      case DebuggerFrameType::WasmCall:
+        str = cx->names().wasmcall;
+        break;
       default:
         MOZ_CRASH("bad DebuggerFrameType value");
     }
@@ -7863,6 +7928,9 @@ DebuggerFrame::implementationGetter(JSContext* cx, unsigned argc, Value* vp)
         break;
       case DebuggerFrameImplementation::Interpreter:
         s = "interpreter";
+        break;
+      case DebuggerFrameImplementation::Wasm:
+        s = "wasm";
         break;
       default:
         MOZ_CRASH("bad DebuggerFrameImplementation value");
@@ -8082,6 +8150,11 @@ DebuggerFrame_getScript(JSContext* cx, unsigned argc, Value* vp)
             if (!scriptObject)
                 return false;
         }
+    } else if (frame.isWasmDebugFrame()) {
+        RootedWasmInstanceObject instance(cx, frame.wasmInstance()->object());
+        scriptObject = debug->wrapWasmScript(cx, instance);
+        if (!scriptObject)
+            return false;
     } else {
         /*
          * We got eval, JS_Evaluate*, or JS_ExecuteScript non-function script
