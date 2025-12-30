@@ -3519,6 +3519,36 @@ ScratchI32 tmp(*this);
         return true;
     }
 
+    [[nodiscard]] bool
+    supportsRoundInstruction(RoundingMode mode)
+    {
+#if defined(JS_CODEGEN_X64) || defined(JS_CODEGEN_X86)
+        return Assembler::HasRoundInstruction(mode);
+#else
+        return false;
+#endif
+    }
+
+    void
+    roundF32(RoundingMode roundingMode, RegF32 f0)
+    {
+#if defined(JS_CODEGEN_X64) || defined(JS_CODEGEN_X86)
+        masm.vroundss(Assembler::ToX86RoundingMode(roundingMode), f0, f0, f0);
+#else
+        MOZ_CRASH("NYI");
+#endif
+    }
+
+    void
+    roundF64(RoundingMode roundingMode, RegF64 f0)
+    {
+#if defined(JS_CODEGEN_X64) || defined(JS_CODEGEN_X86)
+        masm.vroundsd(Assembler::ToX86RoundingMode(roundingMode), f0, f0, f0);
+#else
+        MOZ_CRASH("NYI");
+#endif
+    }
+
     ////////////////////////////////////////////////////////////
 
     // Generally speaking, ABOVE this point there should be no value
@@ -3910,6 +3940,7 @@ ScratchI32 tmp(*this);
 #endif
     void emitReinterpretI32AsF32();
     void emitReinterpretI64AsF64();
+    void emitRound(RoundingMode roundingMode, ValType operandType);
     [[nodiscard]] bool emitGrowMemory();
     [[nodiscard]] bool emitCurrentMemory();
 };
@@ -6030,6 +6061,22 @@ BaseCompiler::emitCommonMathCall(uint32_t lineOrBytecode, SymbolicAddress callee
     return true;
 }
 
+void
+BaseCompiler::emitRound(RoundingMode roundingMode, ValType operandType)
+{
+    if (operandType == ValType::F32) {
+        RegF32 f0 = popF32();
+        roundF32(roundingMode, f0);
+        pushF32(f0);
+    } else if (operandType == ValType::F64) {
+        RegF64 f0 = popF64();
+        roundF64(roundingMode, f0);
+        pushF64(f0);
+    } else {
+        MOZ_CRASH("unexpected type");
+    }
+}
+
 bool
 BaseCompiler::emitUnaryMathBuiltinCall(SymbolicAddress callee, ValType operandType)
 {
@@ -6037,6 +6084,12 @@ BaseCompiler::emitUnaryMathBuiltinCall(SymbolicAddress callee, ValType operandTy
 
     if (deadCode_)
         return true;
+
+    RoundingMode roundingMode;
+    if (IsRoundingFunction(callee, &roundingMode) && supportsRoundInstruction(roundingMode)) {
+        emitRound(roundingMode, operandType);
+        return true;
+    }
 
     return emitCommonMathCall(lineOrBytecode, callee,
                               operandType == ValType::F32 ? SigF_ : SigD_,
