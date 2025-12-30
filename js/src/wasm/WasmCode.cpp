@@ -57,16 +57,16 @@ static Atomic<uint32_t> wasmCodeAllocations(0);
 static const uint32_t MaxWasmCodeAllocations = 16384;
 
 static uint8_t*
-AllocateCodeSegment(JSContext* cx, uint32_t totalLength)
+AllocateCodeSegment(JSContext* cx, uint32_t codeLength)
 {
     if (wasmCodeAllocations >= MaxWasmCodeAllocations)
         return nullptr;
 
-    // codeLength is a multiple of the system's page size, but not necessarily
+    // length is a multiple of the system's page size, but not necessarily
     // a multiple of ExecutableCodePageSize.
-    totalLength = JS_ROUNDUP(totalLength, ExecutableCodePageSize);
+    codeLength = JS_ROUNDUP(codeLength, ExecutableCodePageSize);
 
-    void* p = AllocateExecutableMemory(totalLength, ProtectionSetting::Writable);
+    void* p = AllocateExecutableMemory(codeLength, ProtectionSetting::Writable);
 
     // If the allocation failed and the embedding gives us a last-ditch attempt
     // to purge all memory (which, in gecko, does a purging GC/CC/GC), do that
@@ -74,7 +74,7 @@ AllocateCodeSegment(JSContext* cx, uint32_t totalLength)
     if (!p) {
         if (OnLargeAllocationFailure) {
             OnLargeAllocationFailure();
-            p = AllocateExecutableMemory(totalLength, ProtectionSetting::Writable);
+            p = AllocateExecutableMemory(codeLength, ProtectionSetting::Writable);
         }
     }
 
@@ -83,7 +83,7 @@ AllocateCodeSegment(JSContext* cx, uint32_t totalLength)
         return nullptr;
     }
 
-    cx->zone()->updateJitCodeMallocBytes(totalLength);
+    cx->zone()->updateJitCodeMallocBytes(codeLength);
 
     wasmCodeAllocations++;
     return (uint8_t*)p;
@@ -111,11 +111,6 @@ StaticallyLink(CodeSegment& cs, const LinkData& linkData, JSContext* cx)
                                                PatchedImmPtr((void*)-1));
         }
     }
-
-    // These constants are logically part of the code:
-
-    *(double*)(cs.globalData() + NaN64GlobalDataOffset) = GenericNaN();
-    *(float*)(cs.globalData() + NaN32GlobalDataOffset) = GenericNaN();
 }
 
 static void
@@ -222,22 +217,20 @@ CodeSegment::create(JSContext* cx,
                     HandleWasmMemoryObject memory)
 {
     MOZ_ASSERT(bytecode.length() % gc::SystemPageSize() == 0);
-    MOZ_ASSERT(linkData.globalDataLength % gc::SystemPageSize() == 0);
     MOZ_ASSERT(linkData.functionCodeLength < bytecode.length());
 
     auto cs = cx->make_unique<CodeSegment>();
     if (!cs)
         return nullptr;
 
-    cs->bytes_ = AllocateCodeSegment(cx, bytecode.length() + linkData.globalDataLength);
+    cs->bytes_ = AllocateCodeSegment(cx, bytecode.length());
     if (!cs->bytes_)
         return nullptr;
 
     uint8_t* codeBase = cs->base();
 
-    cs->functionCodeLength_ = linkData.functionCodeLength;
-    cs->codeLength_ = bytecode.length();
-    cs->globalDataLength_ = linkData.globalDataLength;
+    cs->functionLength_ = linkData.functionCodeLength;
+    cs->length_ = bytecode.length();
     cs->interruptCode_ = codeBase + linkData.interruptOffset;
     cs->outOfBoundsCode_ = codeBase + linkData.outOfBoundsOffset;
     cs->unalignedAccessCode_ = codeBase + linkData.unalignedAccessOffset;
@@ -245,7 +238,7 @@ CodeSegment::create(JSContext* cx,
     {
         JitContext jcx(CompileRuntime::get(cx->compartment()->runtimeFromAnyThread()));
         AutoFlushICache afc("CodeSegment::create");
-        AutoFlushICache::setRange(uintptr_t(codeBase), cs->codeLength());
+        AutoFlushICache::setRange(uintptr_t(codeBase), cs->length());
 
         memcpy(codeBase, bytecode.begin(), bytecode.length());
         StaticallyLink(*cs, linkData, cx);
@@ -253,7 +246,7 @@ CodeSegment::create(JSContext* cx,
             SpecializeToMemory(nullptr, *cs, metadata, memory->buffer());
     }
 
-    if (!ExecutableAllocator::makeExecutable(codeBase, cs->codeLength())) {
+    if (!ExecutableAllocator::makeExecutable(codeBase, cs->length())) {
         ReportOutOfMemory(cx);
         return nullptr;
     }
@@ -271,19 +264,19 @@ CodeSegment::~CodeSegment()
     MOZ_ASSERT(wasmCodeAllocations > 0);
     wasmCodeAllocations--;
 
-    MOZ_ASSERT(totalLength() > 0);
+    MOZ_ASSERT(length() > 0);
 
     // Match AllocateCodeSegment.
-    uint32_t size = JS_ROUNDUP(totalLength(), ExecutableCodePageSize);
+    uint32_t size = JS_ROUNDUP(length(), ExecutableCodePageSize);
     DeallocateExecutableMemory(bytes_, size);
 }
 
 void
 CodeSegment::onMovingGrow(uint8_t* prevMemoryBase, const Metadata& metadata, ArrayBufferObject& buffer)
 {
-    AutoWritableJitCode awjc(base(), codeLength());
+    AutoWritableJitCode awjc(base(), length());
     AutoFlushICache afc("CodeSegment::onMovingGrow");
-    AutoFlushICache::setRange(uintptr_t(base()), codeLength());
+    AutoFlushICache::setRange(uintptr_t(base()), length());
 
     SpecializeToMemory(prevMemoryBase, *this, metadata, buffer);
 }
@@ -800,9 +793,9 @@ Code::ensureProfilingState(JSRuntime* rt, bool newProfilingEnabled)
     profilingEnabled_ = newProfilingEnabled;
 
     {
-        AutoWritableJitCode awjc(segment_->base(), segment_->codeLength());
+        AutoWritableJitCode awjc(segment_->base(), segment_->length());
         AutoFlushICache afc("Code::ensureProfilingState");
-        AutoFlushICache::setRange(uintptr_t(segment_->base()), segment_->codeLength());
+        AutoFlushICache::setRange(uintptr_t(segment_->base()), segment_->length());
 
         for (const CallSite& callSite : metadata_->callSites)
             ToggleProfiling(*this, callSite, newProfilingEnabled);
@@ -851,9 +844,9 @@ Code::adjustEnterAndLeaveFrameTrapsState(JSContext* cx, bool enabled)
     if (wasEnabled == stillEnabled)
         return;
 
-    AutoWritableJitCode awjc(cx->runtime(), segment_->base(), segment_->codeLength());
+    AutoWritableJitCode awjc(cx->runtime(), segment_->base(), segment_->length());
     AutoFlushICache afc("Code::adjustEnterAndLeaveFrameTrapsState");
-    AutoFlushICache::setRange(uintptr_t(segment_->base()), segment_->codeLength());
+    AutoFlushICache::setRange(uintptr_t(segment_->base()), segment_->length());
     for (const CallSite& callSite : metadata_->callSites) {
         if (callSite.kind() != CallSite::EnterFrame && callSite.kind() != CallSite::LeaveFrame)
             continue;
@@ -868,9 +861,8 @@ Code::addSizeOfMisc(MallocSizeOf mallocSizeOf,
                     size_t* code,
                     size_t* data) const
 {
-    *code += segment_->codeLength();
+    *code += segment_->length();
     *data += mallocSizeOf(this) +
-             segment_->globalDataLength() +
              metadata_->sizeOfIncludingThisIfNotSeen(mallocSizeOf, seenMetadata);
 
     if (maybeBytecode_)

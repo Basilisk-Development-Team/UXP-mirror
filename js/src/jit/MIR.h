@@ -13101,10 +13101,12 @@ class MAsmJSAtomicBinopHeap
     }
 };
 
-class MWasmLoadGlobalVar : public MNullaryInstruction
+class MWasmLoadGlobalVar
+  : public MUnaryInstruction,
+    public NoTypePolicy::Data
 {
-    MWasmLoadGlobalVar(MIRType type, unsigned globalDataOffset, bool isConstant)
-      : MNullaryInstruction(classOpcode),
+    MWasmLoadGlobalVar(MIRType type, unsigned globalDataOffset, bool isConstant, MDefinition* tlsPtr)
+      : MUnaryInstruction(classOpcode, tlsPtr),
         globalDataOffset_(globalDataOffset), isConstant_(isConstant)
     {
         MOZ_ASSERT(IsNumberType(type));
@@ -13118,6 +13120,7 @@ class MWasmLoadGlobalVar : public MNullaryInstruction
   public:
     INSTRUCTION_HEADER(WasmLoadGlobalVar)
     TRIVIAL_NEW_WRAPPERS
+    NAMED_OPERANDS((0, tlsPtr))
 
     unsigned globalDataOffset() const { return globalDataOffset_; }
 
@@ -13133,21 +13136,22 @@ class MWasmLoadGlobalVar : public MNullaryInstruction
 };
 
 class MWasmStoreGlobalVar
-  : public MUnaryInstruction,
+  : public MBinaryInstruction,
     public NoTypePolicy::Data
 {
-    MWasmStoreGlobalVar(unsigned globalDataOffset, MDefinition* v)
-      : MUnaryInstruction(classOpcode, v), globalDataOffset_(globalDataOffset)
-    {}
+    MWasmStoreGlobalVar(unsigned globalDataOffset, MDefinition* value, MDefinition* tlsPtr)
+      : MBinaryInstruction(classOpcode, value, tlsPtr),
+        globalDataOffset_(globalDataOffset)
+    { }
 
     unsigned globalDataOffset_;
 
   public:
     INSTRUCTION_HEADER(WasmStoreGlobalVar)
     TRIVIAL_NEW_WRAPPERS
+    NAMED_OPERANDS((0, value), (1, tlsPtr))
 
     unsigned globalDataOffset() const { return globalDataOffset_; }
-    MDefinition* value() const { return getOperand(0); }
 
     AliasSet getAliasSet() const override {
         return AliasSet::Store(AliasSet::WasmGlobalVar);
