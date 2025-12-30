@@ -247,6 +247,7 @@ namespace jit {
     _(Floor)                                                                \
     _(Ceil)                                                                 \
     _(Round)                                                                \
+    _(NearbyInt)                                                            \
     _(InCache)                                                              \
     _(HasOwnCache)                                                          \
     _(InstanceOf)                                                           \

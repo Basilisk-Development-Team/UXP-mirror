@@ -802,6 +802,14 @@ enum class BarrierKind : uint32_t {
 
 enum ReprotectCode { Reprotect = true, DontReprotect = false };
 
+// Rounding modes for round instructions.
+enum class RoundingMode {
+    Down,
+    Up,
+    NearestTiesToEven,
+    TowardsZero
+};
+
 } // namespace jit
 } // namespace js
 
