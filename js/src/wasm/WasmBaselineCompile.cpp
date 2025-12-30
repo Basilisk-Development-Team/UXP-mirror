@@ -3415,16 +3415,16 @@ class BaseCompiler
     }
 
     // This is the temp register passed as the last argument to load()
-    [[nodiscard]] size_t loadStoreTemps(MemoryAccessDesc& access) {
+    [[nodiscard]] size_t loadTemps(MemoryAccessDesc& access) {
 #if defined(JS_CODEGEN_ARM)
         if (IsUnaligned(access)) {
             switch (access.type()) {
               case Scalar::Float32:
-                return 1;
-              case Scalar::Float64:
                 return 2;
+              case Scalar::Float64:
+                return 3;
               default:
-                break;
+                return 1;
             }
         }
         return 0;
@@ -3435,8 +3435,8 @@ class BaseCompiler
 
     // ptr and dest may be the same iff dest is I32.
     // This may destroy ptr even if ptr and dest are not the same.
-    [[nodiscard]] bool load(MemoryAccessDesc& access, RegI32 ptr, AnyReg dest, RegI32 tmp1,
-                           RegI32 tmp2)
+    [[nodiscard]] bool load(MemoryAccessDesc& access, RegI32 ptr, AnyReg dest,
+                           RegI32 tmp1, RegI32 tmp2, RegI32 tmp3)
     {
         checkOffset(&access, ptr);
 
@@ -3475,40 +3475,26 @@ class BaseCompiler
                 masm.mov(ScratchRegX86, dest.i32());
         }
 #elif defined(JS_CODEGEN_ARM)
-        if (access.offset() != 0)
-            masm.add32(Imm32(access.offset()), ptr);
-
-        bool isSigned = true;
-        switch (access.type()) {
-          case Scalar::Uint8:
-          case Scalar::Uint16:
-          case Scalar::Uint32: {
-            isSigned = false;
-            [[fallthrough]];
-          case Scalar::Int8:
-          case Scalar::Int16:
-          case Scalar::Int32:
-            Register rt = dest.tag == AnyReg::I64 ? dest.i64().low : dest.i32();
-            loadI32(access, isSigned, ptr, rt);
-            if (dest.tag == AnyReg::I64) {
-                if (isSigned)
-                    masm.ma_asr(Imm32(31), rt, dest.i64().high);
-                else
-                    masm.move32(Imm32(0), dest.i64().high);
+        if (access.isUnaligned()) {
+            switch (dest.tag) {
+              case AnyReg::I64:
+                masm.wasmUnalignedLoadI64(access, ptr, ptr, dest.i64(), tmp1);
+                break;
+              case AnyReg::F32:
+                masm.wasmUnalignedLoadFP(access, ptr, ptr, dest.f32(), tmp1, tmp2, Register::Invalid());
+                break;
+              case AnyReg::F64:
+                masm.wasmUnalignedLoadFP(access, ptr, ptr, dest.f64(), tmp1, tmp2, tmp3);
+                break;
+              default:
+                masm.wasmUnalignedLoad(access, ptr, ptr, dest.i32(), tmp1);
+                break;
             }
-            break;
-          }
-          case Scalar::Int64:
-            loadI64(access, ptr, dest.i64());
-            break;
-          case Scalar::Float32:
-            loadF32(access, ptr, dest.f32(), tmp1);
-            break;
-          case Scalar::Float64:
-            loadF64(access, ptr, dest.f64(), tmp1, tmp2);
-            break;
-          default:
-            MOZ_CRASH("Compiler bug: unexpected array type");
+            } else {
+            if (dest.tag == AnyReg::I64)
+                masm.wasmLoadI64(access, ptr, ptr, dest.i64());
+            else
+                masm.wasmLoad(access, ptr, ptr, dest.any());
         }
 #else
         MOZ_CRASH("BaseCompiler platform hook: load");
@@ -3519,10 +3505,21 @@ class BaseCompiler
         return true;
     }
 
+    [[nodiscard]] size_t storeTemps(MemoryAccessDesc& access) {
+#if defined(JS_CODEGEN_ARM)
+        if (access.isUnaligned()) {
+            // See comment in store() about how this temp could be avoided for
+            // unaligned i8/i16/i32 stores with some restructuring elsewhere.
+            return 1;
+        }
+#endif
+        return 0;
+    }
+
     // ptr and src must not be the same register.
-    // This may destroy ptr.
-    [[nodiscard]] bool store(MemoryAccessDesc access, RegI32 ptr, AnyReg src, RegI32 tmp1,
-                            RegI32 tmp2)
+    // This may destroy ptr but will not destroy src.
+    [[nodiscard]] bool store(MemoryAccessDesc access, RegI32 ptr, AnyReg src,
+                            RegI32 tmp)
     {
         checkOffset(&access, ptr);
 
@@ -3558,36 +3555,36 @@ class BaseCompiler
             masm.wasmStore(access, value, dstAddr);
         }
 #elif defined(JS_CODEGEN_ARM)
-        if (access.offset() != 0)
-            masm.add32(Imm32(access.offset()), ptr);
-
-        switch (access.type()) {
-          case Scalar::Uint8:
-            [[fallthrough]];
-          case Scalar::Uint16:
-            [[fallthrough]];
-          case Scalar::Int8:
-            [[fallthrough]];
-          case Scalar::Int16:
-            [[fallthrough]];
-          case Scalar::Int32:
-            [[fallthrough]];
-          case Scalar::Uint32: {
-            Register rt = src.tag == AnyReg::I64 ? src.i64().low : src.i32();
-            storeI32(access, ptr, rt);
-            break;
-          }
-          case Scalar::Int64:
-            storeI64(access, ptr, src.i64());
-            break;
-          case Scalar::Float32:
-            storeF32(access, ptr, src.f32(), tmp1);
-            break;
-          case Scalar::Float64:
-            storeF64(access, ptr, src.f64(), tmp1, tmp2);
-            break;
-          default:
-            MOZ_CRASH("Compiler bug: unexpected array type");
+        if (access.isUnaligned()) {
+            // TODO / OPTIMIZE (bug 1331264): We perform the copy on the i32
+            // path (and allocate the temp for the copy) because we will destroy
+            // the value in the temp.  We could avoid the copy and the temp if
+            // the caller would instead preserve src when it needs to return its
+            // value as a result (for teeStore).  If unaligned accesses are
+            // common it will be worthwhile to make that change, but there's no
+            // evidence yet that they will be common.
+            switch (src.tag) {
+              case AnyReg::I64:
+                masm.wasmUnalignedStoreI64(access, src.i64(), ptr, ptr, tmp);
+                break;
+              case AnyReg::F32:
+                masm.wasmUnalignedStoreFP(access, src.f32(), ptr, ptr, tmp);
+                break;
+              case AnyReg::F64:
+                masm.wasmUnalignedStoreFP(access, src.f64(), ptr, ptr, tmp);
+                break;
+              default:
+                moveI32(src.i32(), tmp);
+                masm.wasmUnalignedStore(access, tmp, ptr, ptr);
+                break;
+            }
+        } else {
+            if (access.type() == Scalar::Int64)
+                masm.wasmStoreI64(access, src.i64(), ptr, ptr);
+            else if (src.tag == AnyReg::I64)
+                masm.wasmStore(access, AnyRegister(src.i64().low), ptr, ptr);
+            else
+                masm.wasmStore(access, src.any(), ptr, ptr);
         }
 #else
         MOZ_CRASH("BaseCompiler platform hook: store");
@@ -3598,131 +3595,6 @@ class BaseCompiler
 
         return true;
     }
-
-#ifdef JS_CODEGEN_ARM
-    void
-    loadI32(MemoryAccessDesc access, bool isSigned, RegI32 ptr, Register rt) {
-        if (access.byteSize() > 1 && IsUnaligned(access)) {
-            masm.add32(HeapReg, ptr);
-            SecondScratchRegisterScope scratch(*this);
-            masm.emitUnalignedLoad(isSigned, access.byteSize(), ptr, scratch, rt, 0);
-        } else {
-            BufferOffset ld =
-                masm.ma_dataTransferN(js::jit::IsLoad, BitSize(access.byteSize()*8),
-                                      isSigned, HeapReg, ptr, rt, Offset, Assembler::Always);
-            masm.append(access, ld.getOffset(), masm.framePushed());
-        }
-    }
-
-    void
-    storeI32(MemoryAccessDesc access, RegI32 ptr, Register rt) {
-        if (access.byteSize() > 1 && IsUnaligned(access)) {
-            masm.add32(HeapReg, ptr);
-            masm.emitUnalignedStore(access.byteSize(), ptr, rt, 0);
-        } else {
-            BufferOffset st =
-                masm.ma_dataTransferN(js::jit::IsStore, BitSize(access.byteSize()*8),
-                                      IsSigned(false), ptr, HeapReg, rt, Offset,
-                                      Assembler::Always);
-            masm.append(access, st.getOffset(), masm.framePushed());
-        }
-    }
-
-    void
-    loadI64(MemoryAccessDesc access, RegI32 ptr, RegI64 dest) {
-        if (IsUnaligned(access)) {
-            masm.add32(HeapReg, ptr);
-            SecondScratchRegisterScope scratch(*this);
-            masm.emitUnalignedLoad(IsSigned(false), ByteSize(4), ptr, scratch, dest.low,
-                                   0);
-            masm.emitUnalignedLoad(IsSigned(false), ByteSize(4), ptr, scratch, dest.high,
-                                   4);
-        } else {
-            BufferOffset ld;
-            ld = masm.ma_dataTransferN(js::jit::IsLoad, BitSize(32), IsSigned(false), HeapReg,
-                                       ptr, dest.low, Offset, Assembler::Always);
-            masm.append(access, ld.getOffset(), masm.framePushed());
-            masm.add32(Imm32(4), ptr);
-            ld = masm.ma_dataTransferN(js::jit::IsLoad, BitSize(32), IsSigned(false), HeapReg,
-                                       ptr, dest.high, Offset, Assembler::Always);
-            masm.append(access, ld.getOffset(), masm.framePushed());
-        }
-    }
-
-    void
-    storeI64(MemoryAccessDesc access, RegI32 ptr, RegI64 src) {
-        if (IsUnaligned(access)) {
-            masm.add32(HeapReg, ptr);
-            masm.emitUnalignedStore(ByteSize(4), ptr, src.low, 0);
-            masm.emitUnalignedStore(ByteSize(4), ptr, src.high, 4);
-        } else {
-            BufferOffset st;
-            st = masm.ma_dataTransferN(js::jit::IsStore, BitSize(32), IsSigned(false), HeapReg,
-                                       ptr, src.low, Offset, Assembler::Always);
-            masm.append(access, st.getOffset(), masm.framePushed());
-            masm.add32(Imm32(4), ptr);
-            st = masm.ma_dataTransferN(js::jit::IsStore, BitSize(32), IsSigned(false), HeapReg,
-                                       ptr, src.high, Offset, Assembler::Always);
-            masm.append(access, st.getOffset(), masm.framePushed());
-        }
-    }
-
-    void
-    loadF32(MemoryAccessDesc access, RegI32 ptr, RegF32 dest, RegI32 tmp1) {
-        masm.add32(HeapReg, ptr);
-        if (IsUnaligned(access)) {
-            SecondScratchRegisterScope scratch(*this);
-            masm.emitUnalignedLoad(IsSigned(false), ByteSize(4), ptr, scratch, tmp1, 0);
-            masm.ma_vxfer(tmp1, dest);
-        } else {
-            BufferOffset ld = masm.ma_vldr(VFPAddr(ptr, VFPOffImm(0)), dest,
-                                           Assembler::Always);
-            masm.append(access, ld.getOffset(), masm.framePushed());
-        }
-    }
-
-    void
-    storeF32(MemoryAccessDesc access, RegI32 ptr, RegF32 src, RegI32 tmp1) {
-        masm.add32(HeapReg, ptr);
-        if (IsUnaligned(access)) {
-            masm.ma_vxfer(src, tmp1);
-            masm.emitUnalignedStore(ByteSize(4), ptr, tmp1, 0);
-        } else {
-            BufferOffset st =
-                masm.ma_vstr(src, VFPAddr(ptr, VFPOffImm(0)), Assembler::Always);
-            masm.append(access, st.getOffset(), masm.framePushed());
-        }
-    }
-
-    void
-    loadF64(MemoryAccessDesc access, RegI32 ptr, RegF64 dest, RegI32 tmp1, RegI32 tmp2) {
-        masm.add32(HeapReg, ptr);
-        if (IsUnaligned(access)) {
-            SecondScratchRegisterScope scratch(*this);
-            masm.emitUnalignedLoad(IsSigned(false), ByteSize(4), ptr, scratch, tmp1, 0);
-            masm.emitUnalignedLoad(IsSigned(false), ByteSize(4), ptr, scratch, tmp2, 4);
-           masm.ma_vxfer(tmp1, tmp2, dest);
-        } else {
-            BufferOffset ld = masm.ma_vldr(VFPAddr(ptr, VFPOffImm(0)), dest,
-                                           Assembler::Always);
-            masm.append(access, ld.getOffset(), masm.framePushed());
-        }
-    }
-
-    void
-    storeF64(MemoryAccessDesc access, RegI32 ptr, RegF64 src, RegI32 tmp1, RegI32 tmp2) {
-        masm.add32(HeapReg, ptr);
-        if (IsUnaligned(access)) {
-            masm.ma_vxfer(src, tmp1, tmp2);
-            masm.emitUnalignedStore(ByteSize(4), ptr, tmp1, 0);
-            masm.emitUnalignedStore(ByteSize(4), ptr, tmp2, 4);
-        } else {
-            BufferOffset st =
-                masm.ma_vstr(src, VFPAddr(ptr, VFPOffImm(0)), Assembler::Always);
-            masm.append(access, st.getOffset(), masm.framePushed());
-        }
-    }
-#endif // JS_CODEGEN_ARM
 
     ////////////////////////////////////////////////////////////
 
@@ -6646,9 +6518,10 @@ BaseCompiler::emitLoad(ValType type, Scalar::Type viewType)
 
     MemoryAccessDesc access(viewType, addr.align, addr.offset, trapIfNotAsmJS());
 
-    size_t temps = loadStoreTemps(access);
+    size_t temps = loadTemps(access);
     RegI32 tmp1 = temps >= 1 ? needI32() : invalidI32();
     RegI32 tmp2 = temps >= 2 ? needI32() : invalidI32();
+    RegI32 tmp3 = temps >= 3 ? needI32() : invalidI32();
 
     switch (type) {
       case ValType::I32: {
@@ -6658,7 +6531,7 @@ BaseCompiler::emitLoad(ValType type, Scalar::Type viewType)
 #else
         RegI32 rv = rp;
 #endif
-        if (!load(access, rp, AnyReg(rv), tmp1, tmp2))
+        if (!load(access, rp, AnyReg(rv), tmp1, tmp2, tmp3))
             return false;
         pushI32(rv);
         if (rp != rv)
@@ -6676,7 +6549,7 @@ BaseCompiler::emitLoad(ValType type, Scalar::Type viewType)
         rp = popI32();
         rv = needI64();
 #endif
-        if (!load(access, rp, AnyReg(rv), tmp1, tmp2))
+        if (!load(access, rp, AnyReg(rv), tmp1, tmp2, tmp3))
             return false;
         pushI64(rv);
         freeI32(rp);
@@ -6685,7 +6558,7 @@ BaseCompiler::emitLoad(ValType type, Scalar::Type viewType)
       case ValType::F32: {
         RegI32 rp = popI32();
         RegF32 rv = needF32();
-        if (!load(access, rp, AnyReg(rv), tmp1, tmp2))
+        if (!load(access, rp, AnyReg(rv), tmp1, tmp2, tmp3))
             return false;
         pushF32(rv);
         freeI32(rp);
@@ -6694,7 +6567,7 @@ BaseCompiler::emitLoad(ValType type, Scalar::Type viewType)
       case ValType::F64: {
         RegI32 rp = popI32();
         RegF64 rv = needF64();
-        if (!load(access, rp, AnyReg(rv), tmp1, tmp2))
+        if (!load(access, rp, AnyReg(rv), tmp1, tmp2, tmp3))
             return false;
         pushF64(rv);
         freeI32(rp);
@@ -6709,6 +6582,8 @@ BaseCompiler::emitLoad(ValType type, Scalar::Type viewType)
         freeI32(tmp1);
     if (temps >= 2)
         freeI32(tmp2);
+    if (temps >= 3)
+        freeI32(tmp3);
 
     return true;
 }
@@ -6727,15 +6602,14 @@ BaseCompiler::emitStoreOrTeeStore(ValType resultType, Scalar::Type viewType,
 
     MemoryAccessDesc access(viewType, addr.align, addr.offset, trapIfNotAsmJS());
 
-    size_t temps = loadStoreTemps(access);
+    size_t temps = storeTemps(access);
     RegI32 tmp1 = temps >= 1 ? needI32() : invalidI32();
-    RegI32 tmp2 = temps >= 2 ? needI32() : invalidI32();
 
     switch (resultType) {
       case ValType::I32: {
         RegI32 rp, rv;
         pop2xI32(&rp, &rv);
-        if (!store(access, rp, AnyReg(rv), tmp1, tmp2))
+        if (!store(access, rp, AnyReg(rv), tmp1))
             return false;
         freeI32(rp);
         freeOrPushI32<isStore>(rv);
@@ -6744,7 +6618,7 @@ BaseCompiler::emitStoreOrTeeStore(ValType resultType, Scalar::Type viewType,
       case ValType::I64: {
         RegI64 rv = popI64();
         RegI32 rp = popI32();
-        if (!store(access, rp, AnyReg(rv), tmp1, tmp2))
+        if (!store(access, rp, AnyReg(rv), tmp1))
             return false;
         freeI32(rp);
         freeOrPushI64<isStore>(rv);
@@ -6753,7 +6627,7 @@ BaseCompiler::emitStoreOrTeeStore(ValType resultType, Scalar::Type viewType,
       case ValType::F32: {
         RegF32 rv = popF32();
         RegI32 rp = popI32();
-        if (!store(access, rp, AnyReg(rv), tmp1, tmp2))
+        if (!store(access, rp, AnyReg(rv), tmp1))
             return false;
         freeI32(rp);
         freeOrPushF32<isStore>(rv);
@@ -6762,7 +6636,7 @@ BaseCompiler::emitStoreOrTeeStore(ValType resultType, Scalar::Type viewType,
       case ValType::F64: {
         RegF64 rv = popF64();
         RegI32 rp = popI32();
-        if (!store(access, rp, AnyReg(rv), tmp1, tmp2))
+        if (!store(access, rp, AnyReg(rv), tmp1))
             return false;
         freeI32(rp);
         freeOrPushF64<isStore>(rv);
@@ -6775,8 +6649,6 @@ BaseCompiler::emitStoreOrTeeStore(ValType resultType, Scalar::Type viewType,
 
     if (temps >= 1)
         freeI32(tmp1);
-    if (temps >= 2)
-        freeI32(tmp2);
 
     return true;
 }
@@ -6966,16 +6838,15 @@ BaseCompiler::emitTeeStoreWithCoercion(ValType resultType, Scalar::Type viewType
 
     MemoryAccessDesc access(viewType, addr.align, addr.offset, trapIfNotAsmJS());
 
-    size_t temps = loadStoreTemps(access);
+    size_t temps = storeTemps(access);
     RegI32 tmp1 = temps >= 1 ? needI32() : invalidI32();
-    RegI32 tmp2 = temps >= 2 ? needI32() : invalidI32();
 
     if (resultType == ValType::F32 && viewType == Scalar::Float64) {
         RegF32 rv = popF32();
         RegF64 rw = needF64();
         masm.convertFloat32ToDouble(rv, rw);
         RegI32 rp = popI32();
-        if (!store(access, rp, AnyReg(rw), tmp1, tmp2))
+        if (!store(access, rp, AnyReg(rw), tmp1))
             return false;
         pushF32(rv);
         freeI32(rp);
@@ -6986,7 +6857,7 @@ BaseCompiler::emitTeeStoreWithCoercion(ValType resultType, Scalar::Type viewType
         RegF32 rw = needF32();
         masm.convertDoubleToFloat32(rv, rw);
         RegI32 rp = popI32();
-        if (!store(access, rp, AnyReg(rw), tmp1, tmp2))
+        if (!store(access, rp, AnyReg(rw), tmp1))
             return false;
         pushF64(rv);
         freeI32(rp);
@@ -6997,8 +6868,6 @@ BaseCompiler::emitTeeStoreWithCoercion(ValType resultType, Scalar::Type viewType
 
     if (temps >= 1)
         freeI32(tmp1);
-    if (temps >= 2)
-        freeI32(tmp2);
 
     return true;
 }
