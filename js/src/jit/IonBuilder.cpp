@@ -7281,7 +7281,11 @@ jit::NeedsPostBarrier(MDefinition* value)
 {
     if (!GetJitContext()->compartment->zone()->nurseryExists())
         return false;
-    return value->mightBeType(MIRType::Object);
+    if (value->mightBeType(MIRType::Object))
+        return true;
+    if (value->mightBeType(MIRType::String) && runtime->canNurseryAllocateStrings())
+        return true;
+    return false;
 }
 
 AbortReasonOr<Ok>
