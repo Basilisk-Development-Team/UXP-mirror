@@ -104,6 +104,10 @@ class MIRGenerator
         return isProfilerInstrumentationEnabled() && !info().isAnalysis();
     }
 
+    bool stringsCanBeInNursery() const {
+        return stringsCanBeInNursery_;
+    }
+
     bool safeForMinorGC() const {
         return safeForMinorGC_;
     }
@@ -185,6 +189,7 @@ class MIRGenerator
     bool instrumentedProfiling_;
     bool instrumentedProfilingIsCached_;
     bool safeForMinorGC_;
+    bool stringsCanBeInNursery_;
 
     void addAbortedPreliminaryGroup(ObjectGroup* group);
 
