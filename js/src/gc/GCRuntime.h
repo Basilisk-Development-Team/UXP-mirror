@@ -1542,6 +1542,10 @@ class GCRuntime
         return nursery_.refNoCheck().addressOfCurrentEnd();
     }
 
+    const void* addressOfStringNurseryCurrentEnd() {
+        return nursery_.refNoCheck().addressOfCurrentStringEnd();
+    }
+
     void minorGC(JS::gcreason::Reason reason,
                  gcstats::Phase phase = gcstats::PHASE_MINOR_GC) JS_HAZ_GC_CALL;
     void evictNursery(JS::gcreason::Reason reason = JS::gcreason::EVICT_NURSERY) {
