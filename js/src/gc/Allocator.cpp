@@ -40,8 +40,9 @@ js::Allocate(JSContext* cx, AllocKind kind, size_t nDynamicSlots, InitialHeap he
 
     MOZ_ASSERT_IF(nDynamicSlots != 0, clasp->isNative() || clasp->isProxy());
 
-    // Off-thread alloc cannot trigger GC or make runtime assertions.
-    if (cx->helperThread()) {
+    // We cannot trigger GC or make runtime assertions when nursery allocation
+    // is suppressed, either explicitly or because we are off-thread.
+    if (cx->isNurseryAllocSuppressed()) {
         JSObject* obj = GCRuntime::tryNewTenuredObject<NoGC>(cx, kind, thingSize, nDynamicSlots);
         if (MOZ_UNLIKELY(allowGC && !obj))
             ReportOutOfMemory(cx);
@@ -83,6 +84,7 @@ GCRuntime::tryNewNurseryObject(JSContext* cx, size_t thingSize, size_t nDynamicS
 {
     MOZ_ASSERT(cx->isNurseryAllocAllowed());
     MOZ_ASSERT(!cx->helperThread());
+    MOZ_ASSERT(!cx->isNurseryAllocSuppressed());
     MOZ_ASSERT(!IsAtomsCompartment(cx->compartment()));
     JSObject* obj = cx->nursery().allocateObject(cx, thingSize, nDynamicSlots, clasp);
     if (obj)
@@ -133,7 +135,8 @@ GCRuntime::tryNewNurseryString(JSContext* cx, size_t thingSize, AllocKind kind)
 {
     MOZ_ASSERT(IsNurseryAllocable(kind));
     MOZ_ASSERT(cx->isNurseryAllocAllowed());
-    MOZ_ASSERT(!cx->isJSContext());
+    MOZ_ASSERT(!cx->helperThread());
+    MOZ_ASSERT(!cx->isNurseryAllocSuppressed());
     MOZ_ASSERT(!IsAtomsCompartment(cx->compartment()));
 
     Cell* cell = cx->nursery().allocateString(cx, cx->zone(), thingSize, kind);
@@ -162,7 +165,7 @@ js::AllocateString(JSContext* cx, InitialHeap heap)
     MOZ_ASSERT(size == sizeof(JSString) || size == sizeof(JSFatInlineString));
 
     // Off-thread alloc cannot trigger GC or make runtime assertions.
-    if (cx->isJSContext()) {
+    if (cx->isNurseryAllocSuppressed()) {
         StringAllocT* str = GCRuntime::tryNewTenuredThing<StringAllocT, NoGC>(cx, kind, size);
         if (MOZ_UNLIKELY(allowGC && !str))
             ReportOutOfMemory(cx);
