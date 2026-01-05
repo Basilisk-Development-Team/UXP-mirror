@@ -94,7 +94,7 @@ struct EvalCacheHashPolicy
     static bool match(const EvalCacheEntry& entry, const EvalCacheLookup& l);
 };
 
-typedef HashSet<EvalCacheEntry, EvalCacheHashPolicy, SystemAllocPolicy> EvalCache;
+typedef GCHashSet<EvalCacheEntry, EvalCacheHashPolicy, SystemAllocPolicy> EvalCache;
 
 struct LazyScriptHashPolicy
 {
@@ -313,6 +313,25 @@ class RuntimeCaches
     }
     js::MathCache* maybeGetMathCache() {
         return mathCache_.get();
+    }
+    
+    void purgeForMinorGC(JSRuntime* rt) {
+        newObjectCache.clearNurseryObjects(rt);
+        evalCache.sweep();
+    }
+
+    void purgeForCompaction() {
+        newObjectCache.purge();
+        if (evalCache.initialized())
+            evalCache.clear();
+    }
+
+    void purge() {
+        purgeForCompaction();
+        gsnCache.purge();
+        envCoordinateNameCache.purge();
+        nativeIterCache.purge();
+        uncompressedSourceCache.purge();
     }
 };
 
