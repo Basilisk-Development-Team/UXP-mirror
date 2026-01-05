@@ -79,6 +79,7 @@ class CompileZone
     const void* addressOfStringNurseryCurrentEnd();
 
     bool nurseryExists();
+    bool canNurseryAllocateStrings();
     void setMinorGCShouldCancelIonCompilations();
 };
 
