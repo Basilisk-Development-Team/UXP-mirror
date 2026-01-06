@@ -421,7 +421,6 @@ class JitZone
 
   public:
     [[nodiscard]] bool init(JSContext* cx);
-    void toggleBarriers(bool enabled);
     void sweep(FreeOp* fop);
 
     void addSizeOfIncludingThis(mozilla::MallocSizeOf mallocSizeOf,
