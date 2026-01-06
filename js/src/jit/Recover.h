@@ -104,6 +104,7 @@ namespace jit {
     _(NewDerivedTypedObject)                    \
     _(CreateThisWithTemplate)                   \
     _(Lambda)                                   \
+    _(LambdaArrow)                              \
     _(ObjectState)                              \
     _(ArrayState)                               \
     _(AtomicIsLockFree)                         \
@@ -614,6 +615,14 @@ class RLambda final : public RInstruction
 {
   public:
     RINSTRUCTION_HEADER_NUM_OP_(Lambda, 2)
+
+    [[nodiscard]] bool recover(JSContext* cx, SnapshotIterator& iter) const override;
+};
+
+class RLambdaArrow final : public RInstruction
+{
+  public:
+    RINSTRUCTION_HEADER_NUM_OP_(LambdaArrow, 3)
 
     [[nodiscard]] bool recover(JSContext* cx, SnapshotIterator& iter) const override;
 };
