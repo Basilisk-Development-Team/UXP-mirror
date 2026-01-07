@@ -844,7 +844,6 @@ AddCacheIRGetPropFunction(ICCacheIR_Monitored* stub, bool innerized,
                                       globalShape, isOwnProperty, receivers, convertUnboxedGroups,
                                       script);
     }
-        return false;
 
     if (innerized) {
         if (!reader.matchOp(CacheOp::GuardClass, objId) ||
