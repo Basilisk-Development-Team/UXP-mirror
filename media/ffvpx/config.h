@@ -28,6 +28,20 @@
 #elif defined(XP_DARWIN)
 #include "config_darwin64.h"
 #elif defined(XP_UNIX)
+<<<<<<< HEAD
+=======
+#if defined(__aarch64__)
+#include "config_unix_aarch64.h"
+#elif defined(__alpha) || defined(__alpha__)
+#include "config_unix_alpha.h"
+#elif defined(__powerpc__)
+#include "config_unix_ppc.h"
+#elif defined(__sparcv9) || defined(__sparcv9__)
+#include "config_unix_sparc64.h"
+#elif defined(__loongarch64)
+#include "config_unix_loongarch64.h"
+#else
+>>>>>>> fb438829b5 (MoonchildProductions/UXP#2897: Fix ffvpx build on loongarch64)
 #if defined(HAVE_64BIT_BUILD)
 #include "config_unix64.h"
 #else

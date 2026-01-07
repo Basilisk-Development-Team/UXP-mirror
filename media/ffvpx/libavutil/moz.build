@@ -6,7 +6,21 @@
 # Due to duplicate file names, we compile libavutil/x86 in its own
 # moz.build file.
 if CONFIG['FFVPX_ASFLAGS']:
+<<<<<<< HEAD
     DIRS += ['x86']
+=======
+    if CONFIG['CPU_ARCH'].startswith('x86'):
+        DIRS += ['x86']
+    elif CONFIG['CPU_ARCH'].startswith('arm'):
+        DIRS += ['arm']
+
+if CONFIG['CPU_ARCH'] == 'aarch64':
+    DIRS += ['aarch64']
+elif CONFIG['CPU_ARCH'].startswith('ppc'):
+    DIRS += ['ppc']
+elif CONFIG['CPU_ARCH'].startswith('loongarch64'):
+    DIRS += ['loongarch']
+>>>>>>> fb438829b5 (MoonchildProductions/UXP#2897: Fix ffvpx build on loongarch64)
 
 SharedLibrary('mozavutil')
 

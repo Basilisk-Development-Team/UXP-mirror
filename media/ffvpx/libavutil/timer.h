@@ -1,5 +1,6 @@
 /*
- * copyright (c) 2006 Michael Niedermayer <michaelni@gmx.at>
+ * Copyright (c) 2023 Loongson Technology Corporation Limited
+ * Contributed by Hecai Yuan <yuanhecai@loongson.cn>
  *
  * This file is part of FFmpeg.
  *
@@ -18,30 +19,17 @@
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
-/**
- * @file
- * high precision timer, useful to profile code
- */
+#ifndef AVUTIL_LOONGARCH_TIMER_H
+#define AVUTIL_LOONGARCH_TIMER_H
 
-#ifndef AVUTIL_TIMER_H
-#define AVUTIL_TIMER_H
-
+#include <stdint.h>
 #include "config.h"
 
-#if CONFIG_LINUX_PERF
-# ifndef _GNU_SOURCE
-#  define _GNU_SOURCE
-# endif
-# include <unistd.h> // read(3)
-# include <sys/ioctl.h>
-# include <asm/unistd.h>
-# include <linux/perf_event.h>
-#endif
+#if HAVE_INLINE_ASM
 
-#include <stdlib.h>
-#include <stdint.h>
-#include <inttypes.h>
+#define AV_READ_TIME read_time
 
+<<<<<<< HEAD
 #if HAVE_MACH_MACH_TIME_H
 #include <mach/mach_time.h>
 #endif
@@ -133,9 +121,22 @@
 #define STOP_TIMER(id)                                                    \
     tend = AV_READ_TIME();                                                \
     TIMER_REPORT(id, tend - tstart)
-#else
-#define START_TIMER
-#define STOP_TIMER(id) { }
-#endif
+=======
+static inline uint64_t read_time(void)
+{
 
-#endif /* AVUTIL_TIMER_H */
+#if ARCH_LOONGARCH64
+    uint64_t a, id;
+    __asm__ volatile ( "rdtime.d  %0, %1" : "=r"(a), "=r"(id) :: );
+    return a;
+>>>>>>> fb438829b5 (MoonchildProductions/UXP#2897: Fix ffvpx build on loongarch64)
+#else
+    uint32_t a, id;
+    __asm__ volatile ( "rdtimel.w  %0, %1" : "=r"(a), "=r"(id) :: );
+    return (uint64_t)a;
+#endif
+}
+
+#endif /* HAVE_INLINE_ASM */
+
+#endif /* AVUTIL_LOONGARCH_TIMER_H */
