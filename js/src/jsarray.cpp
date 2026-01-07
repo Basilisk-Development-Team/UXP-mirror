@@ -526,6 +526,36 @@ struct ReverseIndexComparator
     }
 };
 
+static bool
+MaybeInIteration(HandleObject obj, JSContext* cx)
+{
+    /*
+     * Don't optimize if the array might be in the midst of iteration.  We
+     * rely on this to be able to safely move dense array elements around with
+     * just a memmove (see NativeObject::moveDenseArrayElements), without worrying
+     * about updating any in-progress enumerators for properties implicitly
+     * deleted if a hole is moved from one location to another location not yet
+     * visited.  See bug 690622.
+     *
+     * Note that it's fine to optimize if |obj| is on the prototype of another
+     * object: SuppressDeletedProperty only suppresses properties deleted from
+     * the iterated object itself.
+     */
+
+    if (MOZ_LIKELY(!cx->compartment()->objectMaybeInIteration(obj)))
+        return false;
+
+    ObjectGroup* group = JSObject::getGroup(cx, obj);
+    if (MOZ_UNLIKELY(!group)) {
+        cx->recoverFromOutOfMemory();
+        return true;
+    }
+
+    if (MOZ_UNLIKELY(group->hasAllFlags(OBJECT_FLAG_ITERATED)))
+        return true;
+
+    return false;
+}
 bool
 js::CanonicalizeArrayLengthValue(JSContext* cx, HandleValue v, uint32_t* newLen)
 {
@@ -626,10 +656,7 @@ js::ArraySetLength(JSContext* cx, Handle<ArrayObject*> arr, HandleId id,
         // for..in iteration over the array. Keys deleted before being reached
         // during the iteration must not be visited, and suppressing them here
         // would be too costly.
-        ObjectGroup* arrGroup = JSObject::getGroup(cx, arr);
-        if (MOZ_UNLIKELY(!arrGroup))
-            return false;
-        if (!arr->isIndexed() && !MOZ_UNLIKELY(arrGroup->hasAllFlags(OBJECT_FLAG_ITERATED))) {
+        if (!arr->isIndexed() && !MaybeInIteration(arr, cx)) {
             if (!arr->maybeCopyElementsForWrite(cx))
                 return false;
 
@@ -2170,11 +2197,7 @@ ArrayShiftDenseKernel(JSContext* cx, HandleObject obj, MutableHandleValue rval)
     if (ObjectMayHaveExtraIndexedProperties(obj))
         return DenseElementResult::Incomplete;
 
-    RootedObjectGroup group(cx, JSObject::getGroup(cx, obj));
-    if (MOZ_UNLIKELY(!group))
-        return DenseElementResult::Failure;
-
-    if (MOZ_UNLIKELY(group->hasAllFlags(OBJECT_FLAG_ITERATED)))
+    if (MaybeInIteration(obj, cx))
         return DenseElementResult::Incomplete;
 
     size_t initlen = GetBoxedOrUnboxedInitializedLength<Type>(obj);
@@ -2297,6 +2320,8 @@ js::array_unshift(JSContext* cx, unsigned argc, Value* vp)
                 break;
             if (ObjectMayHaveExtraIndexedProperties(obj))
                 break;
+            if (MaybeInIteration(obj, cx))
+                break;
             NativeObject* nobj = &obj->as<NativeObject>();
             if (nobj->denseElementsAreFrozen())
                 break;
@@ -2362,6 +2387,7 @@ js::array_unshift(JSContext* cx, unsigned argc, Value* vp)
  * etc. along the prototype chain, or of enumerators requiring notification of
  * modifications.
  */
+
 static inline bool
 CanOptimizeForDenseStorage(HandleObject arr, uint32_t startingIndex, uint32_t count, JSContext* cx)
 {
@@ -2377,27 +2403,8 @@ CanOptimizeForDenseStorage(HandleObject arr, uint32_t startingIndex, uint32_t co
     if (arr->is<ArrayObject>() && arr->as<ArrayObject>().denseElementsAreFrozen())
         return false;
 
-    /*
-     * Don't optimize if the array might be in the midst of iteration.  We
-     * rely on this to be able to safely move dense array elements around with
-     * just a memmove (see NativeObject::moveDenseArrayElements), without worrying
-     * about updating any in-progress enumerators for properties implicitly
-     * deleted if a hole is moved from one location to another location not yet
-     * visited.  See bug 690622.
-     */
-    ObjectGroup* arrGroup = JSObject::getGroup(cx, arr);
-    if (!arrGroup) {
-        cx->recoverFromOutOfMemory();
-        return false;
-    }
-    if (MOZ_UNLIKELY(arrGroup->hasAllFlags(OBJECT_FLAG_ITERATED)))
-        return false;
-
-    /*
-     * Another potential wrinkle: what if the enumeration is happening on an
-     * object which merely has |arr| on its prototype chain?
-     */
-    if (arr->isDelegate())
+    /* Also pick the slow path if the object is being iterated over. */
+    if (MaybeInIteration(arr, cx))
         return false;
 
     /*
