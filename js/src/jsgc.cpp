@@ -3907,7 +3907,7 @@ class MOZ_RAII js::gc::AutoRunParallelTask : public GCParallelTask
 };
 
 void
-GCRuntime::purgeRuntimeForMinorGC(AutoLockForExclusiveAccess& lock)
+GCRuntime::purgeRuntimeForMinorGC()
 { 
     // If external strings become nursery allocable, remember to call
     // zone->externalStringCache().purge() (and delete this assert.)
@@ -5078,7 +5078,7 @@ NextIncomingCrossCompartmentPointer(JSObject* prev, bool unlink)
 }
 
 void
-js::DelayCrossCompartmentGrayMarking(JSObject* src)
+js::gc::DelayCrossCompartmentGrayMarking(JSObject* src)
 {
     MOZ_ASSERT(IsGrayListObject(src));
 

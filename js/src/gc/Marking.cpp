@@ -1767,7 +1767,9 @@ GCMarker::processMarkStackTop(SliceBudget& budget)
         } else if (v.isBigInt()) {
             traverseEdge(obj, v.toBigInt());
         } else if (v.isPrivateGCThing()) {
-            traverseEdge(obj, v.toGCCellPtr());
+            // v.toGCCellPtr cannot be inlined, so construct one manually.
+            Cell* cell = v.toGCThing();
+            traverseEdge(obj, JS::GCCellPtr(cell, cell->getTraceKind()));
         }
     }
     return;
@@ -2946,6 +2948,7 @@ inline void
 js::TenuringTracer::traceSlots(JS::Value* vp, uint32_t nslots)
 {
     traceSlots(vp, vp + nslots);
+}
 
 void
 js::TenuringTracer::traceString(JSString* str)
@@ -2963,10 +2966,10 @@ OffsetToChunkEnd(void* p)
 
 /* Insert the given relocation entry into the list of things to visit. */
 inline void
-js::TenuringTracer::insertIntoFixupList(RelocationOverlay* entry) {
-    *tail = entry;
-    tail = &entry->nextRef();
-    *tail = nullptr;
+js::TenuringTracer::insertIntoObjectFixupList(RelocationOverlay* entry) {
+    *objTail = entry;
+    objTail = &entry->nextRef();
+    *objTail = nullptr;
 }
 
 template <typename T>
@@ -3066,7 +3069,7 @@ js::TenuringTracer::moveToTenuredSlow(JSObject* src)
 
     RelocationOverlay* overlay = RelocationOverlay::fromCell(src);
     overlay->forwardTo(dst);
-    insertIntoFixupList(overlay);
+    insertIntoObjectFixupList(overlay);
 
     MemProfiler::MoveNurseryToTenured(src, dst);
     TracePromoteToTenured(src, dst);
@@ -3099,7 +3102,7 @@ js::TenuringTracer::movePlainObjectToTenured(PlainObject* src)
 
     RelocationOverlay* overlay = RelocationOverlay::fromCell(src);
     overlay->forwardTo(dst);
-    insertIntoFixupList(overlay);
+    insertIntoObjectFixupList(overlay);
 
     MemProfiler::MoveNurseryToTenured(src, dst);
     TracePromoteToTenured(src, dst);
@@ -3323,7 +3326,7 @@ IsMarkedInternal(JSRuntime* rt, JSObject** thingp)
     if (IsInsideNursery(*thingp)) {
         MOZ_ASSERT(CurrentThreadCanAccessRuntime(rt));
 		Cell** cellp = reinterpret_cast<Cell**>(thingp);
-        return rt->gc.nursery.getForwardedPointer(cellp);
+        return Nursery::getForwardedPointer(cellp);
     }
     return IsMarkedInternalCommon(thingp);
 }

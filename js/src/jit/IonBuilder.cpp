@@ -7279,11 +7279,12 @@ IonBuilder::loadStaticSlot(JSObject* staticObject, BarrierKind barrier, Temporar
 bool
 jit::NeedsPostBarrier(MDefinition* value)
 {
-    if (!GetJitContext()->compartment->zone()->nurseryExists())
+    CompileZone* zone = GetJitContext()->compartment->zone();
+    if (!zone->nurseryExists())
         return false;
     if (value->mightBeType(MIRType::Object))
         return true;
-    if (value->mightBeType(MIRType::String) && runtime->canNurseryAllocateStrings())
+    if (value->mightBeType(MIRType::String) && zone->canNurseryAllocateStrings())
         return true;
     return false;
 }

@@ -1352,7 +1352,7 @@ EmitPostWriteBarrierS(MacroAssembler& masm,
     masm.bind(&exit);
 }
 
-typedef JSObject* (*CloneRegExpObjectFn)(JSContext*, JSObject*);
+typedef JSObject* (*CloneRegExpObjectFn)(JSContext*, Handle<RegExpObject*>);
 
 static const VMFunction CloneRegExpObjectInfo =
     FunctionInfo<CloneRegExpObjectFn>(CloneRegExpObject, "CloneRegExpObject");
@@ -2001,10 +2001,10 @@ JitCompartment::generateRegExpMatcherStub(JSContext* cx)
             masm.branch32(Assembler::LessThan, stringIndexAddress, Imm32(0), &isUndefined);
 
             depStr[isLatin].generate(masm, cx->names(), isLatin, temp3, input, temp4, temp5,
-                                     stringIndexAddress, stringLimitAddress, failure);
+                                     stringIndexAddress, stringLimitAddress, stringsCanBeInNursery, failure);
 
             masm.storeValue(JSVAL_TYPE_STRING, temp3, stringAddress);
-
+            // Storing into nursery-allocated results object's elements; no post barrier.
             masm.jump(&storeDone);
             masm.bind(&isUndefined);
 
@@ -4029,16 +4029,17 @@ CodeGenerator::maybeEmitGlobalBarrierCheck(const LAllocation* maybeGlobal, OutOf
     masm.branch32(Assembler::NotEqual, addr, Imm32(0), ool->rejoin());
 }
 
-template <class LPostBarrierType>
+template <class LPostBarrierType, MIRType nurseryType>
 void
-CodeGenerator::visitPostWriteBarrierCommonO(LPostBarrierType* lir, OutOfLineCode* ool)
+CodeGenerator::visitPostWriteBarrierCommon(LPostBarrierType* lir, OutOfLineCode* ool)
 {
     addOutOfLineCode(ool, lir->mir());
 
     Register temp = ToTempRegisterOrInvalid(lir->temp());
 
     if (lir->object()->isConstant()) {
-        // Constant nursery objects cannot appear here, see LIRGenerator::visitPostWriteElementBarrier.
+        // Constant nursery objects cannot appear here, see
+        // LIRGenerator::visitPostWriteElementBarrier.
         MOZ_ASSERT(!IsInsideNursery(&lir->object()->toConstant()->toObject()));
     } else {
         masm.branchPtrInNurseryChunk(Assembler::Equal, ToRegister(lir->object()), temp,
@@ -4047,9 +4048,17 @@ CodeGenerator::visitPostWriteBarrierCommonO(LPostBarrierType* lir, OutOfLineCode
 
     maybeEmitGlobalBarrierCheck(lir->object(), ool);
 
-    Register valueObj = ToRegister(lir->value());
-    masm.branchTestPtr(Assembler::Zero, valueObj, valueObj, ool->rejoin());
-    masm.branchPtrInNurseryChunk(Assembler::Equal, ToRegister(lir->value()), temp, ool->entry());
+    Register value = ToRegister(lir->value());
+    if (nurseryType == MIRType::Object) {
+        if (lir->mir()->value()->type() == MIRType::ObjectOrNull)
+            masm.branchTestPtr(Assembler::Zero, value, value, ool->rejoin());
+        else
+            MOZ_ASSERT(lir->mir()->value()->type() == MIRType::Object);
+    } else {
+        MOZ_ASSERT(nurseryType == MIRType::String);
+        MOZ_ASSERT(lir->mir()->value()->type() == MIRType::String);
+    }
+    masm.branchPtrInNurseryChunk(Assembler::Equal, value, temp, ool->entry());
 
     masm.bind(ool->rejoin());
 }
@@ -4171,6 +4180,13 @@ CodeGenerator::visitPostWriteElementBarrierO(LPostWriteElementBarrierO* lir)
     auto ool = new(alloc()) OutOfLineCallPostWriteElementBarrier(lir, lir->object(), lir->index());
     visitPostWriteBarrierCommon<LPostWriteElementBarrierO, MIRType::Object>(lir, ool);
 }
+
+void
+CodeGenerator::visitPostWriteElementBarrierS(LPostWriteElementBarrierS* lir)
+{
+    auto ool = new(alloc()) OutOfLineCallPostWriteElementBarrier(lir, lir->object(), lir->index());
+    visitPostWriteBarrierCommon<LPostWriteElementBarrierS, MIRType::String>(lir, ool);
+ }
 
 void
 CodeGenerator::visitPostWriteElementBarrierV(LPostWriteElementBarrierV* lir)
@@ -8203,7 +8219,7 @@ CodeGenerator::visitFromCodePoint(LFromCodePoint* lir)
                           "JSThinInlineString can hold a supplementary code point");
 
             uint32_t flags = JSString::INIT_THIN_INLINE_FLAGS;
-            masm.newGCString(output, temp1, ool->entry());
+            masm.newGCString(output, temp1, ool->entry(), gen->stringsCanBeInNursery());
             masm.store32(Imm32(flags), Address(output, JSString::offsetOfFlags()));
         }
 

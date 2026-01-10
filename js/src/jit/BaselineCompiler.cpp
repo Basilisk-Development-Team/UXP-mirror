@@ -5039,7 +5039,7 @@ BaselineCompiler::emit_JSOP_INITHOMEOBJECT()
     Register temp = R1.scratchReg();
     Label skipBarrier;
     masm.branchPtrInNurseryChunk(Assembler::Equal, func, temp, &skipBarrier);
-    masm.branchValueIsNurseryObject(Assembler::NotEqual, R0, temp, &skipBarrier);
+    masm.branchValueIsNurseryCell(Assembler::NotEqual, R0, temp, &skipBarrier);
     masm.call(&postBarrierSlot_);
     masm.bind(&skipBarrier);
 
