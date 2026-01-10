@@ -2963,10 +2963,10 @@ OffsetToChunkEnd(void* p)
 
 /* Insert the given relocation entry into the list of things to visit. */
 inline void
-js::TenuringTracer::insertIntoFixupList(RelocationOverlay* entry) {
-    *tail = entry;
-    tail = &entry->nextRef();
-    *tail = nullptr;
+js::TenuringTracer::insertIntoObjectFixupList(RelocationOverlay* entry) {
+    *objTail = entry;
+    objTail = &entry->nextRef();
+    *objTail = nullptr;
 }
 
 template <typename T>
@@ -3066,7 +3066,7 @@ js::TenuringTracer::moveToTenuredSlow(JSObject* src)
 
     RelocationOverlay* overlay = RelocationOverlay::fromCell(src);
     overlay->forwardTo(dst);
-    insertIntoFixupList(overlay);
+    insertIntoObjectFixupList(overlay);
 
     MemProfiler::MoveNurseryToTenured(src, dst);
     TracePromoteToTenured(src, dst);
@@ -3099,7 +3099,7 @@ js::TenuringTracer::movePlainObjectToTenured(PlainObject* src)
 
     RelocationOverlay* overlay = RelocationOverlay::fromCell(src);
     overlay->forwardTo(dst);
-    insertIntoFixupList(overlay);
+    insertIntoObjectFixupList(overlay);
 
     MemProfiler::MoveNurseryToTenured(src, dst);
     TracePromoteToTenured(src, dst);
