@@ -6,6 +6,7 @@
 
 #include "gc/Allocator.h"
 
+
 #include "jscntxt.h"
 
 #include "gc/GCInternals.h"
@@ -209,6 +210,7 @@ js::Allocate(JSContext* cx)
 
     AllocKind kind = MapTypeToFinalizeKind<T>::kind;
     size_t thingSize = sizeof(T);
+
     MOZ_ASSERT(thingSize == Arena::thingSize(kind));
 
     if (!cx->helperThread()) {
