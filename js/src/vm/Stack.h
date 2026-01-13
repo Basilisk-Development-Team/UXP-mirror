@@ -7,6 +7,7 @@
 #define vm_Stack_h
 
 #include "mozilla/Atomics.h"
+#include "mozilla/HashFunctions.h"
 #include "mozilla/Maybe.h"
 #include "mozilla/MemoryReporting.h"
 #include "mozilla/Variant.h"
@@ -1103,7 +1104,7 @@ struct DefaultHasher<AbstractFramePtr> {
     typedef AbstractFramePtr Lookup;
 
     static js::HashNumber hash(const Lookup& key) {
-        return size_t(key.raw());
+        return mozilla::HashGeneric(key.raw());
     }
 
     static bool match(const AbstractFramePtr& k, const Lookup& l) {
@@ -1813,11 +1814,13 @@ class FrameIter
         wasm::FrameIterator wasmFrames_;
 
         Data(JSContext* cx, DebuggerEvalOption debuggerEvalOption, JSPrincipals* principals);
+        Data(JSContext* cx, const CooperatingContext& target, DebuggerEvalOption debuggerEvalOption);
         Data(const Data& other);
     };
 
     explicit FrameIter(JSContext* cx,
                        DebuggerEvalOption = FOLLOW_DEBUGGER_EVAL_PREV_LINK);
+    FrameIter(JSContext* cx, const CooperatingContext&, DebuggerEvalOption);
     FrameIter(JSContext* cx, DebuggerEvalOption, JSPrincipals*);
     FrameIter(const FrameIter& iter);
     MOZ_IMPLICIT FrameIter(const Data& data);
@@ -1974,6 +1977,14 @@ class ScriptFrameIter : public FrameIter
     }
 
     ScriptFrameIter(JSContext* cx,
+                    const CooperatingContext& target,
+                     DebuggerEvalOption debuggerEvalOption)
+       : FrameIter(cx, target, debuggerEvalOption)
+    {
+        settle();
+    }
+
+    ScriptFrameIter(JSContext* cx,
                     DebuggerEvalOption debuggerEvalOption,
                     JSPrincipals* prin)
       : FrameIter(cx, debuggerEvalOption, prin)
@@ -2094,6 +2105,10 @@ class AllScriptFramesIter : public ScriptFrameIter
   public:
     explicit AllScriptFramesIter(JSContext* cx)
       : ScriptFrameIter(cx, ScriptFrameIter::IGNORE_DEBUGGER_EVAL_PREV_LINK)
+    {}
+
+    explicit AllScriptFramesIter(JSContext* cx, const CooperatingContext& target)
+      : ScriptFrameIter(cx, target, ScriptFrameIter::IGNORE_DEBUGGER_EVAL_PREV_LINK)
     {}
 };
 

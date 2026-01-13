@@ -360,9 +360,6 @@ js::gc::GCRuntime::traceRuntimeCommon(JSTracer* trc, TraceOrMarkRuntime traceOrM
     for (CompartmentsIter c(rt, SkipAtoms); !c.done(); c.next())
         c->traceRoots(trc, traceOrMark);
 
-    // Trace SPS.
-    rt->spsProfiler().trace(trc);
-
     // Trace helper thread roots.
     HelperThreadState().trace(trc);
 
@@ -455,7 +452,6 @@ class BufferGrayRootsTracer final : public JS::CallbackTracer
     }
 
     template <typename T> inline void bufferRoot(T* thing);
- 
 
   public:
     explicit BufferGrayRootsTracer(JSRuntime* rt)
@@ -489,8 +485,6 @@ js::gc::GCRuntime::bufferGrayRoots()
     for (GCZonesIter zone(rt); !zone.done(); zone.next())
         MOZ_ASSERT(zone->gcGrayRoots().empty());
 
-    gcstats::AutoPhase ap(stats(), gcstats::PHASE_BUFFER_GRAY_ROOTS);
-
     BufferGrayRootsTracer grayBufferer(rt);
     if (JSTraceDataOp op = grayRootTracer.op)
         (*op)(&grayBufferer, grayRootTracer.data);
@@ -515,8 +509,10 @@ BufferGrayRootsTracer::bufferRoot(T* thing)
 
     TenuredCell* tenured = &thing->asTenured();
 
-    Zone* zone = tenured->zone();
-    if (zone->isCollecting()) {
+    // This is run from a helper thread while the mutator is paused so we have
+    // to use *FromAnyThread methods here.
+    Zone* zone = tenured->zoneFromAnyThread();
+    if (zone->isCollectingFromAnyThread()) {
         // See the comment on SetMaybeAliveFlag to see why we only do this for
         // objects and scripts. We rely on gray root buffering for this to work,
         // but we only need to worry about uncollected dead compartments during

@@ -1,4 +1,5 @@
 /* -*- Mode: C++; tab-width: 8; indent-tabs-mode: nil; c-basic-offset: 4 -*-
+ * vim: set ts=8 sw=4 et tw=78:
  *
  * This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this file,
@@ -39,11 +40,11 @@
     _(ClearNewObjectCache,      "clrNOC")                                     \
     _(CollectToFP,              "collct")                                     \
     _(ObjectsTenuredCallback,   "tenCB")                                      \
-    _(Sweep,                    "sweep")                                      \
+    _(SweepArrayBufferViewList, "swpABO")                                     \
     _(UpdateJitActivations,     "updtIn")                                     \
     _(FreeMallocedBuffers,      "frSlts")                                     \
     _(ClearStoreBuffer,         "clrSB")                                      \
-    _(ClearNursery,             "clear")                                      \
+    _(Sweep,                    "sweep")                                      \
     _(Resize,                   "resize")                                     \
     _(Pretenure,                "pretnr")
 
@@ -54,7 +55,6 @@ struct Zone;
 namespace js {
 
 class ObjectElements;
-class PlainObject;
 class NativeObject;
 class Nursery;
 class HeapSlot;
@@ -98,6 +98,8 @@ class TenuringTracer : public JSTracer
     template <typename T> void traverse(T** thingp);
     template <typename T> void traverse(T* thingp);
 
+    void insertIntoFixupList(gc::RelocationOverlay* entry);
+
     // The store buffers need to be able to call these directly.
     void traceObject(JSObject* src);
     void traceObjectSlots(NativeObject* nobj, uint32_t start, uint32_t length);
@@ -106,12 +108,8 @@ class TenuringTracer : public JSTracer
   private:
     Nursery& nursery() { return nursery_; }
 
-    inline void insertIntoFixupList(gc::RelocationOverlay* entry);
-    template <typename T>
-    inline T* allocTenured(JS::Zone* zone, gc::AllocKind kind);
-
-    inline JSObject* movePlainObjectToTenured(PlainObject* src);
-    JSObject* moveToTenuredSlow(JSObject* src);
+    JSObject* moveToTenured(JSObject* src);
+    size_t moveObjectToTenured(JSObject* dst, JSObject* src, gc::AllocKind dstKind);
     size_t moveElementsToTenured(NativeObject* dst, NativeObject* src, gc::AllocKind dstKind);
     size_t moveSlotsToTenured(NativeObject* dst, NativeObject* src, gc::AllocKind dstKind);
 
@@ -206,12 +204,15 @@ class Nursery
      * sets |*ref| to the new location of the object and returns true. Otherwise
      * returns false and leaves |*ref| unset.
      */
-    [[nodiscard]] MOZ_ALWAYS_INLINE static bool getForwardedPointer(JSObject** ref);
+    MOZ_ALWAYS_INLINE [[nodiscard]] static bool getForwardedPointer(JSObject** ref);
 
     /* Forward a slots/elements pointer stored in an Ion frame. */
     void forwardBufferPointer(HeapSlot** pSlotsElems);
 
-    inline void maybeSetForwardingPointer(JSTracer* trc, void* oldData, void* newData, bool direct);
+    void maybeSetForwardingPointer(JSTracer* trc, void* oldData, void* newData, bool direct) {
+        if (trc->isTenuringTracer() && isInside(oldData))
+            setForwardingPointer(oldData, newData, direct);
+    }
 
     /* Mark a malloced buffer as no longer needing to be freed. */
     void removeMallocedBuffer(void* buffer) {
@@ -246,7 +247,6 @@ class Nursery
 
     // Free space remaining, not counting chunk trailers.
     MOZ_ALWAYS_INLINE size_t freeSpace() const {
-        MOZ_ASSERT(isEnabled());
         MOZ_ASSERT(currentEnd_ - position_ <= NurseryChunkUsableSize);
         return (currentEnd_ - position_) +
                (numChunks() - currentChunk_ - 1) * NurseryChunkUsableSize;
@@ -276,7 +276,6 @@ class Nursery
     void clearMinorGCRequest() { minorGCTriggerReason_ = JS::gcreason::NO_REASON; }
 
     bool enableProfiling() const { return enableProfiling_; }
-    bool trackTimings() const { return trackTimings_; }
 
   private:
     /* The amount of space in the mapped nursery available to allocations. */
@@ -323,12 +322,6 @@ class Nursery
     mozilla::TimeDuration profileThreshold_;
     bool enableProfiling_;
 
-    /*
-     * Track timings if either enableProfiling_ or the Gecko profiler is
-     * compiled in.
-     */
-    bool trackTimings_;
-
     /* Report ObjectGroups with at lest this many instances tenured. */
     int64_t reportTenurings_;
 
@@ -360,12 +353,18 @@ class Nursery
     ProfileDurations totalDurations_;
     uint64_t minorGcCount_;
 
+    struct {
+        JS::gcreason::Reason reason;
+        uint64_t nurseryUsedBytes;
+        uint64_t tenuredBytes;
+    } previousGC;
+
     /*
      * The set of externally malloced buffers potentially kept live by objects
      * stored in the nursery. Any external buffers that do not belong to a
      * tenured thing at the end of a minor GC must be freed.
      */
-    typedef HashSet<void*, PointerHasher<void*, 3>, SystemAllocPolicy> MallocedBuffersSet;
+    typedef HashSet<void*, PointerHasher<void*>, SystemAllocPolicy> MallocedBuffersSet;
     MallocedBuffersSet mallocedBuffers;
 
     /* A task structure used to free the malloced bufers on a background thread. */
@@ -379,7 +378,7 @@ class Nursery
      * buffers might overlap each other. For these, an entry in the following
      * table is used.
      */
-    typedef HashMap<void*, void*, PointerHasher<void*, 1>, SystemAllocPolicy> ForwardedBufferMap;
+    typedef HashMap<void*, void*, PointerHasher<void*>, SystemAllocPolicy> ForwardedBufferMap;
     ForwardedBufferMap forwardedBuffers;
 
     /*
@@ -449,44 +448,33 @@ class Nursery
     void collectToFixedPoint(TenuringTracer& trc, gc::TenureCountCache& tenureCounts);
 
     /* Handle relocation of slots/elements pointers stored in Ion frames. */
-    inline void setForwardingPointer(void* oldData, void* newData, bool direct);
+    void setForwardingPointer(void* oldData, void* newData, bool direct);
 
-    inline void setDirectForwardingPointer(void* oldData, void* newData);
-    void setIndirectForwardingPointer(void* oldData, void* newData);
-
-    inline void setSlotsForwardingPointer(HeapSlot* oldSlots, HeapSlot* newSlots, uint32_t nslots);
-    inline void setElementsForwardingPointer(ObjectElements* oldHeader, ObjectElements* newHeader,
-                                             uint32_t capacity);
+    void setSlotsForwardingPointer(HeapSlot* oldSlots, HeapSlot* newSlots, uint32_t nslots);
+    void setElementsForwardingPointer(ObjectElements* oldHeader, ObjectElements* newHeader,
+                                      uint32_t capacity);
 
     /* Free malloced pointers owned by freed things in the nursery. */
     void freeMallocedBuffers();
 
     /*
-	 * Updates pointers to nursery objects that have been tenured and discards
-     * pointers to objects that have been freed.
-     */
-    void sweep(JSTracer* trc);
-
-    /*
      * Frees all non-live nursery-allocated things at the end of a minor
      * collection.
      */
-    void clear();
+    void sweep();
 
     void sweepDictionaryModeObjects();
 
     /* Change the allocable space provided by the nursery. */
     void maybeResizeNursery(JS::gcreason::Reason reason, double promotionRate);
     void growAllocableSpace();
-    void shrinkAllocableSpace();
+    void shrinkAllocableSpace(unsigned removeNumChunks);
     void minimizeAllocableSpace();
 
     /* Profile recording and printing. */
     void maybeClearProfileDurations();
     void startProfile(ProfileKey key);
     void endProfile(ProfileKey key);
-    void maybeStartProfile(ProfileKey key);
-    void maybeEndProfile(ProfileKey key);
     static void printProfileDurations(const ProfileDurations& times);
 
     friend class TenuringTracer;
