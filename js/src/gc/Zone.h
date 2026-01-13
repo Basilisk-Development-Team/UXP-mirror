@@ -525,6 +525,9 @@ struct Zone : public JS::shadow::Zone,
     // the current GC.
     js::UnprotectedData<size_t> gcDelayBytes;
 
+    js::ZoneGroupData<uint32_t> tenuredStrings;
+    js::ZoneGroupData<bool> allocNurseryStrings;
+
   private:
     // Shared Shape property tree.
     js::ZoneGroupData<js::PropertyTree> propertyTree_;
@@ -754,6 +757,7 @@ class ZoneGroupsIter
             next();
     }
 
+
     bool done() const { return it == end; }
 
     void next() {
@@ -824,6 +828,10 @@ class ZonesIter
     {
         if (!atomsZone && !done())
             next();
+    }
+    
+    bool atAtomsZone(JSRuntime* rt) const {
+        return !!atomsZone;
     }
 
     bool done() const { return !atomsZone && group.done(); }
