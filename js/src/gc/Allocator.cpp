@@ -1,4 +1,5 @@
 /* -*- Mode: C++; tab-width: 8; indent-tabs-mode: nil; c-basic-offset: 4 -*-
+ * vim: set ts=8 sts=4 et sw=4 tw=99:
  * This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -238,7 +239,7 @@ GCRuntime::gcIfNeededAtAllocation(JSContext* cx)
     // an incremental GC, we're growing faster than we're GCing, so stop
     // the world and do a full, non-incremental GC right now, if possible.
     if (isIncrementalGCInProgress() &&
-        cx->zone()->usage.gcBytes() > cx->zone()->threshold.AllocThresholdFactorTriggerBytes(tunables))
+        cx->zone()->usage.gcBytes() > cx->zone()->threshold.gcTriggerBytes())
     {
         PrepareZoneForGC(cx->zone());
         gc(GC_NORMAL, JS::gcreason::INCREMENTAL_TOO_SLOW);
@@ -256,7 +257,7 @@ GCRuntime::checkIncrementalZoneState(JSContext* cx, T* t)
         return;
 
     Zone* zone = cx->zone();
-    MOZ_ASSERT_IF(t && zone->wasGCStarted() && (zone->shouldMarkInZone() || zone->isGCSweeping()),
+    MOZ_ASSERT_IF(t && zone->wasGCStarted() && (zone->isGCMarking() || zone->isGCSweeping()),
                   t->asTenured().arena()->allocatedDuringIncremental);
 #endif
 }
@@ -427,7 +428,7 @@ GCRuntime::allocateArena(Chunk* chunk, Zone* zone, AllocKind thingKind,
 
     // Trigger an incremental slice if needed.
     if (checkThresholds)
-        maybeAllocTriggerZoneGC(zone, lock, ArenaSize);
+        maybeAllocTriggerZoneGC(zone, lock);
 
     return arena;
 }

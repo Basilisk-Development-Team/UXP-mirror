@@ -32,7 +32,7 @@ namespace js {
 struct GSNCache {
     typedef HashMap<jsbytecode*,
                     jssrcnote*,
-                    PointerHasher<jsbytecode*, 0>,
+                    PointerHasher<jsbytecode*>,
                     SystemAllocPolicy> Map;
 
     jsbytecode*     code;

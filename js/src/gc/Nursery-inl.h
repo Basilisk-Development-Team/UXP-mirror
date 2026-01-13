@@ -1,4 +1,5 @@
 /* -*- Mode: C++; tab-width: 8; indent-tabs-mode: nil; c-basic-offset: 4 -*-
+ * vim: set ts=4 sw=4 et tw=79 ft=cpp:
  *
  * This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
@@ -26,55 +27,6 @@ js::Nursery::getForwardedPointer(JSObject** ref)
         return false;
     *ref = static_cast<JSObject*>(overlay->forwardingAddress());
     return true;
-}
-
-inline void
-js::Nursery::maybeSetForwardingPointer(JSTracer* trc, void* oldData, void* newData, bool direct)
-{
-    if (trc->isTenuringTracer())
-        setForwardingPointer(oldData, newData, direct);
-}
-
-inline void
-js::Nursery::setSlotsForwardingPointer(HeapSlot* oldSlots, HeapSlot* newSlots, uint32_t nslots)
-{
-    // Slot arrays always have enough space for a forwarding pointer, since the
-    // number of slots is never zero.
-    MOZ_ASSERT(nslots > 0);
-    setDirectForwardingPointer(oldSlots, newSlots);
-}
-
-inline void
-js::Nursery::setElementsForwardingPointer(ObjectElements* oldHeader, ObjectElements* newHeader,
-                                          uint32_t capacity)
-{
-    // Only use a direct forwarding pointer if there is enough space for one.
-    setForwardingPointer(oldHeader->elements(), newHeader->elements(),
-                         capacity > 0);
-}
-
-inline void
-js::Nursery::setForwardingPointer(void* oldData, void* newData, bool direct)
-{
-    if (direct) {
-        setDirectForwardingPointer(oldData, newData);
-        return;
-    }
-
-    setIndirectForwardingPointer(oldData, newData);
-}
-
-inline void
-js::Nursery::setDirectForwardingPointer(void* oldData, void* newData)
-{
-    MOZ_ASSERT(isInside(oldData));
-
-    // Bug 1196210: If a zero-capacity header lands in the last 2 words of a
-    // jemalloc chunk abutting the start of a nursery chunk, the (invalid)
-    // newData pointer will appear to be "inside" the nursery.
-    MOZ_ASSERT(!isInside(newData) || (uintptr_t(newData) & js::gc::ChunkMask) == 0);
-
-    *reinterpret_cast<void**>(oldData) = newData;
 }
 
 namespace js {

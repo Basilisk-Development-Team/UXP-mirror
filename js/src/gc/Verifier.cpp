@@ -194,14 +194,10 @@ gc::GCRuntime::startVerifyPreBarriers()
     if (!trc)
         return;
 
-    JSContext* cx = TlsContext.get();
-    AutoPrepareForTracing prep(cx, WithAtoms);
+    AutoPrepareForTracing prep(TlsContext.get(), WithAtoms);
 
-    {
-        AutoLockGC lock(cx->runtime());
-        for (auto chunk = allNonEmptyChunks(lock); !chunk.done(); chunk.next())
-            chunk->bitmap.clear();
-    }
+    for (auto chunk = allNonEmptyChunks(); !chunk.done(); chunk.next())
+        chunk->bitmap.clear();
 
     gcstats::AutoPhase ap(stats(), gcstats::PHASE_TRACE_HEAP);
 
@@ -265,7 +261,7 @@ oom:
 static bool
 IsMarkedOrAllocated(TenuredCell* cell)
 {
-    return cell->isMarked() || cell->arena()->allocatedDuringIncremental;
+    return cell->isMarkedAny() || cell->arena()->allocatedDuringIncremental;
 }
 
 struct CheckEdgeTracer : public JS::CallbackTracer {
@@ -657,8 +653,7 @@ CheckGrayMarkingTracer::checkCell(Cell* cell)
 
     TenuredCell* tenuredCell = &cell->asTenured();
     TenuredCell* tenuredParent = &parent->asTenured();
-    if (tenuredParent->isMarked(BLACK) && !tenuredParent->isMarked(GRAY) &&
-        tenuredCell->isMarked(GRAY))
+    if (tenuredParent->isMarkedBlack() && tenuredCell->isMarkedGray())
     {
         failures++;
         fprintf(stderr, "Found black to gray edge to %s %p\n",

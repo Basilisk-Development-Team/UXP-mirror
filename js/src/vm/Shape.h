@@ -8,6 +8,7 @@
 
 #include "mozilla/Attributes.h"
 #include "mozilla/GuardObjects.h"
+#include "mozilla/HashFunctions.h"
 #include "mozilla/MathAlgorithms.h"
 #include "mozilla/Maybe.h"
 #include "mozilla/MemoryReporting.h"
@@ -659,9 +660,7 @@ struct StackBaseShape : public DefaultHasher<ReadBarriered<UnownedBaseShape*>>
     };
 
     static HashNumber hash(const Lookup& lookup) {
-        HashNumber hash = lookup.flags;
-        hash = mozilla::RotateLeft(hash, 4) ^ (uintptr_t(lookup.clasp) >> 3);
-        return hash;
+        return mozilla::HashGeneric(lookup.flags, lookup.clasp);
     }
     static inline bool match(const ReadBarriered<UnownedBaseShape*>& key, const Lookup& lookup) {
         return key.unbarrieredGet()->flags == lookup.flags &&
@@ -1338,7 +1337,8 @@ struct MovableCellHasher<InitialShapeProto<ReadBarriered<TaggedProto>>>
         return MovableCellHasher<TaggedProto>::ensureHash(l.proto());
     }
     static HashNumber hash(const Lookup& l) {
-        return HashNumber(l.key()) ^ MovableCellHasher<TaggedProto>::hash(l.proto());
+        HashNumber hash = MovableCellHasher<TaggedProto>::hash(l.proto());
+        return mozilla::AddToHash(hash, l.key());
     }
     static bool match(const Key& k, const Lookup& l) {
         return k.key() == l.key() &&
@@ -1392,9 +1392,8 @@ struct InitialShapeEntry
     inline InitialShapeEntry(Shape* shape, const Lookup::ShapeProto& proto);
 
     static HashNumber hash(const Lookup& lookup) {
-        return (mozilla::RotateLeft(uintptr_t(lookup.clasp) >> 3, 4) ^
-                MovableCellHasher<ShapeProto>::hash(lookup.proto)) +
-               lookup.nfixed;
+        HashNumber hash = MovableCellHasher<ShapeProto>::hash(lookup.proto);
+        return mozilla::AddToHash(hash, mozilla::HashGeneric(lookup.clasp, lookup.nfixed));
     }
     static inline bool match(const InitialShapeEntry& key, const Lookup& lookup) {
         const Shape* shape = key.shape.unbarrieredGet();
