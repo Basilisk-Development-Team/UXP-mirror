@@ -585,7 +585,7 @@ struct JSRuntime : public js::MallocProvider<JSRuntime>
 #endif
 
     /* Number of zones which may be operated on by non-cooperating helper threads. */
-    js::UnprotectedData<size_t> numHelperThreadZones;
+    js::UnprotectedData<size_t> numActiveHelperThreadZones;
 
     friend class js::AutoLockForExclusiveAccess;
 
@@ -594,7 +594,7 @@ struct JSRuntime : public js::MallocProvider<JSRuntime>
     void clearUsedByHelperThread(JS::Zone* zone);
 
     bool hasHelperThreadZones() const {
-        return numHelperThreadZones > 0;
+        return numActiveHelperThreadZones > 0;
     }
 
 #ifdef DEBUG
@@ -1121,8 +1121,10 @@ FreeOp::appendJitPoisonRange(const jit::JitPoisonRange& range)
 /*
  * RAII class that takes the GC lock while it is live.
  *
- * Note that the lock may be temporarily released by use of AutoUnlockGC when
- * passed a non-const reference to this class.
+ * Usually functions will pass const references of this class.  However
+ * non-const references can be used to either temporarily release the lock by
+ * use of AutoUnlockGC or to start background allocation when the lock is
+ * released.
  */
 class MOZ_RAII AutoLockGC
 {
@@ -1136,7 +1138,7 @@ class MOZ_RAII AutoLockGC
     }
 
     ~AutoLockGC() {
-        unlock();
+        lockGuard_.reset();
     }
 
     void lock() {
@@ -1153,6 +1155,9 @@ class MOZ_RAII AutoLockGC
         return lockGuard_.ref();
     }
 
+  protected:
+    JSRuntime* runtime() const { return runtime_; }
+
   private:
     JSRuntime* runtime_;
     mozilla::Maybe<js::LockGuard<js::Mutex>> lockGuard_;
@@ -1160,6 +1165,47 @@ class MOZ_RAII AutoLockGC
 
     AutoLockGC(const AutoLockGC&) = delete;
     AutoLockGC& operator=(const AutoLockGC&) = delete;
+};
+
+/*
+ * Same as AutoLockGC except it can optionally start a background chunk
+ * allocation task when the lock is released.
+ */
+class MOZ_RAII AutoLockGCBgAlloc : public AutoLockGC
+{
+  public:
+    explicit AutoLockGCBgAlloc(JSRuntime* rt)
+      : AutoLockGC(rt)
+      , startBgAlloc(false)
+    {}
+
+    ~AutoLockGCBgAlloc() {
+        unlock();
+
+        /*
+         * We have to do this after releasing the lock because it may acquire
+         * the helper lock which could cause lock inversion if we still held
+         * the GC lock.
+         */
+        if (startBgAlloc)
+            runtime()->gc.startBackgroundAllocTaskIfIdle();
+    }
+	
+	/*
+     * This can be used to start a background allocation task (if one isn't
+     * already running) that allocates chunks and makes them available in the
+     * free chunks list.  This happens after the lock is released in order to
+     * avoid lock inversion.
+     */
+    void tryToStartBackgroundAllocation() {
+        startBgAlloc = true;
+    }
+
+  private:
+
+    // true if we should start a background chunk allocation task after the
+    // lock is released.
+    bool startBgAlloc;
 };
 
 class MOZ_RAII AutoUnlockGC
