@@ -47,9 +47,6 @@ class ZoneHeapThreshold
 
     double gcHeapGrowthFactor() const { return gcHeapGrowthFactor_; }
     size_t gcTriggerBytes() const { return gcTriggerBytes_; }
-    size_t AllocThresholdFactorTriggerBytes(GCSchedulingTunables& tunables) const {
-    return gcTriggerBytes_ * tunables.allocThresholdFactor();
-    }
     double eagerAllocTrigger(bool highFrequencyGC) const;
 
     void updateAfterGC(size_t lastBytes, JSGCInvocationKind gckind,
@@ -247,7 +244,7 @@ struct Zone : public JS::shadow::Zone,
     // of AutoKeepAtoms for the atoms zone.
     bool canCollect();
 	
-	void notifyObservingDebuggers();
+    void notifyObservingDebuggers();
 
     void setGCState(GCState state) {
         MOZ_ASSERT(CurrentThreadIsHeapBusy());
@@ -466,10 +463,9 @@ struct Zone : public JS::shadow::Zone,
     void updateMallocCounter(size_t nbytes) {
         updateMemoryCounter(gcMallocCounter, nbytes);
     }
-	void adoptMallocBytes(Zone* other) {
+    void adoptMallocBytes(Zone* other) {
         gcMallocCounter.adopt(other->gcMallocCounter);
     }
-
     size_t GCMaxMallocBytes() const { return gcMallocCounter.maxBytes(); }
     size_t GCMallocBytes() const { return gcMallocCounter.bytes(); }
 
@@ -486,7 +482,6 @@ struct Zone : public JS::shadow::Zone,
         gcMallocCounter.updateOnGCEnd(gc.tunables, lock);
         jitCodeCounter.updateOnGCEnd(gc.tunables, lock);
     }
-
     js::gc::TriggerKind shouldTriggerGCForTooMuchMalloc() {
         auto& gc = runtimeFromAnyThread()->gc;
         return std::max(gcMallocCounter.shouldTriggerGC(gc.tunables),
@@ -523,7 +518,7 @@ struct Zone : public JS::shadow::Zone,
 
     // Amount of data to allocate before triggering a new incremental slice for
     // the current GC.
-    js::ActiveThreadData<size_t> gcDelayBytes;
+    js::UnprotectedData<size_t> gcDelayBytes;
 
   private:
     // Shared Shape property tree.
@@ -566,7 +561,7 @@ struct Zone : public JS::shadow::Zone,
     js::ZoneGroupData<bool> isSystem;
 
     bool usedByHelperThread() {
-        return !isAtomsZone() && group()->usedByHelperThread;
+        return !isAtomsZone() && group()->usedByHelperThread();
     }
 
 #ifdef DEBUG
@@ -655,6 +650,7 @@ struct Zone : public JS::shadow::Zone,
         MOZ_ASSERT(!IsInsideNursery(tgt));
         MOZ_ASSERT(js::CurrentThreadCanAccessRuntime(runtimeFromActiveCooperatingThread()));
         MOZ_ASSERT(js::CurrentThreadCanAccessZone(this));
+        MOZ_ASSERT(!uniqueIds().has(tgt));
         uniqueIds().rekeyIfMoved(src, tgt);
     }
 
@@ -717,6 +713,7 @@ struct Zone : public JS::shadow::Zone,
     js::ZoneGroupData<js::jit::JitZone*> jitZone_;
 
     js::ActiveThreadData<bool> gcScheduled_;
+    js::ActiveThreadData<bool> gcScheduledSaved_;
     js::ZoneGroupData<bool> gcPreserveCode_;
     js::ZoneGroupData<bool> keepShapeTables_;
 
@@ -748,7 +745,7 @@ class ZoneGroupsIter
         it = rt->gc.groups().begin();
         end = rt->gc.groups().end();
 
-        if (!done() && (*it)->usedByHelperThread)
+        if (!done() && (*it)->usedByHelperThread())
             next();
     }
 
@@ -758,7 +755,7 @@ class ZoneGroupsIter
         MOZ_ASSERT(!done());
         do {
             it++;
-        } while (!done() && (*it)->usedByHelperThread);
+        } while (!done() && (*it)->usedByHelperThread());
     }
 
     ZoneGroup* get() const {
