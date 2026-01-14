@@ -1715,6 +1715,7 @@ GCRuntime::removeWeakPointerZonesCallback(JSWeakPointerZonesCallback callback)
     }
 }
 
+void
 GCRuntime::callWeakPointerZonesCallbacks() const
 {
     for (auto const& p : updateWeakPointerZonesCallbacks.ref())
@@ -5521,7 +5522,7 @@ IncrementalProgress
 GCRuntime::beginSweepingSweepGroup(FreeOp* fop, SliceBudget& budget)
 {
     /*
-     * Begin sweeping the group of zones in gcCurrentZoneGroup,
+     * Begin sweeping the group of zones in gccurrentSweepGroup,
      * performing actions that must be done before yielding to caller.
      */
 	
@@ -5573,7 +5574,7 @@ GCRuntime::beginSweepingSweepGroup(FreeOp* fop, SliceBudget& budget)
             updateAtomsBitmap.emplace(rt, UpdateAtomsBitmap, PHASE_UPDATE_ATOMS_BITMAP, lock);
 
         AutoPhase ap(stats(), PHASE_SWEEP_COMPARTMENTS);
-        AutoSCC scc(stats(), zoneGroupIndex);
+        AutoSCC scc(stats(), sweepGroupIndex);
 
         AutoRunParallelTask sweepCCWrappers(rt, SweepCCWrappers, PHASE_SWEEP_CC_WRAPPER, lock);
         AutoRunParallelTask sweepObjectGroups(rt, SweepObjectGroups, PHASE_SWEEP_TYPE_OBJECT, lock);
@@ -5708,7 +5709,7 @@ GCRuntime::beginSweepPhase(JS::gcreason::Reason reason, AutoLockForExclusiveAcce
     AssertNoWrappersInGrayList(rt);
     DropStringWrappers(rt);
 
-    findZoneGroups(reason, lock);
+    groupZonesForSweeping(reason, lock);
     sweepActions->assertFinished();
 
     // We must not yield after this point until we start sweeping the first sweep
@@ -5913,7 +5914,7 @@ class js::gc::WeakCacheSweepIterator
     {
         // Initialize state when we start sweeping a sweep group.
         if (!sweepZone) {
-            sweepZone = gc->currentZoneGroup;
+            sweepZone = gc->currentSweepGroup;
             MOZ_ASSERT(!sweepCache);
             sweepCache = sweepZone->weakCaches().getFirst();
             settle();
@@ -6132,28 +6133,28 @@ struct IncrementalIter
 };
 
 // Iterate through the sweep groups created by GCRuntime::groupZonesForSweeping().
-class js::gc::ZoneGroupsIter2
+class js::gc::SweepGroupsIter
 {
     GCRuntime* gc;
 
   public:
-    explicit ZoneGroupsIter2(JSRuntime* rt)
+    explicit SweepGroupsIter(JSRuntime* rt)
       : gc(&rt->gc)
     {
-        MOZ_ASSERT(gc->currentZoneGroup);
+        MOZ_ASSERT(gc->currentSweepGroup);
     }
 
     bool done() const {
-        return !gc->currentZoneGroup;
+        return !gc->currentSweepGroup;
     }
 
     Zone* get() const {
-        return gc->currentZoneGroup;
+        return gc->currentSweepGroup;
     }
 
     void next() {
         MOZ_ASSERT(!done());
-        gc->getNextZoneGroup();
+        gc->getNextSweepGroup();
     }
 };
 
@@ -6332,7 +6333,7 @@ RepeatForZoneGroup(JSRuntime* rt, UniquePtr<SweepAction<Args...>> action)
     if (!action)
         return nullptr;
 
-    using Action = SweepActionRepeatFor<ZoneGroupsIter2, JSRuntime*, Args...>;
+    using Action = SweepActionRepeatFor<SweepGroupsIter, JSRuntime*, Args...>;
     return js::MakeUnique<Action>(rt, Move(action));
 }
 
