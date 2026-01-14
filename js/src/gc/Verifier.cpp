@@ -13,16 +13,16 @@
 #include "mozilla/Sprintf.h"
 
 #include "jscntxt.h"
-#include "jsgc.h"
 #include "jsprf.h"
 
 #include "gc/GCInternals.h"
 #include "gc/Zone.h"
-#include "js/GCAPI.h"
 #include "js/HashTable.h"
 
 #include "jscntxtinlines.h"
 #include "jsgcinlines.h"
+
+#include "gc/Marking-inl.h"
 
 using namespace js;
 using namespace js::gc;
@@ -560,14 +560,28 @@ HeapCheckTracerBase::traceHeap(AutoLockForExclusiveAccess& lock)
     return !oom;
 }
 
+static const char*
+GetCellColorName(Cell* cell)
+{
+    if (cell->isMarkedBlack())
+        return "black";
+    if (cell->isMarkedGray())
+        return "gray";
+    return "white";
+}
+
 void
 HeapCheckTracerBase::dumpCellInfo(Cell* cell)
 {
     auto kind = cell->getTraceKind();
-    fprintf(stderr, "%s", GCTraceKindToAscii(kind));
-    if (kind == JS::TraceKind::Object)
-        fprintf(stderr, " %s", static_cast<JSObject*>(cell)->getClass()->name);
+    JSObject* obj = kind == JS::TraceKind::Object ? static_cast<JSObject*>(cell) : nullptr;
+
+    fprintf(stderr, "%s %s", GetCellColorName(cell), GCTraceKindToAscii(kind));
+    if (obj)
+        fprintf(stderr, " %s", obj->getClass()->name);
     fprintf(stderr, " %p", cell);
+    if (obj)
+        fprintf(stderr, " (compartment %p)", obj->compartment());
 }
 
 void
@@ -626,7 +640,7 @@ CheckHeapTracer::check(AutoLockForExclusiveAccess& lock)
         return;
 
     if (failures)
-        fprintf(stderr, "Heap check: %" PRIuSIZE " failure(s)\n", failures);
+        fprintf(stderr, "Heap check: %zu failure(s)\n", failures);
     MOZ_RELEASE_ASSERT(failures == 0);
 }
 
@@ -641,7 +655,7 @@ js::gc::CheckHeapAfterGC(JSRuntime* rt)
 
 #endif /* JSGC_HASH_TABLE_CHECKS */
 
-#ifdef DEBUG
+#if defined(JS_GC_ZEAL) || defined(DEBUG)
 
 class CheckGrayMarkingTracer final : public HeapCheckTracerBase
 {
@@ -669,10 +683,18 @@ CheckGrayMarkingTracer::checkCell(Cell* cell)
 
     if (parent->isMarkedBlack() && cell->isMarkedGray()) {
         failures++;
+
         fprintf(stderr, "Found black to gray edge to ");
         dumpCellInfo(cell);
         fprintf(stderr, "\n");
         dumpCellPath();
+
+#ifdef DEBUG
+        if (cell->getTraceKind() == JS::TraceKind::Object) {
+            fprintf(stderr, "\n");
+            DumpObject(static_cast<JSObject*>(cell), stderr);
+        }
+#endif
     }
 }
 
@@ -703,4 +725,4 @@ js::CheckGrayMarkingState(JSContext* cx)
     return tracer.check(session.lock);
 }
 
-#endif // DEBUG
+#endif // defined(JS_GC_ZEAL) || defined(DEBUG)
