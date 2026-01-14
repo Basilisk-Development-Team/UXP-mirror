@@ -222,7 +222,6 @@
 #include "gc/FindSCCs.h"
 #include "gc/GCInternals.h"
 #include "gc/GCTrace.h"
-#include "gc/Marking.h"
 #include "gc/Memory.h"
 #include "gc/Policy.h"
 #include "jit/BaselineJIT.h"
@@ -246,6 +245,8 @@
 #include "jsscriptinlines.h"
 
 #include "gc/Heap-inl.h"
+#include "gc/Iteration-inl.h"
+#include "gc/Marking-inl.h"
 #include "gc/Nursery-inl.h"
 #include "vm/SPSProfiler-inl.h"
 #include "vm/Stack-inl.h"
@@ -330,7 +331,7 @@ const AllocKind gc::slotsToThingKind[] = {
 static_assert(JS_ARRAY_LENGTH(slotsToThingKind) == SLOTS_TO_THING_KIND_LIMIT,
               "We have defined a slot count for each kind.");
 
-#define CHECK_THING_SIZE(allocKind, traceKind, type, sizedType) \
+#define CHECK_THING_SIZE(allocKind, traceKind, type, sizedType, bgFinal, nursery) \
     static_assert(sizeof(sizedType) >= SortedArenaList::MinThingSize, \
                   #sizedType " is smaller than SortedArenaList::MinThingSize!"); \
     static_assert(sizeof(sizedType) >= sizeof(FreeSpan), \
@@ -343,7 +344,7 @@ FOR_EACH_ALLOCKIND(CHECK_THING_SIZE);
 #undef CHECK_THING_SIZE
 
 const uint32_t Arena::ThingSizes[] = {
-#define EXPAND_THING_SIZE(allocKind, traceKind, type, sizedType) \
+#define EXPAND_THING_SIZE(allocKind, traceKind, type, sizedType, bgFinal, nursery) \
     sizeof(sizedType),
 FOR_EACH_ALLOCKIND(EXPAND_THING_SIZE)
 #undef EXPAND_THING_SIZE
@@ -357,7 +358,7 @@ FreeSpan ArenaLists::placeholder;
 #define OFFSET(type) uint32_t(ArenaHeaderSize + (ArenaSize - ArenaHeaderSize) % sizeof(type))
 
 const uint32_t Arena::FirstThingOffsets[] = {
-#define EXPAND_FIRST_THING_OFFSET(allocKind, traceKind, type, sizedType) \
+#define EXPAND_FIRST_THING_OFFSET(allocKind, traceKind, type, sizedType, bgFinal, nursery) \
     OFFSET(sizedType),
 FOR_EACH_ALLOCKIND(EXPAND_FIRST_THING_OFFSET)
 #undef EXPAND_FIRST_THING_OFFSET
@@ -368,7 +369,7 @@ FOR_EACH_ALLOCKIND(EXPAND_FIRST_THING_OFFSET)
 #define COUNT(type) uint32_t((ArenaSize - ArenaHeaderSize) / sizeof(type))
 
 const uint32_t Arena::ThingsPerArena[] = {
-#define EXPAND_THINGS_PER_ARENA(allocKind, traceKind, type, sizedType) \
+#define EXPAND_THINGS_PER_ARENA(allocKind, traceKind, type, sizedType, bgFinal, nursery) \
     COUNT(sizedType),
 FOR_EACH_ALLOCKIND(EXPAND_THINGS_PER_ARENA)
 #undef EXPAND_THINGS_PER_ARENA
@@ -621,7 +622,7 @@ FinalizeArenas(FreeOp* fop,
                ArenaLists::KeepArenasEnum keepArenas)
 {
     switch (thingKind) {
-#define EXPAND_CASE(allocKind, traceKind, type, sizedType) \
+#define EXPAND_CASE(allocKind, traceKind, type, sizedType, bgFinal, nursery) \
       case AllocKind::allocKind: \
         return FinalizeTypedArenas<type>(fop, src, dest, thingKind, budget, keepArenas);
 FOR_EACH_ALLOCKIND(EXPAND_CASE)
@@ -936,6 +937,7 @@ GCRuntime::GCRuntime(JSRuntime* rt) :
     incrementalLimit(0),
 #endif
     fullCompartmentChecks(false),
+    gcBeginCallbackDepth(0),
     alwaysPreserveCode(false),
 #ifdef DEBUG
     arenasEmptyAtShutdown(true),
@@ -1108,7 +1110,7 @@ static const char*
 AllocKindName(AllocKind kind)
 {
     static const char* names[] = {
-#define EXPAND_THING_NAME(allocKind, _1, _2, _3) \
+#define EXPAND_THING_NAME(allocKind, _1, _2, _3, _4, _5) \
         #allocKind,
 FOR_EACH_ALLOCKIND(EXPAND_THING_NAME)
 #undef EXPAND_THING_NAME
@@ -1650,25 +1652,6 @@ GCRuntime::callObjectsTenuredCallback()
     if (tenuredCallback.op)
         tenuredCallback.op(TlsContext.get(), tenuredCallback.data);
 }
-
-namespace {
-
-class AutoNotifyGCActivity {
-  public:
-    explicit AutoNotifyGCActivity(GCRuntime& gc) : gc_(gc) {
-        if (!gc_.isIncrementalGCInProgress())
-            gc_.callGCCallback(JSGC_BEGIN);
-    }
-    ~AutoNotifyGCActivity() {
-        if (!gc_.isIncrementalGCInProgress())
-            gc_.callGCCallback(JSGC_END);
-    }
-
-  private:
-    GCRuntime& gc_;
-};
-
-} // (anon)
 
 bool
 GCRuntime::addFinalizeCallback(JSFinalizeCallback callback, void* data)
@@ -2478,7 +2461,7 @@ UpdateArenaPointers(MovingTracer* trc, Arena* arena)
     AllocKind kind = arena->getAllocKind();
 
     switch (kind) {
-#define EXPAND_CASE(allocKind, traceKind, type, sizedType) \
+#define EXPAND_CASE(allocKind, traceKind, type, sizedType, bgFinal, nursery) \
       case AllocKind::allocKind: \
         UpdateArenaPointersTyped<type>(trc, arena, JS::TraceKind::traceKind); \
         return;
@@ -3858,7 +3841,7 @@ static const char*
 AllocKindToAscii(AllocKind kind)
 {
     switch(kind) {
-#define MAKE_CASE(allocKind, traceKind, type, sizedType) \
+#define MAKE_CASE(allocKind, traceKind, type, sizedType, bgFinal, nursery) \
       case AllocKind:: allocKind: return #allocKind;
 FOR_EACH_ALLOCKIND(MAKE_CASE)
 #undef MAKE_CASE
@@ -5083,7 +5066,7 @@ NextIncomingCrossCompartmentPointer(JSObject* prev, bool unlink)
 }
 
 void
-js::DelayCrossCompartmentGrayMarking(JSObject* src)
+js::gc::DelayCrossCompartmentGrayMarking(JSObject* src)
 {
     MOZ_ASSERT(IsGrayListObject(src));
 
@@ -7303,6 +7286,53 @@ class AutoExposeLiveCrossZoneEdges
 
 } /* anonymous namespace */
 
+class js::gc::AutoCallGCCallbacks {
+    GCRuntime& gc_;
+
+  public:
+    explicit AutoCallGCCallbacks(GCRuntime& gc) : gc_(gc) {
+        gc_.maybeCallBeginCallback();
+    }
+    ~AutoCallGCCallbacks() {
+        gc_.maybeCallEndCallback();
+    }
+};
+
+void
+GCRuntime::maybeCallBeginCallback()
+{
+    if (isIncrementalGCInProgress())
+        return;
+
+    if (gcBeginCallbackDepth == 0) {
+        // Save scheduled zone information in case the callback changes it.
+        for (ZonesIter zone(rt, WithAtoms); !zone.done(); zone.next())
+            zone->gcScheduledSaved_ = zone->gcScheduled_;
+    }
+
+    gcBeginCallbackDepth++;
+
+    callGCCallback(JSGC_BEGIN);
+
+    MOZ_ASSERT(gcBeginCallbackDepth != 0);
+    gcBeginCallbackDepth--;
+
+    if (gcBeginCallbackDepth == 0) {
+        // Restore scheduled zone information again.
+        for (ZonesIter zone(rt, WithAtoms); !zone.done(); zone.next())
+            zone->gcScheduled_ = zone->gcScheduledSaved_;
+    }
+}
+
+void
+GCRuntime::maybeCallEndCallback()
+{
+    if (isIncrementalGCInProgress())
+        return;
+
+    callGCCallback(JSGC_END);
+}
+
 /*
  * Run one GC "cycle" (either a slice of incremental GC or an entire
  * non-incremental GC. We disable inlining to ensure that the bottom of the
@@ -7315,8 +7345,8 @@ class AutoExposeLiveCrossZoneEdges
 MOZ_NEVER_INLINE GCRuntime::IncrementalResult
 GCRuntime::gcCycle(bool nonincrementalByAPI, SliceBudget& budget, JS::gcreason::Reason reason)
 {
-    // Note that the following is allowed to re-enter GC in the finalizer.
-    AutoNotifyGCActivity notify(*this);
+    // Note that GC callbacks are allowed to re-enter GC.
+    AutoCallGCCallbacks callCallbacks(*this);
 
     gcstats::AutoGCSlice agc(stats(), scanZonesBeforeGC(), invocationKind, budget, reason);
 
@@ -8925,13 +8955,6 @@ StateName(State state)
 #undef MAKE_CASE
     }
     MOZ_MAKE_COMPILER_ASSUME_IS_UNREACHABLE("invalide gc::State enum value");
-}
-
-void
-AutoAssertHeapBusy::checkCondition(JSRuntime *rt)
-{
-    this->rt = rt;
-    MOZ_ASSERT(JS::CurrentThreadIsHeapBusy());
 }
 
 void

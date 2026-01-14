@@ -12,7 +12,6 @@
 
 #include "jsalloc.h"
 #include "js/CharacterEncoding.h"
-#include "js/GCAPI.h"
 #include "js/GCHashTable.h"
 #include "js/RootingAPI.h"
 #include "js/Utility.h"

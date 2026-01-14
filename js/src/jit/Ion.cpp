@@ -55,6 +55,7 @@
 #include "jsobjinlines.h"
 #include "jsscriptinlines.h"
 
+#include "gc/Iteration-inl.h"
 #include "jit/JitFrames-inl.h"
 #include "jit/shared/Lowering-shared-inl.h"
 #include "vm/Debugger-inl.h"
