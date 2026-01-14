@@ -28,6 +28,8 @@
 
 #include "vm/NativeObject.h"
 
+#include "gc/ObjectKind-inl.h"
+
 namespace js {
 
 // ValueIsLength happens not to be according to ES6, which mandates
@@ -708,6 +710,17 @@ class ElementSpecific
         return T(JS::ToInt32(d));
     }
 };
+
+/* static */ gc::AllocKind
+js::TypedArrayObject::AllocKindForLazyBuffer(size_t nbytes)
+{
+    MOZ_ASSERT(nbytes <= INLINE_BUFFER_LIMIT);
+    if (nbytes == 0)
+        nbytes += sizeof(uint8_t);
+    size_t dataSlots = AlignBytes(nbytes, sizeof(Value)) / sizeof(Value);
+    MOZ_ASSERT(nbytes <= dataSlots * sizeof(Value));
+    return gc::GetGCObjectKind(FIXED_DATA_START + dataSlots);
+}
 
 template<typename T>
 class TypedArrayMethods
