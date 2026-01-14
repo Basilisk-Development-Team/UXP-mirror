@@ -30,6 +30,9 @@ class JitZone;
 
 namespace gc {
 
+class GCSchedulingState;
+class GCSchedulingTunables;
+
 // This class encapsulates the data that determines when we need to do a zone GC.
 class ZoneHeapThreshold
 {
@@ -246,7 +249,7 @@ struct Zone : public JS::shadow::Zone,
     // Whether this zone can currently be collected. This doesn't take account
     // of AutoKeepAtoms for the atoms zone.
     bool canCollect();
-	
+
     void notifyObservingDebuggers();
 
     void setGCState(GCState state) {
