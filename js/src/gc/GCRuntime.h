@@ -801,8 +801,8 @@ class GCRuntime
         TraceRuntime,
         MarkRuntime
     };
-    void traceRuntime(JSTracer* trc, AutoLockForExclusiveAccess& lock);
-    void traceRuntimeForMinorGC(JSTracer* trc, AutoLockForExclusiveAccess& lock);
+    void traceRuntime(JSTracer* trc, AutoTraceSession& session);
+    void traceRuntimeForMinorGC(JSTracer* trc, AutoTraceSession& session);
 
     void notifyDidPaint();
     void shrinkBuffers();
@@ -891,7 +891,7 @@ class GCRuntime
         // that case.
         stats().recordTrigger(mallocCounter.bytes(), mallocCounter.maxBytes());
         return true;
-    }
+	}
 
     int32_t getMallocBytes() const { return mallocCounter.bytes(); }
     size_t maxMallocBytesAllocated() const { return mallocCounter.maxBytes(); }
@@ -1080,8 +1080,8 @@ class GCRuntime
     void requestMajorGC(JS::gcreason::Reason reason);
     SliceBudget defaultBudget(JS::gcreason::Reason reason, int64_t millis);
     IncrementalResult budgetIncrementalGC(bool nonincrementalByAPI, JS::gcreason::Reason reason,
-                                          SliceBudget& budget, AutoLockForExclusiveAccess& lock);
-    IncrementalResult resetIncrementalGC(AbortReason reason, AutoLockForExclusiveAccess& lock);
+                                          SliceBudget& budget, AutoTraceSession& session);
+    IncrementalResult resetIncrementalGC(AbortReason reason, AutoTraceSession& session);
 
     // Assert if the system state is such that we should never
     // receive a request to do GC work.
@@ -1097,23 +1097,23 @@ class GCRuntime
                                            JS::gcreason::Reason reason);
     bool shouldRepeatForDeadZone(JS::gcreason::Reason reason);
     void incrementalCollectSlice(SliceBudget& budget, JS::gcreason::Reason reason,
-                                 AutoLockForExclusiveAccess& lock);
+                                 AutoTraceSession& session);
 
     friend class AutoCallGCCallbacks;
     void maybeCallBeginCallback();
     void maybeCallEndCallback();
 
     void pushZealSelectedObjects();
-    void purgeRuntime(AutoLockForExclusiveAccess& lock);
-    [[nodiscard]] bool beginMarkPhase(JS::gcreason::Reason reason, AutoLockForExclusiveAccess& lock);
+    void purgeRuntime();
+    [[nodiscard]] bool beginMarkPhase(JS::gcreason::Reason reason, AutoTraceSession& session);
     bool prepareZonesForCollection(JS::gcreason::Reason reason, bool* isFullOut,
                                    AutoLockForExclusiveAccess& lock);
     bool shouldPreserveJITCode(JSCompartment* comp, int64_t currentTime,
                                JS::gcreason::Reason reason, bool canAllocateMoreCode);
-    void traceRuntimeForMajorGC(JSTracer* trc, AutoLockForExclusiveAccess& lock);
+    void traceRuntimeForMajorGC(JSTracer* trc, AutoTraceSession& session);
     void traceRuntimeAtoms(JSTracer* trc, AutoLockForExclusiveAccess& lock);
     void traceRuntimeCommon(JSTracer* trc, TraceOrMarkRuntime traceOrMark,
-                            AutoLockForExclusiveAccess& lock);
+                            AutoTraceSession& session);
     void maybeDoCycleCollection();
     void markCompartments();
     IncrementalProgress drainMarkStack(SliceBudget& sliceBudget, gcstats::Phase phase);
@@ -1125,8 +1125,8 @@ class GCRuntime
     void markAllWeakReferences(gcstats::Phase phase);
     void markAllGrayReferences(gcstats::Phase phase);
 
-    void beginSweepPhase(JS::gcreason::Reason reason, AutoLockForExclusiveAccess& lock);
-    void groupZonesForSweeping(JS::gcreason::Reason reason, AutoLockForExclusiveAccess& lock);
+    void beginSweepPhase(JS::gcreason::Reason reason, AutoTraceSession& session);
+    void groupZonesForSweeping(JS::gcreason::Reason reason);
     [[nodiscard]] bool findInterZoneEdges();
     void getNextSweepGroup();
     IncrementalProgress endMarkingSweepGroup(FreeOp* fop, SliceBudget& budget);
@@ -1138,7 +1138,7 @@ class GCRuntime
     void sweepDebuggerOnMainThread(FreeOp* fop);
     void sweepJitDataOnMainThread(FreeOp* fop);
     IncrementalProgress endSweepingSweepGroup(FreeOp* fop, SliceBudget& budget);
-    IncrementalProgress performSweepActions(SliceBudget& sliceBudget, AutoLockForExclusiveAccess& lock);
+    IncrementalProgress performSweepActions(SliceBudget& sliceBudget);
     IncrementalProgress sweepTypeInformation(FreeOp* fop, SliceBudget& budget, Zone* zone);
     IncrementalProgress mergeSweptObjectArenas(FreeOp* fop, SliceBudget& budget, Zone* zone);
     void startSweepingAtomsTable();
@@ -1147,7 +1147,7 @@ class GCRuntime
     IncrementalProgress finalizeAllocKind(FreeOp* fop, SliceBudget& budget, Zone* zone,
                                           AllocKind kind);
     IncrementalProgress sweepShapeTree(FreeOp* fop, SliceBudget& budget, Zone* zone);
-    void endSweepPhase(bool lastGC, AutoLockForExclusiveAccess& lock);
+    void endSweepPhase(bool lastGC);
     bool allCCVisibleZonesWereCollected() const;
     void sweepZones(FreeOp* fop, ZoneGroup* group, bool lastGC);
     void sweepZoneGroups(FreeOp* fop, bool destroyingRuntime);
@@ -1159,7 +1159,7 @@ class GCRuntime
     bool shouldCompact();
     void beginCompactPhase();
     IncrementalProgress compactPhase(JS::gcreason::Reason reason, SliceBudget& sliceBudget,
-                                     AutoLockForExclusiveAccess& lock);
+                                     AutoTraceSession& session);
     void endCompactPhase(JS::gcreason::Reason reason);
     void sweepTypesAfterCompacting(Zone* zone);
     void sweepZoneAfterCompacting(Zone* zone);
@@ -1168,15 +1168,15 @@ class GCRuntime
     void updateTypeDescrObjects(MovingTracer* trc, Zone* zone);
     void updateCellPointers(MovingTracer* trc, Zone* zone, AllocKinds kinds, size_t bgTaskCount);
     void updateAllCellPointers(MovingTracer* trc, Zone* zone);
-    void updateZonePointersToRelocatedCells(Zone* zone, AutoLockForExclusiveAccess& lock);
-    void updateRuntimePointersToRelocatedCells(AutoLockForExclusiveAccess& lock);
+    void updateZonePointersToRelocatedCells(Zone* zone);
+    void updateRuntimePointersToRelocatedCells(AutoTraceSession& session);
     void protectAndHoldArenas(Arena* arenaList);
     void unprotectHeldRelocatedArenas();
     void releaseRelocatedArenas(Arena* arenaList);
     void releaseRelocatedArenasWithoutUnlocking(Arena* arenaList, const AutoLockGC& lock);
     void finishCollection(JS::gcreason::Reason reason);
 
-    void computeNonIncrementalMarkingForValidation(AutoLockForExclusiveAccess& lock);
+    void computeNonIncrementalMarkingForValidation(AutoTraceSession& session);
     void validateIncrementalMarking();
     void finishMarkingValidation();
 
@@ -1408,7 +1408,7 @@ class GCRuntime
     ActiveThreadData<MarkingValidator*> markingValidator;
 #endif
 
-    /*
+     /*
      * Indicates that a GC slice has taken place in the middle of an animation
      * frame, rather than at the beginning. In this case, the next slice will be
      * delayed so that we don't get back-to-back slices.
