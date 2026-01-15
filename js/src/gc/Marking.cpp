@@ -1767,7 +1767,9 @@ GCMarker::processMarkStackTop(SliceBudget& budget)
         } else if (v.isBigInt()) {
             traverseEdge(obj, v.toBigInt());
         } else if (v.isPrivateGCThing()) {
-            traverseEdge(obj, v.toGCCellPtr());
+            // v.toGCCellPtr cannot be inlined, so construct one manually.
+            Cell* cell = v.toGCThing();
+            traverseEdge(obj, JS::GCCellPtr(cell, cell->getTraceKind()));
         }
     }
     return;
@@ -2950,6 +2952,7 @@ inline void
 js::TenuringTracer::traceSlots(JS::Value* vp, uint32_t nslots)
 {
     traceSlots(vp, vp + nslots);
+}
 
 void
 js::TenuringTracer::traceString(JSString* str)
