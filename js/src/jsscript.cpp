@@ -2544,7 +2544,7 @@ JSScript::shareScriptData(JSContext* cx)
     MOZ_ASSERT(ssd);
     MOZ_ASSERT(ssd->refCount() == 1);
 
-    AutoLockForExclusiveAccess lock(cx);
+    AutoLockScriptData lock(cx->runtime());
 
     ScriptBytecodeHasher::Lookup l(ssd);
 
@@ -2569,11 +2569,12 @@ JSScript::shareScriptData(JSContext* cx)
 }
 
 void
-js::SweepScriptData(JSRuntime* rt, AutoLockForExclusiveAccess& lock)
+js::SweepScriptData(JSRuntime* rt)
 {
     // Entries are removed from the table when their reference count is one,
     // i.e. when the only reference to them is from the table entry.
 
+    AutoLockScriptData lock(rt);
     ScriptDataTable& table = rt->scriptDataTable(lock);
 
     for (ScriptDataTable::Enum e(table); !e.empty(); e.popFront()) {
@@ -2586,8 +2587,9 @@ js::SweepScriptData(JSRuntime* rt, AutoLockForExclusiveAccess& lock)
 }
 
 void
-js::FreeScriptData(JSRuntime* rt, AutoLockForExclusiveAccess& lock)
+js::FreeScriptData(JSRuntime* rt)
 {
+    AutoLockScriptData lock(rt);
     ScriptDataTable& table = rt->scriptDataTable(lock);
     if (!table.initialized())
         return;

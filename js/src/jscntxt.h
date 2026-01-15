@@ -16,6 +16,7 @@
 #include "js/Utility.h"
 #include "js/Vector.h"
 #include "threading/ProtectedData.h"
+#include "vm/MallocProvider.h"
 #include "vm/Runtime.h"
 
 #ifdef _MSC_VER
@@ -67,6 +68,8 @@ struct AutoResolving;
 namespace frontend { class CompileError; }
 
 struct HelperThread;
+
+class AutoLockScriptData;
 
 void ReportOverRecursed(JSContext* cx, unsigned errorNumber);
 
@@ -259,7 +262,7 @@ struct JSContext : public JS::RootingContext,
     js::SymbolRegistry& symbolRegistry(js::AutoLockForExclusiveAccess& lock) {
         return runtime_->symbolRegistry(lock);
     }
-    js::ScriptDataTable& scriptDataTable(js::AutoLockForExclusiveAccess& lock) {
+    js::ScriptDataTable& scriptDataTable(js::AutoLockScriptData& lock) {
         return runtime_->scriptDataTable(lock);
     }
 
@@ -1222,6 +1225,37 @@ class MOZ_RAII AutoLockForExclusiveAccess
             MOZ_ASSERT(runtime->activeThreadHasExclusiveAccess);
 #ifdef DEBUG
             runtime->activeThreadHasExclusiveAccess = false;
+#endif
+        }
+    }
+
+    MOZ_DECL_USE_GUARD_OBJECT_NOTIFIER
+};
+
+class MOZ_RAII AutoLockScriptData
+{
+    JSRuntime* runtime;
+
+  public:
+    explicit AutoLockScriptData(JSRuntime* rt MOZ_GUARD_OBJECT_NOTIFIER_PARAM) {
+        MOZ_GUARD_OBJECT_NOTIFIER_INIT;
+        runtime = rt;
+        if (runtime->hasHelperThreadZones()) {
+            runtime->scriptDataLock.lock();
+        } else {
+            MOZ_ASSERT(!runtime->activeThreadHasScriptDataAccess);
+#ifdef DEBUG
+            runtime->activeThreadHasScriptDataAccess = true;
+#endif
+        }
+    }
+    ~AutoLockScriptData() {
+        if (runtime->hasHelperThreadZones()) {
+            runtime->scriptDataLock.unlock();
+        } else {
+            MOZ_ASSERT(runtime->activeThreadHasScriptDataAccess);
+#ifdef DEBUG
+            runtime->activeThreadHasScriptDataAccess = false;
 #endif
         }
     }

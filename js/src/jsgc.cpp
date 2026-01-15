@@ -2776,7 +2776,7 @@ GCRuntime::updateAllCellPointers(MovingTracer* trc, Zone* zone)
  * part of the traversal.
  */
 void
-GCRuntime::updateZonePointersToRelocatedCells(Zone* zone, AutoLockForExclusiveAccess& lock)
+GCRuntime::updateZonePointersToRelocatedCells(Zone* zone)
 {
     MOZ_ASSERT(!rt->isBeingDestroyed());
     MOZ_ASSERT(zone->isGCCompacting());
@@ -2819,7 +2819,7 @@ GCRuntime::updateZonePointersToRelocatedCells(Zone* zone, AutoLockForExclusiveAc
  * Update runtime-wide pointers to relocated cells.
  */
 void
-GCRuntime::updateRuntimePointersToRelocatedCells(AutoLockForExclusiveAccess& lock)
+GCRuntime::updateRuntimePointersToRelocatedCells(AutoTraceSession& session)
 {
     MOZ_ASSERT(!rt->isBeingDestroyed());
 
@@ -2830,7 +2830,7 @@ GCRuntime::updateRuntimePointersToRelocatedCells(AutoLockForExclusiveAccess& loc
 
     rt->spsProfiler().fixupStringsMapAfterMovingGC();
 
-    traceRuntimeForMajorGC(&trc, lock);
+    traceRuntimeForMajorGC(&trc, session);
 
     // Mark roots to update them.
     {
@@ -3907,7 +3907,7 @@ class MOZ_RAII js::gc::AutoRunParallelTask : public GCParallelTask
 };
 
 void
-GCRuntime::purgeRuntime(AutoLockForExclusiveAccess& lock)
+GCRuntime::purgeRuntime()
 {
     gcstats::AutoPhase ap(stats(), gcstats::PHASE_PURGE);
 
@@ -4231,15 +4231,20 @@ BufferGrayRoots(JSRuntime* rt)
 }
 
 bool
-GCRuntime::beginMarkPhase(JS::gcreason::Reason reason, AutoLockForExclusiveAccess& lock)
+GCRuntime::beginMarkPhase(JS::gcreason::Reason reason, AutoTraceSession& session)
 {
+    MOZ_ASSERT(session.maybeLock.isSome());
 #ifdef DEBUG
     if (fullCompartmentChecks)
         checkForCompartmentMismatches();
 #endif
 
-    if (!prepareZonesForCollection(reason, &isFull.ref(), lock))
+    if (!prepareZonesForCollection(reason, &isFull.ref(), session.lock()))
         return false;
+
+     /* If we're not collecting the atoms zone we can release the lock now. */
+    if (!atomsZone->isCollecting())
+        session.maybeLock.reset();
 
     /*
      * Ensure that after the start of a collection we don't allocate into any
@@ -4305,14 +4310,14 @@ GCRuntime::beginMarkPhase(JS::gcreason::Reason reason, AutoLockForExclusiveAcces
          * the mutator could obtain a pointer to the object and start using
          * it. This object might never be marked, so a GC hazard would exist.
          */
-        purgeRuntime(lock);
+        purgeRuntime();
     }
 
     /*
      * Mark phase.
      */
     gcstats::AutoPhase ap(stats(), gcstats::PHASE_MARK);
-    traceRuntimeForMajorGC(gcmarker, lock);
+    traceRuntimeForMajorGC(gcmarker, session);
 
     if (isIncremental)
         markCompartments();
@@ -4513,7 +4518,7 @@ class js::gc::MarkingValidator
   public:
     explicit MarkingValidator(GCRuntime* gc);
     ~MarkingValidator();
-    void nonIncrementalMark(AutoLockForExclusiveAccess& lock);
+    void nonIncrementalMark(AutoTraceSession& session);
     void validate();
 
   private:
@@ -4539,7 +4544,7 @@ js::gc::MarkingValidator::~MarkingValidator()
 }
 
 void
-js::gc::MarkingValidator::nonIncrementalMark(AutoLockForExclusiveAccess& lock)
+js::gc::MarkingValidator::nonIncrementalMark()
 {
     /*
      * Perform a non-incremental mark for all collecting zones and record
@@ -4632,7 +4637,7 @@ js::gc::MarkingValidator::nonIncrementalMark(AutoLockForExclusiveAccess& lock)
     {
         gcstats::AutoPhase ap(gc->stats(), gcstats::PHASE_MARK);
 
-        gc->traceRuntimeForMajorGC(gcmarker, lock);
+        gc->traceRuntimeForMajorGC(gcmarker, session);
 
         gc->incrementalState = State::Mark;
         auto unlimited = SliceBudget::unlimited();
@@ -4757,14 +4762,14 @@ js::gc::MarkingValidator::validate()
 #endif // JS_GC_ZEAL
 
 void
-GCRuntime::computeNonIncrementalMarkingForValidation(AutoLockForExclusiveAccess& lock)
+GCRuntime::computeNonIncrementalMarkingForValidation(AutoTraceSession& session)
 {
 #ifdef JS_GC_ZEAL
     MOZ_ASSERT(!markingValidator);
     if (isIncremental && hasZealMode(ZealMode::IncrementalMarkingValidator))
         markingValidator = js_new<MarkingValidator>(this);
     if (markingValidator)
-        markingValidator->nonIncrementalMark(lock);
+        markingValidator->nonIncrementalMark(session);
 #endif
 }
 
@@ -4864,10 +4869,10 @@ Zone::findOutgoingEdges(ZoneComponentFinder& finder)
      * Any compartment may have a pointer to an atom in the atoms
      * compartment, and these aren't in the cross compartment map.
      */
-    JSRuntime* rt = runtimeFromActiveCooperatingThread();
-    Zone* atomsZone = rt->atomsCompartment(finder.lock)->zone();
-    if (atomsZone->shouldMarkInZone())
-        finder.addEdgeTo(atomsZone);
+    if (Zone* zone = finder.maybeAtomsZone) {
+        MOZ_ASSERT(zone->isCollecting());
+        finder.addEdgeTo(zone);
+    }
 
     for (CompartmentsInZoneIter comp(this); !comp.done(); comp.next())
         comp->findOutgoingEdges(finder);
@@ -4902,7 +4907,7 @@ GCRuntime::findInterZoneEdges()
 }
 
 void
-GCRuntime::groupZonesForSweeping(JS::gcreason::Reason reason, AutoLockForExclusiveAccess& lock)
+GCRuntime::groupZonesForSweeping(JS::gcreason::Reason reason)
 {
 #ifdef DEBUG
     for (ZonesIter zone(rt, WithAtoms); !zone.done(); zone.next())
@@ -4910,7 +4915,8 @@ GCRuntime::groupZonesForSweeping(JS::gcreason::Reason reason, AutoLockForExclusi
 #endif
 
     JSContext* cx = TlsContext.get();
-    ZoneComponentFinder finder(cx->nativeStackLimit[JS::StackForSystemCode], lock);
+    Zone* maybeAtomsZone = atomsZone->wasGCStarted() ? atomsZone.ref() : nullptr;
+    ZoneComponentFinder finder(cx->nativeStackLimit[JS::StackForSystemCode], maybeAtomsZone);
     if (!isIncremental || !findInterZoneEdges())
         finder.useOneComponent();
 
@@ -5714,7 +5720,7 @@ GCRuntime::endSweepingSweepGroup(FreeOp* fop, SliceBudget& budget)
 }
 
 void
-GCRuntime::beginSweepPhase(JS::gcreason::Reason reason, AutoLockForExclusiveAccess& lock)
+GCRuntime::beginSweepPhase(JS::gcreason::Reason reason, AutoTraceSession& session)
 {
     /*
      * Sweep phase.
@@ -5730,7 +5736,7 @@ GCRuntime::beginSweepPhase(JS::gcreason::Reason reason, AutoLockForExclusiveAcce
 
     releaseHeldRelocatedArenas();
 
-    computeNonIncrementalMarkingForValidation(lock);
+    computeNonIncrementalMarkingForValidation(session);
     gcstats::AutoPhase ap(stats(), gcstats::PHASE_SWEEP);
 
     sweepOnBackgroundThread =
@@ -5741,7 +5747,7 @@ GCRuntime::beginSweepPhase(JS::gcreason::Reason reason, AutoLockForExclusiveAcce
     AssertNoWrappersInGrayList(rt);
     DropStringWrappers(rt);
 
-    groupZonesForSweeping(reason, lock);
+    groupZonesForSweeping(reason);
     sweepActions->assertFinished();
 
     // We must not yield after this point until we start sweeping the first sweep
@@ -6429,7 +6435,7 @@ GCRuntime::initSweepActions()
 }
 
 IncrementalProgress
-GCRuntime::performSweepActions(SliceBudget& budget, AutoLockForExclusiveAccess& lock)
+GCRuntime::performSweepActions(SliceBudget& budget)
 {
     AutoSetThreadIsSweeping threadIsSweeping;
 
@@ -6480,7 +6486,7 @@ GCRuntime::allCCVisibleZonesWereCollected() const
 }
 
 void
-GCRuntime::endSweepPhase(bool destroyingRuntime, AutoLockForExclusiveAccess& lock)
+GCRuntime::endSweepPhase(bool destroyingRuntime)
 {
     sweepActions->assertFinished();
 
@@ -6519,7 +6525,7 @@ GCRuntime::endSweepPhase(bool destroyingRuntime, AutoLockForExclusiveAccess& loc
          * script and calls rt->destroyScriptHook, the hook can still access the
          * script's filename. See bug 323267.
          */
-        SweepScriptData(rt, lock);
+        SweepScriptData(rt);
 
         /* Clear out any small pools that we're hanging on to. */
         if (rt->hasJitRuntime()) {
@@ -6569,7 +6575,7 @@ GCRuntime::beginCompactPhase()
 
 IncrementalProgress
 GCRuntime::compactPhase(JS::gcreason::Reason reason, SliceBudget& sliceBudget,
-                        AutoLockForExclusiveAccess& lock)
+                        AutoTraceSession& session)
 {
     assertBackgroundSweepingFinished();
     MOZ_ASSERT(startedCompacting);
@@ -6594,7 +6600,7 @@ GCRuntime::compactPhase(JS::gcreason::Reason reason, SliceBudget& sliceBudget,
         zone->setGCState(Zone::Compact);
 
         if (relocateArenas(zone, reason, relocatedArenas, sliceBudget)) {
-            updateZonePointersToRelocatedCells(zone, lock);
+            updateZonePointersToRelocatedCells(zone);
             relocatedZones.append(zone);
         } else {
             zone->setGCState(Zone::Finished);
@@ -6605,7 +6611,7 @@ GCRuntime::compactPhase(JS::gcreason::Reason reason, SliceBudget& sliceBudget,
     }
 
     if (!relocatedZones.isEmpty()) {
-        updateRuntimePointersToRelocatedCells(lock);
+        updateRuntimePointersToRelocatedCells(session);
 
         do {
             Zone* zone = relocatedZones.front();
@@ -6698,14 +6704,17 @@ AllNurseriesAreEmpty(JSRuntime* rt)
 
 /* Start a new heap session. */
 AutoTraceSession::AutoTraceSession(JSRuntime* rt, JS::HeapState heapState)
-  : lock(rt),
-    runtime(rt),
+  : runtime(rt),
     prevState(TlsContext.get()->heapState),
     pseudoFrame(rt, HeapStateToLabel(heapState), ProfileEntry::Category::GC)
 {
     MOZ_ASSERT(prevState == JS::HeapState::Idle);
     MOZ_ASSERT(heapState != JS::HeapState::Idle);
     MOZ_ASSERT_IF(heapState == JS::HeapState::MajorCollecting, AllNurseriesAreEmpty(rt));
+
+    // Session always begins with lock held, see comment in class definition.
+    maybeLock.emplace(rt);
+
     TlsContext.get()->heapState = heapState;
 }
 
@@ -6736,7 +6745,7 @@ GCRuntime::canChangeActiveContext(JSContext* cx)
 }
 
 GCRuntime::IncrementalResult
-GCRuntime::resetIncrementalGC(gc::AbortReason reason, AutoLockForExclusiveAccess& lock)
+GCRuntime::resetIncrementalGC(gc::AbortReason reason, AutoTraceSession& session)
 {
     MOZ_ASSERT(reason != gc::AbortReason::None);
 
@@ -6787,7 +6796,7 @@ GCRuntime::resetIncrementalGC(gc::AbortReason reason, AutoLockForExclusiveAccess
         isCompacting = false;
 
         auto unlimited = SliceBudget::unlimited();
-        incrementalCollectSlice(unlimited, JS::gcreason::RESET, lock);
+        incrementalCollectSlice(unlimited, JS::gcreason::RESET, session);
 
         isCompacting = wasCompacting;
 
@@ -6808,7 +6817,7 @@ GCRuntime::resetIncrementalGC(gc::AbortReason reason, AutoLockForExclusiveAccess
         isCompacting = false;
 
         auto unlimited = SliceBudget::unlimited();
-        incrementalCollectSlice(unlimited, JS::gcreason::RESET, lock);
+        incrementalCollectSlice(unlimited, JS::gcreason::RESET, session);
 
         isCompacting = wasCompacting;
 
@@ -6823,7 +6832,7 @@ GCRuntime::resetIncrementalGC(gc::AbortReason reason, AutoLockForExclusiveAccess
         zonesToMaybeCompact.ref().clear();
 
         auto unlimited = SliceBudget::unlimited();
-        incrementalCollectSlice(unlimited, JS::gcreason::RESET, lock);
+        incrementalCollectSlice(unlimited, JS::gcreason::RESET, session);
 
         isCompacting = wasCompacting;
         break;
@@ -6831,7 +6840,7 @@ GCRuntime::resetIncrementalGC(gc::AbortReason reason, AutoLockForExclusiveAccess
 
       case State::Decommit: {
         auto unlimited = SliceBudget::unlimited();
-        incrementalCollectSlice(unlimited, JS::gcreason::RESET, lock);
+        incrementalCollectSlice(unlimited, JS::gcreason::RESET, session);
         break;
       }
     }
@@ -6926,8 +6935,15 @@ ShouldCleanUpEverything(JS::gcreason::Reason reason, JSGCInvocationKind gckind)
 
 void
 GCRuntime::incrementalCollectSlice(SliceBudget& budget, JS::gcreason::Reason reason,
-                                   AutoLockForExclusiveAccess& lock)
+                                   AutoTraceSession& session)
 {
+    /*
+     * Drop the exclusive access lock if we are in an incremental collection
+     * that does not touch the atoms zone.
+     */
+    if (isIncrementalGCInProgress() && !atomsZone->isCollecting())
+        session.maybeLock.reset();
+
     AutoGCSlice slice(rt);
 
     bool destroyingRuntime = (reason == JS::gcreason::DESTROY_RUNTIME);
@@ -6970,7 +6986,7 @@ GCRuntime::incrementalCollectSlice(SliceBudget& budget, JS::gcreason::Reason rea
         [[fallthrough]];
 
       case State::MarkRoots:
-        if (!beginMarkPhase(reason, lock)) {
+        if (!beginMarkPhase(reason, session)) {
             incrementalState = State::NotActive;
             return;
         }
@@ -7022,7 +7038,7 @@ GCRuntime::incrementalCollectSlice(SliceBudget& budget, JS::gcreason::Reason rea
 
         incrementalState = State::Sweep;
 
-        beginSweepPhase(reason, lock);
+        beginSweepPhase(reason, session);
 
         [[fallthrough]];
 
@@ -7030,10 +7046,10 @@ GCRuntime::incrementalCollectSlice(SliceBudget& budget, JS::gcreason::Reason rea
         for (const CooperatingContext& target : rt->cooperatingContexts())
             AutoGCRooter::traceAllWrappers(target, &marker);
 
-        if (performSweepActions(budget, lock) == NotFinished)
+        if (performSweepActions(budget) == NotFinished)
             break;
 
-        endSweepPhase(destroyingRuntime, lock);
+        endSweepPhase(destroyingRuntime);
 
         incrementalState = State::Finalize;
 
@@ -7078,7 +7094,7 @@ GCRuntime::incrementalCollectSlice(SliceBudget& budget, JS::gcreason::Reason rea
             if (!startedCompacting)
                 beginCompactPhase();
 
-            if (compactPhase(reason, budget, lock) == NotFinished)
+            if (compactPhase(reason, budget, session) == NotFinished)
                 break;
 
             endCompactPhase(reason);
@@ -7146,7 +7162,7 @@ CheckZoneIsScheduled(Zone* zone, JS::gcreason::Reason reason, const char* trigge
 
 GCRuntime::IncrementalResult
 GCRuntime::budgetIncrementalGC(bool nonincrementalByAPI, JS::gcreason::Reason reason,
-                               SliceBudget& budget, AutoLockForExclusiveAccess& lock)
+                               SliceBudget& budget, AutoTraceSession& session)
 {
     if (nonincrementalByAPI) {
         stats().nonincremental(gc::AbortReason::NonIncrementalRequested);
@@ -7157,7 +7173,7 @@ GCRuntime::budgetIncrementalGC(bool nonincrementalByAPI, JS::gcreason::Reason re
         // the caller expects this GC to collect certain objects, and we need
         // to make sure to collect everything possible.
         if (reason != JS::gcreason::ALLOC_TRIGGER)
-            return resetIncrementalGC(gc::AbortReason::NonIncrementalRequested, lock);
+            return resetIncrementalGC(gc::AbortReason::NonIncrementalRequested, session);
 
         return IncrementalResult::Ok;
     }
@@ -7165,7 +7181,7 @@ GCRuntime::budgetIncrementalGC(bool nonincrementalByAPI, JS::gcreason::Reason re
     if (reason == JS::gcreason::ABORT_GC) {
         budget.makeUnlimited();
         stats().nonincremental(gc::AbortReason::AbortRequested);
-        return resetIncrementalGC(gc::AbortReason::AbortRequested, lock);
+        return resetIncrementalGC(gc::AbortReason::AbortRequested, session);
     }
     AbortReason unsafeReason = IsIncrementalGCUnsafe(rt);
     if (unsafeReason == AbortReason::None) {
@@ -7178,7 +7194,7 @@ GCRuntime::budgetIncrementalGC(bool nonincrementalByAPI, JS::gcreason::Reason re
     if (unsafeReason != AbortReason::None) {
         budget.makeUnlimited();
         stats().nonincremental(unsafeReason);
-        return resetIncrementalGC(unsafeReason, lock);
+        return resetIncrementalGC(unsafeReason, session);
     }
 
   
@@ -7210,7 +7226,7 @@ GCRuntime::budgetIncrementalGC(bool nonincrementalByAPI, JS::gcreason::Reason re
     }
 
     if (reset)
-        return resetIncrementalGC(AbortReason::ZoneChange, lock);
+        return resetIncrementalGC(AbortReason::ZoneChange, session);
 
     return IncrementalResult::Ok;
 }
@@ -7391,7 +7407,7 @@ GCRuntime::gcCycle(bool nonincrementalByAPI, SliceBudget& budget, JS::gcreason::
     // incremental GC.
     MOZ_ASSERT_IF(rt->activeGCInAtomsZone(), !rt->hasHelperThreadZones());
 
-    auto result = budgetIncrementalGC(nonincrementalByAPI, reason, budget, session.lock);
+    auto result = budgetIncrementalGC(nonincrementalByAPI, reason, budget, session);
 
     // If an ongoing incremental GC was reset, we may need to restart.
     if (result == IncrementalResult::Reset) {
@@ -7401,7 +7417,7 @@ GCRuntime::gcCycle(bool nonincrementalByAPI, SliceBudget& budget, JS::gcreason::
 
     TraceMajorGCStart();
 
-    incrementalCollectSlice(budget, reason, session.lock);
+    incrementalCollectSlice(budget, reason, session);
 
     chunkAllocationSinceLastGC = false;
 
@@ -9086,3 +9102,29 @@ js::gc::detail::CellIsNotGray(const Cell* cell)
     return false;
 }
 #endif
+
+js::gc::ClearEdgesTracer::ClearEdgesTracer()
+  : CallbackTracer(TlsContext.get(), TraceWeakMapKeysValues)
+{}
+
+template <typename S>
+inline void
+js::gc::ClearEdgesTracer::clearEdge(S** thingp)
+{
+    InternalBarrierMethods<S*>::preBarrier(*thingp);
+    InternalBarrierMethods<S*>::postBarrier(thingp, *thingp, nullptr);
+    *thingp = nullptr;
+}
+
+void js::gc::ClearEdgesTracer::onObjectEdge(JSObject** objp) { clearEdge(objp); }
+void js::gc::ClearEdgesTracer::onStringEdge(JSString** strp) { clearEdge(strp); }
+void js::gc::ClearEdgesTracer::onSymbolEdge(JS::Symbol** symp) { clearEdge(symp); }
+void js::gc::ClearEdgesTracer::onScriptEdge(JSScript** scriptp) { clearEdge(scriptp); }
+void js::gc::ClearEdgesTracer::onShapeEdge(js::Shape** shapep) { clearEdge(shapep); }
+void js::gc::ClearEdgesTracer::onObjectGroupEdge(js::ObjectGroup** groupp) { clearEdge(groupp); }
+void js::gc::ClearEdgesTracer::onBaseShapeEdge(js::BaseShape** basep) { clearEdge(basep); }
+void js::gc::ClearEdgesTracer::onJitCodeEdge(js::jit::JitCode** codep) { clearEdge(codep); }
+void js::gc::ClearEdgesTracer::onLazyScriptEdge(js::LazyScript** lazyp) { clearEdge(lazyp); }
+void js::gc::ClearEdgesTracer::onScopeEdge(js::Scope** scopep) { clearEdge(scopep); }
+void js::gc::ClearEdgesTracer::onRegExpSharedEdge(js::RegExpShared** sharedp) { clearEdge(sharedp); }
+void js::gc::ClearEdgesTracer::onChild(const JS::GCCellPtr& thing) { MOZ_CRASH(); }
