@@ -60,6 +60,7 @@ void SetGCZeal(JSRuntime*, uint8_t, uint32_t);
 
 namespace gc {
 class AutoMaybeStartBackgroundAllocation;
+class AutoTraceSession;
 struct Cell;
 class MinorCollectionTracer;
 class RelocationOverlay;
@@ -523,6 +524,7 @@ class Nursery
     void* allocate(size_t size);
 
     void doCollection(JS::gcreason::Reason reason,
+                        gc::AutoTraceSession& sesssion,
                         gc::TenureCountCache& tenureCounts);
 
     /*
