@@ -520,6 +520,8 @@ class JitCompartment
     JitCode* regExpSearcherStub_;
     JitCode* regExpTesterStub_;
 
+    bool stringsCanBeInNursery;
+
     JitCode* generateStringConcatStub(JSContext* cx);
     JitCode* generateRegExpMatcherStub(JSContext* cx);
     JitCode* generateRegExpSearcherStub(JSContext* cx);
@@ -552,7 +554,7 @@ class JitCompartment
     JitCompartment();
     ~JitCompartment();
 
-    [[nodiscard]] bool initialize(JSContext* cx);
+    [[nodiscard]] bool initialize(JSContext* cx, bool zoneHasNurseryStrings);
 
     // Initialize code stubs only used by Ion, not Baseline.
     [[nodiscard]] bool ensureIonStubsExist(JSContext* cx);
@@ -569,6 +571,24 @@ class JitCompartment
         regExpSearcherStub_ = nullptr;
         regExpTesterStub_ = nullptr;
     }
+
+    bool hasStubs() const {
+    // Check each stub individually
+    if (stringConcatStub_)
+        return true;
+    if (regExpMatcherStub_)
+        return true;
+    if (regExpSearcherStub_)
+        return true;
+    if (regExpTesterStub_)
+        return true;
+    return false;
+    }
+
+  void setStringsCanBeInNursery(bool allow) {
+    MOZ_ASSERT(!hasStubs());
+    stringsCanBeInNursery = allow;
+  }
 
     JitCode* regExpMatcherStubNoBarrier() const {
         return regExpMatcherStub_;
@@ -604,8 +624,6 @@ class JitCompartment
     }
 
     size_t sizeOfIncludingThis(mozilla::MallocSizeOf mallocSizeOf) const;
-
-    bool stringsCanBeInNursery;
 };
 
 // Called from JSCompartment::discardJitCode().
