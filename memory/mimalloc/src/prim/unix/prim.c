@@ -808,20 +808,21 @@ static char** mi_get_environ(void) {
 #endif
 bool _mi_prim_getenv(const char* name, char* result, size_t result_size) {
   if (name==NULL) return false;
-  const size_t len = _mi_strlen(name);
-  if (len == 0) return false;
-  char** env = mi_get_environ();
-  if (env == NULL) return false;
-  // compare up to 10000 entries
-  for (int i = 0; i < 10000 && env[i] != NULL; i++) {
-    const char* s = env[i];
-    if (_mi_strnicmp(name, s, len) == 0 && s[len] == '=') { // case insensitive
-      // found it
-      _mi_strlcpy(result, s + len + 1, result_size);
-      return true;
+  if (_mi_preloading()) return false;
+  const char* s = getenv(name);
+  if (s == NULL) {
+    // we check the upper case name too.
+    char buf[64+1];
+    size_t len = _mi_strnlen(name,sizeof(buf)-1);
+    for (size_t i = 0; i < len; i++) {
+      buf[i] = _mi_toupper(name[i]);
     }
+    buf[len] = 0;
+    s = getenv(buf);
+    if (s == NULL) return false;
   }
-  return false;
+  _mi_strlcpy(result, s, result_size);
+  return true;
 }
 #else
 // fallback: use standard C `getenv` but this cannot be used while initializing the C runtime
