@@ -1,0 +1,7 @@
+mimalloc vendor snapshot
+
+Source: https://github.com/microsoft/mimalloc
+Commit: b69f9cb39f22b95971a4b9196a9c265a7b474718
+
+Notes:
+- Copied include/, src/, LICENSE, and readme.md from upstream.
