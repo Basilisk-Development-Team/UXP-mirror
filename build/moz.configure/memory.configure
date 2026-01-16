@@ -39,14 +39,13 @@ def jemalloc(value, mimalloc, target, build_project, c_compiler):
 def mimalloc(value, jemalloc, target):
     if value and jemalloc:
         die('--enable-jemalloc and --enable-mimalloc cannot be used together')
-    if value.origin == 'default':
-        return None
-    if not value:
-        return False
-    if target.kernel not in ('Darwin', 'WINNT', 'Linux', 'kFreeBSD', 'FreeBSD',
-                             'NetBSD', 'OpenBSD', 'DragonFly'):
-        die('--enable-mimalloc is not supported on %s', target.kernel)
-    return True
+    if value.origin != 'default':
+        if not value:
+            return None
+        if target.kernel not in ('Darwin', 'WINNT', 'Linux', 'kFreeBSD', 'FreeBSD',
+                                 'NetBSD', 'OpenBSD', 'DragonFly'):
+            die('--enable-mimalloc is not supported on %s', target.kernel)
+        return True
 
 @depends('--enable-mimalloc', '--enable-jemalloc')
 def mimalloc_requires_disable(mimalloc, jemalloc):

@@ -791,10 +791,20 @@ static char** mi_get_environ(void) {
   return (*_NSGetEnviron());
 }
 #else
+#if defined(__GNUC__)
+// Use weak refs to prefer _environ when available (glibc hides environ in DSOs).
+extern char** environ __attribute__((weak));
+extern char** _environ __attribute__((weak));
+static char** mi_get_environ(void) {
+  if (_environ != NULL) return _environ;
+  return environ;
+}
+#else
 extern char** environ;
 static char** mi_get_environ(void) {
   return environ;
 }
+#endif
 #endif
 bool _mi_prim_getenv(const char* name, char* result, size_t result_size) {
   if (name==NULL) return false;
