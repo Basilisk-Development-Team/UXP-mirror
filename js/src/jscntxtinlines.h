@@ -109,7 +109,7 @@ class CompartmentChecker
             checkAtom(&str->asAtom());
         } else {
             checkZone(str->zone());
-         }
+        }
     }
 
     void check(JS::Symbol* symbol) {
@@ -197,7 +197,7 @@ class CompartmentChecker
  * depends on other objects not having been swept yet.
  */
 #define START_ASSERT_SAME_COMPARTMENT()                                 \
-    if (JS::CurrentThreadIsHeapBusy())                                  \
+    if (cx->heapState != JS::HeapState::Idle)                           \
         return;                                                         \
     CompartmentChecker c(cx)
 
@@ -465,7 +465,10 @@ template <typename T>
 inline void
 JSContext::enterCompartmentOf(const T& target)
 {
-    MOZ_ASSERT(JS::CellIsNotGray(target));
+    // Use the public API which is guaranteed to be visible in templates
+    if (!JS::CurrentThreadIsHeapCollecting()) {
+        MOZ_ASSERT(JS::CellIsNotGray(target));
+    }
     enterNonAtomsCompartment(target->compartment());
 }
 
