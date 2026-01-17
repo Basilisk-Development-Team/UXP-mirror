@@ -26,6 +26,8 @@ if CONFIG['OS_TARGET'] in ('WINNT', 'Darwin'):
 
 if CONFIG['OS_TARGET'] != 'WINNT':
     DEFINES['MI_MALLOC_OVERRIDE'] = True
+else:
+    DEFINES['MI_WIN_NOREDIRECT'] = True
 
 if CONFIG['OS_TARGET'] == 'Darwin':
     DEFINES['MI_OSX_ZONE'] = True
