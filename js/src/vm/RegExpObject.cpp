@@ -965,8 +965,8 @@ struct RegExpShared::NamedCaptureData {
     GroupsTemplateMap groupsTemplateMap;
     bool groupsTemplateMapInited;
 
-    Vector<JSAtom*, 0, SystemAllocPolicy> names;
-    Vector<uint32_t, 0, SystemAllocPolicy> indices;
+    Vector<JSAtom*, 0, SystemAllocPolicy> names_;
+    Vector<uint32_t, 0, SystemAllocPolicy> indices_;
 	
 	NamedCaptureData() : groupsTemplateMapInited(false) {}
 };
@@ -983,9 +983,11 @@ RegExpShared::traceChildren(JSTracer* trc)
         TraceNullableEdge(trc, &iter.front().value(), "RegExpShared groupsTemplate per-compartment");
       }
     }
-
-    for (auto& atom : namedCaptureNames_) {
-    TraceEdge(trc, &atom, "RegExpShared namedCaptureName");
+	
+	if (namedCaptureData_) {
+      for (JSAtom*& atom : namedCaptureData_->names_) {
+        js::TraceManuallyBarrieredEdge(trc, &atom, "RegExpShared namedCaptureName");
+      }
 	}
 
     TraceNullableEdge(trc, &source, "RegExpShared source");
@@ -1033,7 +1035,6 @@ RegExpShared::initializeNamedCaptures(JSContext* cx, MutableHandleRegExpShared r
     MOZ_ASSERT(indices);
     MOZ_ASSERT(names->length() == indices->length());
 
-{
     uint32_t n = names->length();
     re->numNamedCaptures_ = n;
 
@@ -1044,10 +1045,10 @@ RegExpShared::initializeNamedCaptures(JSContext* cx, MutableHandleRegExpShared r
     }
 
     auto* data = re->namedCaptureData_;
-    data->names.clear();
-    data->indices.clear();
+    data->names_.clear();
+    data->indices_.clear();
 
-    if (!data->names.reserve(n) || !data->indices.reserve(n))
+    if (!data->names_.reserve(n) || !data->indices_.reserve(n))
         return false;
 
     for (uint32_t i = 0; i < n; i++) {
@@ -1055,11 +1056,10 @@ RegExpShared::initializeNamedCaptures(JSContext* cx, MutableHandleRegExpShared r
         JSAtom* atom = AtomizeChars(cx, cv->begin(), cv->length());
         if (!atom)
             return false;
-        data->names.infallibleAppend(atom);
-        data->indices.infallibleAppend((*indices)[i]);
+        data->names_.infallibleAppend(atom);
+        data->indices_.infallibleAppend((*indices)[i]);
     }
     return true;
-  }
 }
 
 /* static */ bool
@@ -1421,15 +1421,15 @@ RegExpShared::getOrCreateGroupsTemplate(JSContext* cx)
         return nullptr;
 
     // Define name->index properties from data vectors
-    MOZ_ASSERT(data->names.length() == numNamedCaptures_);
-    MOZ_ASSERT(data->indices.length() == numNamedCaptures_);
+    MOZ_ASSERT(data->names_.length() == numNamedCaptures_);
+    MOZ_ASSERT(data->indices_.length() == numNamedCaptures_);
 
     RootedId id(cx);
     for (uint32_t i = 0; i < numNamedCaptures_; i++) {
-        JSAtom* atom = data->names[i];
+        JSAtom* atom = data->names_[i];
         id = NameToId(atom->asPropertyName());
 
-        RootedValue idx(cx, Int32Value(int32_t(data->indices[i])));
+        RootedValue idx(cx, Int32Value(int32_t(data->indices_[i])));
         if (!NativeDefineProperty(cx, tmpl, id, idx, nullptr, nullptr, JSPROP_ENUMERATE))
             return nullptr;
 
