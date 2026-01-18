@@ -14,7 +14,11 @@ SOURCES += [
     'src/static.c',
 ]
 
-FINAL_LIBRARY = 'mozglue'
+if CONFIG['OS_TARGET'] == 'WINNT' and CONFIG['MOZ_MIMALLOC']:
+    SharedLibrary('mimalloc')
+    DIST_INSTALL = True
+else:
+    FINAL_LIBRARY = 'mozglue'
 
 LOCAL_INCLUDES += [
     '/memory/mimalloc/include',
@@ -26,8 +30,18 @@ if CONFIG['OS_TARGET'] in ('WINNT', 'Darwin'):
 
 if CONFIG['OS_TARGET'] != 'WINNT':
     DEFINES['MI_MALLOC_OVERRIDE'] = True
-else:
-    DEFINES['MI_WIN_NOREDIRECT'] = True
 
 if CONFIG['OS_TARGET'] == 'Darwin':
     DEFINES['MI_OSX_ZONE'] = True
+
+if CONFIG['OS_TARGET'] == 'WINNT' and CONFIG['MOZ_MIMALLOC']:
+    if CONFIG['CPU_ARCH'] == 'x86':
+        redirect_lib = 'mimalloc-redirect32'
+    elif CONFIG['CPU_ARCH'] == 'x86_64':
+        redirect_lib = 'mimalloc-redirect'
+    else:
+        redirect_lib = None
+    if redirect_lib:
+        redirect_path = TOPSRCDIR + '/memory/mimalloc/redirect'
+        OS_LIBS += [redirect_path + '/' + redirect_lib]
+        FINAL_TARGET_FILES += ['/memory/mimalloc/redirect/' + redirect_lib + '.dll']

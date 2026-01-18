@@ -352,6 +352,9 @@ static inline size_t _mi_usable_size(const void* p, const mi_page_t* page) mi_at
 }
 
 mi_decl_nodiscard size_t mi_usable_size(const void* p) mi_attr_noexcept {
+  if (p == NULL) return 0;
+  // Guard against non-mimalloc pointers (e.g. system/ICU allocations) in release builds.
+  if mi_unlikely(!mi_is_in_heap_region(p)) return 0;
   const mi_page_t* const page = mi_validate_ptr_page(p,"mi_usable_size");
   return _mi_usable_size(p,page);
 }
