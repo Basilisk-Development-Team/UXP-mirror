@@ -52,12 +52,14 @@ terms of the MIT license. A copy of the license can be found in the file
   #endif
   #include <sys/sysctl.h>
 #elif defined(__FreeBSD__) || defined(__DragonFly__)
+  #pragma GCC visibility push(default)
   #include <sys/param.h>
   #if __FreeBSD_version >= 1200000
   #include <sys/cpuset.h>
   #include <sys/domainset.h>
   #endif
   #include <sys/sysctl.h>
+  #pragma GCC visibility pop
 #endif
 
 #if (defined(__linux__) && !defined(__ANDROID__)) || defined(__FreeBSD__)
