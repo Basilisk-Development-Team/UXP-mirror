@@ -100,9 +100,9 @@ const size_t gStackSize = 8192;
 
 // The amount of time we wait between a request to CC (after GC ran)
 // and doing the actual CC.
-#define NS_CC_DELAY                 20000 // ms
+#define NS_CC_DELAY                 50000 // ms
 
-#define NS_CC_SKIPPABLE_DELAY       250 // ms
+#define NS_CC_SKIPPABLE_DELAY       400 // ms
 
 #define NS_ICC_DELAY                 32 // ms
 
@@ -182,8 +182,8 @@ static DependentSlowTask sMainThreadCollectorScheduling[]
   { CollectorSchedule::eGCSlice,             100,    TriggerGCSlice },
   { CollectorSchedule::eFullGC,              60000,  TriggerFullGC },
   { CollectorSchedule::eShrinkingGC,         300000, TriggerShrinkingGC },
-  { CollectorSchedule::eCCDelay,             20000,  CCDelay },
-  { CollectorSchedule::eForgetSkippable,     250,    TriggerForgetSkippable },
+  { CollectorSchedule::eCCDelay,             50000,  CCDelay },
+  { CollectorSchedule::eForgetSkippable,     400,    TriggerForgetSkippable },
   { CollectorSchedule::eCCSlice,             32,     TriggerICCSlice },
   { CollectorSchedule::eNone,                0,      nullptr }
 };
