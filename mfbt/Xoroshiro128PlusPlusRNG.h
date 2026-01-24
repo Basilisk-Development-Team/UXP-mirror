@@ -32,7 +32,7 @@ namespace non_crypto {
  *     the same speed and use half of the space; the same comments apply.
  *     They are suitable only for low-scale parallel applications.
  *
- * The stream of numbers produced by this method repeats every 2**256 - 1 calls (i.e. never, for all practical
+ * The stream of numbers produced by this method repeats every 2^128 - 1 calls (i.e. never, for all practical
  * purposes).
  *
  */
@@ -82,15 +82,15 @@ class Xoroshiro128PlusPlusRNG {
 
   /*
    * Return a pseudo-random floating-point value in the range [0, 1). More
-   * precisely, choose an integer in the range [0, 2**53) and divide it by
-   * 2**53. Given the 2**256 - 1 period noted above, the produced doubles are
+   * precisely, choose an integer in the range [0, 2^53) and divide it by
+   * 2^53. Given the 2^128 - 1 period noted above, the produced doubles are
    * all but uniformly distributed in this range.
    */
   double nextDouble() {
     /*
      * Because the IEEE 64-bit floating point format stores the leading '1' bit
      * of the mantissa implicitly, it effectively represents a mantissa in the
-     * range [0, 2**53) in only 52 bits. FloatingPoint<double>::kExponentShift
+     * range [0, 2^53) in only 52 bits. FloatingPoint<double>::kExponentShift
      * is the width of the bitfield in the in-memory format, so we must add one
      * to get the mantissa's range.
      */
