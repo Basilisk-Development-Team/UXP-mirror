@@ -507,57 +507,6 @@ private:
   DispatchInternal() override final;
 };
 
-// This class is used to wrap any runnables that the worker receives via the
-// nsIEventTarget::Dispatch() method (either from NS_DispatchToCurrentThread or
-// from the worker's EventTarget).
-class ExternalRunnableWrapper final : public WorkerRunnable
-{
-  nsCOMPtr<nsIRunnable> mWrappedRunnable;
-
-public:
-  ExternalRunnableWrapper(WorkerPrivate* aWorkerPrivate,
-                          nsIRunnable* aWrappedRunnable)
-  : WorkerRunnable(aWorkerPrivate, WorkerThreadUnchangedBusyCount),
-    mWrappedRunnable(aWrappedRunnable)
-  {
-    MOZ_ASSERT(aWorkerPrivate);
-    MOZ_ASSERT(aWrappedRunnable);
-  }
-
-  NS_DECL_ISUPPORTS_INHERITED
-
-private:
-  ~ExternalRunnableWrapper()
-  { }
-
-  virtual bool
-  WorkerRun(JSContext* aCx, WorkerPrivate* aWorkerPrivate) override
-  {
-    nsresult rv = mWrappedRunnable->Run();
-    mWrappedRunnable = nullptr;
-    if (NS_FAILED(rv)) {
-      if (!JS_IsExceptionPending(aCx)) {
-        Throw(aCx, rv);
-      }
-      return false;
-    }
-    return true;
-  }
-
-  nsresult
-  Cancel() override
-  {
-    nsresult rv;
-    nsCOMPtr<nsICancelableRunnable> cancelable =
-      do_QueryInterface(mWrappedRunnable);
-    MOZ_ASSERT(cancelable); // We checked this earlier!
-    rv = cancelable->Cancel();
-    nsresult rv2 = WorkerRunnable::Cancel();
-    mWrappedRunnable = nullptr;
-    return NS_FAILED(rv) ? rv : rv2;
-  }
-};
-
 END_WORKERS_NAMESPACE
 
 #endif // mozilla_dom_workers_workerrunnable_h__

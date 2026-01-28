@@ -4118,7 +4118,7 @@ nsCycleCollector_collect(nsICycleCollectorListener* aManualListener)
   data->mCollector->Collect(ManualCC, unlimitedBudget, aManualListener);
 }
 
-bool
+void
 nsCycleCollector_collectSlice(SliceBudget& budget,
                               bool aPreferShorterSlices)
 {
@@ -4132,7 +4132,6 @@ nsCycleCollector_collectSlice(SliceBudget& budget,
                  js::ProfileEntry::Category::CC);
 
   data->mCollector->Collect(SliceCC, budget, nullptr, aPreferShorterSlices);
-  return data->mCollector->mIncrementalPhase == IdlePhase;
 }
 
 void
