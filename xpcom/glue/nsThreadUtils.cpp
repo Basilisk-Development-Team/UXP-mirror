@@ -273,13 +273,15 @@ NS_IdleDispatchToCurrentThread(already_AddRefed<nsIRunnable>&& aEvent)
 }
 
 #ifndef XPCOM_GLUE_AVOID_NSPR
-class IdleRunnableWrapper : public IdleRunnable
+class IdleRunnableWrapper final : public IdleRunnable
 {
 public:
   explicit IdleRunnableWrapper(already_AddRefed<nsIRunnable>&& aEvent)
     : mRunnable(Move(aEvent))
   {
   }
+  
+  NS_DECL_ISUPPORTS_INHERITED  // IMPORTANT
 
   NS_IMETHOD Run() override
   {
@@ -290,41 +292,33 @@ public:
     nsCOMPtr<nsIRunnable> runnable = mRunnable.forget();
     return runnable->Run();
   }
-
-  static void TimedOut(nsITimer* aTimer, void* aClosure)
+  
+  static void TimedOut(nsITimer*, void* aClosure)
   {
-    // Take ownership of the strong ref we passed in SetTimer.
-    RefPtr<IdleRunnableWrapper> self =
+    RefPtr<IdleRunnableWrapper> runnable =
       dont_AddRef(static_cast<IdleRunnableWrapper*>(aClosure));
-
-    // Avoid re-entrancy: the timer has fired, drop/cancel it before running.
-    self->CancelTimer();
-    self->Run();
+    runnable->Run();
   }
 
-    void SetTimer(uint32_t aDelay, nsIThread* aTarget) override
-  {
-    MOZ_ASSERT(aTarget);
+    void SetTimer(uint32_t aDelay, nsIThread* aTarget)
+{
+  MOZ_ASSERT(aTarget);
+  MOZ_ASSERT(!mTimer);
 
-    // Safe to cancel here (we're not in the timer firing path).
-    CancelTimer();
-
-    mTimer = do_CreateInstance(NS_TIMER_CONTRACTID);
-    if (!mTimer) {
-      return;
-    }
-
+  mTimer = do_CreateInstance(NS_TIMER_CONTRACTID);
+  if (mTimer) {
     mTimer->SetTarget(aTarget);
 
     RefPtr<IdleRunnableWrapper> self = this;
-    mTimer->InitWithFuncCallback(&IdleRunnableWrapper::TimedOut,
-                                 self.forget().take(), // owned closure
+    mTimer->InitWithFuncCallback(TimedOut,
+                                 self.forget().take(), // <-- key change
                                  aDelay,
                                  nsITimer::TYPE_ONE_SHOT);
   }
+}
 
 private:
-  ~IdleRunnableWrapper()
+  ~IdleRunnableWrapper() override
   {
     CancelTimer();
   }
@@ -340,6 +334,8 @@ private:
   nsCOMPtr<nsITimer> mTimer;
   nsCOMPtr<nsIRunnable> mRunnable;
 };
+
+NS_IMPL_ISUPPORTS_INHERITED0(IdleRunnableWrapper, IdleRunnable)
 #endif
 
 #ifndef XPCOM_GLUE_AVOID_NSPR
