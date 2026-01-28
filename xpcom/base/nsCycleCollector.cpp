@@ -1232,9 +1232,7 @@ private:
 
   CycleCollectedJSContext* mJSContext;
 
-public:
   ccPhase mIncrementalPhase;
-private:
   CCGraph mGraph;
   nsAutoPtr<CCGraphBuilder> mBuilder;
   RefPtr<nsCycleCollectorLogger> mLogger;
