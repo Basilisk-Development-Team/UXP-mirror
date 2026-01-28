@@ -889,6 +889,7 @@ JSFunction::setExtendedSlot(size_t which, const js::Value& val)
 {
     MOZ_ASSERT(which < mozilla::ArrayLength(toExtended()->extendedSlots));
     js::CheckEdgeIsNotBlackToGray(this, val);
+    MOZ_ASSERT(js::IsObjectValueInCompartment(val, compartment()));
     toExtended()->extendedSlots[which] = val;
 }
 

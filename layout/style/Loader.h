@@ -224,6 +224,7 @@ public:
    * @param aLineNumber the line number at which the stylesheet data started.
    * @param aTitle the title of the sheet.
    * @param aMedia the media string for the sheet.
+   * @param aReferrerPolicy the referrer policy for loading the sheet.
    * @param aObserver the observer to notify when the load completes.
    *        May be null.
    * @param [out] aCompleted whether parsing of the sheet completed.
@@ -237,6 +238,7 @@ public:
                            uint32_t aLineNumber,
                            const nsAString& aTitle,
                            const nsAString& aMedia,
+                           ReferrerPolicy aReferrerPolicy,
                            mozilla::dom::Element* aScopeElement,
                            nsICSSLoaderObserver* aObserver,
                            bool* aCompleted,
@@ -252,6 +254,9 @@ public:
    *
    * @param aElement the element linking to the the stylesheet.  May be null.
    * @param aURL the URL of the sheet.
+   * @param aTriggeringPrincipal the triggering principal for the load. May be
+   *        null, in which case the NodePrincipal() of the element (or
+   *        document if aElement is null) should be used.
    * @param aTitle the title of the sheet.
    * @param aMedia the media string for the sheet.
    * @param aHasAlternateRel whether the rel for this link included
@@ -267,6 +272,7 @@ public:
    */
   nsresult LoadStyleLink(nsIContent* aElement,
                          nsIURI* aURL,
+                         nsIPrincipal* aTriggeringPrincipal,
                          const nsAString& aTitle,
                          const nsAString& aMedia,
                          bool aHasAlternateRel,
@@ -450,7 +456,8 @@ public:
 private:
   friend class SheetLoadData;
 
-  nsresult CheckContentPolicy(nsIPrincipal* aSourcePrincipal,
+  nsresult CheckContentPolicy(nsIPrincipal* aLoadingPrincipal,
+                              nsIPrincipal* aTriggeringPrincipal,
                               nsIURI* aTargetURI,
                               nsISupports* aContext,
                               bool aIsPreload);

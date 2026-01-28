@@ -1424,7 +1424,7 @@ WebSocket::IsCertainlyAliveForCC() const
   return mKeepingAlive;
 }
 
-NS_INTERFACE_MAP_BEGIN_CYCLE_COLLECTION_INHERITED(WebSocket)
+NS_INTERFACE_MAP_BEGIN_CYCLE_COLLECTION(WebSocket)
 NS_INTERFACE_MAP_END_INHERITING(DOMEventTargetHelper)
 
 NS_IMPL_ADDREF_INHERITED(WebSocket, DOMEventTargetHelper)
@@ -1556,7 +1556,8 @@ WebSocketImpl::Init(JSContext* aCx,
     int16_t shouldLoad = nsIContentPolicy::ACCEPT;
     aRv = NS_CheckContentLoadPolicy(nsIContentPolicy::TYPE_WEBSOCKET,
                                     uri,
-                                    aPrincipal,
+                                    aPrincipal, // loading principal
+                                    aPrincipal, // triggering principal
                                     originDoc,
                                     EmptyCString(),
                                     nullptr,

@@ -261,10 +261,14 @@ public:
     rv = NS_NewURI(getter_AddRefs(uri), url, nullptr, nullptr);
     NS_ENSURE_SUCCESS(rv, false);
     int16_t decision = nsIContentPolicy::ACCEPT;
-    rv = NS_CheckContentLoadPolicy(aLoadInfo->InternalContentPolicyType(), uri,
+    rv = NS_CheckContentLoadPolicy(aLoadInfo->InternalContentPolicyType(),
+                                   uri,
                                    aLoadInfo->LoadingPrincipal(),
-                                   aLoadInfo->LoadingNode(), EmptyCString(),
-                                   nullptr, &decision);
+                                   aLoadInfo->TriggeringPrincipal(),
+                                   aLoadInfo->LoadingNode(),
+                                   EmptyCString(),
+                                   nullptr,
+                                   &decision);
     NS_ENSURE_SUCCESS(rv, false);
     return decision == nsIContentPolicy::ACCEPT;
   }
@@ -879,7 +883,7 @@ NS_IMPL_ISUPPORTS0(WaitUntilHandler)
 NS_IMPL_ADDREF_INHERITED(FetchEvent, ExtendableEvent)
 NS_IMPL_RELEASE_INHERITED(FetchEvent, ExtendableEvent)
 
-NS_INTERFACE_MAP_BEGIN_CYCLE_COLLECTION_INHERITED(FetchEvent)
+NS_INTERFACE_MAP_BEGIN_CYCLE_COLLECTION(FetchEvent)
 NS_INTERFACE_MAP_END_INHERITING(ExtendableEvent)
 
 NS_IMPL_CYCLE_COLLECTION_INHERITED(FetchEvent, ExtendableEvent, mRequest)
@@ -935,7 +939,7 @@ ExtendableEvent::GetPromise()
 NS_IMPL_ADDREF_INHERITED(ExtendableEvent, Event)
 NS_IMPL_RELEASE_INHERITED(ExtendableEvent, Event)
 
-NS_INTERFACE_MAP_BEGIN_CYCLE_COLLECTION_INHERITED(ExtendableEvent)
+NS_INTERFACE_MAP_BEGIN_CYCLE_COLLECTION(ExtendableEvent)
 NS_INTERFACE_MAP_END_INHERITING(Event)
 
 NS_IMPL_CYCLE_COLLECTION_INHERITED(ExtendableEvent, Event, mPromises)
@@ -1128,7 +1132,7 @@ PushEvent::Constructor(mozilla::dom::EventTarget* aOwner,
 NS_IMPL_ADDREF_INHERITED(PushEvent, ExtendableEvent)
 NS_IMPL_RELEASE_INHERITED(PushEvent, ExtendableEvent)
 
-NS_INTERFACE_MAP_BEGIN_CYCLE_COLLECTION_INHERITED(PushEvent)
+NS_INTERFACE_MAP_BEGIN_CYCLE_COLLECTION(PushEvent)
 NS_INTERFACE_MAP_END_INHERITING(ExtendableEvent)
 
 NS_IMPL_CYCLE_COLLECTION_INHERITED(PushEvent, ExtendableEvent, mData)
@@ -1244,7 +1248,7 @@ NS_IMPL_CYCLE_COLLECTION_TRACE_BEGIN_INHERITED(ExtendableMessageEvent, Event)
   NS_IMPL_CYCLE_COLLECTION_TRACE_JS_MEMBER_CALLBACK(mData)
 NS_IMPL_CYCLE_COLLECTION_TRACE_END
 
-NS_INTERFACE_MAP_BEGIN_CYCLE_COLLECTION_INHERITED(ExtendableMessageEvent)
+NS_INTERFACE_MAP_BEGIN_CYCLE_COLLECTION(ExtendableMessageEvent)
 NS_INTERFACE_MAP_END_INHERITING(Event)
 
 NS_IMPL_ADDREF_INHERITED(ExtendableMessageEvent, Event)

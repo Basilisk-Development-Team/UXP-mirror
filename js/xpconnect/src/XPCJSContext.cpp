@@ -660,11 +660,12 @@ XPCJSContext::TraverseAdditionalNativeRoots(nsCycleCollectionNoteRootCallback& c
            if (val.isObject() && !JS::ObjectIsMarkedGray(&val.toObject()))
                continue;
         }
-        cb.NoteXPCOMRoot(v);
+        cb.NoteXPCOMRoot(v, XPCTraceableVariant::NS_CYCLE_COLLECTION_INNERCLASS::GetParticipant());
     }
 
     for (XPCRootSetElem* e = mWrappedJSRoots; e ; e = e->GetNextRoot()) {
-        cb.NoteXPCOMRoot(ToSupports(static_cast<nsXPCWrappedJS*>(e)));
+        cb.NoteXPCOMRoot(ToSupports(static_cast<nsXPCWrappedJS*>(e)),
+                         nsXPCWrappedJS::NS_CYCLE_COLLECTION_INNERCLASS::GetParticipant());
     }
 }
 
@@ -864,7 +865,7 @@ XPCJSContext::FinalizeCallback(JSFreeOp* fop,
 }
 
 /* static */ void
-XPCJSContext::WeakPointerZoneGroupCallback(JSContext* cx, void* data)
+XPCJSContext::WeakPointerZonesCallback(JSContext* cx, void* data)
 {
     // Called before each sweeping slice -- after processing any final marking
     // triggered by barriers -- to clear out any references to things that are
@@ -1556,6 +1557,9 @@ ReloadPrefsCallback(const char* pref, void* data)
     bool werror = Preferences::GetBool(JS_OPTIONS_DOT_STR "werror");
 
     bool extraWarnings = Preferences::GetBool(JS_OPTIONS_DOT_STR "strict");
+    
+    bool streams = Preferences::GetBool(JS_OPTIONS_DOT_STR "streams");
+    bool weakRefs = Preferences::GetBool(JS_OPTIONS_DOT_STR "weakrefs");
 
     bool unboxedObjects =
       Preferences::GetBool(JS_OPTIONS_DOT_STR "unboxed_objects");
@@ -1597,7 +1601,10 @@ ReloadPrefsCallback(const char* pref, void* data)
                              .setFuzzing(fuzzingEnabled)
 #endif
                              .setExtraWarnings(extraWarnings)
-                             .setArrayProtoValues(arrayProtoValues);
+
+                             .setArrayProtoValues(arrayProtoValues)
+                             .setStreams(streams)
+                             .setWeakRefs(weakRefs);
 
     JS_SetParallelParsingEnabled(cx, parallelParsing);
     JS_SetOffthreadIonCompilationEnabled(cx, offthreadIonCompilation);
@@ -1605,6 +1612,9 @@ ReloadPrefsCallback(const char* pref, void* data)
                                   useBaselineEager ? 0 : baselineThreshold);
     JS_SetGlobalJitCompilerOption(cx, JSJITCOMPILER_ION_WARMUP_TRIGGER,
                                   useIonEager ? 0 : ionThreshold);
+#ifdef DEBUG
+    JS_SetGlobalJitCompilerOption(cx, JSJITCOMPILER_FULL_DEBUG_CHECKS, fullJitDebugChecks);
+#endif
     JS_SetGlobalJitCompilerOption(cx, JSJITCOMPILER_UNBOXED_OBJECTS,
                                   unboxedObjects);
 }
@@ -1621,7 +1631,7 @@ XPCJSContext::~XPCJSContext()
     // callbacks if we aren't careful. Null out the relevant callbacks.
     js::SetActivityCallback(Context(), nullptr, nullptr);
     JS_RemoveFinalizeCallback(Context(), FinalizeCallback);
-    JS_RemoveWeakPointerZoneGroupCallback(Context(), WeakPointerZoneGroupCallback);
+    JS_RemoveWeakPointerZonesCallback(Context(), WeakPointerZonesCallback);
     JS_RemoveWeakPointerCompartmentCallback(Context(), WeakPointerCompartmentCallback);
 
     // Clear any pending exception.  It might be an XPCWrappedJS, and if we try
@@ -2630,7 +2640,7 @@ ReportJSRuntimeExplicitTreeStats(const JS::RuntimeStats& rtStats,
 
     // gcTotal is the sum of everything we've reported for the GC heap.  It
     // should equal rtStats.gcHeapChunkTotal.
-    MOZ_ASSERT(gcTotal == rtStats.gcHeapChunkTotal);
+    NS_WARN_IF(gcTotal != rtStats.gcHeapChunkTotal);
 }
 
 void
@@ -3077,7 +3087,7 @@ JSReporter::CollectReports(WindowPaths* windowPaths,
         KIND_OTHER, rtStats.zTotals.regExpSharedsGCHeap,
         "Used regexpshared cells.");
 
-    MOZ_ASSERT(gcThingTotal == rtStats.gcHeapGCThings);
+    NS_WARN_IF(gcThingTotal == rtStats.gcHeapGCThings);
 
     // Report xpconnect.
 
@@ -3481,7 +3491,7 @@ XPCJSContext::Initialize()
     mPrevDoCycleCollectionCallback = JS::SetDoCycleCollectionCallback(cx,
             DoCycleCollectionCallback);
     JS_AddFinalizeCallback(cx, FinalizeCallback, nullptr);
-    JS_AddWeakPointerZoneGroupCallback(cx, WeakPointerZoneGroupCallback, this);
+    JS_AddWeakPointerZonesCallback(cx, WeakPointerZonesCallback, this);
     JS_AddWeakPointerCompartmentCallback(cx, WeakPointerCompartmentCallback, this);
     JS_SetWrapObjectCallbacks(cx, &WrapObjectCallbacks);
     js::SetPreserveWrapperCallback(cx, PreserveWrapper);

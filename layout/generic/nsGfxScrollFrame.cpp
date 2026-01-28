@@ -786,7 +786,7 @@ nsHTMLScrollFrame::PlaceScrollArea(ScrollReflowInput& aState,
   // outlines (the outline would go on this scrollframe instead).
   // Using FinishAndStoreOverflow is needed so the overflow rect
   // gets set correctly.  It also messes with the overflow rect in the
-  // -moz-hidden-unscrollable case, but scrolled frames can't have
+  // clip case, but scrolled frames can't have
   // 'overflow' either.
   // This needs to happen before SyncFrameViewAfterReflow so
   // HasOverflowRect() will return the correct value.
@@ -1060,7 +1060,9 @@ nsHTMLScrollFrame::Reflow(nsPresContext* aPresContext,
     // This is only needed for root element because scrollbars of non-
     // root elements with "scrollbar-width: none" is already suppressed
     // in ScrollFrameHelper::CreateAnonymousContent.
-    if (this->StyleUserInterface()->mScrollbarWidth == StyleScrollbarWidth::None) {
+    RefPtr<nsStyleContext> scrollbarStyle = nsLayoutUtils::GetNonAnonymousStyleContext(this);
+    auto scrollbarWidth = scrollbarStyle->StyleUIReset()->mScrollbarWidth;
+    if (scrollbarWidth == StyleScrollbarWidth::None) {
       state.mVScrollbar = ShowScrollbar::Never;
       state.mHScrollbar = ShowScrollbar::Never;
     }
@@ -4422,7 +4424,7 @@ ScrollFrameHelper::CreateAnonymousContent(
     canHaveHorizontal = true;
     canHaveVertical = true;
   } else {
-    if (mOuter->StyleUserInterface()->mScrollbarWidth == StyleScrollbarWidth::None) {
+    if (mOuter->StyleUIReset()->mScrollbarWidth == StyleScrollbarWidth::None) {
       // If scrollbar-width is none, don't generate scrollbars.
       canHaveHorizontal = false;
       canHaveVertical = false;
@@ -4455,7 +4457,7 @@ ScrollFrameHelper::CreateAnonymousContent(
                                           kNameSpaceID_XUL,
                                           nsIDOMNode::ELEMENT_NODE);
   NS_ENSURE_TRUE(nodeInfo, NS_ERROR_OUT_OF_MEMORY);
-  StyleScrollbarWidth scrollWidth = mOuter->StyleUserInterface()->mScrollbarWidth;
+  StyleScrollbarWidth scrollWidth = mOuter->StyleUIReset()->mScrollbarWidth;
 
   if (canHaveHorizontal) {
     RefPtr<NodeInfo> ni = nodeInfo;
@@ -5821,26 +5823,26 @@ ScrollFrameHelper::GetBorderRadii(const nsSize& aFrameSize,
 
   if (sb.left > 0 || sb.top > 0) {
     ReduceRadii(border.left, border.top,
-                aRadii[NS_CORNER_TOP_LEFT_X],
-                aRadii[NS_CORNER_TOP_LEFT_Y]);
+                aRadii[eCornerTopLeftX],
+                aRadii[eCornerTopLeftY]);
   }
 
   if (sb.top > 0 || sb.right > 0) {
     ReduceRadii(border.right, border.top,
-                aRadii[NS_CORNER_TOP_RIGHT_X],
-                aRadii[NS_CORNER_TOP_RIGHT_Y]);
+                aRadii[eCornerTopRightX],
+                aRadii[eCornerTopRightY]);
   }
 
   if (sb.right > 0 || sb.bottom > 0) {
     ReduceRadii(border.right, border.bottom,
-                aRadii[NS_CORNER_BOTTOM_RIGHT_X],
-                aRadii[NS_CORNER_BOTTOM_RIGHT_Y]);
+                aRadii[eCornerBottomRightX],
+                aRadii[eCornerBottomRightY]);
   }
 
   if (sb.bottom > 0 || sb.left > 0) {
     ReduceRadii(border.left, border.bottom,
-                aRadii[NS_CORNER_BOTTOM_LEFT_X],
-                aRadii[NS_CORNER_BOTTOM_LEFT_Y]);
+                aRadii[eCornerBottomLeftX],
+                aRadii[eCornerBottomLeftY]);
   }
 
   return true;

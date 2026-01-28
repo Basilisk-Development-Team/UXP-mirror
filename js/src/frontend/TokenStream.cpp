@@ -362,10 +362,7 @@ TokenStream::SourceCoords::add(uint32_t lineNum, uint32_t lineStartOffset)
 
         lineStartOffsets_[lineIndex] = lineStartOffset;
     } else {
-        // We have seen this newline before (and ungot it).  Do nothing (other
-        // than checking it hasn't mysteriously changed).
-        // This path can be executed after hitting OOM, so check lineIndex.
-        MOZ_ASSERT_IF(lineIndex < sentinelIndex, lineStartOffsets_[lineIndex] == lineStartOffset);
+        // We have seen this newline before (and ungot it).  Do nothing.
     }
     return true;
 }
@@ -472,7 +469,7 @@ TokenStream::SourceCoords::lineNumAndColumnIndex(uint32_t offset, uint32_t* line
 #pragma warning(disable:4351)
 #endif
 
-TokenStream::TokenStream(JSContext* cx, const ReadOnlyCompileOptions& options,
+TokenStream::TokenStream(JSContext* cx, const JS::ReadOnlyCompileOptions& options,
                          const char16_t* base, size_t length, StrictModeGetter* smg)
   : srcCoords(cx, options.lineno),
     options_(options),
@@ -615,7 +612,6 @@ TokenStream::ungetChar(int32_t c)
         if (!userbuf.atStart())
             userbuf.matchRawCharBackwards('\r');
 
-        MOZ_ASSERT(prevLinebase != size_t(-1));    // we should never get more than one EOL char
         linebase = prevLinebase;
         prevLinebase = size_t(-1);
         lineno--;
@@ -1300,6 +1296,21 @@ TokenStream::putIdentInTokenbuf(const char16_t* identStart)
     userbuf.setAddressOfNextRawChar(tmp);
     return true;
 }
+
+void
+TokenStream::consumeOptionalHashbangComment() {
+  int c = userbuf.getRawChar();
+  if (c == '#') {
+    if (matchChar('!')) {
+      // Hashbang; ignore rest of line as comment.
+      while ((c = getChar()) != EOF && c != '\n')
+          continue;
+    }
+  }
+  ungetChar(c);
+  cursor = (cursor - 1) & ntokensMask;
+}
+  
 
 enum FirstCharKind {
     // A char16_t has the 'OneChar' kind if it, by itself, constitutes a valid
@@ -2073,7 +2084,9 @@ TokenStream::getTokenInternal(TokenKind* ttp, Modifier modifier)
             while (true) {
                 if (!peekChar(&c))
                     goto error;
-                if (c == 'g' && !(reflags & GlobalFlag))
+                if (c == 'd' && !(reflags & HasIndicesFlag))
+                    reflags = RegExpFlag(reflags | HasIndicesFlag);
+                else if (c == 'g' && !(reflags & GlobalFlag))
                     reflags = RegExpFlag(reflags | GlobalFlag);
                 else if (c == 'i' && !(reflags & IgnoreCaseFlag))
                     reflags = RegExpFlag(reflags | IgnoreCaseFlag);

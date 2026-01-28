@@ -224,6 +224,12 @@ interface nsIPrincipal : nsISerializable
     readonly attribute AUTF8String originSuffix;
 
     /**
+     * Uses NS_Security Compare to determine if the
+     * other URI is same-origin as the uri of the Principal
+     */
+    bool IsSameOrigin(in nsIURI otherURI, in bool aIsPrivateWin);
+
+    /**
      * The base domain of the codebase URI to which this principal pertains
      * (generally the document URI), handling null principals and
      * non-hierarchical schemes correctly.
@@ -296,15 +302,6 @@ interface nsIPrincipal : nsISerializable
      * is not in private browsing.
      */
     [infallible] readonly attribute unsigned long privateBrowsingId;
-
-    /**
-     * Returns true iff the principal is inside an isolated mozbrowser element.
-     * <iframe mozbrowser mozapp> and <xul:browser> are not considered to be
-     * mozbrowser elements.  <iframe mozbrowser noisolation> does not count as
-     * isolated since isolation is disabled.  Isolation can only be disabled if
-     * the containing document is chrome.
-     */
-    [infallible] readonly attribute boolean isInIsolatedMozBrowserElement;
 
     /**
      * Returns true if this principal has an unknown appId. This shouldn't

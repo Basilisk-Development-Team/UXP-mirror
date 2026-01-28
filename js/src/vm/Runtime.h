@@ -83,7 +83,7 @@ namespace js {
 extern MOZ_COLD void
 ReportOutOfMemory(JSContext* cx);
 
-/* Different signature because the return type has MOZ_MUST_USE_TYPE. */
+/* Different signature because the return type has [[nodiscard]]_TYPE. */
 extern MOZ_COLD mozilla::GenericErrorResult<OOM&>
 ReportOutOfMemoryResult(JSContext* cx);
 
@@ -283,6 +283,7 @@ void DisableExtraThreads();
 using ScriptAndCountsVector = GCVector<ScriptAndCounts, 0, SystemAllocPolicy>;
 
 class AutoLockForExclusiveAccess;
+class AutoLockScriptData;
 } // namespace js
 
 struct JSRuntime : public js::MallocProvider<JSRuntime>
@@ -584,23 +585,44 @@ struct JSRuntime : public js::MallocProvider<JSRuntime>
     bool activeThreadHasExclusiveAccess;
 #endif
 
-    /* Number of zones which may be operated on by non-cooperating helper threads. */
-    js::UnprotectedData<size_t> numHelperThreadZones;
+    /*
+     * Lock used to protect the script data table, which can be used by
+     * off-thread parsing.
+     *
+     * Locking this only occurs if there is actually a thread other than the
+     * active thread which could access this.
+     */
+    js::Mutex scriptDataLock;
+#ifdef DEBUG
+    bool activeThreadHasScriptDataAccess;
+#endif
+
+    /*
+     * Number of zones which may be operated on by non-cooperating helper
+     * threads.
+     */
+
+    js::UnprotectedData<size_t> numActiveHelperThreadZones;
 
     friend class js::AutoLockForExclusiveAccess;
+    friend class js::AutoLockScriptData;
 
   public:
     void setUsedByHelperThread(JS::Zone* zone);
     void clearUsedByHelperThread(JS::Zone* zone);
 
     bool hasHelperThreadZones() const {
-        return numHelperThreadZones > 0;
+        return numActiveHelperThreadZones > 0;
     }
 
 #ifdef DEBUG
     bool currentThreadHasExclusiveAccess() const {
         return (!hasHelperThreadZones() && activeThreadHasExclusiveAccess) ||
             exclusiveAccessLock.ownedByCurrentThread();
+    }
+    bool currentThreadHasScriptDataAccess() const {
+        return (!hasHelperThreadZones() && activeThreadHasScriptDataAccess) ||
+            scriptDataLock.ownedByCurrentThread();
     }
 #endif
 
@@ -879,9 +901,9 @@ struct JSRuntime : public js::MallocProvider<JSRuntime>
     // within the runtime. This may be modified by threads using
     // AutoLockForExclusiveAccess.
   private:
-    js::ExclusiveAccessLockData<js::ScriptDataTable> scriptDataTable_;
+    js::ScriptDataLockData<js::ScriptDataTable> scriptDataTable_;
   public:
-    js::ScriptDataTable& scriptDataTable(js::AutoLockForExclusiveAccess& lock) {
+    js::ScriptDataTable& scriptDataTable(const js::AutoLockScriptData& lock) {
         return scriptDataTable_.ref();
     }
 
@@ -1121,8 +1143,10 @@ FreeOp::appendJitPoisonRange(const jit::JitPoisonRange& range)
 /*
  * RAII class that takes the GC lock while it is live.
  *
- * Note that the lock may be temporarily released by use of AutoUnlockGC when
- * passed a non-const reference to this class.
+ * Usually functions will pass const references of this class.  However
+ * non-const references can be used to either temporarily release the lock by
+ * use of AutoUnlockGC or to start background allocation when the lock is
+ * released.
  */
 class MOZ_RAII AutoLockGC
 {
@@ -1136,7 +1160,7 @@ class MOZ_RAII AutoLockGC
     }
 
     ~AutoLockGC() {
-        unlock();
+        lockGuard_.reset();
     }
 
     void lock() {
@@ -1153,6 +1177,9 @@ class MOZ_RAII AutoLockGC
         return lockGuard_.ref();
     }
 
+  protected:
+    JSRuntime* runtime() const { return runtime_; }
+
   private:
     JSRuntime* runtime_;
     mozilla::Maybe<js::LockGuard<js::Mutex>> lockGuard_;
@@ -1160,6 +1187,47 @@ class MOZ_RAII AutoLockGC
 
     AutoLockGC(const AutoLockGC&) = delete;
     AutoLockGC& operator=(const AutoLockGC&) = delete;
+};
+
+/*
+ * Same as AutoLockGC except it can optionally start a background chunk
+ * allocation task when the lock is released.
+ */
+class MOZ_RAII AutoLockGCBgAlloc : public AutoLockGC
+{
+  public:
+    explicit AutoLockGCBgAlloc(JSRuntime* rt)
+      : AutoLockGC(rt)
+      , startBgAlloc(false)
+    {}
+
+    ~AutoLockGCBgAlloc() {
+        unlock();
+
+        /*
+         * We have to do this after releasing the lock because it may acquire
+         * the helper lock which could cause lock inversion if we still held
+         * the GC lock.
+         */
+        if (startBgAlloc)
+            runtime()->gc.startBackgroundAllocTaskIfIdle();
+    }
+	
+	/*
+     * This can be used to start a background allocation task (if one isn't
+     * already running) that allocates chunks and makes them available in the
+     * free chunks list.  This happens after the lock is released in order to
+     * avoid lock inversion.
+     */
+    void tryToStartBackgroundAllocation() {
+        startBgAlloc = true;
+    }
+
+  private:
+
+    // true if we should start a background chunk allocation task after the
+    // lock is released.
+    bool startBgAlloc;
 };
 
 class MOZ_RAII AutoUnlockGC

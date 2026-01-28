@@ -33,6 +33,7 @@
 #include "nsFocusManager.h"
 #include "mozilla/dom/HTMLFormElement.h"
 #include "mozAutoDocUpdate.h"
+#include "mozilla/Preferences.h"
 
 #define NS_IN_SUBMIT_CLICK      (1 << 0)
 #define NS_OUTER_ACTIVATE_EVENT (1 << 1)
@@ -76,16 +77,10 @@ NS_IMPL_CYCLE_COLLECTION_INHERITED(HTMLButtonElement,
                                    nsGenericHTMLFormElementWithState,
                                    mValidity)
 
-NS_IMPL_ADDREF_INHERITED(HTMLButtonElement, Element)
-NS_IMPL_RELEASE_INHERITED(HTMLButtonElement, Element)
-
-
-// QueryInterface implementation for HTMLButtonElement
-NS_INTERFACE_TABLE_HEAD_CYCLE_COLLECTION_INHERITED(HTMLButtonElement)
-  NS_INTERFACE_TABLE_INHERITED(HTMLButtonElement,
-                               nsIDOMHTMLButtonElement,
-                               nsIConstraintValidation)
-NS_INTERFACE_TABLE_TAIL_INHERITING(nsGenericHTMLFormElementWithState)
+NS_IMPL_ISUPPORTS_CYCLE_COLLECTION_INHERITED(HTMLButtonElement,
+                                             nsGenericHTMLFormElementWithState,
+                                             nsIDOMHTMLButtonElement,
+                                             nsIConstraintValidation)
 
 // nsIConstraintValidation
 NS_IMPL_NSICONSTRAINTVALIDATION_EXCEPT_SETCUSTOMVALIDITY(HTMLButtonElement)
@@ -186,6 +181,9 @@ HTMLButtonElement::ParseAttribute(int32_t aNamespaceID,
     }
 
     if (aAttribute == nsGkAtoms::formmethod) {
+      if (Preferences::GetBool("dom.dialog_element.enabled", true)) {
+        return aResult.ParseEnumValue(aValue, kFormMethodTableDialogEnabled, false);
+      }
       return aResult.ParseEnumValue(aValue, kFormMethodTable, false);
     }
     if (aAttribute == nsGkAtoms::formenctype) {
@@ -440,7 +438,9 @@ HTMLButtonElement::BeforeSetAttr(int32_t aNameSpaceID, nsIAtom* aName,
 nsresult
 HTMLButtonElement::AfterSetAttr(int32_t aNameSpaceID, nsIAtom* aName,
                                 const nsAttrValue* aValue,
-                                const nsAttrValue* aOldValue, bool aNotify)
+                                const nsAttrValue* aOldValue,
+                                nsIPrincipal* aSubjectPrincipal,
+                                bool aNotify)
 {
   if (aNameSpaceID == kNameSpaceID_None) {
     if (aName == nsGkAtoms::type) {
@@ -456,7 +456,7 @@ HTMLButtonElement::AfterSetAttr(int32_t aNameSpaceID, nsIAtom* aName,
 
   return nsGenericHTMLFormElementWithState::AfterSetAttr(aNameSpaceID, aName,
                                                          aValue, aOldValue,
-                                                         aNotify);
+                                                         aSubjectPrincipal, aNotify);
 }
 
 NS_IMETHODIMP

@@ -49,6 +49,7 @@
 #include "nsIInterfaceRequestorUtils.h"
 #include "nsIWebProgress.h"
 #include "nsIDocShell.h"
+#include "nsDocShell.h" // for ::Cast
 #include "nsIPrompt.h"
 #include "nsIStringBundle.h"
 
@@ -218,7 +219,9 @@ HTMLFormElement::BeforeSetAttr(int32_t aNamespaceID, nsIAtom* aName,
 nsresult
 HTMLFormElement::AfterSetAttr(int32_t aNameSpaceID, nsIAtom* aName,
                               const nsAttrValue* aValue,
-                              const nsAttrValue* aOldValue, bool aNotify)
+                              const nsAttrValue* aOldValue,
+                              nsIPrincipal* aSubjectPrincipal,
+                              bool aNotify)
 {
   if (aName == nsGkAtoms::novalidate && aNameSpaceID == kNameSpaceID_None) {
     // Update all form elements states because they might be [no longer]
@@ -235,7 +238,7 @@ HTMLFormElement::AfterSetAttr(int32_t aNameSpaceID, nsIAtom* aName,
   }
 
   return nsGenericHTMLElement::AfterSetAttr(aNameSpaceID, aName, aValue,
-                                            aOldValue, aNotify);
+                                            aOldValue, aSubjectPrincipal, aNotify);
 }
 
 NS_IMPL_STRING_ATTR(HTMLFormElement, AcceptCharset, acceptcharset)
@@ -321,6 +324,9 @@ HTMLFormElement::ParseAttribute(int32_t aNamespaceID,
 {
   if (aNamespaceID == kNameSpaceID_None) {
     if (aAttribute == nsGkAtoms::method) {
+      if (Preferences::GetBool("dom.dialog_element.enabled", true)) {
+        return aResult.ParseEnumValue(aValue, kFormMethodTableDialogEnabled, false);
+      }
       return aResult.ParseEnumValue(aValue, kFormMethodTable, false);
     }
     if (aAttribute == nsGkAtoms::enctype) {
@@ -673,6 +679,30 @@ HTMLFormElement::DoSubmit(WidgetEvent* aEvent)
 
   mSubmitInitiatedFromUserInput = EventStateManager::IsHandlingUserInput();
 
+  //
+  // perform the submission
+  //
+  if (!submission) {
+    mIsSubmitting = false;
+#ifdef DEBUG
+    HTMLDialogElement* dialog = nullptr;
+    for (nsIContent* parent = GetParent(); parent;
+         parent = parent->GetParent()) {
+      dialog = HTMLDialogElement::FromContentOrNull(parent);
+      if (dialog) {
+        break;
+      }
+    }
+    MOZ_ASSERT(!dialog || !dialog->Open());
+#endif
+    return NS_OK;
+  }
+
+  if (DialogFormSubmission* dialogSubmission =
+          submission->GetAsDialogSubmission()) {
+    return SubmitDialog(dialogSubmission);
+  }
+
   if(mDeferSubmission) {
     // we are in an event handler, JS submitted so we have to
     // defer this submission. let's remember it and return
@@ -683,9 +713,6 @@ HTMLFormElement::DoSubmit(WidgetEvent* aEvent)
     return NS_OK;
   }
 
-  //
-  // perform the submission
-  //
   return SubmitSubmission(submission);
 }
 
@@ -722,8 +749,10 @@ HTMLFormElement::BuildSubmission(HTMLFormSubmission** aFormSubmission,
   //
   // Dump the data into the submission object
   //
-  rv = WalkFormElements(*aFormSubmission);
-  NS_ENSURE_SUBMIT_SUCCESS(rv);
+  if (!(*aFormSubmission)->GetAsDialogSubmission()) {
+    rv = WalkFormElements(*aFormSubmission);
+    NS_ENSURE_SUBMIT_SUCCESS(rv);
+  }
 
   return NS_OK;
 }
@@ -748,9 +777,8 @@ HTMLFormElement::SubmitSubmission(HTMLFormSubmission* aFormSubmission)
 
   // If there is no link handler, then we won't actually be able to submit.
   nsIDocument* doc = GetComposedDoc();
-  nsCOMPtr<nsISupports> container = doc ? doc->GetContainer() : nullptr;
-  nsCOMPtr<nsILinkHandler> linkHandler(do_QueryInterface(container));
-  if (!linkHandler || IsEditable()) {
+  nsCOMPtr<nsIDocShell> container = doc ? doc->GetDocShell() : nullptr;
+  if (!container || IsEditable()) {
     mIsSubmitting = false;
     return NS_OK;
   }
@@ -829,12 +857,12 @@ HTMLFormElement::SubmitSubmission(HTMLFormSubmission* aFormSubmission)
                                                getter_AddRefs(postDataStream));
     NS_ENSURE_SUBMIT_SUCCESS(rv);
 
-    rv = linkHandler->OnLinkClickSync(this, actionURI,
-                                      target.get(),
-                                      NullString(),
-                                      postDataStream, nullptr,
-                                      getter_AddRefs(docShell),
-                                      getter_AddRefs(mSubmittingRequest));
+    rv = nsDocShell::Cast(container)->OnLinkClickSync(this, actionURI,
+                                                      target.get(),
+                                                      NullString(),
+                                                      postDataStream, nullptr,
+                                                      getter_AddRefs(docShell),
+                                                      getter_AddRefs(mSubmittingRequest));
     NS_ENSURE_SUBMIT_SUCCESS(rv);
   }
 
@@ -860,6 +888,22 @@ HTMLFormElement::SubmitSubmission(HTMLFormSubmission* aFormSubmission)
   }
 
   return rv;
+}
+
+// https://html.spec.whatwg.org/multipage/form-control-infrastructure.html#submit-dialog
+nsresult HTMLFormElement::SubmitDialog(DialogFormSubmission* aFormSubmission) {
+  mIsSubmitting = false;
+
+  // Close the dialog subject. If there is a result, let that be the return
+  // value.
+  HTMLDialogElement* dialog = aFormSubmission->DialogElement();
+  MOZ_ASSERT(dialog);
+
+  Optional<nsAString> retValue;
+  retValue = &aFormSubmission->ReturnValue();
+  dialog->Close(retValue);
+
+  return NS_OK;
 }
 
 nsresult

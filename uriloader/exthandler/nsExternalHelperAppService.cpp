@@ -425,9 +425,7 @@ static const nsDefaultMimeTypeEntry defaultMimeEntries[] =
   { TEXT_CSS, "css" },
   { IMAGE_JPEG, "jpeg" },
   { IMAGE_JPEG, "jpg" },
-#ifdef MOZ_JXL
   { IMAGE_JXL, "jxl" },
-#endif
   { IMAGE_SVG_XML, "svg" },
   { TEXT_HTML, "html" },
   { TEXT_HTML, "htm" },
@@ -500,9 +498,7 @@ static const nsExtraMimeTypeEntry extraMimeEntries[] =
   { IMAGE_GIF, "gif", "GIF Image" },
   { IMAGE_ICO, "ico,cur", "ICO Image" },
   { IMAGE_JPEG, "jpeg,jpg,jfif,pjpeg,pjp", "JPEG Image" },
-#ifdef MOZ_JXL
   { IMAGE_JXL, "jxl", "JPEG-XL Image" },
-#endif
   { IMAGE_PNG, "png", "PNG Image" },
   { IMAGE_APNG, "apng", "APNG Image" },
   { IMAGE_TIFF, "tiff,tif", "TIFF Image" },
@@ -1202,10 +1198,11 @@ nsExternalAppHandler::nsExternalAppHandler(nsIMIMEInfo * aMIMEInfo,
 
   // Replace platform specific path separator and illegal characters to avoid any confusion
   mSuggestedFileName.ReplaceChar(KNOWN_PATH_SEPARATORS, '_');
-  mSuggestedFileName.ReplaceChar(FILE_ILLEGAL_CHARACTERS, ' ');
-  mSuggestedFileName.ReplaceChar(char16_t(0), '_');
+  mSuggestedFileName.ReplaceChar(FILE_ILLEGAL_CHARACTERS, '_');
+  mSuggestedFileName.ReplaceChar("%", '_');
+  mSuggestedFileName.StripChar(char16_t(0));
   mTempFileExtension.ReplaceChar(KNOWN_PATH_SEPARATORS, '_');
-  mTempFileExtension.ReplaceChar(FILE_ILLEGAL_CHARACTERS, ' ');
+  mTempFileExtension.ReplaceChar(FILE_ILLEGAL_CHARACTERS, '_');
 
   // Remove unsafe bidi characters which might have spoofing implications (bug 511521).
   const char16_t unsafeBidiCharacters[] = {

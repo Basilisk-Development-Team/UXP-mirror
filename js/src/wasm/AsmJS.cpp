@@ -1,7 +1,7 @@
 /* -*- Mode: C++; tab-width: 8; indent-tabs-mode: nil; c-basic-offset: 4 -*-
  *
  * Copyright 2014 Mozilla Foundation
- * Copyright 2022, 2023 Moonchild Productions
+ * Copyright 2022-2024 Moonchild Productions
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -34,15 +34,17 @@
 #include "gc/Policy.h"
 #include "jit/AtomicOperations.h"
 #include "js/MemoryMetrics.h"
+#include "js/SourceBufferHolder.h"
 #include "vm/SelfHosting.h"
 #include "vm/StringBuffer.h"
 #include "vm/Time.h"
 #include "vm/TypedArrayObject.h"
-#include "wasm/WasmBinaryFormat.h"
+#include "wasm/WasmCompile.h"
 #include "wasm/WasmGenerator.h"
 #include "wasm/WasmInstance.h"
 #include "wasm/WasmJS.h"
 #include "wasm/WasmSerialize.h"
+#include "wasm/WasmValidate.h"
 
 #include "jsobjinlines.h"
 
@@ -59,6 +61,7 @@ using mozilla::Compression::LZ4;
 using mozilla::HashGeneric;
 using mozilla::IsNaN;
 using mozilla::IsNegativeZero;
+using mozilla::IsPositiveZero;
 using mozilla::IsPowerOfTwo;
 using mozilla::Maybe;
 using mozilla::Move;
@@ -68,6 +71,7 @@ using mozilla::PodZero;
 using mozilla::PositiveInfinity;
 using JS::AsmJSOption;
 using JS::GenericNaN;
+using JS::SourceBufferHolder;
 
 /*****************************************************************************/
 
@@ -816,14 +820,14 @@ class NumLit
         return (uint32_t)toInt32();
     }
 
-    RawF64 toDouble() const {
+    double toDouble() const {
         MOZ_ASSERT(which_ == Double);
-        return RawF64(u.scalar_.asValueRef().toDouble());
+        return u.scalar_.asValueRef().toDouble();
     }
 
-    RawF32 toFloat() const {
+    float toFloat() const {
         MOZ_ASSERT(which_ == Float);
-        return RawF32(float(u.scalar_.asValueRef().toDouble()));
+        return float(u.scalar_.asValueRef().toDouble());
     }
 
     Value scalarValue() const {
@@ -843,9 +847,9 @@ class NumLit
           case NumLit::BigUnsigned:
             return toInt32() == 0;
           case NumLit::Double:
-            return toDouble().bits() == 0;
+            return IsPositiveZero(toDouble());
           case NumLit::Float:
-            return toFloat().bits() == 0;
+            return IsPositiveZero(toFloat());
           case NumLit::OutOfRangeInt:
             MOZ_CRASH("can't be here because of valid() check above");
         }
@@ -1411,7 +1415,7 @@ class MOZ_STACK_CLASS ModuleValidator
     }
     bool newSig(Sig&& sig, uint32_t* sigIndex) {
         *sigIndex = 0;
-        if (mg_.numSigs() >= MaxSigs)
+        if (mg_.numSigs() >= AsmJSMaxTypes)
             return failCurrentOffset("too many signatures");
 
         *sigIndex = mg_.numSigs();
@@ -1450,7 +1454,7 @@ class MOZ_STACK_CLASS ModuleValidator
         importMap_(cx),
         arrayViews_(cx),
         atomicsPresent_(false),
-        mg_(ImportVector()),
+        mg_(nullptr),
         errorString_(nullptr),
         errorOffset_(UINT32_MAX),
         errorOverRecursed_(false)
@@ -1548,20 +1552,20 @@ class MOZ_STACK_CLASS ModuleValidator
         if (!args.initFromContext(cx_, Move(scriptedCaller)))
             return false;
 
-        auto genData = MakeUnique<ModuleGeneratorData>(ModuleKind::AsmJS);
-        if (!genData ||
-            !genData->sigs.resize(MaxSigs) ||
-            !genData->funcSigs.resize(MaxFuncs) ||
-            !genData->funcImportGlobalDataOffsets.resize(AsmJSMaxImports) ||
-            !genData->tables.resize(MaxTables) ||
-            !genData->asmJSSigToTableIndex.resize(MaxSigs))
+        auto env = MakeUnique<ModuleEnvironment>(ModuleKind::AsmJS);
+        if (!env ||
+            !env->sigs.resize(AsmJSMaxTypes) ||
+            !env->funcSigs.resize(AsmJSMaxFuncs) ||
+            !env->funcImportGlobalDataOffsets.resize(AsmJSMaxImports) ||
+            !env->tables.resize(AsmJSMaxTables) ||
+            !env->asmJSSigToTableIndex.resize(AsmJSMaxTypes))
         {
             return false;
         }
 
-        genData->minMemoryLength = RoundUpToNextValidAsmJSHeapLength(0);
+        env->minMemoryLength = RoundUpToNextValidAsmJSHeapLength(0);
 
-        if (!mg_.init(Move(genData), args, asmJSMetadata_.get()))
+        if (!mg_.init(Move(env), args, asmJSMetadata_.get()))
             return false;
 
         return true;
@@ -1809,8 +1813,8 @@ class MOZ_STACK_CLASS ModuleValidator
             return false;
 
         // Declare which function is exported which gives us an index into the
-        // module FuncExportVector.
-        if (!mg_.addFuncExport(Move(fieldChars), func.index()))
+        // module ExportVector.
+        if (!mg_.addExport(Move(fieldChars), func.index()))
             return false;
 
         // The exported function might have already been exported in which case
@@ -1824,7 +1828,7 @@ class MOZ_STACK_CLASS ModuleValidator
         if (!declareSig(Move(sig), &sigIndex))
             return false;
         uint32_t funcIndex = AsmJSFirstDefFuncIndex + numFunctions();
-        if (funcIndex >= MaxFuncs)
+        if (funcIndex >= AsmJSMaxFuncs)
             return failCurrentOffset("too many functions");
         mg_.initFuncSig(funcIndex, sigIndex);
         Global* global = validationLifo_.new_<Global>(Global::Function);
@@ -1839,7 +1843,7 @@ class MOZ_STACK_CLASS ModuleValidator
     bool declareFuncPtrTable(Sig&& sig, PropertyName* name, uint32_t firstUse, uint32_t mask,
                              uint32_t* index)
     {
-        if (mask > MaxTableElems)
+        if (mask > MaxTableInitialLength)
             return failCurrentOffset("function pointer table too big");
         uint32_t sigIndex;
         if (!newSig(Move(sig), &sigIndex))
@@ -5980,14 +5984,14 @@ ValidateGlobalVariable(JSContext* cx, const AsmJSGlobal& global, HandleValue imp
             float f;
             if (!RoundFloat32(cx, v, &f))
                 return false;
-            *val = Val(RawF32(f));
+            *val = Val(f);
             return true;
           }
           case ValType::F64: {
             double d;
             if (!ToNumber(cx, v, &d))
                 return false;
-            *val = Val(RawF64(d));
+            *val = Val(d);
             return true;
           }
         }
@@ -6307,7 +6311,7 @@ HandleInstantiationFailure(JSContext* cx, CallArgs args, const AsmJSMetadata& me
     if (!fun)
         return false;
 
-    CompileOptions options(cx);
+    JS::CompileOptions options(cx);
     options.setMutedErrors(source->mutedErrors())
            .setFile(source->filename())
            .setNoScriptRval(false);
@@ -6690,11 +6694,10 @@ StoreAsmJSModuleInCache(AsmJSParser& parser, Module& module, JSContext* cx)
 
     const char16_t* begin = parser.tokenStream.rawCharPtrAt(ModuleChars::beginOffset(parser));
     const char16_t* end = parser.tokenStream.rawCharPtrAt(ModuleChars::endOffset(parser));
-    bool installed = parser.options().installedFile;
 
     ScopedCacheEntryOpenedForWrite entry(cx, serializedSize);
     JS::AsmJSCacheResult openResult =
-        open(cx->global(), installed, begin, end, serializedSize, &entry.memory, &entry.handle);
+        open(cx->global(), begin, end, serializedSize, &entry.memory, &entry.handle);
     if (openResult != JS::AsmJSCache_Success)
         return openResult;
 

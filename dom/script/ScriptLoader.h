@@ -248,6 +248,7 @@ public:
   char16_t* mScriptTextBuf; // Holds script text for non-inline scripts. Don't
   size_t mScriptTextLength; // use nsString so we can give ownership to jsapi.
   const nsCOMPtr<nsIURI> mURI;
+  nsCOMPtr<nsIPrincipal> mTriggeringPrincipal;
   nsCOMPtr<nsIPrincipal> mOriginPrincipal;
   nsAutoCString mURL;     // Keep the URI's filename alive during off thread parsing.
   int32_t mLineNo;
@@ -618,6 +619,12 @@ private:
    */
   void ContinueParserAsync(ScriptLoadRequest* aParserBlockingRequest);
 
+
+  /**
+   * Given a script element, get the referrer policy that should be applied to
+   * load requests.
+   */
+  mozilla::net::ReferrerPolicy GetReferrerPolicy(nsIScriptElement* aElement);
 
   /**
    * Helper function to check the content policy for a given request.

@@ -229,14 +229,14 @@ class LPointer : public LInstructionHelper<1, 0, 0>
 // Constant double.
 class LDouble : public LInstructionHelper<1, 0, 0>
 {
-    wasm::RawF64 d_;
+    double d_;
   public:
     LIR_HEADER(Double);
 
-    explicit LDouble(wasm::RawF64 d) : d_(d)
+    explicit LDouble(double d) : d_(d)
     { }
 
-    wasm::RawF64 getDouble() const {
+    const double& getDouble() const {
         return d_;
     }
 };
@@ -244,15 +244,15 @@ class LDouble : public LInstructionHelper<1, 0, 0>
 // Constant float32.
 class LFloat32 : public LInstructionHelper<1, 0, 0>
 {
-    wasm::RawF32 f_;
+    float f_;
   public:
     LIR_HEADER(Float32);
 
-    explicit LFloat32(wasm::RawF32 f)
+    explicit LFloat32(float f)
       : f_(f)
     { }
 
-    wasm::RawF32 getFloat() const {
+    const float& getFloat() const {
         return f_;
     }
 };
@@ -6345,7 +6345,8 @@ class LStringLength : public LInstructionHelper<1, 1, 0>
     }
 };
 
-// Take the floor of a double precision number. Implements Math.floor().
+// Take the floor of a double precision number and converts it to an int32.
+// Implements Math.floor().
 class LFloor : public LInstructionHelper<1, 1, 0>
 {
   public:
@@ -6356,7 +6357,9 @@ class LFloor : public LInstructionHelper<1, 1, 0>
     }
 };
 
-// Take the floor of a single precision number. Implements Math.floor().
+
+// Take the floor of a single precision number and converts it to an int32.
+// Implements Math.floor().
 class LFloorF : public LInstructionHelper<1, 1, 0>
 {
   public:
@@ -6367,7 +6370,8 @@ class LFloorF : public LInstructionHelper<1, 1, 0>
     }
 };
 
-// Take the ceiling of a double precision number. Implements Math.ceil().
+// Take the ceiling of a double precision number and converts it to an int32.
+// Implements Math.ceil().
 class LCeil : public LInstructionHelper<1, 1, 0>
 {
   public:
@@ -6378,7 +6382,8 @@ class LCeil : public LInstructionHelper<1, 1, 0>
     }
 };
 
-// Take the ceiling of a single precision number. Implements Math.ceil().
+// Take the ceiling of a single precision number and converts it to an int32.
+// Implements Math.ceil().
 class LCeilF : public LInstructionHelper<1, 1, 0>
 {
   public:
@@ -6389,7 +6394,8 @@ class LCeilF : public LInstructionHelper<1, 1, 0>
     }
 };
 
-// Round a double precision number. Implements Math.round().
+// Round a double precision number and converts it to an int32.
+// Implements Math.round().
 class LRound : public LInstructionHelper<1, 1, 1>
 {
   public:
@@ -6408,7 +6414,8 @@ class LRound : public LInstructionHelper<1, 1, 1>
     }
 };
 
-// Round a single precision number. Implements Math.round().
+// Round a single precision number and converts it to an int32.
+// Implements Math.round().
 class LRoundF : public LInstructionHelper<1, 1, 1>
 {
   public:
@@ -6424,6 +6431,36 @@ class LRoundF : public LInstructionHelper<1, 1, 1>
     }
     MRound* mir() const {
         return mir_->toRound();
+    }
+};
+
+// Rounds a double precision number accordingly to mir()->roundingMode(),
+// and keeps a double output.
+class LNearbyInt : public LInstructionHelper<1, 1, 0>
+{
+  public:
+    LIR_HEADER(NearbyInt)
+
+    explicit LNearbyInt(const LAllocation& num) {
+        setOperand(0, num);
+    }
+    MNearbyInt* mir() const {
+        return mir_->toNearbyInt();
+    }
+};
+
+// Rounds a single precision number accordingly to mir()->roundingMode(),
+// and keeps a single output.
+class LNearbyIntF : public LInstructionHelper<1, 1, 0>
+{
+  public:
+    LIR_HEADER(NearbyIntF)
+
+    explicit LNearbyIntF(const LAllocation& num) {
+        setOperand(0, num);
+    }
+    MNearbyInt* mir() const {
+        return mir_->toNearbyInt();
     }
 };
 
@@ -7056,6 +7093,33 @@ class LPostWriteBarrierO : public LInstructionHelper<0, 2, 1>
     }
 };
 
+// Generational write barrier used when writing a string to an object.
+class LPostWriteBarrierS : public LInstructionHelper<0, 2, 1>
+{
+  public:
+    LIR_HEADER(PostWriteBarrierS)
+
+    LPostWriteBarrierS(const LAllocation& obj, const LAllocation& value,
+                       const LDefinition& temp) {
+        setOperand(0, obj);
+        setOperand(1, value);
+        setTemp(0, temp);
+    }
+
+    const MPostWriteBarrier* mir() const {
+        return mir_->toPostWriteBarrier();
+    }
+    const LAllocation* object() {
+        return getOperand(0);
+    }
+    const LAllocation* value() {
+        return getOperand(1);
+    }
+    const LDefinition* temp() {
+        return getTemp(0);
+    }
+};
+
 // Generational write barrier used when writing a value to another object.
 class LPostWriteBarrierV : public LInstructionHelper<0, 1 + BOX_PIECES, 1>
 {
@@ -7090,6 +7154,42 @@ class LPostWriteElementBarrierO : public LInstructionHelper<0, 3, 1>
     LIR_HEADER(PostWriteElementBarrierO)
 
     LPostWriteElementBarrierO(const LAllocation& obj, const LAllocation& value,
+                              const LAllocation& index, const LDefinition& temp) {
+        setOperand(0, obj);
+        setOperand(1, value);
+        setOperand(2, index);
+        setTemp(0, temp);
+    }
+
+    const MPostWriteElementBarrier* mir() const {
+        return mir_->toPostWriteElementBarrier();
+    }
+
+    const LAllocation* object() {
+        return getOperand(0);
+    }
+
+    const LAllocation* value() {
+        return getOperand(1);
+    }
+
+    const LAllocation* index() {
+        return getOperand(2);
+    }
+
+    const LDefinition* temp() {
+        return getTemp(0);
+    }
+};
+
+// Generational write barrier used when writing a string to an object's
+// elements.
+class LPostWriteElementBarrierS : public LInstructionHelper<0, 3, 1>
+{
+  public:
+    LIR_HEADER(PostWriteElementBarrierS)
+
+    LPostWriteElementBarrierS(const LAllocation& obj, const LAllocation& value,
                               const LAllocation& index, const LDefinition& temp) {
         setOperand(0, obj);
         setOperand(1, value);
@@ -7978,30 +8078,43 @@ class LAsmJSAtomicBinopHeapForEffect : public LInstructionHelper<0, 2, 5>
     }
 };
 
-class LWasmLoadGlobalVar : public LInstructionHelper<1, 0, 0>
+class LWasmLoadGlobalVar : public LInstructionHelper<1, 1, 0>
 {
   public:
     LIR_HEADER(WasmLoadGlobalVar);
+   explicit LWasmLoadGlobalVar(const LAllocation& tlsPtr) {
+        setOperand(0, tlsPtr);
+    }
     MWasmLoadGlobalVar* mir() const {
         return mir_->toWasmLoadGlobalVar();
     }
+   const LAllocation* tlsPtr() {
+        return getOperand(0);
+    }
 };
 
-class LWasmLoadGlobalVarI64 : public LInstructionHelper<INT64_PIECES, 0, 0>
+class LWasmLoadGlobalVarI64 : public LInstructionHelper<INT64_PIECES, 1, 0>
 {
   public:
     LIR_HEADER(WasmLoadGlobalVarI64);
+    explicit LWasmLoadGlobalVarI64(const LAllocation& tlsPtr) {
+        setOperand(0, tlsPtr);
+    }
     MWasmLoadGlobalVar* mir() const {
         return mir_->toWasmLoadGlobalVar();
     }
+    const LAllocation* tlsPtr() {
+        return getOperand(0);
+    }
 };
 
-class LWasmStoreGlobalVar : public LInstructionHelper<0, 1, 0>
+class LWasmStoreGlobalVar : public LInstructionHelper<0, 2, 0>
 {
   public:
     LIR_HEADER(WasmStoreGlobalVar);
-    explicit LWasmStoreGlobalVar(const LAllocation& value) {
+    explicit LWasmStoreGlobalVar(const LAllocation& value, const LAllocation& tlsPtr) {
         setOperand(0, value);
+        setOperand(1, tlsPtr);
     }
     MWasmStoreGlobalVar* mir() const {
         return mir_->toWasmStoreGlobalVar();
@@ -8009,22 +8122,28 @@ class LWasmStoreGlobalVar : public LInstructionHelper<0, 1, 0>
     const LAllocation* value() {
         return getOperand(0);
     }
+    const LAllocation* tlsPtr() {
+        return getOperand(1);
+    }
 };
 
-class LWasmStoreGlobalVarI64 : public LInstructionHelper<0, INT64_PIECES, 0>
+class LWasmStoreGlobalVarI64 : public LInstructionHelper<0, INT64_PIECES + 1, 0>
 {
   public:
     LIR_HEADER(WasmStoreGlobalVarI64);
-    explicit LWasmStoreGlobalVarI64(const LInt64Allocation& value) {
+    explicit LWasmStoreGlobalVarI64(const LInt64Allocation& value, const LAllocation& tlsPtr) {
         setInt64Operand(0, value);
+        setOperand(INT64_PIECES, tlsPtr);
     }
     MWasmStoreGlobalVar* mir() const {
         return mir_->toWasmStoreGlobalVar();
     }
-    static const uint32_t InputIndex = 0;
 
     const LInt64Allocation value() {
-        return getInt64Operand(InputIndex);
+        return getInt64Operand(0);
+    }
+    const LAllocation* tlsPtr() {
+        return getOperand(INT64_PIECES);
     }
 };
 

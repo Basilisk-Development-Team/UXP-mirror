@@ -215,7 +215,7 @@ public:
    */
   void ApplySandboxFlags(uint32_t sandboxFlags);
 
-  void GetURL(nsString& aURL);
+  void GetURL(nsString& aURL, nsIPrincipal** aTriggeringPrincipal);
 
   // Properly retrieves documentSize of any subdocument type.
   nsresult GetWindowDimensions(nsIntRect& aRect);
@@ -242,51 +242,16 @@ private:
   bool IsRemoteFrame();
 
   /**
-   * Is this a frameloader for a bona fide <iframe mozbrowser> or
-   * <iframe mozapp>?  (I.e., does the frame return true for
-   * nsIMozBrowserFrame::GetReallyIsBrowserOrApp()?)
-   * <xul:browser> is not a mozbrowser or app, so this is false for that case.
-   */
-  bool OwnerIsMozBrowserOrAppFrame();
-
-  /**
-   * Is this a frameloader for a bona fide <iframe mozapp>?  (I.e., does the
-   * frame return true for nsIMozBrowserFrame::GetReallyIsApp()?)
-   */
-  bool OwnerIsAppFrame();
-
-  /**
    * Is this a frame loader for a bona fide <iframe mozbrowser>?
    * <xul:browser> is not a mozbrowser, so this is false for that case.
    */
   bool OwnerIsMozBrowserFrame();
 
   /**
-   * Is this a frame loader for an isolated <iframe mozbrowser>?
-   *
-   * By default, mozbrowser frames are isolated.  Isolation can be disabled by
-   * setting the frame's noisolation attribute.  Disabling isolation is
-   * only allowed if the containing document is chrome.
-   */
-  bool OwnerIsIsolatedMozBrowserFrame();
-
-  /**
    * Get our owning element's app manifest URL, or return the empty string if
    * our owning element doesn't have an app manifest URL.
    */
   void GetOwnerAppManifestURL(nsAString& aOut);
-
-  /**
-   * Get the app for our frame.  This is the app whose manifest is returned by
-   * GetOwnerAppManifestURL.
-   */
-  already_AddRefed<mozIApplication> GetOwnApp();
-
-  /**
-   * Get the app which contains this frame.  This is the app associated with
-   * the frame element's principal.
-   */
-  already_AddRefed<mozIApplication> GetContainingApp();
 
   /**
    * If we are an IPC frame, set mRemoteFrame. Otherwise, create and
@@ -299,7 +264,17 @@ private:
   // Updates the subdocument position and size. This gets called only
   // when we have our own in-process DocShell.
   void UpdateBaseWindowPositionAndSize(nsSubDocumentFrame *aIFrame);
-  nsresult CheckURILoad(nsIURI* aURI);
+
+  /**
+   * Checks whether a load of the given URI should be allowed, and returns an
+   * error result if it should not.
+   *
+   * @param aURI The URI to check.
+   * @param aTriggeringPrincipal The triggering principal for the load. May be
+   *        null, in which case the node principal of the owner content is used.
+   */
+  nsresult CheckURILoad(nsIURI* aURI, nsIPrincipal* aTriggeringPrincipal);
+
   void FireErrorEvent();
   nsresult ReallyStartLoadingInternal();
 
@@ -337,6 +312,7 @@ private:
 
   nsCOMPtr<nsIDocShell> mDocShell;
   nsCOMPtr<nsIURI> mURIToLoad;
+  nsCOMPtr<nsIPrincipal> mTriggeringPrincipal;
   mozilla::dom::Element* mOwnerContent; // WEAK
 
   // After the frameloader has been removed from the DOM but before all of the

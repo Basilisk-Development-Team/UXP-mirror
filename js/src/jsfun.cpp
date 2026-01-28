@@ -38,7 +38,9 @@
 #include "jit/Ion.h"
 #include "jit/JitFrameIterator.h"
 #include "js/CallNonGenericMethod.h"
+#include "js/CompileOptions.h"
 #include "js/Proxy.h"
+#include "js/SourceBufferHolder.h"
 #include "vm/AsyncFunction.h"
 #include "vm/AsyncIteration.h"
 #include "vm/Debugger.h"
@@ -67,6 +69,9 @@ using mozilla::PodCopy;
 using mozilla::RangedPtr;
 using mozilla::Some;
 
+using JS::CompileOptions;
+using JS::SourceBufferHolder;
+
 static bool
 fun_enumerate(JSContext* cx, HandleObject obj)
 {
@@ -77,16 +82,16 @@ fun_enumerate(JSContext* cx, HandleObject obj)
 
     if (!obj->isBoundFunction() && !obj->as<JSFunction>().isArrow()) {
         id = NameToId(cx->names().prototype);
-        if (!HasProperty(cx, obj, id, &found))
+        if (!HasOwnProperty(cx, obj, id, &found))
             return false;
     }
 
     id = NameToId(cx->names().length);
-    if (!HasProperty(cx, obj, id, &found))
+    if (!HasOwnProperty(cx, obj, id, &found))
         return false;
 
     id = NameToId(cx->names().name);
-    if (!HasProperty(cx, obj, id, &found))
+    if (!HasOwnProperty(cx, obj, id, &found))
         return false;
 
     return true;
@@ -1863,7 +1868,7 @@ FunctionConstructor(JSContext* cx, const CallArgs& args, GeneratorKind generator
     // Step 24.
     RootedObject proto(cx);
     if (!isAsync) {
-        if (!GetPrototypeFromCallableConstructor(cx, args, &proto))
+        if (!GetPrototypeFromBuiltinConstructor(cx, args, &proto))
             return false;
     }
 

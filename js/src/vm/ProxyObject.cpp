@@ -7,9 +7,15 @@
 
 #include "jscompartment.h"
 
+#include "gc/Allocator.h"
+#include "gc/GCTrace.h"
+
 #include "proxy/DeadObjectProxy.h"
 
 #include "jsobjinlines.h"
+
+#include "gc/ObjectKind-inl.h"
+#include "vm/TypeInference-inl.h"
 
 using namespace js;
 
@@ -90,7 +96,10 @@ ProxyObject::New(JSContext* cx, const BaseProxyHandler* handler, HandleValue pri
     values->init(proxy->numReservedSlots());
 
     proxy->data.handler = handler;
-    proxy->setCrossCompartmentPrivate(priv);
+    if (IsCrossCompartmentWrapper(proxy))
+        proxy->setCrossCompartmentPrivate(priv);
+    else
+        proxy->setSameCompartmentPrivate(priv);
 
     if (newKind == SingletonObject) {
     Rooted<ProxyObject*> rootedProxy(cx, proxy);

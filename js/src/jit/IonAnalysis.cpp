@@ -195,6 +195,8 @@ FlagPhiInputsAsHavingRemovedUses(MIRGenerator* mir, MBasicBlock* block, MBasicBl
 static bool
 FlagAllOperandsAsHavingRemovedUses(MIRGenerator* mir, MBasicBlock* block)
 {
+    const CompileInfo& info = block->info();
+
     // Flag all instructions operands as having removed uses.
     MInstructionIterator end = block->end();
     for (MInstructionIterator it = block->begin(); it != end; it++) {
@@ -209,13 +211,10 @@ FlagAllOperandsAsHavingRemovedUses(MIRGenerator* mir, MBasicBlock* block)
         if (MResumePoint* rp = ins->resumePoint()) {
             // Note: no need to iterate over the caller's of the resume point as
             // this is the same as the entry resume point.
+            MOZ_ASSERT(&rp->block()->info() == &info);
             for (size_t i = 0, e = rp->numOperands(); i < e; i++) {
-                if (mir->shouldCancel("FlagAllOperandsAsHavingRemovedUses inner loop"))
-                    return false;
-
-                if (!rp->isObservableOperand(i))
-                    continue;
-                rp->getOperand(i)->setUseRemovedUnchecked();
+                if (info.isObservableSlot(i))
+                    rp->getOperand(i)->setUseRemovedUnchecked();
             }
         }
     }
@@ -226,10 +225,10 @@ FlagAllOperandsAsHavingRemovedUses(MIRGenerator* mir, MBasicBlock* block)
         if (mir->shouldCancel("FlagAllOperandsAsHavingRemovedUses loop 2"))
             return false;
 
+        const CompileInfo& info = rp->block()->info();
         for (size_t i = 0, e = rp->numOperands(); i < e; i++) {
-            if (!rp->isObservableOperand(i))
-                continue;
-            rp->getOperand(i)->setUseRemovedUnchecked();
+            if (info.isObservableSlot(i))
+                rp->getOperand(i)->setUseRemovedUnchecked();
         }
         rp = rp->caller();
     }
@@ -1000,17 +999,22 @@ jit::EliminateDeadResumePointOperands(MIRGenerator* mir, MIRGraph& graph)
         if (mir->shouldCancel("Eliminate Dead Resume Point Operands (main loop)"))
             return false;
 
-        if (MResumePoint* rp = block->entryResumePoint())
+        if (MResumePoint* rp = block->entryResumePoint()) {
+            if (!graph.alloc().ensureBallast())
+                return false;
             EliminateTriviallyDeadResumePointOperands(graph, rp);
+        }
 
         // The logic below can get confused on infinite loops.
         if (block->isLoopHeader() && block->backedge() == *block)
             continue;
 
         for (MInstructionIterator ins = block->begin(); ins != block->end(); ins++) {
-            if (MResumePoint* rp = ins->resumePoint())
+            if (MResumePoint* rp = ins->resumePoint()) {
+                if (!graph.alloc().ensureBallast())
+                    return false;
                 EliminateTriviallyDeadResumePointOperands(graph, rp);
-
+        }
             // No benefit to replacing constant operands with other constants.
             if (ins->isConstant())
                 continue;
@@ -2436,9 +2440,12 @@ AssertOperandsBeforeSafeInsertTop(MResumePoint* resume)
 #endif // DEBUG
 
 void
-jit::AssertBasicGraphCoherency(MIRGraph& graph)
+jit::AssertBasicGraphCoherency(MIRGraph& graph, bool force)
 {
 #ifdef DEBUG
+    if (!JitOptions.fullDebugChecks && !force)
+        return;
+
     MOZ_ASSERT(graph.entryBlock()->numPredecessors() == 0);
     MOZ_ASSERT(graph.entryBlock()->phisEmpty());
     MOZ_ASSERT(!graph.entryBlock()->unreachable());
@@ -2621,12 +2628,14 @@ AssertDominatorTree(MIRGraph& graph)
 #endif
 
 void
-jit::AssertGraphCoherency(MIRGraph& graph)
+jit::AssertGraphCoherency(MIRGraph& graph, bool force)
 {
 #ifdef DEBUG
     if (!JitOptions.checkGraphConsistency)
         return;
-    AssertBasicGraphCoherency(graph);
+    if (!JitOptions.fullDebugChecks && !force)
+        return;
+    AssertBasicGraphCoherency(graph, force);
     AssertReversePostorder(graph);
 #endif
 }
@@ -2711,7 +2720,7 @@ AssertResumePointDominatedByOperands(MResumePoint* resume)
 #endif // DEBUG
 
 void
-jit::AssertExtendedGraphCoherency(MIRGraph& graph, bool underValueNumberer)
+jit::AssertExtendedGraphCoherency(MIRGraph& graph, bool underValueNumberer, bool force)
 {
     // Checks the basic GraphCoherency but also other conditions that
     // do not hold immediately (such as the fact that critical edges
@@ -2720,8 +2729,10 @@ jit::AssertExtendedGraphCoherency(MIRGraph& graph, bool underValueNumberer)
 #ifdef DEBUG
     if (!JitOptions.checkGraphConsistency)
         return;
+    if (!JitOptions.fullDebugChecks && !force)
+        return;
 
-    AssertGraphCoherency(graph);
+    AssertGraphCoherency(graph, force);
 
     AssertDominatorTree(graph);
 
@@ -2931,6 +2942,12 @@ jit::ExtractLinearSum(MDefinition* ins, MathSpace space,
     else if (space != insSpace)
         return SimpleLinearSum(ins, 0);
     MOZ_ASSERT(space == MathSpace::Modulo || space == MathSpace::Infinite);
+
+    // We don't support modulo math space in ExtractLinearSum, because it
+    // doesn't work well in some compilation environments.
+    if (space == MathSpace::Modulo) {
+        return SimpleLinearSum(ins, 0);
+    }
 
     MDefinition* lhs = ins->getOperand(0);
     MDefinition* rhs = ins->getOperand(1);
@@ -4194,7 +4211,8 @@ jit::AnalyzeArgumentsUsage(JSContext* cx, JSScript* scriptArg)
     if (script->length() > MAX_SCRIPT_SIZE)
         return true;
 
-    if (!script->ensureHasTypes(cx))
+    AutoKeepTypeScripts keepTypes(cx);
+    if (!script->ensureHasTypes(cx, keepTypes))
         return false;
 
     TraceLoggerThread* logger = TraceLoggerForCurrentThread(cx);

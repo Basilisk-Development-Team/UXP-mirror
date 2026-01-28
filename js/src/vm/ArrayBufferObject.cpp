@@ -37,7 +37,6 @@
 #include "jswrapper.h"
 
 #include "gc/Barrier.h"
-#include "gc/Marking.h"
 #include "gc/Memory.h"
 #include "js/Conversions.h"
 #include "js/MemoryMetrics.h"
@@ -51,6 +50,7 @@
 
 #include "jsatominlines.h"
 
+#include "gc/Marking-inl.h"
 #include "gc/Nursery-inl.h"
 #include "vm/NativeObject-inl.h"
 #include "vm/Shape-inl.h"
@@ -287,6 +287,7 @@ ArrayBufferObject::class_constructor(JSContext* cx, unsigned argc, Value* vp)
         return false;
     }
 
+    // Step 3.
     RootedObject proto(cx);
     RootedObject newTarget(cx, &args.newTarget().toObject());
     if (!GetPrototypeFromConstructor(cx, newTarget, &proto))
@@ -645,7 +646,12 @@ WasmArrayRawBuffer::Allocate(uint32_t numBytes, Maybe<uint32_t> maxSize)
         return nullptr;
     }
 # else  // XP_WIN
-    void* data = MozTaggedAnonymousMmap(nullptr, (size_t) mappedSizeWithHeader, PROT_NONE,
+    void* data = MozTaggedAnonymousMmap(nullptr, (size_t) mappedSizeWithHeader,
+#ifdef PROT_MPROTECT
+                                        PROT_MPROTECT(PROT_EXEC | PROT_WRITE | PROT_READ),
+#else
+                                        PROT_NONE,
+#endif
                                         MAP_PRIVATE | MAP_ANON, -1, 0, "wasm-reserved");
     if (data == MAP_FAILED)
         return nullptr;
@@ -938,7 +944,9 @@ ArrayBufferObject::wasmGrowToSizeInPlace(uint32_t newSize,
     // wasm-visible length of the buffer has been increased so it must be the
     // last fallible operation.
 
-    // byteLength can be at most INT32_MAX.
+    // byteLength can be at most INT32_MAX. Note: if this hard limit changes,
+    // update the clamping behavior in wasm::DecodeMemoryLimits and remove this
+    // comment as well as the one in wasmMovingGrowToSize.
     if (newSize > INT32_MAX)
         return false;
 
@@ -969,6 +977,7 @@ ArrayBufferObject::wasmMovingGrowToSize(uint32_t newSize,
     // unmodified and valid.
 
     // byteLength can be at most INT32_MAX.
+    // See comment in wasmGrowToSizeInPlace about wasm::DecodeMemoryLimits.
     if (newSize > INT32_MAX)
         return false;
 

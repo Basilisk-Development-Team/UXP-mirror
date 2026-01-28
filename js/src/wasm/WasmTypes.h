@@ -19,6 +19,7 @@
 #ifndef wasm_types_h
 #define wasm_types_h
 
+#include "mozilla/Alignment.h"
 #include "mozilla/EnumeratedArray.h"
 #include "mozilla/HashFunctions.h"
 #include "mozilla/Maybe.h"
@@ -40,7 +41,10 @@
 namespace js {
 
 class PropertyName;
-namespace jit { struct BaselineScript; }
+namespace jit {
+    struct BaselineScript;
+    enum class RoundingMode;
+}
 
 // This is a widespread header, so lets keep out the core wasm impl types.
 
@@ -87,6 +91,7 @@ typedef Vector<char, 0, SystemAllocPolicy> UTF8Bytes;
 
 class Code;
 class CodeRange;
+class GlobalSegment;
 class Memory;
 class Module;
 class Instance;
@@ -222,40 +227,7 @@ ToCString(ValType type)
     return ToCString(ToExprType(type));
 }
 
-// Because WebAssembly allows one to define the payload of a NaN value,
-// including the signal/quiet bit (highest order bit of payload), another
-// represenation of floating-point values is required: on some platforms (x86
-// without SSE2), passing a floating-point argument to a function call may use
-// the x87 stack, which has the side-effect of clearing the signal/quiet bit.
-// Because the signal/quiet bit must be preserved (by spec), we use the raw
-// punned integer representation of floating points instead, in function calls.
-//
-// When we leave the WebAssembly sandbox back to JS, NaNs are canonicalized, so
-// this isn't observable from JS.
 
-template<class T>
-class Raw
-{
-    typedef typename mozilla::FloatingPoint<T>::Bits Bits;
-    Bits value_;
-
-  public:
-    Raw() : value_(0) {}
-
-    explicit Raw(T value)
-      : value_(mozilla::BitwiseCast<Bits>(value))
-    {}
-
-    template<class U> MOZ_IMPLICIT Raw(U) = delete;
-
-    static Raw fromBits(Bits bits) { Raw r; r.value_ = bits; return r; }
-
-    Bits bits() const { return value_; }
-    T fp() const { return mozilla::BitwiseCast<T>(value_); }
-};
-
-using RawF64 = Raw<double>;
-using RawF32 = Raw<float>;
 
 // The Val class represents a single WebAssembly value of a given value type,
 // mostly for the purpose of numeric literals and initializers. A Val does not
@@ -270,8 +242,8 @@ class Val
     union U {
         uint32_t i32_;
         uint64_t i64_;
-        RawF32 f32_;
-        RawF64 f64_;
+        float f32_;
+        double f64_;
         U() {}
     } u;
 
@@ -281,17 +253,15 @@ class Val
     explicit Val(uint32_t i32) : type_(ValType::I32) { u.i32_ = i32; }
     explicit Val(uint64_t i64) : type_(ValType::I64) { u.i64_ = i64; }
 
-    explicit Val(RawF32 f32) : type_(ValType::F32) { u.f32_ = f32; }
-    explicit Val(RawF64 f64) : type_(ValType::F64) { u.f64_ = f64; }
-    MOZ_IMPLICIT Val(float) = delete;
-    MOZ_IMPLICIT Val(double) = delete;
+    explicit Val(float f32) : type_(ValType::F32) { u.f32_ = f32; }
+    explicit Val(double f64) : type_(ValType::F64) { u.f64_ = f64; }
 
     ValType type() const { return type_; }
 
     uint32_t i32() const { MOZ_ASSERT(type_ == ValType::I32); return u.i32_; }
     uint64_t i64() const { MOZ_ASSERT(type_ == ValType::I64); return u.i64_; }
-    RawF32 f32() const { MOZ_ASSERT(type_ == ValType::F32); return u.f32_; }
-    RawF64 f64() const { MOZ_ASSERT(type_ == ValType::F64); return u.f64_; }
+    const float& f32() const { MOZ_ASSERT(type_ == ValType::F32); return u.f32_; }
+    const double& f64() const { MOZ_ASSERT(type_ == ValType::F64); return u.f64_; }
 
     void writePayload(uint8_t* dst) const;
 };
@@ -432,6 +402,39 @@ struct Import
 
 typedef Vector<Import, 0, SystemAllocPolicy> ImportVector;
 
+// Export describes the export of a definition in a Module to a field in the
+// export object. For functions, Export stores an index into the
+// FuncExportVector in Metadata. For memory and table exports, there is
+// at most one (default) memory/table so no index is needed. Note: a single
+// definition can be exported by multiple Exports in the ExportVector.
+//
+// ExportVector is built incrementally by ModuleGenerator and then stored
+// immutably by Module.
+
+class Export
+{
+    CacheableChars fieldName_;
+    struct CacheablePod {
+        DefinitionKind kind_;
+        uint32_t index_;
+    } pod;
+
+  public:
+    Export() = default;
+    explicit Export(UniqueChars fieldName, uint32_t index, DefinitionKind kind);
+    explicit Export(UniqueChars fieldName, DefinitionKind kind);
+
+    const char* fieldName() const { return fieldName_.get(); }
+
+    DefinitionKind kind() const { return pod.kind_; }
+    uint32_t funcIndex() const;
+    uint32_t globalIndex() const;
+
+    WASM_DECLARE_SERIALIZABLE(Export)
+};
+
+typedef Vector<Export, 0, SystemAllocPolicy> ExportVector;
+
 // A GlobalDesc describes a single global variable. Currently, asm.js and wasm
 // exposes mutable and immutable private globals, but can't import nor export
 // mutable globals.
@@ -519,6 +522,26 @@ class GlobalDesc
 };
 
 typedef Vector<GlobalDesc, 0, SystemAllocPolicy> GlobalDescVector;
+
+// ElemSegment represents an element segment in the module where each element
+// describes both its function index and its code range.
+
+struct ElemSegment
+{
+    uint32_t tableIndex;
+    InitExpr offset;
+    Uint32Vector elemFuncIndices;
+    Uint32Vector elemCodeRangeIndices;
+
+    ElemSegment() = default;
+    ElemSegment(uint32_t tableIndex, InitExpr offset, Uint32Vector&& elemFuncIndices)
+      : tableIndex(tableIndex), offset(offset), elemFuncIndices(Move(elemFuncIndices))
+    {}
+
+    WASM_DECLARE_SERIALIZABLE(ElemSegment)
+};
+
+typedef Vector<ElemSegment, 0, SystemAllocPolicy> ElemSegmentVector;
 
 // DataSegment describes the offset of a data segment in the bytecode that is
 // to be copied at a given offset into linear memory upon instantiation.
@@ -716,14 +739,16 @@ struct TrapOffset
 
 class CallSiteDesc
 {
-    uint32_t lineOrBytecode_ : 30;
-    uint32_t kind_ : 2;
+    uint32_t lineOrBytecode_ : 29;
+    uint32_t kind_ : 3;
   public:
     enum Kind {
         Func,      // pc-relative call to a specific function
         Dynamic,   // dynamic callee called via register
         Symbolic,  // call to a single symbolic callee
-        TrapExit   // call to a trap exit
+        TrapExit,   // call to a trap exit
+        EnterFrame, // call to a enter frame handler
+        LeaveFrame  // call to a leave frame handler
     };
     CallSiteDesc() {}
     explicit CallSiteDesc(Kind kind)
@@ -839,6 +864,8 @@ enum class SymbolicAddress
     ContextPtr,
     ReportOverRecursed,
     HandleExecutionInterrupt,
+    HandleDebugTrap,
+    HandleThrow,
     ReportTrap,
     ReportOutOfBounds,
     ReportUnalignedAccess,
@@ -860,6 +887,9 @@ enum class SymbolicAddress
     CurrentMemory,
     Limit
 };
+
+bool
+IsRoundingFunction(SymbolicAddress callee, jit::RoundingMode* mode);
 
 void*
 AddressOf(SymbolicAddress imm, JSContext* cx);
@@ -974,7 +1004,14 @@ struct TlsData
     // stack pointer in the prologue of functions that allocate stack space. See
     // `CodeGenerator::generateWasm`.
     void* stackLimit;
+
+    // The globalArea must be the last field.  Globals for the module start here
+    // and are inline in this structure.  16-byte alignment is required for SIMD
+    // data.
+    MOZ_ALIGNED_DECL(char globalArea, 16);
 };
+
+static_assert(offsetof(TlsData, globalArea) % 16 == 0, "aligned");
 
 typedef int32_t (*ExportFuncPtr)(ExportArg* args, TlsData* tls);
 
@@ -1315,36 +1352,27 @@ struct MemoryPatch
 
 WASM_DECLARE_POD_VECTOR(MemoryPatch, MemoryPatchVector)
 
-// Constants:
+// As an invariant across architectures, within wasm code:
+//   $sp % WasmStackAlignment = (sizeof(wasm::Frame) + masm.framePushed) % WasmStackAlignment
+// Thus, wasm::Frame represents the bytes pushed after the call (which occurred
+// with a WasmStackAlignment-aligned StackPointer) that are not included in
+// masm.framePushed.
 
-static const unsigned NaN64GlobalDataOffset       = 0;
-static const unsigned NaN32GlobalDataOffset       = NaN64GlobalDataOffset + sizeof(double);
-static const unsigned InitialGlobalDataBytes      = NaN32GlobalDataOffset + sizeof(float);
+struct Frame
+{
+    // The caller's saved frame pointer. In non-profiling mode, internal
+    // wasm-to-wasm calls don't update fp and thus don't save the caller's
+    // frame pointer; the space is reserved, however, so that profiling mode can
+    // reuse the same function body without recompiling.
+    uint8_t* callerFP;
 
-static const unsigned MaxSigs                     =        4 * 1024;
-static const unsigned MaxFuncs                    =      512 * 1024;
-static const unsigned MaxGlobals                  =        4 * 1024;
-static const unsigned MaxLocals                   =       64 * 1024;
-static const unsigned MaxImports                  =       64 * 1024;
-static const unsigned MaxExports                  =       64 * 1024;
-static const unsigned MaxTables                   =        4 * 1024;
-static const unsigned MaxTableElems               =     1024 * 1024;
-static const unsigned MaxDataSegments             =       64 * 1024;
-static const unsigned MaxElemSegments             =       64 * 1024;
-static const unsigned MaxArgsPerFunc              =        4 * 1024;
-static const unsigned MaxBrTableElems             = 4 * 1024 * 1024;
+    // The return address pushed by the call (in the case of ARM/MIPS the return
+    // address is pushed by the first instruction of the prologue).
+    void* returnAddress;
+};
 
-// To be able to assign function indices during compilation while the number of
-// imports is still unknown, asm.js sets a maximum number of imports so it can
-// immediately start handing out function indices starting at the maximum + 1.
-// this means that there is a "hole" between the last import and the first
-// definition, but that's fine.
-
-static const unsigned AsmJSMaxImports             = 4 * 1024;
-static const unsigned AsmJSFirstDefFuncIndex      = AsmJSMaxImports + 1;
-
-static_assert(AsmJSMaxImports <= MaxImports, "conservative");
-static_assert(AsmJSFirstDefFuncIndex < MaxFuncs, "conservative");
+static_assert(sizeof(Frame) == 2 * sizeof(void*), "?!");
+static const uint32_t FrameBytesAfterReturnAddress = sizeof(void*);
 
 } // namespace wasm
 } // namespace js

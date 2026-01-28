@@ -13,6 +13,7 @@
 #include "vm/EnvironmentObject.h"
 #include "vm/Runtime.h"
 
+#include "gc/ObjectKind-inl.h"
 #include "vm/Shape-inl.h"
 
 using namespace js;
@@ -74,6 +75,8 @@ js::ScopeKindString(ScopeKind kind)
         return "non-syntactic";
       case ScopeKind::Module:
         return "module";
+      case ScopeKind::WasmFunction:
+        return "wasm function";
     }
     MOZ_CRASH("Bad ScopeKind");
 }
@@ -409,6 +412,10 @@ Scope::clone(JSContext* cx, HandleScope scope, HandleScope enclosing)
         MOZ_CRASH("Use GlobalScope::clone.");
         break;
 
+      case ScopeKind::WasmFunction:
+        MOZ_CRASH("wasm functions are not nested in JSScript");
+        break;
+
       case ScopeKind::Module:
         MOZ_CRASH("NYI");
         break;
@@ -496,6 +503,9 @@ LexicalScope::nextFrameSlot(Scope* scope)
             return 0;
           case ScopeKind::Module:
             return si.scope()->as<ModuleScope>().nextFrameSlot();
+          case ScopeKind::WasmFunction:
+            // TODO return si.scope()->as<WasmFunctionScope>().nextFrameSlot();
+            return 0;
         }
     }
     MOZ_CRASH("Not an enclosing intra-frame Scope");
@@ -989,6 +999,8 @@ GlobalScope::XDR(XDRState<mode>* xdr, ScopeKind kind, MutableHandleScope scope)
         if (mode == XDR_DECODE)
             uniqueData.emplace(cx, data);
 
+        if (!xdr->codeUint32(&data->varStart))
+            return false;
         if (!xdr->codeUint32(&data->letStart))
             return false;
         if (!xdr->codeUint32(&data->constStart))
@@ -996,6 +1008,7 @@ GlobalScope::XDR(XDRState<mode>* xdr, ScopeKind kind, MutableHandleScope scope)
 
         if (mode == XDR_DECODE) {
             if (!data->length) {
+                MOZ_ASSERT(!data->varStart);
                 MOZ_ASSERT(!data->letStart);
                 MOZ_ASSERT(!data->constStart);
             }
@@ -1211,6 +1224,48 @@ ModuleScope::script() const
     return module()->script();
 }
 
+// TODO Check what Debugger behavior should be when it evaluates a
+// var declaration.
+static const uint32_t WasmFunctionEnvShapeFlags =
+    BaseShape::NOT_EXTENSIBLE | BaseShape::DELEGATE;
+
+/* static */ WasmFunctionScope*
+WasmFunctionScope::create(JSContext* cx, WasmInstanceObject* instance, uint32_t funcIndex)
+{
+    // WasmFunctionScope::Data has GCManagedDeletePolicy because it contains a
+    // GCPtr. Destruction of |data| below may trigger calls into the GC.
+    Rooted<WasmFunctionScope*> wasmFunctionScope(cx);
+
+    {
+        // TODO pull the local variable names from the wasm function definition.
+
+        Rooted<UniquePtr<Data>> data(cx, NewEmptyScopeData<WasmFunctionScope>(cx));
+        if (!data)
+            return nullptr;
+
+        Rooted<Scope*> enclosingScope(cx, &cx->global()->emptyGlobalScope());
+
+        data->instance.init(instance);
+        data->funcIndex = funcIndex;
+
+        Scope* scope = Scope::create(cx, ScopeKind::WasmFunction, enclosingScope, /* envShape = */ nullptr);
+        if (!scope)
+            return nullptr;
+
+        wasmFunctionScope = &scope->as<WasmFunctionScope>();
+        wasmFunctionScope->initData(Move(data.get()));
+    }
+
+    return wasmFunctionScope;
+}
+
+/* static */ Shape*
+WasmFunctionScope::getEmptyEnvironmentShape(JSContext* cx)
+{
+    const Class* cls = &WasmFunctionCallObject::class_;
+    return EmptyEnvironmentShape(cx, cls, JSSLOT_FREE(cls), WasmFunctionEnvShapeFlags);
+}
+
 ScopeIter::ScopeIter(JSScript* script)
   : scope_(script->bodyScope())
 { }
@@ -1261,6 +1316,9 @@ BindingIter::BindingIter(Scope* scope)
         break;
       case ScopeKind::Module:
         init(scope->as<ModuleScope>().data());
+        break;
+      case ScopeKind::WasmFunction:
+        init(scope->as<WasmFunctionScope>().data());
         break;
     }
 }
@@ -1392,6 +1450,22 @@ BindingIter::init(ModuleScope::Data& data)
          data.trailingNames.start(), data.length);
 }
 
+void
+BindingIter::init(WasmFunctionScope::Data& data)
+{
+    //            imports - [0, 0)
+    // positional formals - [0, 0)
+    //      other formals - [0, 0)
+    //    top-level funcs - [0, 0)
+    //               vars - [0, 0)
+    //               lets - [0, 0)
+    //             consts - [0, 0)
+    init(0, 0, 0, 0, 0, 0,
+         CanHaveFrameSlots | CanHaveEnvironmentSlots,
+         UINT32_MAX, UINT32_MAX,
+         data.trailingNames.start(), data.length);
+}
+
 PositionalFormalParameterIter::PositionalFormalParameterIter(JSScript* script)
   : BindingIter(script)
 {
@@ -1412,7 +1486,10 @@ js::DumpBindings(JSContext* cx, Scope* scopeArg)
         fprintf(stderr, "%s %s ", BindingKindString(bi.kind()), bytes.ptr());
         switch (bi.location().kind()) {
           case BindingLocation::Kind::Global:
-            fprintf(stderr, "global\n");
+            if (bi.isTopLevelFunction())
+                fprintf(stderr, "global function\n");
+            else
+                fprintf(stderr, "global\n");
             break;
           case BindingLocation::Kind::Argument:
             fprintf(stderr, "arg slot %u\n", bi.location().argumentSlot());

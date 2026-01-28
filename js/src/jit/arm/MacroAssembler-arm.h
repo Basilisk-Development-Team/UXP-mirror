@@ -124,12 +124,10 @@ class MacroAssemblerARM : public Assembler
     void ma_movPatchable(Imm32 imm, Register dest, Assembler::Condition c);
     void ma_movPatchable(ImmPtr imm, Register dest, Assembler::Condition c);
 
+    // To be used with Iter := InstructionIterator or BufferInstructionIterator.
+    template<class Iter>
     static void ma_mov_patch(Imm32 imm, Register dest, Assembler::Condition c,
-                             RelocStyle rs, Instruction* i);
-    static void ma_mov_patch(ImmPtr imm, Register dest, Assembler::Condition c,
-                             RelocStyle rs, Instruction* i);
-
-    Instruction* offsetToInstruction(CodeOffset offs);
+                             RelocStyle rs, Iter iter);
 
     // ALU based ops
     // mov
@@ -375,8 +373,8 @@ class MacroAssemblerARM : public Assembler
     void ma_vsqrt(FloatRegister src, FloatRegister dest, Condition cc = Always);
     void ma_vsqrt_f32(FloatRegister src, FloatRegister dest, Condition cc = Always);
 
-    void ma_vimm(wasm::RawF64 value, FloatRegister dest, Condition cc = Always);
-    void ma_vimm_f32(wasm::RawF32 value, FloatRegister dest, Condition cc = Always);
+    void ma_vimm(double value, FloatRegister dest, Condition cc = Always);
+    void ma_vimm_f32(float value, FloatRegister dest, Condition cc = Always);
 
     void ma_vcmp(FloatRegister src1, FloatRegister src2, Condition cc = Always);
     void ma_vcmp_f32(FloatRegister src1, FloatRegister src2, Condition cc = Always);
@@ -454,6 +452,28 @@ class MacroAssemblerARM : public Assembler
         MOZ_CRASH("Invalid data transfer addressing mode");
     }
 
+    // `outAny` is valid if and only if `out64` == Register64::Invalid().
+    void wasmLoadImpl(const wasm::MemoryAccessDesc& access, Register ptr, Register ptrScratch,
+                      AnyRegister outAny, Register64 out64);
+
+    // `valAny` is valid if and only if `val64` == Register64::Invalid().
+    void wasmStoreImpl(const wasm::MemoryAccessDesc& access, AnyRegister valAny, Register64 val64,
+                       Register ptr, Register ptrScratch);
+
+  protected:
+    // `outAny` is valid if and only if `out64` == Register64::Invalid().
+    void wasmUnalignedLoadImpl(const wasm::MemoryAccessDesc& access, Register ptr, Register ptrScratch,
+                               AnyRegister outAny, Register64 out64, Register tmp1, Register tmp2,
+                               Register tmp3);
+
+    // The value to be stored is in `floatValue` (if not invalid), `val64` (if not invalid),
+    // or in `valOrTmp` (if `floatValue` and `val64` are both invalid).  Note `valOrTmp` must
+    // always be valid.
+    void wasmUnalignedStoreImpl(const wasm::MemoryAccessDesc& access, FloatRegister floatValue,
+                                Register64 val64, Register ptr, Register ptrScratch, Register valOrTmp);
+
+  private:
+
     // Loads `byteSize` bytes, byte by byte, by reading from ptr[offset],
     // applying the indicated signedness (defined by isSigned).
     // - all three registers must be different.
@@ -468,7 +488,6 @@ class MacroAssemblerARM : public Assembler
     // - byteSize can be up to 4 bytes and no more (GPR are 32 bits on ARM).
     void emitUnalignedStore(unsigned byteSize, Register ptr, Register val, unsigned offset = 0);
 
-private:
     // Implementation for transferMultipleByRuns so we can use different
     // iterators for forward/backward traversals. The sign argument should be 1
     // if we traverse forwards, -1 if we traverse backwards.
@@ -792,7 +811,6 @@ class MacroAssemblerARMCompat : public MacroAssemblerARM
     void loadInt32OrDouble(Register base, Register index,
                            FloatRegister dest, int32_t shift = defaultShift);
     void loadConstantDouble(double dp, FloatRegister dest);
-    void loadConstantDouble(wasm::RawF64 dp, FloatRegister dest);
 
     // Treat the value as a boolean, and set condition codes accordingly.
     Condition testInt32Truthy(bool truthy, const ValueOperand& operand);
@@ -804,7 +822,6 @@ class MacroAssemblerARMCompat : public MacroAssemblerARM
     void boolValueToFloat32(const ValueOperand& operand, FloatRegister dest);
     void int32ValueToFloat32(const ValueOperand& operand, FloatRegister dest);
     void loadConstantFloat32(float f, FloatRegister dest);
-    void loadConstantFloat32(wasm::RawF32 f, FloatRegister dest);
 
     void moveValue(const Value& val, Register type, Register data);
 
@@ -1502,13 +1519,11 @@ class MacroAssemblerARMCompat : public MacroAssemblerARM
     }
 
     void loadWasmGlobalPtr(uint32_t globalDataOffset, Register dest) {
-        loadPtr(Address(GlobalReg, globalDataOffset - WasmGlobalRegBias), dest);
+        loadPtr(Address(WasmTlsReg, offsetof(wasm::TlsData, globalArea) + globalDataOffset), dest);
     }
     void loadWasmPinnedRegsFromTls() {
         ScratchRegisterScope scratch(asMasm());
         ma_ldr(Address(WasmTlsReg, offsetof(wasm::TlsData, memoryBase)), HeapReg, scratch);
-        ma_ldr(Address(WasmTlsReg, offsetof(wasm::TlsData, globalData)), GlobalReg, scratch);
-        ma_add(Imm32(WasmGlobalRegBias), GlobalReg, scratch);
     }
 
     // Instrumentation for entering and leaving the profiler.

@@ -42,6 +42,7 @@ using mozilla::DebugOnly;
 using mozilla::Maybe;
 using mozilla::PodCopy;
 using js::frontend::TokenStream;
+using JS::CompileOptions;
 
 using JS::AutoCheckCannotGC;
 
@@ -51,6 +52,7 @@ JS_STATIC_ASSERT(MultilineFlag == JSREG_MULTILINE);
 JS_STATIC_ASSERT(StickyFlag == JSREG_STICKY);
 JS_STATIC_ASSERT(UnicodeFlag == JSREG_UNICODE);
 JS_STATIC_ASSERT(DotAllFlag == JSREG_DOTALL);
+JS_STATIC_ASSERT(HasIndicesFlag == JSREG_HASINDICES);
 
 RegExpObject*
 js::RegExpAlloc(JSContext* cx, NewObjectKind newKind, HandleObject proto /* = nullptr */)
@@ -132,6 +134,10 @@ RegExpObject::getShared(JSContext* cx, Handle<RegExpObject*> regexp,
 /* static */ bool
 RegExpObject::isOriginalFlagGetter(JSNative native, RegExpFlag* mask)
 {
+  if (native == regexp_hasIndices) {
+      *mask = HasIndicesFlag;
+      return true;
+  }
   if (native == regexp_global) {
       *mask = GlobalFlag;
       return true;
@@ -144,16 +150,16 @@ RegExpObject::isOriginalFlagGetter(JSNative native, RegExpFlag* mask)
       *mask = MultilineFlag;
       return true;
   }
+  if (native == regexp_dotAll) {
+      *mask = DotAllFlag;
+      return true;
+  }
   if (native == regexp_sticky) {
       *mask = StickyFlag;
       return true;
   }
   if (native == regexp_unicode) {
       *mask = UnicodeFlag;
-      return true;
-  }
-  if (native == regexp_dotAll) {
-      *mask = DotAllFlag;
       return true;
   }
 
@@ -233,7 +239,7 @@ const Class RegExpObject::protoClass_ = {
 
 RegExpObject*
 RegExpObject::create(JSContext* cx, const char16_t* chars, size_t length, RegExpFlag flags,
-                     const ReadOnlyCompileOptions* options, TokenStream* tokenStream,
+                     const JS::ReadOnlyCompileOptions* options, TokenStream* tokenStream,
                      LifoAlloc& alloc, NewObjectKind newKind)
 {
     RootedAtom source(cx, AtomizeChars(cx, chars, length));
@@ -245,7 +251,7 @@ RegExpObject::create(JSContext* cx, const char16_t* chars, size_t length, RegExp
 
 RegExpObject*
 RegExpObject::create(JSContext* cx, HandleAtom source, RegExpFlag flags,
-                     const ReadOnlyCompileOptions* options, TokenStream* tokenStream,
+                     const JS::ReadOnlyCompileOptions* options, TokenStream* tokenStream,
                      LifoAlloc& alloc, NewObjectKind newKind)
 {
     Maybe<CompileOptions> dummyOptions;
@@ -488,11 +494,15 @@ RegExpObject::toString(JSContext* cx) const
     sb.infallibleAppend('/');
 
     // Steps 5-7.
+    if (hasIndices() && !sb.append('d'))
+        return nullptr;
     if (global() && !sb.append('g'))
         return nullptr;
     if (ignoreCase() && !sb.append('i'))
         return nullptr;
     if (multiline() && !sb.append('m'))
+        return nullptr;
+    if (dotAll() && !sb.append('s'))
         return nullptr;
     if (unicode() && !sb.append('u'))
         return nullptr;
@@ -944,8 +954,22 @@ js::StringHasRegExpMetaChars(JSLinearString* str)
 
 RegExpShared::RegExpShared(JSAtom* source, RegExpFlag flags)
   : source(source), flags(flags), canStringMatch(false), parenCount(0),
-    numNamedCaptures_(0), groupsTemplate_(nullptr)
+    numNamedCaptures_(0), namedCaptureData_(nullptr)
 {}
+
+struct RegExpShared::NamedCaptureData {
+    // per-compartment template cache (optional; you can also skip templates entirely)
+    using GroupsTemplateMap =
+        GCHashMap<JSCompartment*, ReadBarriered<PlainObject*>,
+                  DefaultHasher<JSCompartment*>, SystemAllocPolicy>;
+    GroupsTemplateMap groupsTemplateMap;
+    bool groupsTemplateMapInited;
+
+    Vector<JSAtom*, 0, SystemAllocPolicy> names_;
+    Vector<uint32_t, 0, SystemAllocPolicy> indices_;
+	
+	NamedCaptureData() : groupsTemplateMapInited(false) {}
+};
 
 void
 RegExpShared::traceChildren(JSTracer* trc)
@@ -954,10 +978,21 @@ RegExpShared::traceChildren(JSTracer* trc)
     if (IsMarkingTrace(trc) && trc->runtime()->gc.isShrinkingGC())
         discardJitCode();
 
+    if (namedCaptureData_ && namedCaptureData_->groupsTemplateMapInited) {
+	  for (auto iter = namedCaptureData_->groupsTemplateMap.all(); !iter.empty(); iter.popFront()) {
+        TraceNullableEdge(trc, &iter.front().value(), "RegExpShared groupsTemplate per-compartment");
+      }
+    }
+	
+	if (namedCaptureData_) {
+      for (JSAtom*& atom : namedCaptureData_->names_) {
+        js::TraceManuallyBarrieredEdge(trc, &atom, "RegExpShared namedCaptureName");
+      }
+	}
+
     TraceNullableEdge(trc, &source, "RegExpShared source");
     for (auto& comp : compilationArray)
         TraceNullableEdge(trc, &comp.jitCode, "RegExpShared code");
-    TraceNullableEdge(trc, &groupsTemplate_, "RegExpShared groupsTemplate");
 }
 
 void
@@ -973,6 +1008,10 @@ RegExpShared::discardJitCode()
 void
 RegExpShared::finalize(FreeOp* fop)
 {
+    if (namedCaptureData_) {
+        js_delete(namedCaptureData_);
+        namedCaptureData_ = nullptr;
+    }
     for (auto& comp : compilationArray)
         js_free(comp.byteCode);
     tables.~JitCodeTables();
@@ -992,51 +1031,34 @@ RegExpShared::compile(JSContext* cx, MutableHandleRegExpShared re, HandleLinearS
 /* static */ bool
 RegExpShared::initializeNamedCaptures(JSContext* cx, MutableHandleRegExpShared re, irregexp::CharacterVectorVector* names, irregexp::IntegerVector* indices)
 {
-    MOZ_ASSERT(!re->groupsTemplate_);
     MOZ_ASSERT(names);
     MOZ_ASSERT(indices);
     MOZ_ASSERT(names->length() == indices->length());
 
+    uint32_t n = names->length();
+    re->numNamedCaptures_ = n;
 
-    // The irregexp parser returns named capture information in the form
-    // of two arrays. We create a template object with a property for each
-    // capture name, and store the capture index as Integer in the corresponding value.
-    uint32_t numNamedCaptures = names->length();
-
-    // Create a plain template object.
-    RootedPlainObject templateObject(cx, NewObjectWithGivenProto<PlainObject>(cx, nullptr, TenuredObject));
-    if (!templateObject) {
-        return false;
+    if (!re->namedCaptureData_) {
+        re->namedCaptureData_ = js_new<NamedCaptureData>();
+        if (!re->namedCaptureData_)
+            return false;
     }
 
-    // Create a new group for the template.
-    Rooted<TaggedProto> proto(cx, templateObject->taggedProto());
-    ObjectGroup* group = ObjectGroupCompartment::makeGroup(cx, templateObject->getClass(), proto);
-    if (!group) {
-        return false;
-    }
-    templateObject->setGroup(group);
+    auto* data = re->namedCaptureData_;
+    data->names_.clear();
+    data->indices_.clear();
 
-    // Initialize the properties of the template.
-    RootedId id(cx);
-    for (uint32_t i = 0; i < numNamedCaptures; i++) {
+    if (!data->names_.reserve(n) || !data->indices_.reserve(n))
+        return false;
+
+    for (uint32_t i = 0; i < n; i++) {
         irregexp::CharacterVector* cv = (*names)[i];
-        // Need to explicitly create an Atom (not a String) or it won't get added to the atom table
         JSAtom* atom = AtomizeChars(cx, cv->begin(), cv->length());
-        if (!atom) {
+        if (!atom)
             return false;
-        }
-        id = NameToId(atom->asPropertyName());
-        RootedValue idx(cx, Int32Value((*indices)[i]));
-        if (!NativeDefineProperty(cx, templateObject, id, idx,
-                                  nullptr, nullptr, JSPROP_ENUMERATE)) {
-            return false;
-        }
-        AddTypePropertyId(cx, templateObject, id, TypeSet::Int32Type());
+        data->names_.infallibleAppend(atom);
+        data->indices_.infallibleAppend((*indices)[i]);
     }
-
-    re->groupsTemplate_ = templateObject;
-    re->numNamedCaptures_ = numNamedCaptures;
     return true;
 }
 
@@ -1264,44 +1286,85 @@ RegExpShared::sizeOfExcludingThis(mozilla::MallocSizeOf mallocSizeOf)
 /* RegExpCompartment */
 
 RegExpCompartment::RegExpCompartment(Zone* zone)
-  : matchResultTemplateObject_(nullptr),
+    : perCompartment_(zone),
     optimizableRegExpPrototypeShape_(nullptr),
     optimizableRegExpInstanceShape_(nullptr)
-{}
+{
+  {
+    MOZ_ALWAYS_TRUE(perCompartment_.init(4));
+  }
+}
 
 ArrayObject*
-RegExpCompartment::createMatchResultTemplateObject(JSContext* cx)
+RegExpCompartment::getOrCreateMatchResultTemplateObject(JSContext* cx, ResultTemplateKind kind)
 {
-    MOZ_ASSERT(!matchResultTemplateObject_);
+    JSCompartment* comp = cx->compartment();
+
+    auto p = perCompartment_.lookupForAdd(comp);
+    if (!p) {
+        PerCompartmentData init;
+        if (!perCompartment_.add(p, comp, init))
+            return nullptr;
+    }
+
+    PerCompartmentData& data = p->value();
+    if (data.matchResultTemplateObjects_[kind])
+        return data.matchResultTemplateObjects_[kind];
+
+    return createMatchResultTemplateObject(cx, kind, data);
+}
+
+ArrayObject*
+RegExpCompartment::createMatchResultTemplateObject(JSContext* cx,
+                                                   ResultTemplateKind kind,
+                                                   PerCompartmentData& data)
+{
+    MOZ_ASSERT(!data.matchResultTemplateObjects_[kind]);
 
     /* Create template array object */
     RootedArrayObject templateObject(cx, NewDenseUnallocatedArray(cx, RegExpObject::MaxPairCount,
                                                                   nullptr, TenuredObject));
-    if (!templateObject)
-        return matchResultTemplateObject_; // = nullptr
+    if (!templateObject) {
+        return nullptr;
+    }
 
     // Create a new group for the template.
     Rooted<TaggedProto> proto(cx, templateObject->taggedProto());
     ObjectGroup* group = ObjectGroupCompartment::makeGroup(cx, templateObject->getClass(), proto);
     if (!group)
-        return matchResultTemplateObject_; // = nullptr
+        return nullptr;
     templateObject->setGroup(group);
+	
+
+    if (kind == ResultTemplateKind::Indices) {
+      /* The |indices| array only has a |groups| property. */
+      RootedValue groupsVal(cx, UndefinedValue());
+      if (!NativeDefineProperty(cx, templateObject, cx->names().groups,
+                                    groupsVal, nullptr, nullptr, JSPROP_ENUMERATE)) {
+        return nullptr;
+      }
+      AddTypePropertyId(cx, templateObject, NameToId(cx->names().groups), TypeSet::AnyObjectType());
+      data.matchResultTemplateObjects_[kind].set(templateObject);
+      return data.matchResultTemplateObjects_[kind];
+    }
 
     /* Set dummy index property */
     RootedValue index(cx, Int32Value(0));
     if (!NativeDefineProperty(cx, templateObject, cx->names().index, index, nullptr, nullptr,
                               JSPROP_ENUMERATE))
     {
-        return matchResultTemplateObject_; // = nullptr
+        return nullptr;
     }
+    AddTypePropertyId(cx, templateObject, JSID_VOID, TypeSet::UndefinedType());
 
     /* Set dummy input property */
     RootedValue inputVal(cx, StringValue(cx->runtime()->emptyString));
     if (!NativeDefineProperty(cx, templateObject, cx->names().input, inputVal, nullptr, nullptr,
                               JSPROP_ENUMERATE))
     {
-        return matchResultTemplateObject_; // = nullptr
+        return nullptr;
     }
+    AddTypePropertyId(cx, templateObject, JSID_VOID, TypeSet::StringType());
 
     /* Set dummy groups property */
     RootedValue groupsVal(cx, UndefinedValue());
@@ -1309,25 +1372,72 @@ RegExpCompartment::createMatchResultTemplateObject(JSContext* cx)
           cx, templateObject, cx->names().groups, groupsVal, nullptr, nullptr, JSPROP_ENUMERATE)) {
         return nullptr;
     }
-
-    // Make sure that the properties are in the right slots.
-    DebugOnly<Shape*> shape = templateObject->lastProperty();
-    MOZ_ASSERT(shape->slot() == 2 &&
-               shape->propidRef() == NameToId(cx->names().groups));
-    MOZ_ASSERT(shape->previous()->slot() == 1 &&
-               shape->previous()->propidRef() == NameToId(cx->names().input));
-    MOZ_ASSERT(shape->previous()->previous()->slot() == 0 &&
-               shape->previous()->previous()->propidRef() == NameToId(cx->names().index));
-
-    // Make sure type information reflects the indexed properties which might
-    // be added.
-    AddTypePropertyId(cx, templateObject, JSID_VOID, TypeSet::StringType());
-    AddTypePropertyId(cx, templateObject, JSID_VOID, TypeSet::UndefinedType());
     AddTypePropertyId(cx, templateObject, NameToId(cx->names().groups), TypeSet::AnyObjectType());
 
-    matchResultTemplateObject_.set(templateObject);
+    if (kind == ResultTemplateKind::WithIndices) {
+      /* Set dummy indices property */
+      RootedValue indicesVal(cx, UndefinedValue());
+      if (!NativeDefineProperty(cx, templateObject, cx->names().indices,
+                                    indicesVal, nullptr, nullptr, JSPROP_ENUMERATE)) {
+        return nullptr;
+      }
+      AddTypePropertyId(cx, templateObject, NameToId(cx->names().indices), TypeSet::AnyObjectType());
+    }
 
-    return matchResultTemplateObject_;
+    data.matchResultTemplateObjects_[kind].set(templateObject);
+    return data.matchResultTemplateObjects_[kind];
+}
+
+bool CreateGroupsObjectForMatch(JSContext* cx, RegExpShared* shared,
+                                MutableHandlePlainObject groups);
+
+PlainObject*
+RegExpShared::getOrCreateGroupsTemplate(JSContext* cx)
+{
+    if (!namedCaptureData_ || numNamedCaptures_ == 0)
+        return nullptr;
+
+    NamedCaptureData* data = namedCaptureData_;
+
+    if (!data->groupsTemplateMapInited) {
+        if (!data->groupsTemplateMap.init(4))
+            return nullptr;
+        data->groupsTemplateMapInited = true;
+    }
+
+    JSCompartment* comp = cx->compartment();
+    auto p = data->groupsTemplateMap.lookupForAdd(comp);
+    if (!p) {
+        ReadBarriered<PlainObject*> empty(nullptr);
+        if (!data->groupsTemplateMap.add(p, comp, empty))
+            return nullptr;
+    }
+
+    if (p->value())
+        return p->value();
+
+    RootedPlainObject tmpl(cx, NewObjectWithGivenProto<PlainObject>(cx, nullptr, TenuredObject));
+    if (!tmpl)
+        return nullptr;
+
+    // Define name->index properties from data vectors
+    MOZ_ASSERT(data->names_.length() == numNamedCaptures_);
+    MOZ_ASSERT(data->indices_.length() == numNamedCaptures_);
+
+    RootedId id(cx);
+    for (uint32_t i = 0; i < numNamedCaptures_; i++) {
+        JSAtom* atom = data->names_[i];
+        id = NameToId(atom->asPropertyName());
+
+        RootedValue idx(cx, Int32Value(int32_t(data->indices_[i])));
+        if (!NativeDefineProperty(cx, tmpl, id, idx, nullptr, nullptr, JSPROP_ENUMERATE))
+            return nullptr;
+
+        AddTypePropertyId(cx, tmpl, id, TypeSet::Int32Type());
+    }
+
+    p->value().set(tmpl);
+    return tmpl;
 }
 
 bool
@@ -1342,22 +1452,21 @@ RegExpZone::init()
 void
 RegExpCompartment::sweep(JSRuntime* rt)
 {
-    if (matchResultTemplateObject_ &&
-        IsAboutToBeFinalized(&matchResultTemplateObject_))
-    {
-        matchResultTemplateObject_.set(nullptr);
-    }
+    for (auto iter = perCompartment_.all(); !iter.empty(); iter.popFront()) {
+        PerCompartmentData& data = iter.front().value();
 
-    if (optimizableRegExpPrototypeShape_ &&
-        IsAboutToBeFinalized(&optimizableRegExpPrototypeShape_))
-    {
-        optimizableRegExpPrototypeShape_.set(nullptr);
-    }
+        for (auto& templateObject : data.matchResultTemplateObjects_) {
+            if (templateObject && IsAboutToBeFinalized(&templateObject))
+                templateObject.set(nullptr);
+        }
 
-    if (optimizableRegExpInstanceShape_ &&
-        IsAboutToBeFinalized(&optimizableRegExpInstanceShape_))
-    {
-        optimizableRegExpInstanceShape_.set(nullptr);
+        if (data.optimizableRegExpPrototypeShape_ &&
+            IsAboutToBeFinalized(&data.optimizableRegExpPrototypeShape_))
+            data.optimizableRegExpPrototypeShape_.set(nullptr);
+
+        if (data.optimizableRegExpInstanceShape_ &&
+            IsAboutToBeFinalized(&data.optimizableRegExpInstanceShape_))
+            data.optimizableRegExpInstanceShape_.set(nullptr);
     }
 }
 
@@ -1450,12 +1559,16 @@ ParseRegExpFlags(const CharT* chars, size_t length, RegExpFlag* flagsOut, char16
     for (size_t i = 0; i < length; i++) {
         *lastParsedOut = chars[i];
         switch (chars[i]) {
-          case 'i':
-            if (!HandleRegExpFlag(IgnoreCaseFlag, flagsOut))
+          case 'd':
+            if (!HandleRegExpFlag(HasIndicesFlag, flagsOut))
                 return false;
             break;
           case 'g':
             if (!HandleRegExpFlag(GlobalFlag, flagsOut))
+                return false;
+            break;
+          case 'i':
+            if (!HandleRegExpFlag(IgnoreCaseFlag, flagsOut))
                 return false;
             break;
           case 'm':
@@ -1540,7 +1653,7 @@ js::XDRScriptRegExpObject(XDRState<mode>* xdr, MutableHandle<RegExpObject*> objp
         return false;
     if (mode == XDR_DECODE) {
         RegExpFlag flags = RegExpFlag(flagsword);
-        const ReadOnlyCompileOptions* options = nullptr;
+        const JS::ReadOnlyCompileOptions* options = nullptr;
         if (xdr->hasOptions())
             options = &xdr->options();
         RegExpObject* reobj = RegExpObject::create(xdr->cx(), source, flags,

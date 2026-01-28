@@ -538,7 +538,7 @@ public:
                                  JSFinalizeStatus status,
                                  bool isZoneGC,
                                  void* data);
-    static void WeakPointerZoneGroupCallback(JSContext* cx, void* data);
+    static void WeakPointerZonesCallback(JSContext* cx, void* data);
     static void WeakPointerCompartmentCallback(JSContext* cx, JSCompartment* comp, void* data);
 
     inline void AddVariantRoot(XPCTraceableVariant* variant);
@@ -953,35 +953,13 @@ public:
     static bool
     IsDyingScope(XPCWrappedNativeScope* scope);
 
-    typedef js::HashSet<JS::Heap<JSObject*>,
-                        js::MovableCellHasher<JS::Heap<JSObject*>>,
-                        js::SystemAllocPolicy> DOMExpandoSet;
-
-    bool RegisterDOMExpandoObject(JSObject* expando) {
-        // Expandos are proxy objects, and proxies are always tenured.
-        JS::AssertGCThingMustBeTenured(expando);
-        if (!mDOMExpandoSet) {
-            mDOMExpandoSet = new DOMExpandoSet();
-            if (!mDOMExpandoSet->init(8))
-                return false;
-        }
-        return mDOMExpandoSet->put(JS::Heap<JSObject*>(expando));
-    }
-    void RemoveDOMExpandoObject(JSObject* expando) {
-        if (mDOMExpandoSet) {
-            DOMExpandoSet::Ptr p = mDOMExpandoSet->lookup(JS::Heap<JSObject*>(expando));
-            MOZ_ASSERT(p.found());
-            mDOMExpandoSet->remove(p);
-        }
-    }
-
     typedef js::HashMap<JSAddonId*,
                         nsCOMPtr<nsIAddonInterposition>,
-                        js::PointerHasher<JSAddonId*, 3>,
+                        js::PointerHasher<JSAddonId*>,
                         js::SystemAllocPolicy> InterpositionMap;
 
     typedef js::HashSet<JSAddonId*,
-                        js::PointerHasher<JSAddonId*, 3>,
+                        js::PointerHasher<JSAddonId*>,
                         js::SystemAllocPolicy> AddonSet;
 
     // Gets the appropriate scope object for XBL in this scope. The context
@@ -1067,8 +1045,6 @@ private:
     // If this flag is set, we intercept function calls on vanilla JS function objects
     // from this scope if the caller scope has mInterposition set.
     bool mHasCallInterpositions;
-
-    nsAutoPtr<DOMExpandoSet> mDOMExpandoSet;
 
     JS::WeakMapPtr<JSObject*, JSObject*> mXrayExpandos;
 
@@ -2972,7 +2948,7 @@ nsresult
 GetSandboxMetadata(JSContext* cx, JS::HandleObject sandboxArg,
                    JS::MutableHandleValue rval);
 
-nsresult
+[[nodiscard]] nsresult
 SetSandboxMetadata(JSContext* cx, JS::HandleObject sandboxArg,
                    JS::HandleValue metadata);
 

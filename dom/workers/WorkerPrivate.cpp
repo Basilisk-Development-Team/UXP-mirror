@@ -37,6 +37,7 @@
 #include "ImageContainer.h"
 #include "jsfriendapi.h"
 #include "js/MemoryMetrics.h"
+#include "js/SourceBufferHolder.h"
 #include "mozilla/Assertions.h"
 #include "mozilla/Attributes.h"
 #include "mozilla/ContentEvents.h"
@@ -2418,19 +2419,9 @@ WorkerPrivateParent<Derived>::SetCSPFromHeaderValues(const nsACString& aCSPHeade
   rv = csp->GetAllowsEval(&reportEvalViolations, &evalAllowed);
   NS_ENSURE_SUCCESS(rv, rv);
 
-  // Set ReferrerPolicy, default value is set in GetReferrerPolicy
-  bool hasReferrerPolicy = false;
-  uint32_t rp = mozilla::net::RP_Unset;
-  rv = csp->GetReferrerPolicy(&rp, &hasReferrerPolicy);
-  NS_ENSURE_SUCCESS(rv, rv);
-
   mLoadInfo.mCSP = csp;
   mLoadInfo.mEvalAllowed = evalAllowed;
   mLoadInfo.mReportCSPViolations = reportEvalViolations;
-
-  if (hasReferrerPolicy) {
-    mLoadInfo.mReferrerPolicy = static_cast<net::ReferrerPolicy>(rp);
-  }
 
   return NS_OK;
 }
@@ -3695,16 +3686,6 @@ WorkerLoadInfo::SetPrincipalOnMainThread(nsIPrincipal* aPrincipal,
 
   if (mCSP) {
     mCSP->GetAllowsEval(&mReportCSPViolations, &mEvalAllowed);
-    // Set ReferrerPolicy
-    bool hasReferrerPolicy = false;
-    uint32_t rp = mozilla::net::RP_Unset;
-
-    rv = mCSP->GetReferrerPolicy(&rp, &hasReferrerPolicy);
-    NS_ENSURE_SUCCESS(rv, rv);
-
-    if (hasReferrerPolicy) {
-      mReferrerPolicy = static_cast<net::ReferrerPolicy>(rp);
-    }
   } else {
     mEvalAllowed = true;
     mReportCSPViolations = false;
@@ -3791,7 +3772,7 @@ template <class Derived>
 NS_IMPL_RELEASE_INHERITED(WorkerPrivateParent<Derived>, DOMEventTargetHelper)
 
 template <class Derived>
-NS_INTERFACE_MAP_BEGIN_CYCLE_COLLECTION_INHERITED(WorkerPrivateParent<Derived>)
+NS_INTERFACE_MAP_BEGIN_CYCLE_COLLECTION(WorkerPrivateParent<Derived>)
 NS_INTERFACE_MAP_END_INHERITING(DOMEventTargetHelper)
 
 template <class Derived>
@@ -3824,7 +3805,6 @@ NS_IMPL_CYCLE_COLLECTION_UNLINK_END
 template <class Derived>
 NS_IMPL_CYCLE_COLLECTION_TRACE_BEGIN_INHERITED(WorkerPrivateParent<Derived>,
                                                DOMEventTargetHelper)
-  tmp->AssertIsOnParentThread();
 NS_IMPL_CYCLE_COLLECTION_TRACE_END
 
 #ifdef DEBUG

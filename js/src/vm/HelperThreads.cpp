@@ -11,6 +11,7 @@
 
 #include "jsnativestack.h"
 #include "jsnum.h" // For FIX_FPU()
+#include "js/SourceBufferHolder.h"
 
 #include "builtin/Promise.h"
 #include "frontend/BytecodeCompiler.h"
@@ -21,20 +22,27 @@
 #include "vm/SharedImmutableStringsCache.h"
 #include "vm/Time.h"
 #include "vm/TraceLogging.h"
+#include "vm/Xdr.h"
 
 #include "jscntxtinlines.h"
 #include "jscompartmentinlines.h"
 #include "jsobjinlines.h"
 #include "jsscriptinlines.h"
 
+#include "gc/Iteration-inl.h"
 #include "vm/NativeObject-inl.h"
 
 using namespace js;
 
 using mozilla::ArrayLength;
 using mozilla::DebugOnly;
+using mozilla::Maybe;
 using mozilla::Unused;
 using mozilla::TimeDuration;
+
+using JS::CompileOptions;
+using JS::ReadOnlyCompileOptions;
+using JS::SourceBufferHolder;
 
 namespace js {
 
@@ -146,6 +154,7 @@ GetSelectorRuntime(const CompilationSelector& selector)
     {
         JSRuntime* match(JSScript* script)    { return script->runtimeFromActiveCooperatingThread(); }
         JSRuntime* match(JSCompartment* comp) { return comp->runtimeFromActiveCooperatingThread(); }
+        JSRuntime* match(Zone* zone)          { return zone->runtimeFromActiveCooperatingThread(); }
         JSRuntime* match(ZonesInState zbs)    { return zbs.runtime; }
         JSRuntime* match(JSRuntime* runtime)  { return runtime; }
         JSRuntime* match(AllCompilations all) { return nullptr; }
@@ -163,6 +172,7 @@ JitDataStructuresExist(const CompilationSelector& selector)
     {
         bool match(JSScript* script)    { return !!script->compartment()->jitCompartment(); }
         bool match(JSCompartment* comp) { return !!comp->jitCompartment(); }
+        bool match(Zone* zone)          { return !!zone->jitZone(); }
         bool match(ZonesInState zbs)    { return zbs.runtime->hasJitRuntime(); }
         bool match(JSRuntime* runtime)  { return runtime->hasJitRuntime(); }
         bool match(AllCompilations all) { return true; }
@@ -181,6 +191,7 @@ IonBuilderMatches(const CompilationSelector& selector, jit::IonBuilder* builder)
 
         bool match(JSScript* script)    { return script == builder_->script(); }
         bool match(JSCompartment* comp) { return comp == builder_->script()->compartment(); }
+        bool match(Zone* zone)          { return zone == builder_->script()->zoneFromAnyThread(); }
         bool match(JSRuntime* runtime)  { return runtime == builder_->script()->runtimeFromAnyThread(); }
         bool match(AllCompilations all) { return true; }
         bool match(ZonesInState zbs)    {
@@ -500,6 +511,14 @@ js::CancelOffThreadParses(JSRuntime* rt)
         if (!found)
             break;
     }
+
+#ifdef DEBUG
+    GlobalHelperThreadState::ParseTaskVector& worklist = HelperThreadState().parseWorklist(lock);
+    for (size_t i = 0; i < worklist.length(); i++) {
+        ParseTask* task = worklist[i];
+        MOZ_ASSERT(!task->runtimeMatches(rt));
+    }
+#endif
 }
 
 bool
@@ -553,8 +572,29 @@ EnsureParserCreatedClasses(JSContext* cx, ParseTaskKind kind)
     return true;
 }
 
+class AutoClearUsedByHelperThread
+{
+    ZoneGroup* group;
+
+  public:
+    AutoClearUsedByHelperThread(JSObject* global)
+      : group(global->zone()->group())
+    {}
+
+    void forget() {
+        group = nullptr;
+    }
+
+    ~AutoClearUsedByHelperThread() {
+        if (group)
+            group->clearUsedByHelperThread();
+    }
+};
+
 static JSObject*
-CreateGlobalForOffThreadParse(JSContext* cx, ParseTaskKind kind, const gc::AutoSuppressGC& nogc)
+CreateGlobalForOffThreadParse(JSContext* cx, ParseTaskKind kind,
+                              Maybe<AutoClearUsedByHelperThread>& clearUseGuard,
+                              const gc::AutoSuppressGC& nogc)
 {
     JSCompartment* currentCompartment = cx->compartment();
 
@@ -577,6 +617,12 @@ CreateGlobalForOffThreadParse(JSContext* cx, ParseTaskKind kind, const gc::AutoS
 
     JS_SetCompartmentPrincipals(global->compartment(), currentCompartment->principals());
 
+    // Mark this zone group as created for a helper thread. This prevents it
+    // from being collected until clearUsedByHelperThread() is called.
+     ZoneGroup* group = global->zone()->group();
+     group->setCreatedForHelperThread();
+     clearUseGuard.emplace(global);
+
     // Initialize all classes required for parsing while still on the active
     // thread, for both the target and the new global so that prototype
     // pointers can be changed infallibly after parsing finishes.
@@ -594,19 +640,18 @@ CreateGlobalForOffThreadParse(JSContext* cx, ParseTaskKind kind, const gc::AutoS
 static bool
 QueueOffThreadParseTask(JSContext* cx, ParseTask* task)
 {
-    if (OffThreadParsingMustWaitForGC(cx->runtime())) {
-        AutoLockHelperThreadState lock;
-        if (!HelperThreadState().parseWaitingOnGC(lock).append(task)) {
-            ReportOutOfMemory(cx);
-            return false;
-        }
-    } else {
-        AutoLockHelperThreadState lock;
-        if (!HelperThreadState().parseWorklist(lock).append(task)) {
-            ReportOutOfMemory(cx);
-            return false;
-        }
+    AutoLockHelperThreadState lock;
 
+    bool mustWait = OffThreadParsingMustWaitForGC(cx->runtime());
+ 
+    auto& queue = mustWait ? HelperThreadState().parseWaitingOnGC(lock)
+                           : HelperThreadState().parseWorklist(lock);
+    if (!queue.append(task)) {
+        ReportOutOfMemory(cx);
+        return false;
+    }
+
+    if (!mustWait) {
         task->activate(cx->runtime());
         HelperThreadState().notifyOne(GlobalHelperThreadState::PRODUCER, lock);
     }
@@ -622,10 +667,11 @@ StartOffThreadParseTask(JSContext* cx, const ReadOnlyCompileOptions& options,
     // Suppress GC so that calls below do not trigger a new incremental GC
     // which could require barriers on the atoms compartment.
     gc::AutoSuppressGC nogc(cx);
-    gc::AutoAssertNoNurseryAlloc noNurseryAlloc;
+    gc::AutoSuppressNurseryCellAlloc noNurseryAlloc(cx);
     AutoSuppressAllocationMetadataBuilder suppressMetadata(cx);
 
-    JSObject* global = CreateGlobalForOffThreadParse(cx, kind, nogc);
+    Maybe<AutoClearUsedByHelperThread> clearUseGuard;
+    JSObject* global = CreateGlobalForOffThreadParse(cx, kind, clearUseGuard, nogc);
     if (!global)
         return false;
 
@@ -637,6 +683,7 @@ StartOffThreadParseTask(JSContext* cx, const ReadOnlyCompileOptions& options,
         return false;
 
     task.forget();
+    clearUseGuard->forget();
 
     return true;
 }
@@ -690,7 +737,7 @@ js::EnqueuePendingParseTasksAfterGC(JSRuntime* rt)
 
         for (size_t i = 0; i < waiting.length(); i++) {
             ParseTask* task = waiting[i];
-            if (task->runtimeMatches(rt) && !task->parseGlobal->zone()->wasGCStarted()) {
+            if (task->runtimeMatches(rt)) {
                 AutoEnterOOMUnsafeRegion oomUnsafe;
                 if (!newTasks.append(task))
                     oomUnsafe.crash("EnqueuePendingParseTasksAfterGC");
@@ -702,8 +749,8 @@ js::EnqueuePendingParseTasksAfterGC(JSRuntime* rt)
     if (newTasks.empty())
         return;
 
-    // This logic should mirror the contents of the !activeGCInAtomsZone()
-    // branch in StartOffThreadParseScript:
+    // This logic should mirror the contents of the
+    // !OffThreadParsingMustWaitForGC() branch in QueueOffThreadParseTask:
 
     for (size_t i = 0; i < newTasks.length(); i++)
         newTasks[i]->activate(rt);
@@ -1105,7 +1152,7 @@ js::GCParallelTask::~GCParallelTask()
     // base class can't ensure that the task is done using the members. All we
     // can do now is check that someone has previously stopped the task.
 #ifdef DEBUG
-    mozilla::Maybe<AutoLockHelperThreadState> helperLock;
+    Maybe<AutoLockHelperThreadState> helperLock;
     if (!HelperThreadState().isLockedByCurrentThread())
         helperLock.emplace();
     MOZ_ASSERT(state == NotStarted);
@@ -1450,11 +1497,12 @@ HelperThread::handleWasmWorkload(AutoLockHelperThreadState& locked)
 
     currentTask.emplace(HelperThreadState().wasmWorklist(locked).popCopy());
     bool success = false;
+    UniqueChars error;
 
     wasm::CompileTask* task = wasmTask();
     {
         AutoUnlockHelperThreadState unlock(locked);
-        success = wasm::CompileFunction(task);
+        success = wasm::CompileFunction(task, &error);
     }
 
     // On success, try to move work to the finished list.
@@ -1462,8 +1510,10 @@ HelperThread::handleWasmWorkload(AutoLockHelperThreadState& locked)
         success = HelperThreadState().wasmFinishedList(locked).append(task);
 
     // On failure, note the failure for harvesting by the parent.
-    if (!success)
+    if (!success) {
         HelperThreadState().noteWasmFailure(locked);
+        HelperThreadState().setWasmError(locked, Move(error));
+	}
 
     // Notify the active thread in case it's waiting.
     HelperThreadState().notifyAll(GlobalHelperThreadState::CONSUMER, locked);
@@ -1769,8 +1819,13 @@ js::StartPromiseTask(JSContext* cx, UniquePtr<PromiseTask> task)
 }
 
 void
-GlobalHelperThreadState::trace(JSTracer* trc)
-{
+GlobalHelperThreadState::trace(JSTracer* trc, gc::AutoTraceSession& session)
+ {
+    // There's an assertion that requires the exclusive access lock when tracing
+    // atoms (see AtomIsPinnedInRuntime). Due to mutex ordering requirements we
+    // need to take that lock before the helper thread lock, if we don't have it
+    // already.
+
     AutoLockHelperThreadState lock;
     for (auto builder : ionWorklist(lock))
         builder->trace(trc);
@@ -1823,7 +1878,13 @@ HelperThread::handleGCHelperWorkload(AutoLockHelperThreadState& locked)
 void
 JSContext::setHelperThread(HelperThread* thread)
 {
+    if (helperThread_)
+        nurserySuppressions_--;
+
     helperThread_ = thread;
+
+    if (helperThread_)
+        nurserySuppressions_++;
 }
 
 void

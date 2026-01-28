@@ -69,7 +69,7 @@ class IonBuilder
 
     JSFunction* getSingleCallTarget(TemporaryTypeSet* calleeTypes);
     AbortReasonOr<Ok> getPolyCallTargets(TemporaryTypeSet* calleeTypes, bool constructing,
-                                         ObjectVector& targets, uint32_t maxTargets);
+                                         InliningTargets& targets, uint32_t maxTargets);
 
     AbortReasonOr<Ok> analyzeNewLoopTypes(const CFGBlock* loopEntryBlock);
 
@@ -618,7 +618,7 @@ class IonBuilder
     // Oracles.
     InliningDecision canInlineTarget(JSFunction* target, CallInfo& callInfo);
     InliningDecision makeInliningDecision(JSObject* target, CallInfo& callInfo);
-    AbortReasonOr<Ok> selectInliningTargets(const ObjectVector& targets, CallInfo& callInfo,
+    AbortReasonOr<Ok> selectInliningTargets(const InliningTargets& targets, CallInfo& callInfo,
                                             BoolVector& choiceSet, uint32_t* numInlineable);
 
     // Native inlining helpers.
@@ -758,8 +758,8 @@ class IonBuilder
     InliningResult inlineSingleCall(CallInfo& callInfo, JSObject* target);
 
     // Call functions
-    InliningResult inlineCallsite(const ObjectVector& targets, CallInfo& callInfo);
-    AbortReasonOr<Ok> inlineCalls(CallInfo& callInfo, const ObjectVector& targets,
+    InliningResult inlineCallsite(const InliningTargets& targets, CallInfo& callInfo);
+    AbortReasonOr<Ok> inlineCalls(CallInfo& callInfo, const InliningTargets& targets,
                                   BoolVector& choiceSet, MGetPropertyCache* maybeCache);
 
     // Inlining helpers.
@@ -1044,9 +1044,10 @@ class IonBuilder
     // Has an iterator other than 'for in'.
     bool nonStringIteration_;
 
-    // If this script can use a lazy arguments object, it will be pre-created
-    // here.
-    MInstruction* lazyArguments_;
+#ifdef DEBUG
+    // If this script uses the lazy arguments object.
+    bool hasLazyArguments_;
+#endif
 
     // If this is an inline builder, the call info for the builder.
     const CallInfo* inlineCallInfo_;

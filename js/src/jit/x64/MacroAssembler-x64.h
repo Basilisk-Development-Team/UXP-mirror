@@ -6,6 +6,7 @@
 #ifndef jit_x64_MacroAssembler_x64_h
 #define jit_x64_MacroAssembler_x64_h
 
+#include "vm/BigIntType.h"
 #include "jit/JitFrames.h"
 #include "jit/MoveResolver.h"
 #include "jit/x86-shared/MacroAssembler-x86-shared.h"
@@ -582,6 +583,9 @@ class MacroAssemblerX64 : public MacroAssemblerX86Shared
     void loadPtr(const Address& address, Register dest) {
         movq(Operand(address), dest);
     }
+    void load64(const Address& address, Register dest) {
+        movq(Operand(address), dest);
+    }
     void loadPtr(const Operand& src, Register dest) {
         movq(src, dest);
     }
@@ -625,6 +629,9 @@ class MacroAssemblerX64 : public MacroAssemblerX86Shared
         movq(scratch, Operand(address));
     }
     void storePtr(Register src, const Address& address) {
+        movq(src, Operand(address));
+    }
+    void store64(Register src, const Address& address) {
         movq(src, Operand(address));
     }
     void storePtr(Register src, const BaseIndex& address) {
@@ -879,8 +886,6 @@ class MacroAssemblerX64 : public MacroAssemblerX86Shared
 
     void loadConstantDouble(double d, FloatRegister dest);
     void loadConstantFloat32(float f, FloatRegister dest);
-    void loadConstantDouble(wasm::RawF64 d, FloatRegister dest);
-    void loadConstantFloat32(wasm::RawF32 f, FloatRegister dest);
 
     void loadConstantSimd128Int(const SimdConstant& v, FloatRegister dest);
     void loadConstantSimd128Float(const SimdConstant& v, FloatRegister dest);
@@ -902,8 +907,7 @@ class MacroAssemblerX64 : public MacroAssemblerX86Shared
                                      Label* oolRejoin, FloatRegister tempDouble);
 
     void loadWasmGlobalPtr(uint32_t globalDataOffset, Register dest) {
-        CodeOffset label = loadRipRelativeInt64(dest);
-        append(wasm::GlobalAccess(label, globalDataOffset));
+        loadPtr(Address(WasmTlsReg, offsetof(wasm::TlsData, globalArea) + globalDataOffset), dest);
     }
     void loadWasmPinnedRegsFromTls() {
         loadPtr(Address(WasmTlsReg, offsetof(wasm::TlsData, memoryBase)), HeapReg);

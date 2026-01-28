@@ -36,11 +36,11 @@
 #include "frontend/BytecodeCompiler.h"
 #include "frontend/BytecodeEmitter.h"
 #include "frontend/SharedContext.h"
-#include "gc/Marking.h"
 #include "jit/BaselineJIT.h"
 #include "jit/Ion.h"
 #include "jit/IonCode.h"
 #include "js/MemoryMetrics.h"
+#include "js/SourceBufferHolder.h"
 #include "js/Utility.h"
 #include "vm/ArgumentsObject.h"
 #include "vm/Compression.h"
@@ -55,6 +55,7 @@
 #include "jsfuninlines.h"
 #include "jsobjinlines.h"
 
+#include "gc/Marking-inl.h"
 #include "vm/EnvironmentObject-inl.h"
 #include "vm/NativeObject-inl.h"
 #include "vm/SharedImmutableStringsCache-inl.h"
@@ -68,6 +69,10 @@ using mozilla::AsVariant;
 using mozilla::PodCopy;
 using mozilla::PodZero;
 using mozilla::RotateLeft;
+
+using JS::CompileOptions;
+using JS::ReadOnlyCompileOptions;
+using JS::SourceBufferHolder;
 
 template<XDRMode mode>
 bool
@@ -825,6 +830,9 @@ js::XDRScript(XDRState<mode>* xdr, HandleScope scriptEnclosingScope,
                 break;
               case ScopeKind::Module:
                 MOZ_CRASH("NYI");
+                break;
+              case ScopeKind::WasmFunction:
+                MOZ_CRASH("wasm functions cannot be nested in JSScripts");
                 break;
               default:
                 // Fail in debug, but only soft-fail in release
@@ -2536,7 +2544,7 @@ JSScript::shareScriptData(JSContext* cx)
     MOZ_ASSERT(ssd);
     MOZ_ASSERT(ssd->refCount() == 1);
 
-    AutoLockForExclusiveAccess lock(cx);
+    AutoLockScriptData lock(cx->runtime());
 
     ScriptBytecodeHasher::Lookup l(ssd);
 
@@ -2561,11 +2569,12 @@ JSScript::shareScriptData(JSContext* cx)
 }
 
 void
-js::SweepScriptData(JSRuntime* rt, AutoLockForExclusiveAccess& lock)
+js::SweepScriptData(JSRuntime* rt)
 {
     // Entries are removed from the table when their reference count is one,
     // i.e. when the only reference to them is from the table entry.
 
+    AutoLockScriptData lock(rt);
     ScriptDataTable& table = rt->scriptDataTable(lock);
 
     for (ScriptDataTable::Enum e(table); !e.empty(); e.popFront()) {
@@ -2578,8 +2587,9 @@ js::SweepScriptData(JSRuntime* rt, AutoLockForExclusiveAccess& lock)
 }
 
 void
-js::FreeScriptData(JSRuntime* rt, AutoLockForExclusiveAccess& lock)
+js::FreeScriptData(JSRuntime* rt)
 {
+    AutoLockScriptData lock(rt);
     ScriptDataTable& table = rt->scriptDataTable(lock);
     if (!table.initialized())
         return;
@@ -3508,7 +3518,7 @@ js::detail::CopyScript(JSContext* cx, HandleScript src, HandleScript dst,
     /* NB: Keep this in sync with XDRScript. */
 
     /* Some embeddings are not careful to use ExposeObjectToActiveJS as needed. */
-    MOZ_ASSERT(!src->sourceObject()->asTenured().isMarked(gc::GRAY));
+    MOZ_ASSERT(!src->sourceObject()->isMarkedGray());
 
     uint32_t nconsts   = src->hasConsts()   ? src->consts()->length   : 0;
     uint32_t nobjects  = src->hasObjects()  ? src->objects()->length  : 0;
@@ -4257,24 +4267,27 @@ JSScript::argumentsOptimizationFailed(JSContext* cx, HandleScript script)
      *    assumption of !script->needsArgsObj();
      *  - type inference data for the script assuming script->needsArgsObj
      */
-    for (AllScriptFramesIter i(cx); !i.done(); ++i) {
-        /*
-         * We cannot reliably create an arguments object for Ion activations of
-         * this script.  To maintain the invariant that "script->needsArgsObj
-         * implies fp->hasArgsObj", the Ion bail mechanism will create an
-         * arguments object right after restoring the BaselineFrame and before
-         * entering Baseline code (in jit::FinishBailoutToBaseline).
-         */
-        if (i.isIon())
-            continue;
-        AbstractFramePtr frame = i.abstractFramePtr();
-        if (frame.isFunctionFrame() && frame.script() == script) {
-            /* We crash on OOM since cleaning up here would be complicated. */
-            AutoEnterOOMUnsafeRegion oomUnsafe;
-            ArgumentsObject* argsobj = ArgumentsObject::createExpected(cx, frame);
-            if (!argsobj)
-                oomUnsafe.crash("JSScript::argumentsOptimizationFailed");
-            SetFrameArgumentsObject(cx, frame, script, argsobj);
+    JSRuntime::AutoProhibitActiveContextChange apacc(cx->runtime());
+    for (const CooperatingContext& target : cx->runtime()->cooperatingContexts()) {
+        for (AllScriptFramesIter i(cx, target); !i.done(); ++i) {
+            /*
+             * We cannot reliably create an arguments object for Ion activations of
+             * this script.  To maintain the invariant that "script->needsArgsObj
+             * implies fp->hasArgsObj", the Ion bail mechanism will create an
+             * arguments object right after restoring the BaselineFrame and before
+             * entering Baseline code (in jit::FinishBailoutToBaseline).
+             */
+            if (i.isIon())
+                continue;
+            AbstractFramePtr frame = i.abstractFramePtr();
+            if (frame.isFunctionFrame() && frame.script() == script) {
+                /* We crash on OOM since cleaning up here would be complicated. */
+                AutoEnterOOMUnsafeRegion oomUnsafe;
+                ArgumentsObject* argsobj = ArgumentsObject::createExpected(cx, frame);
+                if (!argsobj)
+                    oomUnsafe.crash("JSScript::argumentsOptimizationFailed");
+                SetFrameArgumentsObject(cx, frame, script, argsobj);
+            }
         }
     }
 

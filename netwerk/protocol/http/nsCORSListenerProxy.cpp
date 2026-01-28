@@ -53,6 +53,7 @@ using namespace mozilla;
 
 static bool gDisableCORS = false;
 static bool gDisableCORSPrivateData = false;
+static bool gBypassCORSPreflightRequest = false;
 
 static void
 LogBlockedRequest(nsIRequest* aRequest,
@@ -214,15 +215,18 @@ static bool EnsurePreflightCache()
 void
 nsPreflightCache::CacheEntry::PurgeExpired(TimeStamp now)
 {
-  uint32_t i;
-  for (i = 0; i < mMethods.Length(); ++i) {
+  for (uint32_t i = 0, len = mMethods.Length(); i < len; ++i) {
     if (now >= mMethods[i].expirationTime) {
-      mMethods.RemoveElementAt(i--);
+      mMethods.UnorderedRemoveElementAt(i);
+      --i; // Examine the element again, if necessary.
+      --len;
     }
   }
-  for (i = 0; i < mHeaders.Length(); ++i) {
+  for (uint32_t i = 0, len = mHeaders.Length(); i < len; ++i) {
     if (now >= mHeaders[i].expirationTime) {
-      mHeaders.RemoveElementAt(i--);
+      mHeaders.UnorderedRemoveElementAt(i);
+      --i; // Examine the element again, if necessary.
+      --len;
     }
   }
 }
@@ -234,25 +238,26 @@ nsPreflightCache::CacheEntry::CheckRequest(const nsCString& aMethod,
   PurgeExpired(TimeStamp::NowLoRes());
 
   if (!aMethod.EqualsLiteral("GET") && !aMethod.EqualsLiteral("POST")) {
-    uint32_t i;
-    for (i = 0; i < mMethods.Length(); ++i) {
-      if (aMethod.Equals(mMethods[i].token))
-        break;
-    }
-    if (i == mMethods.Length()) {
+    struct CheckToken {
+      bool Equals(const TokenTime& e, const nsCString& method) const {
+        return e.token.Equals(method);
+      }
+    };
+
+    if (!mMethods.Contains(aMethod, CheckToken())) {
       return false;
     }
   }
 
-  for (uint32_t i = 0; i < aHeaders.Length(); ++i) {
-    uint32_t j;
-    for (j = 0; j < mHeaders.Length(); ++j) {
-      if (aHeaders[i].Equals(mHeaders[j].token,
-                             nsCaseInsensitiveCStringComparator())) {
-        break;
-      }
+  struct CheckHeaderToken {
+    bool Equals(const TokenTime& e, const nsCString& header) const {
+      return e.token.Equals(header, comparator);
     }
-    if (j == mHeaders.Length()) {
+
+    const nsCaseInsensitiveCStringComparator comparator;
+  } checker;
+  for (uint32_t i = 0; i < aHeaders.Length(); ++i) {
+    if (!mHeaders.Contains(aHeaders[i], checker)) {
       return false;
     }
   }
@@ -414,6 +419,8 @@ nsCORSListenerProxy::Startup()
                                "content.cors.disable");
   Preferences::AddBoolVarCache(&gDisableCORSPrivateData,
                                "content.cors.no_private_data");
+  Preferences::AddBoolVarCache(&gBypassCORSPreflightRequest,
+                               "content.cors.bypass_preflight_request");
 }
 
 /* static */
@@ -543,6 +550,9 @@ nsCORSListenerProxy::CheckRequestApproved(nsIRequest* aRequest)
   }
 
   if (gDisableCORS) {
+    if (gBypassCORSPreflightRequest) {
+      return NS_OK;
+    }
     LogBlockedRequest(aRequest, "CORSDisabled", nullptr);
     return NS_ERROR_DOM_BAD_URI;
   }
@@ -550,8 +560,13 @@ nsCORSListenerProxy::CheckRequestApproved(nsIRequest* aRequest)
   // Check if the request failed
   nsresult status;
   nsresult rv = aRequest->GetStatus(&status);
-  NS_ENSURE_SUCCESS(rv, rv);
-  NS_ENSURE_SUCCESS(status, status);
+  if (NS_FAILED(rv)) {
+    return rv;
+  }
+
+  if (NS_FAILED(status)) {
+    return status;
+  }
 
   // Test that things worked on a HTTP level
   nsCOMPtr<nsIHttpChannel> http = do_QueryInterface(aRequest);
@@ -1371,8 +1386,8 @@ nsCORSPreflightListener::CheckPreflightRequestApproved(nsIRequest* aRequest)
         ) {
       continue;
     }
-    if (!headers.Contains(mPreflightHeaders[i],
-                          nsCaseInsensitiveCStringArrayComparator())) {
+    const auto& comparator = nsCaseInsensitiveCStringArrayComparator();
+    if (!headers.Contains(mPreflightHeaders[i], comparator)) {
       LogBlockedRequest(aRequest, "CORSMissingAllowHeaderFromPreflight",
                         NS_ConvertUTF8toUTF16(mPreflightHeaders[i]).get());
       return NS_ERROR_DOM_BAD_URI;
@@ -1413,6 +1428,10 @@ nsCORSListenerProxy::StartCORSPreflight(nsIChannel* aRequestChannel,
   *aPreflightChannel = nullptr;
 
   if (gDisableCORS) {
+    if (gBypassCORSPreflightRequest) {
+      aCallback->OnPreflightSucceeded();
+      return NS_OK;
+    }
     LogBlockedRequest(aRequestChannel, "CORSDisabled", nullptr);
     return NS_ERROR_DOM_BAD_URI;
   }

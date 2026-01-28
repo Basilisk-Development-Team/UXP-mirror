@@ -538,19 +538,17 @@ Number(JSContext* cx, unsigned argc, Value* vp)
 {
     CallArgs args = CallArgsFromVp(argc, vp);
 
-    /* Sample JS_CALLEE before clobbering. */
-    bool isConstructing = args.isConstructing();
-
     if (args.length() > 0) {
         // BigInt proposal section 6.2, steps 2a-c.
         if (!ToNumeric(cx, args[0]))
             return false;
+
         if (args[0].isBigInt())
             args[0].setNumber(BigInt::numberValue(args[0].toBigInt()));
         MOZ_ASSERT(args[0].isNumber());
     }
 
-    if (!isConstructing) {
+    if (!args.isConstructing()) {
         if (args.length() > 0) {
             args.rval().set(args[0]);
         } else {
@@ -559,9 +557,8 @@ Number(JSContext* cx, unsigned argc, Value* vp)
         return true;
     }
 
-    RootedObject newTarget(cx, &args.newTarget().toObject());
     RootedObject proto(cx);
-    if (!GetPrototypeFromConstructor(cx, newTarget, &proto))
+    if (!GetPrototypeFromBuiltinConstructor(cx, args, &proto))
         return false;
 
     double d = args.length() > 0 ? args[0].toNumber() : 0;
@@ -868,7 +865,7 @@ num_toFixed_impl(JSContext* cx, const CallArgs& args)
         if (!ToInteger(cx, args[0], &prec))
             return false;
 
-        if (!ComputePrecisionInRange(cx, -20, MAX_PRECISION, prec, &precision))
+        if (!ComputePrecisionInRange(cx, 0, MAX_PRECISION, prec, &precision))
             return false;
     }
 
@@ -1721,8 +1718,9 @@ js::ToLengthClamped(JSContext* cx, HandleValue v, uint32_t* out, bool* overflow)
     return true;
 }
 
+//Non-standard: Used by Atomics.
 bool
-js::ToIntegerIndex(JSContext* cx, JS::HandleValue v, uint64_t* index)
+js::NonStandardToIndex(JSContext* cx, HandleValue v, uint64_t* index)
 {
     // Fast common case.
     if (v.isInt32()) {
@@ -1772,7 +1770,7 @@ js::ToIntegerIndex(JSContext* cx, JS::HandleValue v, uint64_t* index)
 
 // ES2017 draft 7.1.17 ToIndex
 bool
-js::ToIndex(JSContext* cx, JS::HandleValue v, uint64_t* index)
+js::ToIndex(JSContext* cx, JS::HandleValue v, const unsigned errorNumber, uint64_t* index)
 {
     // Step 1.
     if (v.isUndefined()) {
@@ -1790,13 +1788,19 @@ js::ToIndex(JSContext* cx, JS::HandleValue v, uint64_t* index)
     // 2. Step eliminates < 0, +0 == -0 with SameValueZero.
     // 3/4. Limit to <= 2^53-1, so everything above should fail.
     if (integerIndex < 0 || integerIndex >= DOUBLE_INTEGRAL_PRECISION_LIMIT) {
-        JS_ReportErrorNumberASCII(cx, GetErrorMessage, nullptr, JSMSG_BAD_INDEX);
+        JS_ReportErrorNumberASCII(cx, GetErrorMessage, nullptr, errorNumber);
         return false;
     }
 
     // Step 3.
     *index = uint64_t(integerIndex);
     return true;
+}
+
+bool
+js::ToIndex(JSContext* cx, JS::HandleValue v, uint64_t* index)
+{
+    return ToIndex(cx, v, JSMSG_BAD_INDEX, index);
 }
 
 template <typename CharT>

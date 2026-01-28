@@ -13,6 +13,7 @@
 #include "jsopcode.h"
 #include "jsutil.h"
 
+#include "gc/DeletePolicy.h"
 #include "gc/Heap.h"
 #include "gc/Policy.h"
 #include "js/UbiNode.h"
@@ -71,7 +72,10 @@ enum class ScopeKind : uint8_t
     NonSyntactic,
 
     // ModuleScope
-    Module
+    Module,
+
+    // WasmFunctionScope
+    WasmFunction
 };
 
 static inline bool
@@ -247,7 +251,14 @@ class Scope : public js::gc::TenuredCell
     friend class GCMarker;
 
     // The kind determines data_.
-    ScopeKind kind_;
+    //
+    // The memory here must be fully initialized, since otherwise the magic_
+    // value for gc::RelocationOverlay will land in the padding and may be
+    // stale.
+    union {
+        ScopeKind kind_;
+        uintptr_t paddedKind_;
+    };
 
     // The enclosing scope or nullptr.
     GCPtrScope enclosing_;
@@ -260,11 +271,13 @@ class Scope : public js::gc::TenuredCell
     uintptr_t data_;
 
     Scope(ScopeKind kind, Scope* enclosing, Shape* environmentShape)
-      : kind_(kind),
-        enclosing_(enclosing),
+      : enclosing_(enclosing),
         environmentShape_(environmentShape),
         data_(0)
-    { }
+    {
+        paddedKind_ = 0;
+        kind_ = kind;
+    }
 
     static Scope* create(JSContext* cx, ScopeKind kind, HandleScope enclosing,
                          HandleShape envShape);
@@ -995,6 +1008,60 @@ class ModuleScope : public Scope
     static Shape* getEmptyEnvironmentShape(JSContext* cx);
 };
 
+// Scope corresponding to the wasm function. A WasmFunctionScope is used by
+// Debugger only, and not for wasm execution.
+//
+class WasmFunctionScope : public Scope
+{
+    friend class BindingIter;
+    friend class Scope;
+    static const ScopeKind classScopeKind_ = ScopeKind::WasmFunction;
+
+  public:
+    struct Data
+    {
+        uint32_t length= 0;
+        uint32_t nextFrameSlot= 0;
+        uint32_t funcIndex= 0;
+
+        // The wasm instance of the scope.
+        GCPtr<WasmInstanceObject*> instance = {};
+
+        TrailingNamesArray trailingNames;
+
+        explicit Data(size_t nameCount) : trailingNames(nameCount) {}
+        Data() = delete;
+
+        void trace(JSTracer* trc);
+    };
+
+    static WasmFunctionScope* create(JSContext* cx, WasmInstanceObject* instance, uint32_t funcIndex);
+
+    static size_t sizeOfData(uint32_t length) {
+        return sizeof(Data) + (length ? length - 1 : 0) * sizeof(BindingName);
+    }
+
+  private:
+    Data& data() {
+        return *reinterpret_cast<Data*>(data_);
+    }
+
+    const Data& data() const {
+        return *reinterpret_cast<Data*>(data_);
+    }
+
+  public:
+    WasmInstanceObject* instance() const {
+        return data().instance;
+    }
+
+    uint32_t funcIndex() const {
+        return data().funcIndex;
+    }
+
+    static Shape* getEmptyEnvironmentShape(JSContext* cx);
+};
+
 //
 // An iterator for a Scope's bindings. This is the source of truth for frame
 // and environment object layout.
@@ -1104,6 +1171,7 @@ class BindingIter
     void init(GlobalScope::Data& data);
     void init(EvalScope::Data& data, bool strict);
     void init(ModuleScope::Data& data);
+    void init(WasmFunctionScope::Data& data);
 
     bool hasFormalParameterExprs() const {
         return flags_ & HasFormalParameterExprs;
@@ -1173,6 +1241,10 @@ class BindingIter
     }
 
     explicit BindingIter(ModuleScope::Data& data) {
+        init(data);
+    }
+
+    explicit BindingIter(WasmFunctionScope::Data& data) {
         init(data);
     }
 
@@ -1470,8 +1542,21 @@ DEFINE_SCOPE_DATA_GCPOLICY(js::VarScope::Data);
 DEFINE_SCOPE_DATA_GCPOLICY(js::GlobalScope::Data);
 DEFINE_SCOPE_DATA_GCPOLICY(js::EvalScope::Data);
 DEFINE_SCOPE_DATA_GCPOLICY(js::ModuleScope::Data);
+DEFINE_SCOPE_DATA_GCPOLICY(js::WasmFunctionScope::Data);
 
 #undef DEFINE_SCOPE_DATA_GCPOLICY
+
+// Scope data that contain GCPtrs must use the correct DeletePolicy.
+
+template <>
+struct DeletePolicy<js::FunctionScope::Data>
+  : public js::GCManagedDeletePolicy<js::FunctionScope::Data>
+{};
+
+template <>
+struct DeletePolicy<js::ModuleScope::Data>
+  : public js::GCManagedDeletePolicy<js::ModuleScope::Data>
+{};
 
 namespace ubi {
 

@@ -115,7 +115,7 @@ TryToUseImplicitInterruptCheck(MIRGraph& graph, MBasicBlock* backedge)
                 continue;
             }
 
-            MOZ_ASSERT_IF(iter->isPostWriteBarrierO() || iter->isPostWriteBarrierV(),
+            MOZ_ASSERT_IF(iter->isPostWriteBarrierO() || iter->isPostWriteBarrierV() || iter->isPostWriteBarrierS(),
                           iter->safepoint());
 
             if (iter->safepoint())
@@ -1438,6 +1438,22 @@ LIRGenerator::visitRound(MRound* ins)
         lir = new (alloc()) LRoundF(useRegister(ins->input()), tempFloat32());
 
     assignSnapshot(lir, Bailout_Round);
+    define(lir, ins);
+}
+
+void
+LIRGenerator::visitNearbyInt(MNearbyInt* ins)
+{
+    MIRType inputType = ins->input()->type();
+    MOZ_ASSERT(IsFloatingPointType(inputType));
+    MOZ_ASSERT(ins->type() == inputType);
+
+    LInstructionHelper<1, 1, 0>* lir;
+    if (inputType == MIRType::Double)
+        lir = new(alloc()) LNearbyInt(useRegisterAtStart(ins->input()));
+    else
+        lir = new(alloc()) LNearbyIntF(useRegisterAtStart(ins->input()));
+
     define(lir, ins);
 }
 
@@ -2826,6 +2842,17 @@ LIRGenerator::visitPostWriteBarrier(MPostWriteBarrier* ins)
         assignSafepoint(lir, ins);
         break;
       }
+	  case MIRType::String: {
+          LDefinition tmp = needTempForPostBarrier() ? temp() : LDefinition::BogusTemp();
+          LPostWriteBarrierS* lir =
+            new(alloc()) LPostWriteBarrierS(useConstantObject
+                                            ? useOrConstant(ins->object())
+                                            : useRegister(ins->object()),
+                                            useRegister(ins->value()), tmp);
+        add(lir, ins);
+        assignSafepoint(lir, ins);
+        break;
+      }
       case MIRType::Value: {
         LDefinition tmp = needTempForPostBarrier() ? temp() : LDefinition::BogusTemp();
         LPostWriteBarrierV* lir =
@@ -2865,6 +2892,19 @@ LIRGenerator::visitPostWriteElementBarrier(MPostWriteElementBarrier* ins)
         LDefinition tmp = needTempForPostBarrier() ? temp() : LDefinition::BogusTemp();
         LPostWriteElementBarrierO* lir =
             new(alloc()) LPostWriteElementBarrierO(useConstantObject
+                                                   ? useOrConstant(ins->object())
+                                                   : useRegister(ins->object()),
+                                                   useRegister(ins->value()),
+                                                   useRegister(ins->index()),
+                                                   tmp);
+        add(lir, ins);
+        assignSafepoint(lir, ins);
+        break;
+      }
+      case MIRType::String: {
+        LDefinition tmp = needTempForPostBarrier() ? temp() : LDefinition::BogusTemp();
+        LPostWriteElementBarrierS* lir =
+            new(alloc()) LPostWriteElementBarrierS(useConstantObject
                                                    ? useOrConstant(ins->object())
                                                    : useRegister(ins->object()),
                                                    useRegister(ins->value()),
@@ -3700,10 +3740,9 @@ LIRGenerator::visitGetNameCache(MGetNameCache* ins)
 {
     MOZ_ASSERT(ins->envObj()->type() == MIRType::Object);
 
-    // Set the performs-call flag so that we don't omit the overrecursed check.
-    // This is necessary because the cache can attach a scripted getter stub
-    // that calls this script recursively.
-    gen->setPerformsCall();
+    // Emit an overrecursed check: this is necessary because the cache can
+    // attach a scripted getter stub that calls this script recursively.
+    gen->setNeedsOverrecursedCheck();
 
     LGetNameCache* lir = new(alloc()) LGetNameCache(useRegister(ins->envObj()), temp());
     defineBox(lir, ins);
@@ -3725,7 +3764,7 @@ LIRGenerator::visitGetPropSuperCache(MGetPropSuperCache* ins)
     MDefinition* receiver = ins->receiver();
     MDefinition* id = ins->idval();
 
-    gen->setPerformsCall();
+    gen->setNeedsOverrecursedCheck();
 
     bool useConstId = id->type() == MIRType::String || id->type() == MIRType::Symbol;
 
@@ -3749,10 +3788,9 @@ LIRGenerator::visitGetPropertyCache(MGetPropertyCache* ins)
                id->type() == MIRType::Value);
 
     if (ins->monitoredResult()) {
-        // Set the performs-call flag so that we don't omit the overrecursed
-        // check. This is necessary because the cache can attach a scripted
-        // getter stub that calls this script recursively.
-        gen->setPerformsCall();
+        // Emit an overrecursed check: this is necessary because the cache can
+        // attach a scripted getter stub that calls this script recursively.
+        gen->setNeedsOverrecursedCheck();
     }
 
     // If this is a GETPROP, the id is a constant string. Allow passing it as a
@@ -4024,10 +4062,9 @@ LIRGenerator::visitSetPropertyCache(MSetPropertyCache* ins)
     bool useConstId = id->type() == MIRType::String || id->type() == MIRType::Symbol;
     bool useConstValue = IsNonNurseryConstant(ins->value());
 
-    // Set the performs-call flag so that we don't omit the overrecursed check.
-    // This is necessary because the cache can attach a scripted setter stub
-    // that calls this script recursively.
-    gen->setPerformsCall();
+    // Emit an overrecursed check: this is necessary because the cache can
+    // attach a scripted setter stub that calls this script recursively.
+    gen->setNeedsOverrecursedCheck();
 
     // We need a double/float32 temp register for typed array stubs if this is
     // a SETELEM or INITELEM op.
@@ -4226,11 +4263,12 @@ LIRGenerator::visitHasOwnCache(MHasOwnCache* ins)
                id->type() == MIRType::Int32 ||
                id->type() == MIRType::Value);
 
-    gen->setPerformsCall();
+    // Emit an overrecursed check: this is necessary because the cache can
+    // attach a scripted getter stub that calls this script recursively.
+    gen->setNeedsOverrecursedCheck();
 
-    LHasOwnCache* lir =
-        new(alloc()) LHasOwnCache(useBoxOrTyped(value),
-                                  useBoxOrTyped(id));
+    LHasOwnCache* lir = new(alloc()) LHasOwnCache(useBoxOrTyped(value), useBoxOrTyped(id));
+
     define(lir, ins);
     assignSafepoint(lir, ins);
 }
@@ -4410,20 +4448,37 @@ LIRGenerator::visitWasmBoundsCheck(MWasmBoundsCheck* ins)
 void
 LIRGenerator::visitWasmLoadGlobalVar(MWasmLoadGlobalVar* ins)
 {
-    if (ins->type() == MIRType::Int64)
-        defineInt64(new(alloc()) LWasmLoadGlobalVarI64, ins);
-    else
-        define(new(alloc()) LWasmLoadGlobalVar, ins);
+    if (ins->type() == MIRType::Int64) {
+#ifdef JS_PUNBOX64
+        LAllocation tlsPtr = useRegisterAtStart(ins->tlsPtr());
+#else
+        LAllocation tlsPtr = useRegister(ins->tlsPtr());
+#endif
+        defineInt64(new(alloc()) LWasmLoadGlobalVarI64(tlsPtr), ins);
+    } else {
+        LAllocation tlsPtr = useRegisterAtStart(ins->tlsPtr());
+        define(new(alloc()) LWasmLoadGlobalVar(tlsPtr), ins);
+    }
 }
 
 void
 LIRGenerator::visitWasmStoreGlobalVar(MWasmStoreGlobalVar* ins)
 {
     MDefinition* value = ins->value();
-    if (value->type() == MIRType::Int64)
-        add(new(alloc()) LWasmStoreGlobalVarI64(useInt64RegisterAtStart(value)), ins);
-    else
-        add(new(alloc()) LWasmStoreGlobalVar(useRegisterAtStart(value)), ins);
+    if (value->type() == MIRType::Int64) {
+#ifdef JS_PUNBOX64
+        LAllocation tlsPtr = useRegisterAtStart(ins->tlsPtr());
+        LInt64Allocation valueAlloc = useInt64RegisterAtStart(value);
+#else
+        LAllocation tlsPtr = useRegister(ins->tlsPtr());
+        LInt64Allocation valueAlloc = useInt64Register(value);
+#endif
+        add(new(alloc()) LWasmStoreGlobalVarI64(valueAlloc, tlsPtr), ins);
+    } else {
+        LAllocation tlsPtr = useRegisterAtStart(ins->tlsPtr());
+        LAllocation valueAlloc = useRegisterAtStart(value);
+        add(new(alloc()) LWasmStoreGlobalVar(valueAlloc, tlsPtr), ins);
+    }
 }
 
 void
@@ -4519,7 +4574,6 @@ LIRGenerator::visitWasmStackArg(MWasmStackArg* ins)
 void
 LIRGenerator::visitWasmCall(MWasmCall* ins)
 {
-    gen->setPerformsCall();
 
     LAllocation* args = gen->allocate<LAllocation>(ins->numOperands());
     if (!args) {
@@ -4787,8 +4841,11 @@ LIRGenerator::visitInstruction(MInstruction* ins)
         return false;
     ins->accept(this);
 
-    if (ins->possiblyCalls())
-        gen->setPerformsCall();
+    if (ins->possiblyCalls()) {
+        gen->setNeedsStaticStackAlignment();
+        gen->setNeedsOverrecursedCheck();
+    }
+
 
     if (ins->resumePoint())
         updateResumeState(ins);

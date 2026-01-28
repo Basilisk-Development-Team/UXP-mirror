@@ -110,7 +110,7 @@ const size_t gStackSize = 8192;
 
 // The amount of time we wait between a request to CC (after GC ran)
 // and doing the actual CC.
-#define NS_CC_DELAY                 60000 // ms
+#define NS_CC_DELAY                 50000 // ms
 
 #define NS_CC_SKIPPABLE_DELAY       400 // ms
 
@@ -2511,7 +2511,6 @@ AsmJSCacheOpenEntryForRead(JS::Handle<JSObject*> aGlobal,
 
 static JS::AsmJSCacheResult
 AsmJSCacheOpenEntryForWrite(JS::Handle<JSObject*> aGlobal,
-                            bool aInstalled,
                             const char16_t* aBegin,
                             const char16_t* aEnd,
                             size_t aSize,
@@ -2520,8 +2519,7 @@ AsmJSCacheOpenEntryForWrite(JS::Handle<JSObject*> aGlobal,
 {
   nsIPrincipal* principal =
     nsJSPrincipals::get(JS_GetCompartmentPrincipals(js::GetObjectCompartment(aGlobal)));
-  return asmjscache::OpenEntryForWrite(principal, aInstalled, aBegin, aEnd,
-                                       aSize, aMemory, aHandle);
+  return asmjscache::OpenEntryForWrite(principal, aBegin, aEnd, aSize, aMemory, aHandle);
 }
 
 class AsyncTaskRunnable final : public Runnable

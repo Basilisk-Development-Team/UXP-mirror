@@ -28,6 +28,7 @@
 #include "jsboolinlines.h"
 #include "jsobjinlines.h"
 #include "jsscriptinlines.h"
+#include "vm/UnboxedObject-inl.h"
 
 using namespace js;
 using namespace js::jit;
@@ -159,9 +160,9 @@ EvaluateConstantOperands(TempAllocator& alloc, MBinaryInstruction* ins, bool* pt
     // bits. This isn't strictly required for either ES or wasm, but it does
     // avoid making constant-folding observable.
     if (ins->type() == MIRType::Double)
-        return MConstant::New(alloc, wasm::RawF64(ret));
+        return MConstant::NewRawDouble(alloc, ret);
     if (ins->type() == MIRType::Float32)
-        return MConstant::New(alloc, wasm::RawF32(float(ret)));
+        return MConstant::NewRawFloat32(alloc, float(ret));
 
     Value retVal;
     retVal.setNumber(JS::CanonicalizeNaN(ret));
@@ -866,26 +867,22 @@ MConstant::New(TempAllocator::Fallible alloc, const Value& v, CompilerConstraint
 }
 
 MConstant*
+MConstant::NewRawFloat32(TempAllocator& alloc, float f)
+{
+    return new(alloc) MConstant(f);
+}
+
+MConstant*
+MConstant::NewRawDouble(TempAllocator& alloc, double d)
+{
+    return new(alloc) MConstant(d);
+}
+
+MConstant*
 MConstant::NewFloat32(TempAllocator& alloc, double d)
 {
     MOZ_ASSERT(IsNaN(d) || d == double(float(d)));
     return new(alloc) MConstant(float(d));
-}
-
-MConstant*
-MConstant::New(TempAllocator& alloc, wasm::RawF32 f)
-{
-    auto* c = new(alloc) MConstant(Int32Value(f.bits()), nullptr);
-    c->setResultType(MIRType::Float32);
-    return c;
-}
-
-MConstant*
-MConstant::New(TempAllocator& alloc, wasm::RawF64 d)
-{
-    auto* c = new(alloc) MConstant(int64_t(d.bits()));
-    c->setResultType(MIRType::Double);
-    return c;
 }
 
 MConstant*
@@ -1335,6 +1332,18 @@ MAssertRange::printOpcode(GenericPrinter& out) const
     assertedRange()->dump(out);
 }
 
+void MNearbyInt::printOpcode(GenericPrinter& out) const
+{
+    MDefinition::printOpcode(out);
+    const char* roundingModeStr = nullptr;
+    switch (roundingMode_) {
+      case RoundingMode::Up:                roundingModeStr = "(up)"; break;
+      case RoundingMode::Down:              roundingModeStr = "(down)"; break;
+      case RoundingMode::NearestTiesToEven: roundingModeStr = "(nearest ties even)"; break;
+      case RoundingMode::TowardsZero:       roundingModeStr = "(towards zero)"; break;
+    }
+    out.printf(" %s", roundingModeStr);
+}
 const char*
 MMathFunction::FunctionName(Function function)
 {
@@ -1710,6 +1719,14 @@ MRound::trySpecializeFloat32(TempAllocator& alloc)
         specialization_ = MIRType::Float32;
 }
 
+void
+MNearbyInt::trySpecializeFloat32(TempAllocator& alloc)
+{
+    if (EnsureFloatInputOrConvert(this, alloc)) {
+        specialization_ = MIRType::Float32;
+        setResultType(MIRType::Float32);
+    }
+}
 MTableSwitch*
 MTableSwitch::New(TempAllocator& alloc, MDefinition* ins, int32_t low, int32_t high)
 {
@@ -2861,10 +2878,10 @@ MMinMax::foldsTo(TempAllocator& alloc)
             if (mozilla::NumberEqualsInt32(result, &cast))
                 return MConstant::New(alloc, Int32Value(cast));
         } else if (type() == MIRType::Float32) {
-            return MConstant::New(alloc, wasm::RawF32(float(result)));
+            return MConstant::NewRawFloat32(alloc, float(result));
         } else {
             MOZ_ASSERT(type() == MIRType::Double);
-            return MConstant::New(alloc, wasm::RawF64(result));
+            return MConstant::NewRawDouble(alloc, result);
         }
     }
 
@@ -3926,10 +3943,8 @@ MToDouble::foldsTo(TempAllocator& alloc)
     if (input->type() == MIRType::Double)
         return input;
 
-    if (input->isConstant() && input->toConstant()->isTypeRepresentableAsDouble()) {
-        double out = input->toConstant()->numberToDouble();
-        return MConstant::New(alloc, wasm::RawF64(out));
-    }
+    if (input->isConstant() && input->toConstant()->isTypeRepresentableAsDouble())
+        return MConstant::NewRawDouble(alloc, input->toConstant()->numberToDouble());
 
     return this;
 }
@@ -3952,10 +3967,8 @@ MToFloat32::foldsTo(TempAllocator& alloc)
         return input->toToDouble()->input();
     }
 
-    if (input->isConstant() && input->toConstant()->isTypeRepresentableAsDouble()) {
-        float out = float(input->toConstant()->numberToDouble());
-        return MConstant::New(alloc, wasm::RawF32(out));
-    }
+    if (input->isConstant() && input->toConstant()->isTypeRepresentableAsDouble())
+        return MConstant::NewRawFloat32(alloc, float(input->toConstant()->numberToDouble()));
 
     return this;
 }
@@ -4995,14 +5008,14 @@ MGuardReceiverPolymorphic::congruentTo(const MDefinition* ins) const
 }
 
 void
-InlinePropertyTable::trimTo(const ObjectVector& targets, const BoolVector& choiceSet)
+InlinePropertyTable::trimTo(const InliningTargets& targets, const BoolVector& choiceSet)
 {
     for (size_t i = 0; i < targets.length(); i++) {
         // If the target was inlined, don't erase the entry.
         if (choiceSet[i])
             continue;
 
-        JSFunction* target = &targets[i]->as<JSFunction>();
+        JSFunction* target = &targets[i].target->as<JSFunction>();
 
         // Eliminate all entries containing the vetoed function from the map.
         size_t j = 0;
@@ -5016,7 +5029,7 @@ InlinePropertyTable::trimTo(const ObjectVector& targets, const BoolVector& choic
 }
 
 void
-InlinePropertyTable::trimToTargets(const ObjectVector& targets)
+InlinePropertyTable::trimToTargets(const InliningTargets& targets)
 {
     JitSpew(JitSpew_Inlining, "Got inlineable property cache with %d cases",
             (int)numEntries());
@@ -5025,7 +5038,7 @@ InlinePropertyTable::trimToTargets(const ObjectVector& targets)
     while (i < numEntries()) {
         bool foundFunc = false;
         for (size_t j = 0; j < targets.length(); j++) {
-            if (entries_[i]->func == targets[j]) {
+            if (entries_[i]->func == targets[j].target) {
                 foundFunc = true;
                 break;
             }
@@ -6171,8 +6184,14 @@ jit::PropertyWriteNeedsTypeBarrier(TempAllocator& alloc, CompilerConstraintList*
     bool success = true;
     for (size_t i = 0; i < types->getObjectCount(); i++) {
         TypeSet::ObjectKey* key = types->getObject(i);
-        if (!key || key->unknownProperties())
-            continue;
+
+    if (!key) {
+      continue;
+    }
+
+    if (!key->hasStableClassAndProto(constraints)) {
+      return true;
+    }
 
         // TI doesn't track TypedArray indexes and should never insert a type
         // barrier for them.
@@ -6224,8 +6243,15 @@ jit::PropertyWriteNeedsTypeBarrier(TempAllocator& alloc, CompilerConstraintList*
     TypeSet::ObjectKey* excluded = nullptr;
     for (size_t i = 0; i < types->getObjectCount(); i++) {
         TypeSet::ObjectKey* key = types->getObject(i);
-        if (!key || key->unknownProperties())
-            continue;
+
+    if (!key) {
+      continue;
+    }
+
+    if (!key->hasStableClassAndProto(constraints)) {
+      return true;
+    }
+
         if (!name && IsTypedArrayClass(key->clasp()))
             continue;
 

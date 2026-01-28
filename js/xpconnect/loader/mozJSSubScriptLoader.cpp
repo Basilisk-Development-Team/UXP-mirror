@@ -20,6 +20,7 @@
 
 #include "jsapi.h"
 #include "jsfriendapi.h"
+#include "js/SourceBufferHolder.h"
 #include "nsJSPrincipals.h"
 #include "xpcprivate.h" // For xpc::OptionsBase
 #include "jswrapper.h"
@@ -814,7 +815,6 @@ ScriptPrecompiler::OnStreamComplete(nsIIncrementalStreamLoader* aLoader,
 
     JS::CompileOptions options(cx, JSVERSION_DEFAULT);
     options.forceAsync = true;
-    options.installedFile = true;
 
     nsCOMPtr<nsIURI> uri;
     mChannel->GetURI(getter_AddRefs(uri));

@@ -2102,7 +2102,10 @@ CanvasRenderingContext2D::GetInputStream(const char* aMimeType,
 
   bool PoisonData = Preferences::GetBool("canvas.poisondata",false);
   if (PoisonData) {
-    srand(time(NULL));
+    int PoisonInterval = Preferences::GetInt("canvas.poisondata.interval", 300);
+    PoisonInterval = (PoisonInterval < 1) ? 1 : (PoisonInterval > 28800) ? 28800 : PoisonInterval;
+    unsigned int epoch = time(nullptr);
+    srand(epoch / PoisonInterval);
     // Image buffer is always a packed BGRA array (BGRX -> BGR[FF])
     // so always 4-byte pixels.
     // GetImageBuffer => SurfaceToPackedBGRA [=> ConvertBGRXToBGRA]
@@ -2234,6 +2237,18 @@ CanvasRenderingContext2D::Transform(double aM11, double aM12, double aM21,
   SetTransformInternal(newMatrix);
 }
 
+already_AddRefed<DOMMatrix>
+CanvasRenderingContext2D::GetTransform(ErrorResult& aError) {
+  EnsureTarget();
+  if (!IsTargetValid()) {
+    aError.Throw(NS_ERROR_FAILURE);
+    return nullptr;
+  }
+  RefPtr<DOMMatrix> matrix =
+      new DOMMatrix(GetParentObject(), mTarget->GetTransform());
+  return matrix.forget();
+}
+
 void
 CanvasRenderingContext2D::SetTransform(double aM11, double aM12,
                                        double aM21, double aM22,
@@ -2247,6 +2262,22 @@ CanvasRenderingContext2D::SetTransform(double aM11, double aM12,
   }
 
   SetTransformInternal(Matrix(aM11, aM12, aM21, aM22, aDx, aDy));
+}
+
+void
+CanvasRenderingContext2D::SetTransform(const DOMMatrix2DInit& aInit,
+                                       ErrorResult& aError) {
+  TransformWillUpdate();
+  if (!IsTargetValid()) {
+    aError.Throw(NS_ERROR_FAILURE);
+    return;
+  }
+
+  RefPtr<DOMMatrixReadOnly> matrix =
+      DOMMatrixReadOnly::FromMatrix(GetParentObject(), aInit, aError);
+  if (!aError.Failed()) {
+    SetTransformInternal(Matrix(*(matrix->GetInternal2D())));
+  }
 }
 
 void
@@ -2708,6 +2739,7 @@ PropertyIsInheritOrInitial(Declaration* aDeclaration, const nsCSSPropertyID aPro
   const nsCSSValue* filterVal =
     aDeclaration->GetNormalBlock()->ValueFor(aProperty);
   return (!filterVal || (filterVal->GetUnit() == eCSSUnit_Unset ||
+                         filterVal->GetUnit() == eCSSUnit_Revert ||
                          filterVal->GetUnit() == eCSSUnit_Inherit ||
                          filterVal->GetUnit() == eCSSUnit_Initial));
 }
@@ -4148,7 +4180,7 @@ struct MOZ_STACK_CLASS CanvasBidiProcessor : public nsBidiPresUtils::BidiProcess
   already_AddRefed<gfxPattern> GetPatternFor(Style aStyle)
   {
     const CanvasPattern* pat = mCtx->CurrentState().patternStyles[aStyle];
-    RefPtr<gfxPattern> pattern = new gfxPattern(pat->mSurface, Matrix());
+    RefPtr<gfxPattern> pattern = new gfxPattern(pat->mSurface, pat->mTransform);
     pattern->SetExtend(CvtCanvasRepeatToGfxRepeat(pat->mRepeat));
     return pattern.forget();
   }
@@ -5774,9 +5806,13 @@ CanvasRenderingContext2D::GetImageDataArray(JSContext* aCx,
 
   MOZ_ASSERT(aWidth && aHeight);
 
-  bool PoisonData = Preferences::GetBool("canvas.poisondata",false);
-  if (PoisonData)
-    srand(time(NULL));
+  bool PoisonData = Preferences::GetBool("canvas.poisondata", false);
+  if (PoisonData) {
+    int PoisonInterval = Preferences::GetInt("canvas.poisondata.interval", 300);
+    PoisonInterval = (PoisonInterval < 1) ? 1 : (PoisonInterval > 28800) ? 28800 : PoisonInterval;
+    unsigned int epoch = time(nullptr);
+    srand(epoch / PoisonInterval);
+  }
 
   CheckedInt<uint32_t> len = CheckedInt<uint32_t>(aWidth) * aHeight * 4;
   if (!len.isValid()) {

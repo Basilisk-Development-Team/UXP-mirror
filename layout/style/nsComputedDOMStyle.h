@@ -158,29 +158,29 @@ private:
 #undef STYLE_STRUCT
 
   already_AddRefed<CSSValue> GetEllipseRadii(const nsStyleCorners& aRadius,
-                                             uint8_t aFullCorner);
+                                             mozilla::Corner aFullCorner);
 
-  already_AddRefed<CSSValue> GetOffsetWidthFor(mozilla::css::Side aSide);
+  already_AddRefed<CSSValue> GetOffsetWidthFor(mozilla::Side aSide);
 
-  already_AddRefed<CSSValue> GetAbsoluteOffset(mozilla::css::Side aSide);
+  already_AddRefed<CSSValue> GetAbsoluteOffset(mozilla::Side aSide);
 
-  already_AddRefed<CSSValue> GetRelativeOffset(mozilla::css::Side aSide);
+  already_AddRefed<CSSValue> GetRelativeOffset(mozilla::Side aSide);
 
-  already_AddRefed<CSSValue> GetStickyOffset(mozilla::css::Side aSide);
+  already_AddRefed<CSSValue> GetStickyOffset(mozilla::Side aSide);
 
-  already_AddRefed<CSSValue> GetStaticOffset(mozilla::css::Side aSide);
+  already_AddRefed<CSSValue> GetStaticOffset(mozilla::Side aSide);
 
-  already_AddRefed<CSSValue> GetPaddingWidthFor(mozilla::css::Side aSide);
+  already_AddRefed<CSSValue> GetPaddingWidthFor(mozilla::Side aSide);
 
-  already_AddRefed<CSSValue> GetBorderColorsFor(mozilla::css::Side aSide);
+  already_AddRefed<CSSValue> GetBorderColorsFor(mozilla::Side aSide);
 
-  already_AddRefed<CSSValue> GetBorderStyleFor(mozilla::css::Side aSide);
+  already_AddRefed<CSSValue> GetBorderStyleFor(mozilla::Side aSide);
 
-  already_AddRefed<CSSValue> GetBorderWidthFor(mozilla::css::Side aSide);
+  already_AddRefed<CSSValue> GetBorderWidthFor(mozilla::Side aSide);
 
-  already_AddRefed<CSSValue> GetBorderColorFor(mozilla::css::Side aSide);
+  already_AddRefed<CSSValue> GetBorderColorFor(mozilla::Side aSide);
 
-  already_AddRefed<CSSValue> GetMarginWidthFor(mozilla::css::Side aSide);
+  already_AddRefed<CSSValue> GetMarginWidthFor(mozilla::Side aSide);
 
   already_AddRefed<CSSValue> GetSVGPaintFor(bool aFill);
 
@@ -461,6 +461,12 @@ private:
   already_AddRefed<CSSValue> DoGetOverflow();
   already_AddRefed<CSSValue> DoGetOverflowX();
   already_AddRefed<CSSValue> DoGetOverflowY();
+  already_AddRefed<CSSValue> DoGetOverflowInline();
+  already_AddRefed<CSSValue> DoGetOverflowBlock();
+  already_AddRefed<CSSValue> DoGetOverflowInlineStart();
+  already_AddRefed<CSSValue> DoGetOverflowInlineEnd();
+  already_AddRefed<CSSValue> DoGetOverflowBlockStart();
+  already_AddRefed<CSSValue> DoGetOverflowBlockEnd();
   already_AddRefed<CSSValue> DoGetOverflowClipBox();
   already_AddRefed<CSSValue> DoGetResize();
   already_AddRefed<CSSValue> DoGetPageBreakAfter();

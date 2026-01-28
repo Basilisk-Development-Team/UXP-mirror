@@ -140,18 +140,23 @@ enum StructuredDataType : uint32_t {
 
 /*
  * Format of transfer map:
- *   <SCTAG_TRANSFER_MAP_HEADER, TransferableMapHeader(UNREAD|TRANSFERRED)>
- *   numTransferables (64 bits)
- *   array of:
- *     <SCTAG_TRANSFER_MAP_*, TransferableOwnership>
- *     pointer (64 bits)
- *     extraData (64 bits), eg byte length for ArrayBuffers
+ *   - <SCTAG_TRANSFER_MAP_HEADER, UNREAD|TRANSFERRING|TRANSFERRED>
+ *   - numTransferables (64 bits)
+ *   - array of:
+ *     - <SCTAG_TRANSFER_MAP_*, TransferableOwnership> pointer (64
+ *       bits)
+ *     - extraData (64 bits), eg byte length for ArrayBuffers
+ *     - any data written for custom transferables
  */
 
 // Data associated with an SCTAG_TRANSFER_MAP_HEADER that tells whether the
-// contents have been read out yet or not.
+// contents have been read out yet or not. TRANSFERRING is for the case where we
+// have started but not completed reading, which due to errors could mean that
+// there are things still owned by the clone buffer that need to be released, so
+// discarding should not just be skipped.
 enum TransferableMapHeader {
     SCTAG_TM_UNREAD = 0,
+    SCTAG_TM_TRANSFERRING,
     SCTAG_TM_TRANSFERRED
 };
 
@@ -528,6 +533,10 @@ ReportDataCloneError(JSContext* cx,
 
       case JS_SCERR_UNSUPPORTED_TYPE:
         JS_ReportErrorNumberASCII(cx, GetErrorMessage, nullptr, JSMSG_SC_UNSUPPORTED_TYPE);
+        break;
+
+      case JS_SCERR_TRANSFERABLE_TWICE:
+        JS_ReportErrorNumberASCII(cx, GetErrorMessage, nullptr, JSMSG_SC_TRANSFERABLE_TWICE);
         break;
 
       default:
@@ -1058,6 +1067,11 @@ JSStructuredCloneWriter::reportDataCloneError(uint32_t errorId)
 bool
 JSStructuredCloneWriter::writeString(uint32_t tag, JSString* str)
 {
+    // Nullcheck input
+    if (!str) {
+      return false;
+    }
+    
     JSLinearString* linear = str->ensureLinear(context());
     if (!linear)
         return false;
@@ -1078,6 +1092,11 @@ JSStructuredCloneWriter::writeString(uint32_t tag, JSString* str)
 bool
 JSStructuredCloneWriter::writeBigInt(uint32_t tag, BigInt* bi)
 {
+    // Nullcheck input
+    if (!bi) {
+      return false;
+    }
+    
     bool signBit = bi->isNegative();
     size_t length = bi->digitLength();
     // The length must fit in 31 bits to leave room for a sign bit.
@@ -1190,9 +1209,12 @@ JSStructuredCloneWriter::writeSharedArrayBuffer(HandleObject obj)
     Rooted<SharedArrayBufferObject*> sharedArrayBuffer(context(), &CheckedUnwrap(obj)->as<SharedArrayBufferObject>());
     SharedArrayRawBuffer* rawbuf = sharedArrayBuffer->rawBufferObject();
 
-    // Avoids a race condition where the parent thread frees the buffer
+    // Adding the reference here avoids a race condition where the parent thread frees the buffer
     // before the child has accepted the transferable.
-    rawbuf->addReference();
+    if (!rawbuf->addReference()) {
+        JS_ReportErrorNumberASCII(context(), GetErrorMessage, nullptr, JSMSG_SC_SAB_TOO_MANY_REFS);
+        return false;
+    }
 
     intptr_t p = reinterpret_cast<intptr_t>(rawbuf);
     return out.writePair(SCTAG_SHARED_ARRAY_BUFFER_OBJECT, static_cast<uint32_t>(sizeof(p))) &&
@@ -1694,6 +1716,8 @@ JSStructuredCloneWriter::write(HandleValue v)
                 return false;
 
             if (cls == ESClass::Map) {
+                if (!counts.back())
+                    return false;
                 counts.back()--;
                 RootedValue val(context(), entries.back());
                 entries.popBack();
@@ -2338,8 +2362,17 @@ JSStructuredCloneReader::readTransferMap()
     if (!in.getPair(&tag, &data))
         return in.reportTruncated();
 
-    if (tag != SCTAG_TRANSFER_MAP_HEADER || TransferableMapHeader(data) == SCTAG_TM_TRANSFERRED)
+    auto transferState = static_cast<TransferableMapHeader>(data);
+
+    if (tag != SCTAG_TRANSFER_MAP_HEADER || transferState == SCTAG_TM_TRANSFERRED)
         return true;
+
+    if (transferState == SCTAG_TM_TRANSFERRING) {
+        ReportDataCloneError(cx, callbacks, JS_SCERR_TRANSFERABLE_TWICE);
+        return false;
+    }
+
+    headerPos.write(PairToUInt64(SCTAG_TRANSFER_MAP_HEADER, SCTAG_TM_TRANSFERRING));
 
     uint64_t numTransferables;
     MOZ_ALWAYS_TRUE(in.readPair(&tag, &data));
@@ -2427,7 +2460,7 @@ JSStructuredCloneReader::readTransferMap()
 #ifdef DEBUG
     SCInput::getPair(headerPos.peek(), &tag, &data);
     MOZ_ASSERT(tag == SCTAG_TRANSFER_MAP_HEADER);
-    MOZ_ASSERT(TransferableMapHeader(data) != SCTAG_TM_TRANSFERRED);
+    MOZ_ASSERT(TransferableMapHeader(data) == SCTAG_TM_TRANSFERRING);
 #endif
     headerPos.write(PairToUInt64(SCTAG_TRANSFER_MAP_HEADER, SCTAG_TM_TRANSFERRED));
 

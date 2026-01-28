@@ -16,6 +16,7 @@
 #include "nsContentCreatorFunctions.h"
 #include "nsIDOMHTMLScriptElement.h"
 #include "mozilla/CORSMode.h"
+#include "mozilla/net/ReferrerPolicy.h"
 
 #define NS_ISCRIPTELEMENT_IID \
 { 0xe60fca9b, 0x1b96, 0x4e4e, \
@@ -65,6 +66,12 @@ public:
   {
     NS_PRECONDITION(mFrozen, "Not ready for this call yet!");
     return mUri;
+  }
+
+  nsIPrincipal* GetScriptURITriggeringPrincipal()
+  {
+    NS_PRECONDITION(mFrozen, "Not ready for this call yet!");
+    return mSrcTriggeringPrincipal;
   }
 
   /**
@@ -270,6 +277,14 @@ public:
   }
 
   /**
+   * Get referrer policy of the script element
+   */
+  virtual mozilla::net::ReferrerPolicy GetReferrerPolicy()
+  {
+    return mozilla::net::RP_Unset;
+  }
+
+  /**
    * Fire an error event
    */
   virtual nsresult FireErrorEvent() = 0;
@@ -359,6 +374,11 @@ protected:
    * The effective src (or null if no src).
    */
   nsCOMPtr<nsIURI> mUri;
+
+  /**
+   * The triggering principal for the src URL.
+   */
+  nsCOMPtr<nsIPrincipal> mSrcTriggeringPrincipal;
 
   /**
    * The creator parser of a non-defer, non-async parser-inserted script.

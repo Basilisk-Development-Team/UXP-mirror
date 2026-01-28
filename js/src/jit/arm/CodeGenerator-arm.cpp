@@ -776,7 +776,8 @@ CodeGeneratorARM::visitSoftModI(LSoftModI* ins)
     Label done;
 
     // Save the lhs in case we end up with a 0 that should be a -0.0 because lhs < 0.
-    MOZ_ASSERT(callTemp.code() > r3.code() && callTemp.code() < r12.code());
+    MOZ_ASSERT(callTemp != lhs);
+    MOZ_ASSERT(callTemp != rhs);
     masm.ma_mov(lhs, callTemp);
 
 
@@ -812,6 +813,8 @@ CodeGeneratorARM::visitSoftModI(LSoftModI* ins)
         masm.callWithABI(wasm::SymbolicAddress::aeabi_idivmod);
     else
         masm.callWithABI(JS_FUNC_TO_DATA_PTR(void*, __aeabi_idivmod));
+    MOZ_ASSERT(r1 != output);
+    masm.move32(r1, output);
 
     // If X%Y == 0 and X < 0, then we *actually* wanted to return -0.0
     if (mir->canBeNegativeDividend()) {
@@ -820,7 +823,7 @@ CodeGeneratorARM::visitSoftModI(LSoftModI* ins)
         } else {
             MOZ_ASSERT(mir->fallible());
             // See if X < 0
-            masm.as_cmp(r1, Imm8(0));
+            masm.as_cmp(output, Imm8(0));
             masm.ma_b(&done, Assembler::NotEqual);
             masm.as_cmp(callTemp, Imm8(0));
             bailoutIf(Assembler::Signed, ins->snapshot());
@@ -2336,9 +2339,10 @@ CodeGeneratorARM::visitAsmJSLoadHeap(LAsmJSLoadHeap* ins)
                 BufferOffset cmp = masm.as_cmp(ptrReg, Imm8(0));
                 masm.append(wasm::BoundsCheck(cmp.getOffset()));
 
-                size_t nanOffset = size == 32 ? wasm::NaN32GlobalDataOffset : wasm::NaN64GlobalDataOffset;
-                masm.ma_vldr(Address(GlobalReg, nanOffset - WasmGlobalRegBias), output, scratch,
-                             Assembler::AboveOrEqual);
+                if (size == 32)
+                    masm.ma_vimm_f32(GenericNaN(), output, Assembler::AboveOrEqual);
+                else
+                    masm.ma_vimm(GenericNaN(), output, Assembler::AboveOrEqual);
                 cond = Assembler::Below;
             }
 
@@ -2366,68 +2370,20 @@ CodeGeneratorARM::emitWasmLoad(T* lir)
 {
     const MWasmLoad* mir = lir->mir();
 
-    uint32_t offset = mir->access().offset();
-    MOZ_ASSERT(offset < wasm::OffsetGuardLimit);
+    MIRType resultType = mir->type();
+    Register ptr;
 
-    Register ptr = ToRegister(lir->ptr());
-    Scalar::Type type = mir->access().type();
-
-    // Maybe add the offset.
-    if (offset || type == Scalar::Int64) {
-        ScratchRegisterScope scratch(masm);
-        Register ptrPlusOffset = ToRegister(lir->ptrCopy());
-        if (offset)
-            masm.ma_add(Imm32(offset), ptrPlusOffset, scratch);
-        ptr = ptrPlusOffset;
+    if (mir->access().offset() || mir->access().type() == Scalar::Int64) {
+        ptr = ToRegister(lir->ptrCopy());
     } else {
         MOZ_ASSERT(lir->ptrCopy()->isBogusTemp());
+        ptr = ToRegister(lir->ptr());
     }
 
-    bool isSigned = type == Scalar::Int8 || type == Scalar::Int16 || type == Scalar::Int32 ||
-                    type == Scalar::Int64;
-    unsigned byteSize = mir->access().byteSize();
-
-    masm.memoryBarrier(mir->access().barrierBefore());
-
-    BufferOffset load;
-    if (mir->type() == MIRType::Int64) {
-        Register64 output = ToOutRegister64(lir);
-        if (type == Scalar::Int64) {
-            MOZ_ASSERT(INT64LOW_OFFSET == 0);
-
-            load = masm.ma_dataTransferN(IsLoad, 32, /* signed = */ false, HeapReg, ptr, output.low);
-            masm.append(mir->access(), load.getOffset(), masm.framePushed());
-
-            masm.as_add(ptr, ptr, Imm8(INT64HIGH_OFFSET));
-
-            load = masm.ma_dataTransferN(IsLoad, 32, isSigned, HeapReg, ptr, output.high);
-            masm.append(mir->access(), load.getOffset(), masm.framePushed());
-        } else {
-            load = masm.ma_dataTransferN(IsLoad, byteSize * 8, isSigned, HeapReg, ptr, output.low);
-            masm.append(mir->access(), load.getOffset(), masm.framePushed());
-
-            if (isSigned)
-                masm.ma_asr(Imm32(31), output.low, output.high);
-            else
-                masm.ma_mov(Imm32(0), output.high);
-        }
-    } else {
-        AnyRegister output = ToAnyRegister(lir->output());
-        bool isFloat = output.isFloat();
-        if (isFloat) {
-            MOZ_ASSERT((byteSize == 4) == output.fpu().isSingle());
-            ScratchRegisterScope scratch(masm);
-            masm.ma_add(HeapReg, ptr, scratch);
-
-            load = masm.ma_vldr(Operand(Address(scratch, 0)).toVFPAddr(), output.fpu());
-            masm.append(mir->access(), load.getOffset(), masm.framePushed());
-        } else {
-            load = masm.ma_dataTransferN(IsLoad, byteSize * 8, isSigned, HeapReg, ptr, output.gpr());
-            masm.append(mir->access(), load.getOffset(), masm.framePushed());
-        }
-    }
-
-    masm.memoryBarrier(mir->access().barrierAfter());
+    if (resultType == MIRType::Int64)
+        masm.wasmLoadI64(mir->access(), ptr, ptr, ToOutRegister64(lir));
+    else
+        masm.wasmLoad(mir->access(), ptr, ptr, ToAnyRegister(lir->output()));
 }
 
 void
@@ -2448,70 +2404,22 @@ CodeGeneratorARM::emitWasmUnalignedLoad(T* lir)
 {
     const MWasmLoad* mir = lir->mir();
 
-    uint32_t offset = mir->access().offset();
-    MOZ_ASSERT(offset < wasm::OffsetGuardLimit);
+    MIRType resultType = mir->type();
 
     Register ptr = ToRegister(lir->ptrCopy());
-    if (offset) {
-        ScratchRegisterScope scratch(masm);
-        masm.ma_add(Imm32(offset), ptr, scratch);
+    Register tmp1 = ToRegister(lir->getTemp(1));
+
+    if (resultType == MIRType::Int64) {
+        masm.wasmUnalignedLoadI64(mir->access(), ptr, ptr, ToOutRegister64(lir), tmp1);
+    } else if (IsFloatingPointType(resultType)) {
+        Register tmp2(ToRegister(lir->getTemp(2)));
+        Register tmp3(Register::Invalid());
+        if (mir->access().byteSize() == 8)
+            tmp3 = ToRegister(lir->getTemp(3));
+        masm.wasmUnalignedLoadFP(mir->access(), ptr, ptr, ToFloatRegister(lir->output()), tmp1, tmp2, tmp3);
+    } else {
+        masm.wasmUnalignedLoad(mir->access(), ptr, ptr, ToRegister(lir->output()), tmp1);
     }
-
-    // Add HeapReg to ptr, so we can use base+index addressing in the byte loads.
-    masm.ma_add(HeapReg, ptr);
-
-    unsigned byteSize = mir->access().byteSize();
-    Scalar::Type type = mir->access().type();
-    bool isSigned = type == Scalar::Int8 || type == Scalar::Int16 || type == Scalar::Int32 ||
-                    type == Scalar::Int64;
-
-    MIRType mirType = mir->type();
-
-    Register tmp = ToRegister(lir->getTemp(1));
-
-    Register low;
-    if (IsFloatingPointType(mirType))
-        low = ToRegister(lir->getTemp(2));
-    else if (mirType == MIRType::Int64)
-        low = ToOutRegister64(lir).low;
-    else
-        low = ToRegister(lir->output());
-
-    MOZ_ASSERT(low != tmp);
-    MOZ_ASSERT(low != ptr);
-
-    masm.memoryBarrier(mir->access().barrierBefore());
-
-    masm.emitUnalignedLoad(isSigned, Min(byteSize, 4u), ptr, tmp, low);
-
-    if (IsFloatingPointType(mirType)) {
-        FloatRegister output = ToFloatRegister(lir->output());
-        if (byteSize == 4) {
-            MOZ_ASSERT(output.isSingle());
-            masm.ma_vxfer(low, output);
-        } else {
-            MOZ_ASSERT(byteSize == 8);
-            MOZ_ASSERT(output.isDouble());
-            Register high = ToRegister(lir->getTemp(3));
-            masm.emitUnalignedLoad(/* signed */ false, 4, ptr, tmp, high, /* offset */ 4);
-            masm.ma_vxfer(low, high, output);
-        }
-    } else if (mirType == MIRType::Int64) {
-        Register64 output = ToOutRegister64(lir);
-        if (type == Scalar::Int64) {
-            MOZ_ASSERT(byteSize == 8);
-            masm.emitUnalignedLoad(isSigned, 4, ptr, tmp, output.high, /* offset */ 4);
-        } else {
-            MOZ_ASSERT(byteSize <= 4);
-            // Propagate sign.
-            if (isSigned)
-                masm.ma_asr(Imm32(31), output.low, output.high);
-            else
-                masm.ma_mov(Imm32(0), output.high);
-        }
-    }
-
-    masm.memoryBarrier(mir->access().barrierAfter());
 }
 
 void
@@ -2545,59 +2453,22 @@ CodeGeneratorARM::emitWasmStore(T* lir)
 {
     const MWasmStore* mir = lir->mir();
 
-    uint32_t offset = mir->access().offset();
-    MOZ_ASSERT(offset < wasm::OffsetGuardLimit);
-
-    Register ptr = ToRegister(lir->ptr());
-    unsigned byteSize = mir->access().byteSize();
-    Scalar::Type type = mir->access().type();
+    Scalar::Type accessType = mir->access().type();
+    Register ptr;
 
     // Maybe add the offset.
-    if (offset || type == Scalar::Int64) {
-        ScratchRegisterScope scratch(masm);
-        Register ptrPlusOffset = ToRegister(lir->ptrCopy());
-        if (offset)
-            masm.ma_add(Imm32(offset), ptrPlusOffset, scratch);
-        ptr = ptrPlusOffset;
+    if (mir->access().offset() || accessType == Scalar::Int64) {
+        ptr = ToRegister(lir->ptrCopy());
     } else {
         MOZ_ASSERT(lir->ptrCopy()->isBogusTemp());
+        ptr = ToRegister(lir->ptr());
     }
 
-    masm.memoryBarrier(mir->access().barrierBefore());
-
-    BufferOffset store;
-    if (type == Scalar::Int64) {
-        MOZ_ASSERT(INT64LOW_OFFSET == 0);
-
-        Register64 value = ToRegister64(lir->getInt64Operand(lir->ValueIndex));
-
-        store = masm.ma_dataTransferN(IsStore, 32 /* bits */, /* signed */ false, HeapReg, ptr, value.low);
-        masm.append(mir->access(), store.getOffset(), masm.framePushed());
-
-        masm.as_add(ptr, ptr, Imm8(INT64HIGH_OFFSET));
-
-        store = masm.ma_dataTransferN(IsStore, 32 /* bits */, /* signed */ true, HeapReg, ptr, value.high);
-        masm.append(mir->access(), store.getOffset(), masm.framePushed());
-    } else {
-        AnyRegister value = ToAnyRegister(lir->getOperand(lir->ValueIndex));
-        if (value.isFloat()) {
-            ScratchRegisterScope scratch(masm);
-            FloatRegister val = value.fpu();
-            MOZ_ASSERT((byteSize == 4) == val.isSingle());
-            masm.ma_add(HeapReg, ptr, scratch);
-
-            store = masm.ma_vstr(val, Operand(Address(scratch, 0)).toVFPAddr());
-            masm.append(mir->access(), store.getOffset(), masm.framePushed());
-        } else {
-            bool isSigned = type == Scalar::Uint32 || type == Scalar::Int32; // see AsmJSStoreHeap;
-            Register val = value.gpr();
-
-            store = masm.ma_dataTransferN(IsStore, 8 * byteSize /* bits */, isSigned, HeapReg, ptr, val);
-            masm.append(mir->access(), store.getOffset(), masm.framePushed());
-        }
-    }
-
-    masm.memoryBarrier(mir->access().barrierAfter());
+    if (accessType == Scalar::Int64)
+        masm.wasmStoreI64(mir->access(), ToRegister64(lir->getInt64Operand(lir->ValueIndex)),
+                          ptr, ptr);
+    else
+        masm.wasmStore(mir->access(), ToAnyRegister(lir->getOperand(lir->ValueIndex)), ptr, ptr);
 }
 
 void
@@ -2618,50 +2489,20 @@ CodeGeneratorARM::emitWasmUnalignedStore(T* lir)
 {
     const MWasmStore* mir = lir->mir();
 
-    uint32_t offset = mir->access().offset();
-    MOZ_ASSERT(offset < wasm::OffsetGuardLimit);
+    Scalar::Type accessType = mir->access().type();
 
     Register ptr = ToRegister(lir->ptrCopy());
-    if (offset) {
-        ScratchRegisterScope scratch(masm);
-        masm.ma_add(Imm32(offset), ptr, scratch);
+    Register valOrTmp = ToRegister(lir->valueHelper());
+    if (accessType == Scalar::Int64) {
+        masm.wasmUnalignedStoreI64(mir->access(),
+                                   ToRegister64(lir->getInt64Operand(LWasmUnalignedStoreI64::ValueIndex)),
+                                   ptr, ptr, valOrTmp);
+    } else if (accessType == Scalar::Float32 || accessType == Scalar::Float64) {
+        FloatRegister value = ToFloatRegister(lir->getOperand(LWasmUnalignedStore::ValueIndex));
+        masm.wasmUnalignedStoreFP(mir->access(), value, ptr, ptr, valOrTmp);
+    } else {
+        masm.wasmUnalignedStore(mir->access(), valOrTmp, ptr, ptr);
     }
-
-    // Add HeapReg to ptr, so we can use base+index addressing in the byte loads.
-    masm.ma_add(HeapReg, ptr);
-
-    MIRType mirType = mir->value()->type();
-
-    masm.memoryBarrier(mir->access().barrierAfter());
-
-    Register val = ToRegister(lir->valueHelper());
-    if (IsFloatingPointType(mirType)) {
-        masm.ma_vxfer(ToFloatRegister(lir->getOperand(LWasmUnalignedStore::ValueIndex)), val);
-    } else if (mirType == MIRType::Int64) {
-        Register64 input = ToRegister64(lir->getInt64Operand(LWasmUnalignedStoreI64::ValueIndex));
-        if (input.low != val)
-            masm.ma_mov(input.low, val);
-    }
-
-    unsigned byteSize = mir->access().byteSize();
-    masm.emitUnalignedStore(Min(byteSize, 4u), ptr, val);
-
-    if (byteSize > 4) {
-        // It's a double or an int64 load.
-        // Load the high 32 bits when counter == 4.
-        if (IsFloatingPointType(mirType)) {
-            FloatRegister fp = ToFloatRegister(lir->getOperand(LWasmUnalignedStore::ValueIndex));
-            MOZ_ASSERT(fp.isDouble());
-            ScratchRegisterScope scratch(masm);
-            masm.ma_vxfer(fp, scratch, val);
-        } else {
-            MOZ_ASSERT(mirType == MIRType::Int64);
-            masm.ma_mov(ToRegister64(lir->getInt64Operand(LWasmUnalignedStoreI64::ValueIndex)).high, val);
-        }
-        masm.emitUnalignedStore(4, ptr, val, /* offset */ 4);
-    }
-
-    masm.memoryBarrier(mir->access().barrierBefore());
 }
 
 void
@@ -3036,9 +2877,7 @@ CodeGeneratorARM::visitSoftUDivOrMod(LSoftUDivOrMod* ins)
 
     MOZ_ASSERT(lhs == r0);
     MOZ_ASSERT(rhs == r1);
-    MOZ_ASSERT(ins->mirRaw()->isDiv() || ins->mirRaw()->isMod());
-    MOZ_ASSERT_IF(ins->mirRaw()->isDiv(), output == r0);
-    MOZ_ASSERT_IF(ins->mirRaw()->isMod(), output == r1);
+    MOZ_ASSERT(output == r0);
 
     Label done;
     MDiv* div = ins->mir()->isDiv() ? ins->mir()->toDiv() : nullptr;
@@ -3054,6 +2893,10 @@ CodeGeneratorARM::visitSoftUDivOrMod(LSoftUDivOrMod* ins)
         masm.callWithABI(wasm::SymbolicAddress::aeabi_uidivmod);
     else
         masm.callWithABI(JS_FUNC_TO_DATA_PTR(void*, __aeabi_uidivmod));
+    if (mod) {
+        MOZ_ASSERT(output == r0, "output should not be r1 for mod");
+        masm.move32(r1, output);
+    }
 
     // uidivmod returns the quotient in r0, and the remainder in r1.
     if (div && !div->canTruncateRemainder()) {
@@ -3085,71 +2928,6 @@ CodeGeneratorARM::visitEffectiveAddress(LEffectiveAddress* ins)
 
     masm.as_add(output, base, lsl(index, mir->scale()));
     masm.ma_add(Imm32(mir->displacement()), output, scratch);
-}
-
-void
-CodeGeneratorARM::visitWasmLoadGlobalVar(LWasmLoadGlobalVar* ins)
-{
-    const MWasmLoadGlobalVar* mir = ins->mir();
-    unsigned addr = mir->globalDataOffset() - WasmGlobalRegBias;
-
-    ScratchRegisterScope scratch(masm);
-
-    if (mir->type() == MIRType::Int32) {
-        masm.ma_dtr(IsLoad, GlobalReg, Imm32(addr), ToRegister(ins->output()), scratch);
-    } else if (mir->type() == MIRType::Float32) {
-        VFPRegister vd(ToFloatRegister(ins->output()));
-        masm.ma_vldr(Address(GlobalReg, addr), vd.singleOverlay(), scratch);
-    } else {
-        MOZ_ASSERT(mir->type() == MIRType::Double);
-        masm.ma_vldr(Address(GlobalReg, addr), ToFloatRegister(ins->output()), scratch);
-    }
-}
-
-void
-CodeGeneratorARM::visitWasmLoadGlobalVarI64(LWasmLoadGlobalVarI64* ins)
-{
-    const MWasmLoadGlobalVar* mir = ins->mir();
-    unsigned addr = mir->globalDataOffset() - WasmGlobalRegBias;
-    MOZ_ASSERT(mir->type() == MIRType::Int64);
-    Register64 output = ToOutRegister64(ins);
-
-    ScratchRegisterScope scratch(masm);
-    masm.ma_dtr(IsLoad, GlobalReg, Imm32(addr + INT64LOW_OFFSET), output.low, scratch);
-    masm.ma_dtr(IsLoad, GlobalReg, Imm32(addr + INT64HIGH_OFFSET), output.high, scratch);
-}
-
-void
-CodeGeneratorARM::visitWasmStoreGlobalVar(LWasmStoreGlobalVar* ins)
-{
-    const MWasmStoreGlobalVar* mir = ins->mir();
-    MIRType type = mir->value()->type();
-
-    ScratchRegisterScope scratch(masm);
-
-    unsigned addr = mir->globalDataOffset() - WasmGlobalRegBias;
-    if (type == MIRType::Int32) {
-        masm.ma_dtr(IsStore, GlobalReg, Imm32(addr), ToRegister(ins->value()), scratch);
-    } else if (type == MIRType::Float32) {
-        VFPRegister vd(ToFloatRegister(ins->value()));
-        masm.ma_vstr(vd.singleOverlay(), Address(GlobalReg, addr), scratch);
-    } else {
-        MOZ_ASSERT(type == MIRType::Double);
-        masm.ma_vstr(ToFloatRegister(ins->value()), Address(GlobalReg, addr), scratch);
-    }
-}
-
-void
-CodeGeneratorARM::visitWasmStoreGlobalVarI64(LWasmStoreGlobalVarI64* ins)
-{
-    const MWasmStoreGlobalVar* mir = ins->mir();
-    unsigned addr = mir->globalDataOffset() - WasmGlobalRegBias;
-    MOZ_ASSERT (mir->value()->type() == MIRType::Int64);
-    Register64 input = ToRegister64(ins->value());
-
-    ScratchRegisterScope scratch(masm);
-    masm.ma_dtr(IsStore, GlobalReg, Imm32(addr + INT64LOW_OFFSET), input.low, scratch);
-    masm.ma_dtr(IsStore, GlobalReg, Imm32(addr + INT64HIGH_OFFSET), input.high, scratch);
 }
 
 void

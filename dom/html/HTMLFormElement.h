@@ -110,6 +110,7 @@ public:
   virtual nsresult AfterSetAttr(int32_t aNameSpaceID, nsIAtom* aName,
                                 const nsAttrValue* aValue,
                                 const nsAttrValue* aOldValue,
+                                nsIPrincipal* aSubjectPrincipal,
                                 bool aNotify) override;
 
   /**
@@ -482,6 +483,12 @@ protected:
    * @param aFormSubmission the submission object
    */
   nsresult SubmitSubmission(HTMLFormSubmission* aFormSubmission);
+
+  /**
+   * Submit a form[method=dialog]
+   * @param aFormSubmission the submission object
+   */
+  nsresult SubmitDialog(DialogFormSubmission* aFormSubmission);
 
   /**
    * Notify any submit observers of the submit.

@@ -25,7 +25,7 @@ pref("general.useragent.locale", "chrome://global/locale/intl.properties");
 // Platform User-agent compatibility mode default settings
 pref("general.useragent.compatMode.gecko", false);
 pref("general.useragent.compatMode.firefox", false);
-pref("general.useragent.compatMode.version", "102.0");
+pref("general.useragent.compatMode.version", "128.0");
 pref("general.useragent.appVersionIsBuildID", false);
 
 // In order to disable all overrides by default, don't initialize
@@ -248,7 +248,6 @@ pref("browser.sessionhistory.max_total_viewers", -1);
 // See https://github.com/MoonchildProductions/UXP/issues/719
 pref("browser.newtabpage.add_to_session_history", false);
 
-
 // Determines whether the browser's current theme should be light or dark.
 // 0 = feature disabled
 // 1 = default: light theme
@@ -256,6 +255,11 @@ pref("browser.newtabpage.add_to_session_history", false);
 pref("ui.color_scheme", 1);
 
 pref("ui.use_native_colors", true);
+
+// Whether websites should use reduced animation styles.
+// Used for CSS @media query.
+pref("ui.prefersReducedMotion", 0);
+
 #ifdef MOZ_WIDGET_GTK
 // Determines whether the menubar is shown in the global menubar or not.
 pref("ui.use_global_menubar", false);
@@ -399,7 +403,6 @@ pref("media.ffmpeg.enabled", false);
 #else
 pref("media.ffmpeg.enabled", true);
 #endif
-pref("media.libavcodec.allow-obsolete", false);
 #endif
 #if defined(MOZ_FFVPX)
 pref("media.ffvpx.enabled", true);
@@ -787,7 +790,6 @@ pref("gfx.canvas.skiagl.dynamic-cache", true);
 pref("gfx.text.disable-aa", false);
 
 pref("gfx.work-around-driver-bugs", true);
-pref("gfx.prefer-mesa-llvmpipe", false);
 
 pref("gfx.draw-color-bars", false);
 
@@ -830,9 +832,6 @@ pref("canvas.filters.enabled", true);
 // Add support for canvas path objects
 pref("canvas.path.enabled", true);
 pref("canvas.capturestream.enabled", true);
-
-// Disable the ImageBitmap-extensions for now.
-pref("canvas.imagebitmap_extensions.enabled", false);
 
 // We want the ability to forcibly disable platform a11y, because
 // some non-a11y-related components attempt to bring it up.  See bug
@@ -942,8 +941,6 @@ pref("devtools.debugger.force-local", true);
 pref("devtools.debugger.prompt-connection", true);
 // Block tools from seeing / interacting with certified apps
 pref("devtools.debugger.forbid-certified-apps", true);
-// List of permissions that a sideloaded app can't ask for
-pref("devtools.apps.forbidden-permissions", "embed-apps");
 
 // DevTools default color unit
 pref("devtools.defaultColorUnit", "authored");
@@ -1204,6 +1201,12 @@ pref("dom.cycle_collector.incremental", false);
 pref("content.sink.pending_event_mode", 0);
 #endif
 
+// Is support for CORS enabled?
+pref("content.cors.disable", false);
+
+// Should preflight requests be bypassed when CORS is disabled?
+pref("content.cors.bypass_preflight_request", false);
+
 // Disable popups from plugins by default
 //   0 = openAllowed
 //   1 = openControlled
@@ -1245,6 +1248,9 @@ pref("javascript.options.parallel_parsing", true);
 pref("javascript.options.asyncstack",       false);
 pref("javascript.options.throw_on_asmjs_validation_failure", false);
 pref("javascript.options.ion.offthread_compilation", true);
+#ifdef DEBUG
+pref("javascript.options.jit.full_debug_checks", true);
+#endif
 // This preference instructs the JS engine to discard the
 // source of any privileged JS after compilation. This saves
 // memory, but makes things like Function.prototype.toSource()
@@ -1256,6 +1262,7 @@ pref("javascript.options.discardSystemSource", false);
 // Comment 32 and Bug 613551.
 pref("javascript.options.mem.high_water_mark", 128);
 pref("javascript.options.mem.max", -1);
+pref("javascript.options.mem.nursery.max_kb", -1);
 pref("javascript.options.mem.gc_per_zone", true);
 pref("javascript.options.mem.gc_incremental", true);
 pref("javascript.options.mem.gc_incremental_slice_ms", 15);
@@ -1307,9 +1314,15 @@ pref("javascript.options.dynamicImport", true);
 // Streams API
 pref("javascript.options.streams", true);
 
+// Enable garbage collection of weakrefed objects
+pref("javascript.options.weakrefs", false);
+
 // advanced prefs
 pref("advanced.mailftp",                    false);
 pref("image.animation_mode",                "normal");
+
+// Same-origin policy for all URIs.
+pref("security.same_origin_policy.enabled", true);
 
 // Same-origin policy for file URIs, "false" is traditional
 pref("security.fileuri.strict_origin_policy", true);
@@ -1466,8 +1479,10 @@ pref("network.http.request.max-attempts", 10);
 
 // Headers
 pref("network.http.accept.default", "*/*");
-pref("network.http.accept.navigation", "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8");
-pref("network.http.accept.image", "image/png,image/svg+xml,image/*;q=0.8,*/*;q=0.5");
+// Top-level navigation should include all non-ubiquitous mime types in front of */*
+// including image and video/audio types that are handled top-level.
+pref("network.http.accept.navigation", "text/html,application/xhtml+xml,application/xml;q=0.9,image/jxl,image/webp,image/apng,video/x-matroska,video/webm,*/*;q=0.8");
+pref("network.http.accept.image", "image/jxl,image/webp,image/apng,image/png,image/svg+xml,image/*;q=0.8,*/*;q=0.5");
 pref("network.http.accept.style", "text/css,*/*;q=0.1");
 
 // Prefs allowing granular control of referers
@@ -1586,6 +1601,8 @@ pref("network.http.altsvc.enabled", true);
 pref("network.http.altsvc.oe", false);
 // Send upgrade-insecure-requests HTTP header?
 pref("network.http.upgrade-insecure-requests", false);
+// Send Sec-Fetch-* headers?
+pref("network.http.secfetch.enabled", true);
 
 pref("network.http.diagnostics", false);
 
@@ -1615,6 +1632,12 @@ pref("network.http.keep_empty_response_headers_as_empty_string", true);
 
 // Max size, in bytes, for received HTTP response header.
 pref("network.http.max_response_header_size", 393216);
+
+// This sets the nonce length to verify the server response (via a
+// server-returned Authentication-Info header). Also used for session info.
+// Note: Range-checked to 4..256, if OOB defaults to 16.
+// Note: Chrome uses 16. Larger values may break sites. See Bug 1892449.
+pref("network.http.digest_auth_cnonce_length", 16);
 
 // default values for FTP
 // in a DSCP environment this should be 40 (0x28, or AF11), per RFC-4594,
@@ -1849,6 +1872,16 @@ pref("network.dns.disablePrefetch", false);
 // This preference controls whether .onion hostnames are
 // rejected before being given to DNS. RFC 7686
 pref("network.dns.blockDotOnion", true);
+
+// This preference controls whether to block access to 0.0.0.0
+// to mitigate local access issues in *NIX network stacks.
+#if defined(XP_WIN)
+// Windows is not affected, so don't block it there.
+// XXX: any other OSes not having this issue?
+pref("network.dns.blockQuad0", false);
+#else
+pref("network.dns.blockQuad0", true);
+#endif
 
 // These domains are treated as localhost equivalent
 pref("network.dns.localDomains", "");
@@ -2160,7 +2193,7 @@ pref("security.notification_enable_delay", 500);
 pref("security.csp.enable", true);
 pref("security.csp.experimentalEnabled", false);
 pref("security.csp.enableStrictDynamic", true);
-pref("security.csp.reporting.enabled", true);
+pref("security.csp.reporting.enabled", false);
 
 // Default Content Security Policy to apply to signed contents.
 pref("security.signed_content.CSP.default", "script-src 'self'; style-src 'self'");
@@ -2640,6 +2673,15 @@ pref("layout.css.control-characters.visible", false);
 // Is support for ResizeObservers enabled?
 pref("layout.css.resizeobserver.enabled", true);
 
+// Is support for cascade layers enabled?
+pref("layout.css.cascade-layers.enabled", true);
+
+// Should rules in imported style sheets be added based on the order
+// of appearance of their respective @import rules in the parent
+// style sheet? Otherwise, they are added before rules preceding
+// @import are processed, which is problematic for cascade layers.
+pref("layout.css.load-imported-sheets-in-order", true);
+
 // pref for which side vertical scrollbars should be on
 // 0 = end-side in UI direction
 // 1 = end-side in document/content direction
@@ -2663,18 +2705,6 @@ pref("layout.frame_rate", -1);
 // pref to dump the display list to the log. Useful for debugging drawing.
 pref("layout.display-list.dump", false);
 pref("layout.display-list.dump-content", false);
-
-// pref to control precision of the frame rate timer. When true,
-// we use a "precise" timer, which means each notification fires
-// Nms after the start of the last notification. That means if the
-// processing of the notification is slow, the timer can fire immediately
-// after we've just finished processing the last notification, which might
-// lead to starvation problems.
-// When false, we use a "slack" timer which fires Nms after the *end*
-// of the last notification. This can give less tight frame rates
-// but provides more time for other operations when the browser is
-// heavily loaded.
-pref("layout.frame_rate.precise", false);
 
 // pref to control whether layout warnings that are hit quite often are enabled
 pref("layout.spammy_warnings.enabled", false);
@@ -3565,6 +3595,14 @@ pref("ui.osk.require_win10", false);
 // or appearing when it is not expected.
 pref("ui.osk.debug.keyboardDisplayReason", "");
 
+// Whether to follow `.lnk` (etc.) shortcuts in the Windows file-open dialog.
+//
+// Valid values:
+//  * 0: never
+//  * 1: always
+//  * 2: auto
+pref("widget.windows.follow_shortcuts_on_file_open", 1);
+
 # XP_WIN
 #endif
 
@@ -3919,9 +3957,9 @@ pref("autocomplete.ungrab_during_mode_switch", true);
 // toggling to use the XUL filepicker
 pref("ui.allow_platform_file_picker", true);
 
+#ifdef MOZ_WIDGET_GTK
 // Allow for using the native GTK file picker. If the application is not run
 // with GTK_USE_PORTAL=1 this pref has no effect.
-#ifdef MOZ_WIDGET_GTK
 pref("widget.allow-gtk-native-file-chooser", false);
 #endif
 
@@ -4252,6 +4290,9 @@ pref("canvas.image.cache.limit", 0);
 // Allow track-fobics to deliberately poison canvas data for
 // toDataURL() and getImageData()
 pref("canvas.poisondata", false);
+// Rotate randomness of data poisoning every n seconds. Default 5 minutes.
+// Valid range [1..28800] (1s-8h).
+pref("canvas.poisondata.interval", 300);
 
 // WebGL prefs
 pref("gl.msaa-level", 2);
@@ -4704,41 +4745,6 @@ pref("dom.browserElement.maxScreenshotDelayMS", 2000);
 // Whether we should show the placeholder when the element is focused but empty.
 pref("dom.placeholder.show_on_focus", true);
 
-// MMS UA Profile settings
-pref("wap.UAProf.url", "");
-pref("wap.UAProf.tagname", "x-wap-profile");
-
-// MMS version 1.1 = 0x11 (or decimal 17)
-// MMS version 1.3 = 0x13 (or decimal 19)
-// @see OMA-TS-MMS_ENC-V1_3-20110913-A clause 7.3.34
-pref("dom.mms.version", 19);
-
-pref("dom.mms.requestStatusReport", true);
-
-// Retrieval mode for MMS
-// manual: Manual retrieval mode.
-// automatic: Automatic retrieval mode even in roaming.
-// automatic-home: Automatic retrieval mode in home network.
-// never: Never retrieval mode.
-pref("dom.mms.retrieval_mode", "manual");
-
-pref("dom.mms.sendRetryCount", 3);
-pref("dom.mms.sendRetryInterval", "10000,60000,180000");
-
-pref("dom.mms.retrievalRetryCount", 4);
-pref("dom.mms.retrievalRetryIntervals", "60000,300000,600000,1800000");
-// Numeric default service id for MMS API calls with |serviceId| parameter
-// omitted.
-pref("dom.mms.defaultServiceId", 0);
-// Debug enabler for MMS.
-pref("mms.debugging.enabled", false);
-
-// Request read report while sending MMS.
-pref("dom.mms.requestReadReport", true);
-
-// Number of RadioInterface instances to create.
-pref("ril.numRadioInterfaces", 0);
-
 // If the user puts a finger down on an element and we think the user
 // might be executing a pan gesture, how long do we wait before
 // tentatively deciding the gesture is actually a tap and activating
@@ -4840,9 +4846,6 @@ pref("layout.accessiblecaret.hide_carets_for_mouse_input", true);
 // Wakelock is disabled by default.
 pref("dom.wakelock.enabled", false);
 
-// disable mozsample size for now
-pref("image.mozsamplesize.enabled", false);
-
 pref("beacon.enabled", true);
 
 // Camera prefs
@@ -4873,6 +4876,9 @@ pref("intl.allow-insecure-text-input", false);
 
 // Enable meta-viewport support in remote APZ-enabled frames.
 pref("dom.meta-viewport.enabled", false);
+
+// Enable the Visual Viewport API?
+pref("dom.visualviewport.enabled", true);
 
 // Disable <meta http-equiv=set-cookie> support. See m-c bug 1457503 / UXP #1102.
 pref("dom.meta-set-cookie.enabled", false);
@@ -5067,6 +5073,9 @@ pref("media.seekToNextFrame.enabled", true);
 
 // return the maximum number of cores that navigator.hardwareConcurrency returns
 pref("dom.maxHardwareConcurrency", 16);
+
+// Exposes the navigator.webdriver attribute.
+pref("dom.webdriver.enabled", true);
 
 // Shutdown the async osfile worker if it's no longer needed.
 pref("osfile.reset_worker_delay", 30000);

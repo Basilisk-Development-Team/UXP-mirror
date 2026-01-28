@@ -1911,7 +1911,7 @@ public:
    * given side.
    */
   static bool HasNonZeroCornerOnSide(const nsStyleCorners& aCorners,
-                                       mozilla::css::Side aSide);
+                                       mozilla::Side aSide);
 
   /**
    * Determine if a widget is likely to require transparency or translucency.
@@ -2877,6 +2877,15 @@ public:
     }
     return ResolveToLength<true>(aGap, aPercentageBasis);
   }
+
+  /**
+   * Returns the style context associated with the nearest non-native-anonymous
+   * ancestor of the given frame.
+   *
+   * @param aFrame The frame associated with native anonymous content.
+   * @return The resolved style context of the nearest non-anonymous DOM ancestor.
+   */
+  static already_AddRefed<nsStyleContext> GetNonAnonymousStyleContext(nsIFrame* aFrame);
 
 private:
   static uint32_t sFontSizeInflationEmPerLine;

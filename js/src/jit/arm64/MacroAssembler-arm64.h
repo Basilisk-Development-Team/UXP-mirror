@@ -1368,13 +1368,6 @@ class MacroAssemblerCompat : public vixl::MacroAssembler
     void int32ValueToFloat32(const ValueOperand& operand, FloatRegister dest) {
         convertInt32ToFloat32(operand.valueReg(), dest);
     }
-
-    void loadConstantDouble(wasm::RawF64 d, FloatRegister dest) {
-        loadConstantDouble(d.fp(), dest);
-    }
-    void loadConstantFloat32(wasm::RawF32 f, FloatRegister dest) {
-        loadConstantFloat32(f.fp(), dest);
-    }
     void loadConstantDouble(double d, FloatRegister dest) {
         Fmov(ARMFPRegister(dest, 64), d);
     }
@@ -2250,12 +2243,10 @@ class MacroAssemblerCompat : public vixl::MacroAssembler
     }
 
     void loadWasmGlobalPtr(uint32_t globalDataOffset, Register dest) {
-        loadPtr(Address(GlobalReg, globalDataOffset - WasmGlobalRegBias), dest);
+        loadPtr(Address(WasmTlsReg, offsetof(wasm::TlsData, globalArea) + globalDataOffset), dest);
     }
     void loadWasmPinnedRegsFromTls() {
         loadPtr(Address(WasmTlsReg, offsetof(wasm::TlsData, memoryBase)), HeapReg);
-        loadPtr(Address(WasmTlsReg, offsetof(wasm::TlsData, globalData)), GlobalReg);
-        adds32(Imm32(WasmGlobalRegBias), GlobalReg);
     }
 
     // Overwrites the payload bits of a dest register containing a Value.

@@ -23,6 +23,8 @@
 
 #include "frontend/TokenStream.h"
 #include "jit/Ion.h"
+#include "js/CompileOptions.h"
+#include "js/SourceBufferHolder.h"
 #include "threading/ConditionVariable.h"
 #include "vm/MutexIDs.h"
 
@@ -236,9 +238,16 @@ class GlobalHelperThreadState
         numWasmFailedJobs = 0;
         return n;
     }
+	UniqueChars harvestWasmError(const AutoLockHelperThreadState&) {
+        return Move(firstWasmError);
+    }
     void noteWasmFailure(const AutoLockHelperThreadState&) {
         // Be mindful to signal the active thread after calling this function.
         numWasmFailedJobs++;
+    }
+	void setWasmError(const AutoLockHelperThreadState&, UniqueChars error) {
+        if (!firstWasmError)
+          firstWasmError = Move(error);
     }
     bool wasmFailed(const AutoLockHelperThreadState&) {
         return bool(numWasmFailedJobs);
@@ -251,7 +260,7 @@ class GlobalHelperThreadState
                                    Handle<GlobalObject*> global,
                                    JSCompartment* dest);
 
-    void trace(JSTracer* trc);
+    void trace(JSTracer* trc, js::gc::AutoTraceSession& session);
 
   private:
     /*
@@ -259,6 +268,12 @@ class GlobalHelperThreadState
      * Their parent is logically the active thread, and this number serves for harvesting.
      */
     uint32_t numWasmFailedJobs;
+
+    /*
+     * Error string from wasm validation. Arbitrarily choose to keep the first one that gets
+     * reported. Nondeterministic if multiple threads have errors.
+     */
+    UniqueChars firstWasmError;
 
   public:
     JSScript* finishScriptParseTask(JSContext* cx, void* token);
@@ -410,7 +425,7 @@ namespace wasm {
 
 // Performs MIR optimization and LIR generation on one or several functions.
 [[nodiscard]]  bool
-CompileFunction(CompileTask* task);
+CompileFunction(CompileTask* task, UniqueChars* error);
 
 }
 
@@ -442,6 +457,7 @@ struct CompilationsUsingNursery { JSRuntime* runtime; };
 
 using CompilationSelector = mozilla::Variant<JSScript*,
                                              JSCompartment*,
+											 Zone*,
                                              ZonesInState,
                                              JSRuntime*,
                                              CompilationsUsingNursery,
@@ -463,6 +479,12 @@ inline void
 CancelOffThreadIonCompile(JSCompartment* comp)
 {
     CancelOffThreadIonCompile(CompilationSelector(comp), true);
+}
+
+inline void
+CancelOffThreadIonCompile(Zone* zone)
+{
+    CancelOffThreadIonCompile(CompilationSelector(zone), true);
 }
 
 inline void
@@ -503,17 +525,17 @@ CancelOffThreadParses(JSRuntime* runtime);
  * alive until the compilation finishes.
  */
 bool
-StartOffThreadParseScript(JSContext* cx, const ReadOnlyCompileOptions& options,
+StartOffThreadParseScript(JSContext* cx, const JS::ReadOnlyCompileOptions& options,
                           const char16_t* chars, size_t length,
                           JS::OffThreadCompileCallback callback, void* callbackData);
 
 bool
-StartOffThreadParseModule(JSContext* cx, const ReadOnlyCompileOptions& options,
+StartOffThreadParseModule(JSContext* cx, const JS::ReadOnlyCompileOptions& options,
                           const char16_t* chars, size_t length,
                           JS::OffThreadCompileCallback callback, void* callbackData);
 
 bool
-StartOffThreadDecodeScript(JSContext* cx, const ReadOnlyCompileOptions& options,
+StartOffThreadDecodeScript(JSContext* cx, const JS::ReadOnlyCompileOptions& options,
                            JS::TranscodeBuffer& buffer, size_t cursor,
                            JS::OffThreadCompileCallback callback, void* callbackData);
 
@@ -572,7 +594,7 @@ class MOZ_RAII AutoUnlockHelperThreadState : public UnlockGuard<Mutex>
 struct ParseTask
 {
     ParseTaskKind kind;
-    OwningCompileOptions options;
+    JS::OwningCompileOptions options;
     // Anonymous union, the only correct interpretation is provided by the
     // ParseTaskKind value, or from the virtual parse function.
     union {
@@ -617,7 +639,7 @@ struct ParseTask
     ParseTask(ParseTaskKind kind, JSContext* cx, JSObject* parseGlobal,
               JS::TranscodeBuffer& buffer, size_t cursor,
               JS::OffThreadCompileCallback callback, void* callbackData);
-    bool init(JSContext* cx, const ReadOnlyCompileOptions& options);
+    bool init(JSContext* cx, const JS::ReadOnlyCompileOptions& options);
 
     void activate(JSRuntime* rt);
     virtual void parse(JSContext* cx) = 0;

@@ -24,7 +24,7 @@
 #include "jsprf.h"
 
 #include "jit/AtomicOp.h"
-#include "wasm/WasmBinaryFormat.h"
+#include "wasm/WasmValidate.h"
 
 namespace js {
 namespace wasm {
@@ -139,7 +139,6 @@ class ControlStackEntry
         MOZ_ASSERT(kind_ == LabelKind::Then || kind_ == LabelKind::UnreachableThen);
         reachable_ = reachable;
         kind_ = LabelKind::Else;
-        controlItem_ = ControlItem();
     }
 };
 
@@ -296,16 +295,16 @@ class MOZ_STACK_CLASS OpIter : private Policy
         *out = d_.uncheckedReadVarU64();
         return true;
     }
-    [[nodiscard]] bool readFixedF32(RawF32* out) {
+    [[nodiscard]] bool readFixedF32(float* out) {
         if (Validate)
             return d_.readFixedF32(out);
-        *out = d_.uncheckedReadFixedF32();
+        d_.uncheckedReadFixedF32(out);
         return true;
     }
-    [[nodiscard]] bool readFixedF64(RawF64* out) {
+    [[nodiscard]] bool readFixedF64(double* out) {
         if (Validate)
             return d_.readFixedF64(out);
-        *out = d_.uncheckedReadFixedF64();
+        d_.uncheckedReadFixedF64(out);
         return true;
     }
 
@@ -347,8 +346,8 @@ class MOZ_STACK_CLASS OpIter : private Policy
     [[nodiscard]] bool checkType(ExprType actual, ExprType expected);
 
     [[nodiscard]] bool pushControl(LabelKind kind, ExprType type, bool reachable);
-    [[nodiscard]] bool mergeControl(LabelKind* kind, ExprType* type, Value* value);
-    [[nodiscard]] bool popControl(LabelKind* kind, ExprType* type, Value* value);
+    [[nodiscard]] bool checkControlAtEndOfBlock(LabelKind* kind, ExprType* type, Value* value);
+    [[nodiscard]] bool finishControl(LabelKind* kind, ExprType* type, Value* value);
 
     [[nodiscard]] bool push(ValType t) {
         if (MOZ_UNLIKELY(!reachable_))
@@ -507,6 +506,7 @@ class MOZ_STACK_CLASS OpIter : private Policy
     [[nodiscard]] bool readIf(Value* condition);
     [[nodiscard]] bool readElse(ExprType* thenType, Value* thenValue);
     [[nodiscard]] bool readEnd(LabelKind* kind, ExprType* type, Value* value);
+    void popEnd();
     [[nodiscard]] bool readBr(uint32_t* relativeDepth, ExprType* type, Value* value);
     [[nodiscard]] bool readBrIf(uint32_t* relativeDepth, ExprType* type,
                                Value* value, Value* condition);
@@ -539,8 +539,8 @@ class MOZ_STACK_CLASS OpIter : private Policy
     [[nodiscard]] bool readTeeGlobal(const GlobalDescVector& globals, uint32_t* id, Value* value);
     [[nodiscard]] bool readI32Const(int32_t* i32);
     [[nodiscard]] bool readI64Const(int64_t* i64);
-    [[nodiscard]] bool readF32Const(RawF32* f32);
-    [[nodiscard]] bool readF64Const(RawF64* f64);
+    [[nodiscard]] bool readF32Const(float* f32);
+    [[nodiscard]] bool readF64Const(double* f64);
     [[nodiscard]] bool readCall(uint32_t* calleeIndex);
     [[nodiscard]] bool readCallIndirect(uint32_t* sigIndex, Value* callee);
     [[nodiscard]] bool readOldCallIndirect(uint32_t* sigIndex);
@@ -588,6 +588,16 @@ class MOZ_STACK_CLASS OpIter : private Policy
     // Return a reference to the top of the control stack.
     ControlItem& controlItem() {
         return controlStack_.back().controlItem();
+    }
+
+    // Return a reference to an element in the control stack.
+    ControlItem& controlItem(uint32_t relativeDepth) {
+        return controlStack_[controlStack_.length() - 1 - relativeDepth].controlItem();
+    }
+
+    // Return a reference to the outermost element on the control stack.
+    ControlItem& controlOutermost() {
+        return controlStack_[0].controlItem();
     }
 
     // Return the signature of the top of the control stack.
@@ -679,7 +689,7 @@ OpIter<Policy>::pushControl(LabelKind kind, ExprType type, bool reachable)
 
 template <typename Policy>
 inline bool
-OpIter<Policy>::mergeControl(LabelKind* kind, ExprType* type, Value* value)
+OpIter<Policy>::checkControlAtEndOfBlock(LabelKind* kind, ExprType* type, Value* value)
 {
     MOZ_ASSERT(!controlStack_.empty());
 
@@ -727,9 +737,9 @@ OpIter<Policy>::mergeControl(LabelKind* kind, ExprType* type, Value* value)
 
 template <typename Policy>
 inline bool
-OpIter<Policy>::popControl(LabelKind* kind, ExprType* type, Value* value)
+OpIter<Policy>::finishControl(LabelKind* kind, ExprType* type, Value* value)
 {
-    if (!mergeControl(kind, type, value))
+    if (!checkControlAtEndOfBlock(kind, type, value))
         return false;
 
     if (*kind == LabelKind::Then) {
@@ -740,11 +750,6 @@ OpIter<Policy>::popControl(LabelKind* kind, ExprType* type, Value* value)
         }
         reachable_ = true;
     }
-
-    controlStack_.popBack();
-
-    if (!reachable_ && !controlStack_.empty())
-        valueStack_.shrinkTo(controlStack_.back().valueStackStart());
 
     return true;
 }
@@ -916,7 +921,7 @@ OpIter<Policy>::readElse(ExprType* thenType, Value* thenValue)
     // Finish up the then arm.
     ExprType type = ExprType::Limit;
     LabelKind kind;
-    if (!mergeControl(&kind, &type, thenValue))
+    if (!checkControlAtEndOfBlock(&kind, &type, thenValue))
         return false;
 
     if (Output)
@@ -947,7 +952,7 @@ OpIter<Policy>::readEnd(LabelKind* kind, ExprType* type, Value* value)
 
     LabelKind validateKind = static_cast<LabelKind>(-1);
     ExprType validateType = ExprType::Limit;
-    if (!popControl(&validateKind, &validateType, value))
+    if (!finishControl(&validateKind, &validateType, value))
         return false;
 
     if (Output) {
@@ -956,6 +961,18 @@ OpIter<Policy>::readEnd(LabelKind* kind, ExprType* type, Value* value)
     }
 
     return true;
+}
+
+template <typename Policy>
+inline void
+OpIter<Policy>::popEnd()
+{
+    MOZ_ASSERT(Classify(op_) == OpKind::End);
+
+    controlStack_.popBack();
+
+    if (!reachable_ && !controlStack_.empty())
+        valueStack_.shrinkTo(controlStack_.back().valueStackStart());
 }
 
 template <typename Policy>
@@ -1547,11 +1564,11 @@ OpIter<Policy>::readI64Const(int64_t* i64)
 
 template <typename Policy>
 inline bool
-OpIter<Policy>::readF32Const(RawF32* f32)
+OpIter<Policy>::readF32Const(float* f32)
 {
     MOZ_ASSERT(Classify(op_) == OpKind::F32);
 
-    RawF32 unused;
+    float unused;
     if (!readFixedF32(Output ? f32 : &unused))
         return false;
 
@@ -1563,11 +1580,11 @@ OpIter<Policy>::readF32Const(RawF32* f32)
 
 template <typename Policy>
 inline bool
-OpIter<Policy>::readF64Const(RawF64* f64)
+OpIter<Policy>::readF64Const(double* f64)
 {
     MOZ_ASSERT(Classify(op_) == OpKind::F64);
 
-    RawF64 unused;
+    double unused;
     if (!readFixedF64(Output ? f64 : &unused))
        return false;
 

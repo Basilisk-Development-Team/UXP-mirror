@@ -9,6 +9,7 @@
 #include "jsgc.h"
 #include "jsobj.h"
 
+#include "gc/DeletePolicy.h"
 #include "gc/Zone.h"
 #include "vm/Runtime.h"
 #include "vm/TypeInference.h"
@@ -39,7 +40,7 @@ UnboxedTypeNeedsPreBarrier(JSValueType type)
 static inline bool
 UnboxedTypeNeedsPostBarrier(JSValueType type)
 {
-    return type == JSVAL_TYPE_OBJECT;
+    return type == JSVAL_TYPE_STRING || type == JSVAL_TYPE_OBJECT;
 }
 
 // Class tracking information specific to unboxed objects.
@@ -334,13 +335,6 @@ class UnboxedPlainObject : public UnboxedObject
 bool
 TryConvertToUnboxedLayout(JSContext* cx, AutoEnterAnalysis& enter, Shape* templateShape,
                           ObjectGroup* group, PreliminaryObjectArray* objects);
-
-inline gc::AllocKind
-UnboxedLayout::getAllocKind() const
-{
-    MOZ_ASSERT(size());
-    return gc::GetGCObjectKindForBytes(UnboxedPlainObject::offsetOfData() + size());
-}
 
 // Class for an array object using an unboxed representation.
 class UnboxedArrayObject : public UnboxedObject

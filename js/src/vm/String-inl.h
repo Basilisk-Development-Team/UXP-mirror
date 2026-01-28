@@ -16,6 +16,9 @@
 
 #include "gc/Allocator.h"
 #include "gc/Marking.h"
+#include "gc/StoreBuffer.h"
+
+#include "gc/StoreBuffer-inl.h"
 
 namespace js {
 
@@ -80,16 +83,6 @@ NewInlineString(JSContext* cx, HandleLinearString base, size_t start, size_t len
     return s;
 }
 
-static inline void
-StringWriteBarrierPost(JSContext* maybecx, JSString** strp)
-{
-}
-
-static inline void
-StringWriteBarrierPostRemove(JSContext* maybecx, JSString** strp)
-{
-}
-
 } /* namespace js */
 
 MOZ_ALWAYS_INLINE bool
@@ -107,13 +100,21 @@ MOZ_ALWAYS_INLINE void
 JSRope::init(JSContext* cx, JSString* left, JSString* right, size_t length)
 {
     d.u1.length = length;
-    d.u1.flags = ROPE_FLAGS;
+    d.u1.flags = INIT_ROPE_FLAGS;
     if (left->hasLatin1Chars() && right->hasLatin1Chars())
         d.u1.flags |= LATIN1_CHARS_BIT;
     d.s.u2.left = left;
     d.s.u3.right = right;
-    js::StringWriteBarrierPost(cx, &d.s.u2.left);
-    js::StringWriteBarrierPost(cx, &d.s.u3.right);
+
+    // Post-barrier by inserting into the whole cell buffer if either
+    // this -> left or this -> right is a tenured -> nursery edge.
+    if (isTenured()) {
+        js::gc::StoreBuffer* sb = left->storeBuffer();
+        if (!sb)
+            sb = right->storeBuffer();
+        if (sb)
+            sb->putWholeCell(this);
+    }
 }
 
 template <js::AllowGC allowGC>
@@ -121,11 +122,11 @@ MOZ_ALWAYS_INLINE JSRope*
 JSRope::new_(JSContext* cx,
              typename js::MaybeRooted<JSString*, allowGC>::HandleType left,
              typename js::MaybeRooted<JSString*, allowGC>::HandleType right,
-             size_t length)
+             size_t length, js::gc::InitialHeap heap)
 {
     if (!validateLength(cx, length))
         return nullptr;
-    JSRope* str = static_cast<JSRope*>(js::Allocate<JSString, allowGC>(cx));
+    JSRope* str = js::Allocate<JSRope, allowGC>(cx, heap);
     if (!str)
         return nullptr;
     str->init(cx, left, right, length);
@@ -147,7 +148,8 @@ JSDependentString::init(JSContext* cx, JSLinearString* base, size_t start,
         d.s.u2.nonInlineCharsTwoByte = base->twoByteChars(nogc) + start;
     }
     d.s.u3.base = base;
-    js::StringWriteBarrierPost(cx, reinterpret_cast<JSString**>(&d.s.u3.base));
+    if (isTenured() && !base->isTenured())
+        base->storeBuffer()->putWholeCell(this);
 }
 
 MOZ_ALWAYS_INLINE JSLinearString*
@@ -185,7 +187,7 @@ JSDependentString::new_(JSContext* cx, JSLinearString* baseArg, size_t start,
     if (baseArg->isExternal() && !baseArg->ensureFlat(cx))
         return nullptr;
 
-    JSDependentString* str = static_cast<JSDependentString*>(js::Allocate<JSString, js::NoGC>(cx));
+    JSDependentString* str = js::Allocate<JSDependentString, js::NoGC>(cx, js::gc::DefaultHeap);
     if (str) {
         str->init(cx, baseArg, start, length);
         return str;
@@ -193,7 +195,7 @@ JSDependentString::new_(JSContext* cx, JSLinearString* baseArg, size_t start,
 
     js::RootedLinearString base(cx, baseArg);
 
-    str = static_cast<JSDependentString*>(js::Allocate<JSString>(cx));
+    str = js::Allocate<JSDependentString>(cx, js::gc::DefaultHeap);
     if (!str)
         return nullptr;
     str->init(cx, base, start, length);
@@ -204,7 +206,7 @@ MOZ_ALWAYS_INLINE void
 JSFlatString::init(const char16_t* chars, size_t length)
 {
     d.u1.length = length;
-    d.u1.flags = FLAT_BIT;
+    d.u1.flags = INIT_FLAT_FLAGS;
     d.s.u2.nonInlineCharsTwoByte = chars;
 }
 
@@ -212,7 +214,7 @@ MOZ_ALWAYS_INLINE void
 JSFlatString::init(const JS::Latin1Char* chars, size_t length)
 {
     d.u1.length = length;
-    d.u1.flags = FLAT_BIT | LATIN1_CHARS_BIT;
+    d.u1.flags = INIT_FLAT_FLAGS | LATIN1_CHARS_BIT;
     d.s.u2.nonInlineCharsLatin1 = chars;
 }
 
@@ -229,9 +231,23 @@ JSFlatString::new_(JSContext* cx, const CharT* chars, size_t length)
     if (cx->compartment()->isAtomsCompartment())
         str = js::Allocate<js::NormalAtom, allowGC>(cx);
     else
-        str = static_cast<JSFlatString*>(js::Allocate<JSString, allowGC>(cx));
+        str = js::Allocate<JSFlatString, allowGC>(cx, js::gc::DefaultHeap);
     if (!str)
         return nullptr;
+
+    if (!str->isTenured()) {
+        // The chars pointer is only considered to be handed over to this
+        // function on a successful return. If the following registration
+        // fails, the string is partially initialized and must be made valid,
+        // or its finalizer may attempt to free uninitialized memory.
+        void* ptr = const_cast<void*>(static_cast<const void*>(chars));
+        if (!cx->runtime()->gc.nursery().registerMallocedBuffer(ptr)) {
+            str->init((JS::Latin1Char*)nullptr, 0);
+            if (allowGC)
+                ReportOutOfMemory(cx);
+            return nullptr;
+        }
+    }
 
     str->init(chars, length);
     return str;
@@ -259,7 +275,7 @@ JSThinInlineString::new_(JSContext* cx)
     if (cx->compartment()->isAtomsCompartment())
         return (JSThinInlineString*)(js::Allocate<js::NormalAtom, allowGC>(cx));
 
-    return static_cast<JSThinInlineString*>(js::Allocate<JSString, allowGC>(cx));
+    return js::Allocate<JSThinInlineString, allowGC>(cx, js::gc::DefaultHeap);
 }
 
 template <js::AllowGC allowGC>
@@ -269,7 +285,7 @@ JSFatInlineString::new_(JSContext* cx)
     if (cx->compartment()->isAtomsCompartment())
         return (JSFatInlineString*)(js::Allocate<js::FatInlineAtom, allowGC>(cx));
 
-    return js::Allocate<JSFatInlineString, allowGC>(cx);
+    return js::Allocate<JSFatInlineString, allowGC>(cx, js::gc::DefaultHeap);
 }
 
 template<>

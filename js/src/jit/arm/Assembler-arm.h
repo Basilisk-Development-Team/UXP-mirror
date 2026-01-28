@@ -72,7 +72,6 @@ static constexpr Register IntArgReg0 = r0;
 static constexpr Register IntArgReg1 = r1;
 static constexpr Register IntArgReg2 = r2;
 static constexpr Register IntArgReg3 = r3;
-static constexpr Register GlobalReg = r10;
 static constexpr Register HeapReg = r11;
 static constexpr Register CallTempNonArgRegs[] = { r5, r6, r7, r8 };
 static const uint32_t NumCallTempNonArgRegs =
@@ -158,11 +157,6 @@ struct ScratchDoubleScope : public AutoFloatRegisterScope
       : AutoFloatRegisterScope(masm, ScratchDoubleReg)
     { }
 };
-
-// A bias applied to the GlobalReg to allow the use of instructions with small
-// negative immediate offsets which doubles the range of global data that can be
-// accessed with a single instruction.
-static const int32_t WasmGlobalRegBias = 1024;
 
 // Registers used in the GenerateFFIIonExit Enable Activation block.
 static constexpr Register WasmIonExitRegCallee = r4;
@@ -1552,9 +1546,9 @@ class Assembler : public AssemblerShared
                                Label* documentation = nullptr);
 
     // Load a 64 bit floating point immediate from a pool into a register.
-    BufferOffset as_FImm64Pool(VFPRegister dest, wasm::RawF64 value, Condition c = Always);
+    BufferOffset as_FImm64Pool(VFPRegister dest, double value, Condition c = Always);
     // Load a 32 bit floating point immediate from a pool into a register.
-    BufferOffset as_FImm32Pool(VFPRegister dest, wasm::RawF32 value, Condition c = Always);
+    BufferOffset as_FImm32Pool(VFPRegister dest, float value, Condition c = Always);
 
     // Atomic instructions: ldrex, ldrexh, ldrexb, strex, strexh, strexb.
     //
@@ -1732,6 +1726,8 @@ class Assembler : public AssemblerShared
     static bool SupportsSimd() {
         return js::jit::SupportsSimd;
     }
+
+    static bool HasRoundInstruction(RoundingMode mode) { return false; }
 
   protected:
     void addPendingJump(BufferOffset src, ImmPtr target, Relocation::Kind kind) {
@@ -2252,19 +2248,34 @@ class InstMOV : public InstALU
 class InstructionIterator
 {
   private:
-    Instruction* i;
+    Instruction* inst_;
 
   public:
-    explicit InstructionIterator(Instruction* i_);
+    explicit InstructionIterator(Instruction* inst) : inst_(inst) {
+        skipPool();
+    }
+    void skipPool() {
+        inst_ = inst_->skipPool();
+    }
 
     Instruction* next() {
-        i = i->next();
+        inst_ = inst_->next();
         return cur();
     }
     Instruction* cur() const {
-        return i;
+        return inst_;
     }
 };
+
+class BufferInstructionIterator : public ARMBuffer::AssemblerBufferInstIterator
+{
+  public:
+    BufferInstructionIterator(BufferOffset bo, ARMBuffer* buffer)
+      : ARMBuffer::AssemblerBufferInstIterator(bo, buffer)
+    {}
+    void skipPool();
+};
+
 
 static const uint32_t NumIntArgRegs = 4;
 

@@ -3766,18 +3766,23 @@ nsDisplayOutline::Paint(nsDisplayListBuilder* aBuilder,
                                mFrame->StyleContext());
 }
 
+bool nsDisplayOutline::HasRadius() const {
+  if (nsLayoutUtils::HasNonZeroCorner(mFrame->StyleOutline()->mOutlineRadius)) {
+    return true;
+  }
+  return nsLayoutUtils::HasNonZeroCorner(mFrame->StyleBorder()->mBorderRadius);
+}
+
 bool
 nsDisplayOutline::IsInvisibleInRect(const nsRect& aRect)
 {
   const nsStyleOutline* outline = mFrame->StyleOutline();
   nsRect borderBox(ToReferenceFrame(), mFrame->GetSize());
-  if (borderBox.Contains(aRect) &&
-      !nsLayoutUtils::HasNonZeroCorner(outline->mOutlineRadius)) {
-    if (outline->mOutlineOffset >= 0) {
-      // aRect is entirely inside the border-rect, and the outline isn't
-      // rendered inside the border-rect, so the outline is not visible.
-      return true;
-    }
+  if (borderBox.Contains(aRect) && !HasRadius() &&
+    outline->mOutlineOffset >= 0) {
+    // aRect is entirely inside the border-rect, and the outline isn't
+    // rendered inside the border-rect, so the outline is not visible.
+    return true;
   }
 
   return false;
@@ -4141,19 +4146,19 @@ nsDisplayBorder::CalculateBounds(const nsStyleBorder& aStyleBorder)
     nscoord radii[8];
     if (mFrame->GetBorderRadii(radii)) {
       if (border.left > 0 || border.top > 0) {
-        nsSize cornerSize(radii[NS_CORNER_TOP_LEFT_X], radii[NS_CORNER_TOP_LEFT_Y]);
+        nsSize cornerSize(radii[eCornerTopLeftX], radii[eCornerTopLeftY]);
         result.UnionRect(result, nsRect(borderBounds.TopLeft(), cornerSize));
       }
       if (border.top > 0 || border.right > 0) {
-        nsSize cornerSize(radii[NS_CORNER_TOP_RIGHT_X], radii[NS_CORNER_TOP_RIGHT_Y]);
+        nsSize cornerSize(radii[eCornerTopRightX], radii[eCornerTopRightY]);
         result.UnionRect(result, nsRect(borderBounds.TopRight() - nsPoint(cornerSize.width, 0), cornerSize));
       }
       if (border.right > 0 || border.bottom > 0) {
-        nsSize cornerSize(radii[NS_CORNER_BOTTOM_RIGHT_X], radii[NS_CORNER_BOTTOM_RIGHT_Y]);
+        nsSize cornerSize(radii[eCornerBottomRightX], radii[eCornerBottomRightY]);
         result.UnionRect(result, nsRect(borderBounds.BottomRight() - nsPoint(cornerSize.width, cornerSize.height), cornerSize));
       }
       if (border.bottom > 0 || border.left > 0) {
-        nsSize cornerSize(radii[NS_CORNER_BOTTOM_LEFT_X], radii[NS_CORNER_BOTTOM_LEFT_Y]);
+        nsSize cornerSize(radii[eCornerBottomLeftX], radii[eCornerBottomLeftY]);
         result.UnionRect(result, nsRect(borderBounds.BottomLeft() - nsPoint(0, cornerSize.height), cornerSize));
       }
     }

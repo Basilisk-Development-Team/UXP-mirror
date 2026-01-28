@@ -58,11 +58,13 @@
 #include "gc/Policy.h"
 #include "jit/JitCommon.h"
 #include "js/CharacterEncoding.h"
+#include "js/CompileOptions.h"
 #include "js/Conversions.h"
 #include "js/Date.h"
 #include "js/Initialization.h"
 #include "js/Proxy.h"
 #include "js/SliceBudget.h"
+#include "js/SourceBufferHolder.h"
 #include "js/StructuredClone.h"
 #include "js/Utility.h"
 #include "vm/AsyncFunction.h"
@@ -105,6 +107,9 @@ using mozilla::PodZero;
 using mozilla::Some;
 
 using JS::AutoGCRooter;
+using JS::CompileOptions;
+using JS::ReadOnlyCompileOptions;
+using JS::SourceBufferHolder;
 using JS::ToInt32;
 using JS::ToInteger;
 using JS::ToUint32;
@@ -155,6 +160,7 @@ JS::ObjectOpResult::reportStrictErrorOrWarning(JSContext* cx, HandleObject obj, 
                   "unsigned value of OkCode must not be an error code");
     MOZ_ASSERT(code_ != Uninitialized);
     MOZ_ASSERT(!ok());
+    assertSameCompartment(cx, obj);
 
     unsigned flags = strict ? JSREPORT_ERROR : (JSREPORT_WARNING | JSREPORT_STRICT);
     if (code_ == JSMSG_OBJECT_NOT_EXTENSIBLE || code_ == JSMSG_SET_NON_OBJECT_RECEIVER) {
@@ -189,6 +195,7 @@ JS::ObjectOpResult::reportStrictErrorOrWarning(JSContext* cx, HandleObject obj, 
     MOZ_ASSERT(code_ != Uninitialized);
     MOZ_ASSERT(!ok());
     MOZ_ASSERT(!ErrorTakesArguments(code_));
+    assertSameCompartment(cx, obj);
 
     unsigned flags = strict ? JSREPORT_ERROR : (JSREPORT_WARNING | JSREPORT_STRICT);
     return JS_ReportErrorFlagsAndNumberASCII(cx, flags, GetErrorMessage, nullptr, code_);
@@ -1381,16 +1388,16 @@ JS_RemoveFinalizeCallback(JSContext* cx, JSFinalizeCallback cb)
 }
 
 JS_PUBLIC_API(bool)
-JS_AddWeakPointerZoneGroupCallback(JSContext* cx, JSWeakPointerZoneGroupCallback cb, void* data)
+JS_AddWeakPointerZonesCallback(JSContext* cx, JSWeakPointerZonesCallback cb, void* data)
 {
     AssertHeapIsIdle();
-    return cx->runtime()->gc.addWeakPointerZoneGroupCallback(cb, data);
+    return cx->runtime()->gc.addWeakPointerZonesCallback(cb, data);
 }
 
 JS_PUBLIC_API(void)
-JS_RemoveWeakPointerZoneGroupCallback(JSContext* cx, JSWeakPointerZoneGroupCallback cb)
+JS_RemoveWeakPointerZonesCallback(JSContext* cx, JSWeakPointerZonesCallback cb)
 {
-    cx->runtime()->gc.removeWeakPointerZoneGroupCallback(cb);
+    cx->runtime()->gc.removeWeakPointerZonesCallback(cb);
 }
 
 JS_PUBLIC_API(bool)
@@ -1609,6 +1616,7 @@ JS::ToPrimitive(JSContext* cx, HandleObject obj, JSType hint, MutableHandleValue
 {
     AssertHeapIsIdle();
     CHECK_REQUEST(cx);
+    assertSameCompartment(cx, obj);
     MOZ_ASSERT(obj != nullptr);
     MOZ_ASSERT(hint == JSTYPE_VOID || hint == JSTYPE_STRING || hint == JSTYPE_NUMBER);
     vp.setObject(*obj);
@@ -1914,6 +1922,7 @@ JS_FireOnNewGlobalObject(JSContext* cx, JS::HandleObject global)
     // to be able to throw errors during delicate global creation routines.
     // This infallibility will eat OOM and slow script, but if that happens
     // we'll likely run up into them again soon in a fallible context.
+    assertSameCompartment(cx, global);
     Rooted<js::GlobalObject*> globalObject(cx, &global->as<GlobalObject>());
     Debugger::onNewGlobalObject(cx, globalObject);
 }
@@ -1994,6 +2003,7 @@ JS::AssertObjectBelongsToCurrentThread(JSObject* obj)
 JS_PUBLIC_API(bool)
 JS_GetPrototype(JSContext* cx, HandleObject obj, MutableHandleObject result)
 {
+    assertSameCompartment(cx, obj);
     return GetPrototype(cx, obj, result);
 }
 
@@ -2011,24 +2021,28 @@ JS_PUBLIC_API(bool)
 JS_GetPrototypeIfOrdinary(JSContext* cx, HandleObject obj, bool* isOrdinary,
                           MutableHandleObject result)
 {
+    assertSameCompartment(cx, obj);
     return GetPrototypeIfOrdinary(cx, obj, isOrdinary, result);
 }
 
 JS_PUBLIC_API(bool)
 JS_IsExtensible(JSContext* cx, HandleObject obj, bool* extensible)
 {
+    assertSameCompartment(cx, obj);
     return IsExtensible(cx, obj, extensible);
 }
 
 JS_PUBLIC_API(bool)
 JS_PreventExtensions(JSContext* cx, JS::HandleObject obj, ObjectOpResult& result)
 {
+    assertSameCompartment(cx, obj);
     return PreventExtensions(cx, obj, result);
 }
 
 JS_PUBLIC_API(bool)
 JS_SetImmutablePrototype(JSContext *cx, JS::HandleObject obj, bool *succeeded)
 {
+    assertSameCompartment(cx, obj);
     return SetImmutablePrototype(cx, obj, succeeded);
 }
 
@@ -2038,6 +2052,7 @@ JS_GetOwnPropertyDescriptorById(JSContext* cx, HandleObject obj, HandleId id,
 {
     AssertHeapIsIdle();
     CHECK_REQUEST(cx);
+    assertSameCompartment(cx, obj, id);
 
     return GetOwnPropertyDescriptor(cx, obj, id, desc);
 }
@@ -2482,6 +2497,7 @@ static bool
 DefineElement(JSContext* cx, HandleObject obj, uint32_t index, HandleValue value,
               unsigned attrs, Native getter, Native setter)
 {
+    assertSameCompartment(cx, obj, value);
     AutoRooterGetterSetter gsRoot(cx, attrs, &getter, &setter);
     AssertHeapIsIdle();
     CHECK_REQUEST(cx);
@@ -2548,6 +2564,7 @@ JS_HasPropertyById(JSContext* cx, HandleObject obj, HandleId id, bool* foundp)
 {
     AssertHeapIsIdle();
     CHECK_REQUEST(cx);
+    assertSameCompartment(cx, obj, id);
 
     return HasProperty(cx, obj, id, foundp);
 }
@@ -2665,7 +2682,7 @@ JS_ForwardSetPropertyTo(JSContext* cx, HandleObject obj, HandleId id, HandleValu
 {
     AssertHeapIsIdle();
     CHECK_REQUEST(cx);
-    assertSameCompartment(cx, obj, id, receiver);
+    assertSameCompartment(cx, obj, id, v, receiver);
 
     return SetProperty(cx, obj, id, v, receiver, result);
 }
@@ -2675,7 +2692,7 @@ JS_SetPropertyById(JSContext* cx, HandleObject obj, HandleId id, HandleValue v)
 {
     AssertHeapIsIdle();
     CHECK_REQUEST(cx);
-    assertSameCompartment(cx, obj, id);
+    assertSameCompartment(cx, obj, id, v);
 
     RootedValue receiver(cx, ObjectValue(*obj));
     ObjectOpResult ignored;
@@ -2829,7 +2846,7 @@ JS_Enumerate(JSContext* cx, HandleObject obj, JS::MutableHandle<IdVector> props)
 {
     AssertHeapIsIdle();
     CHECK_REQUEST(cx);
-    assertSameCompartment(cx, obj);
+    assertSameCompartment(cx, obj, props);
     MOZ_ASSERT(props.empty());
 
     AutoIdVector ids(cx);
@@ -3287,6 +3304,9 @@ JS::ObjectToCompletePropertyDescriptor(JSContext* cx,
                                        HandleValue descObj,
                                        MutableHandle<PropertyDescriptor> desc)
 {
+    // |obj| can be in a different compartment here. The caller is responsible
+    // for wrapping it (see JS_WrapPropertyDescriptor).
+    assertSameCompartment(cx, descObj);
     if (!ToPropertyDescriptor(cx, descObj, true, desc))
         return false;
     CompletePropertyDescriptor(desc);
@@ -3889,7 +3909,6 @@ JS::TransitiveCompileOptions::copyPODTransitiveOptions(const TransitiveCompileOp
     asmJSOption = rhs.asmJSOption;
     throwOnAsmJSValidationFailureOption = rhs.throwOnAsmJSValidationFailureOption;
     forceAsync = rhs.forceAsync;
-    installedFile = rhs.installedFile;
     sourceIsLazy = rhs.sourceIsLazy;
     introductionType = rhs.introductionType;
     introductionLineno = rhs.introductionLineno;
@@ -5657,7 +5676,7 @@ JS_StringHasBeenPinned(JSContext* cx, JSString* str)
     if (!str->isAtom())
         return false;
 
-    return AtomIsPinned(cx, &str->asAtom());
+    return str->asAtom().isPinned();
 }
 
 JS_PUBLIC_API(jsid)
@@ -7145,6 +7164,11 @@ JS_SetGlobalJitCompilerOption(JSContext* cx, JSJitCompilerOption opt, uint32_t v
       case JSJITCOMPILER_ION_INLINING:
         jit::JitOptions.disableInlining = !value;
         break;
+#ifdef DEBUG
+      case JSJITCOMPILER_FULL_DEBUG_CHECKS:
+        jit::JitOptions.fullDebugChecks = !!value;
+        break;
+#endif
       default:
         break;
     }
@@ -7192,6 +7216,11 @@ JS_GetGlobalJitCompilerOption(JSContext* cx, JSJitCompilerOption opt, uint32_t* 
       case JSJITCOMPILER_ION_INTERRUPT_WITHOUT_SIGNAL:
         *valueOut = jit::JitOptions.ionInterruptWithoutSignals ? 1 : 0;
         break;
+#ifdef DEBUG
+      case JSJITCOMPILER_FULL_DEBUG_CHECKS:
+        *valueOut = jit::JitOptions.fullDebugChecks ? 1 : 0;
+        break;
+#endif
       default:
         return false;
     }
@@ -7624,6 +7653,13 @@ JS_PUBLIC_API(Zone*)
 JS::GetObjectZone(JSObject* obj)
 {
     return obj->zone();
+}
+
+JS_PUBLIC_API(Zone*)
+JS::GetNurseryStringZone(JSString* str)
+{
+    MOZ_ASSERT(!str->isTenured());
+    return str->zone();
 }
 
 JS_PUBLIC_API(JS::TraceKind)

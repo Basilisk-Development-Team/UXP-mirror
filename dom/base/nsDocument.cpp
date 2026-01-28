@@ -993,7 +993,8 @@ nsExternalResourceMap::PendingLoad::OnDataAvailable(nsIRequest* aRequest,
                                                     uint64_t aOffset,
                                                     uint32_t aCount)
 {
-  NS_PRECONDITION(mTargetListener, "Shouldn't be getting called!");
+  // mTargetListener might be null if SetupViewer or AddExternalResource failed.
+  NS_ENSURE_TRUE(mTargetListener, NS_ERROR_FAILURE);
   if (mDisplayDocument->ExternalResourceMap().HaveShutDown()) {
     return NS_BINDING_ABORTED;
   }
@@ -1285,6 +1286,7 @@ nsIDocument::nsIDocument()
 
 nsDocument::nsDocument(const char* aContentType)
   : nsIDocument()
+  , mLinksEnabled(true)
   , mViewportType(Unknown)
 {
   SetContentTypeInternal(nsDependentCString(aContentType));
@@ -2421,16 +2423,6 @@ nsDocument::ApplySettingsFromCSP(bool aSpeculative)
     rv = NodePrincipal()->GetCsp(getter_AddRefs(csp));
     NS_ENSURE_SUCCESS_VOID(rv);
     if (csp) {
-      // Set up any Referrer Policy specified by CSP
-      bool hasReferrerPolicy = false;
-      uint32_t referrerPolicy = mozilla::net::RP_Default;
-      rv = csp->GetReferrerPolicy(&referrerPolicy, &hasReferrerPolicy);
-      NS_ENSURE_SUCCESS_VOID(rv);
-      if (hasReferrerPolicy) {
-        mReferrerPolicy = static_cast<ReferrerPolicy>(referrerPolicy);
-        mReferrerPolicySet = true;
-      }
-
       // Set up 'block-all-mixed-content' if not already inherited
       // from the parent context or set by any other CSP.
       if (!mBlockAllMixedContent) {
@@ -2800,20 +2792,9 @@ nsDocument::GetPrincipal()
   return NodePrincipal();
 }
 
-extern bool sDisablePrefetchHTTPSPref;
-
 void
 nsDocument::SetPrincipal(nsIPrincipal *aNewPrincipal)
 {
-  if (aNewPrincipal && mAllowDNSPrefetch && sDisablePrefetchHTTPSPref) {
-    nsCOMPtr<nsIURI> uri;
-    aNewPrincipal->GetURI(getter_AddRefs(uri));
-    bool isHTTPS;
-    if (!uri || NS_FAILED(uri->SchemeIs("https", &isHTTPS)) ||
-        isHTTPS) {
-      mAllowDNSPrefetch = false;
-    }
-  }
   mNodeInfoManager->SetDocumentPrincipal(aNewPrincipal);
 
 #ifdef DEBUG
@@ -7248,11 +7229,6 @@ nsDocument::GetEventTargetParent(EventChainPreVisitor& aVisitor)
   aVisitor.mCanHandle = true;
   // Middle/right click shouldn't dispatch click event, use auxclick to instead.
   Element* docElement = GetRootElement();
-  if (docElement && docElement->IsXULElement()) {
-    // FIXME! This is a hack to make middle mouse paste working also in Editor.
-    // Bug 329119
-    aVisitor.mForceContentDispatch = true;
-  }
 
   // Load events must not propagate to |window| object, see bug 335251.
   if (aVisitor.mEvent->mMessage != eLoad) {

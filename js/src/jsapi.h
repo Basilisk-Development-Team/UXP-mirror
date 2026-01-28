@@ -29,14 +29,18 @@
 #include "js/CallArgs.h"
 #include "js/CharacterEncoding.h"
 #include "js/Class.h"
+#include "js/CompilationAndEvaluation.h"
+#include "js/CompileOptions.h"
 #include "js/GCVector.h"
 #include "js/HashTable.h"
 #include "js/Id.h"
+#include "js/OffThreadScriptCompilation.h"
 #include "js/Principals.h"
 #include "js/Realm.h"
 #include "js/RootingAPI.h"
 #include "js/Stream.h"
 #include "js/TracingAPI.h"
+#include "js/Transcoding.h"
 #include "js/UniquePtr.h"
 #include "js/Utility.h"
 #include "js/Value.h"
@@ -219,13 +223,6 @@ class AutoIdVector : public Rooted<GCVector<jsid, 8>> {
     explicit AutoIdVector(JSContext* cx) : Base(cx, Vec(cx)) {}
 
     bool appendAll(const AutoIdVector& other) { return this->Base::appendAll(other.get()); }
-};
-
-class AutoObjectVector : public Rooted<GCVector<JSObject*, 8>> {
-    using Vec = GCVector<JSObject*, 8>;
-    using Base = Rooted<Vec>;
-  public:
-    explicit AutoObjectVector(JSContext* cx) : Base(cx, Vec(cx)) {}
 };
 
 using ValueVector = JS::GCVector<JS::Value>;
@@ -548,53 +545,6 @@ struct JSFreeOp {
 
 /************************************************************************/
 
-typedef enum JSGCStatus {
-    JSGC_BEGIN,
-    JSGC_END
-} JSGCStatus;
-
-typedef void
-(* JSGCCallback)(JSContext* cx, JSGCStatus status, void* data);
-
-typedef void
-(* JSObjectsTenuredCallback)(JSContext* cx, void* data);
-
-typedef enum JSFinalizeStatus {
-    /**
-     * Called when preparing to sweep a group of zones, before anything has been
-     * swept.  The collector will not yield to the mutator before calling the
-     * callback with JSFINALIZE_GROUP_START status.
-     */
-    JSFINALIZE_GROUP_PREPARE,
-
-    /**
-     * Called after preparing to sweep a group of zones. Weak references to
-     * unmarked things have been removed at this point, but no GC things have
-     * been swept. The collector may yield to the mutator after this point.
-     */
-    JSFINALIZE_GROUP_START,
-
-    /**
-     * Called after sweeping a group of zones. All dead GC things have been
-     * swept at this point.
-     */
-    JSFINALIZE_GROUP_END,
-
-    /**
-     * Called at the end of collection when everything has been swept.
-     */
-    JSFINALIZE_COLLECTION_END
-} JSFinalizeStatus;
-
-typedef void
-(* JSFinalizeCallback)(JSFreeOp* fop, JSFinalizeStatus status, bool isZoneGC, void* data);
-
-typedef void
-(* JSWeakPointerZoneGroupCallback)(JSContext* cx, void* data);
-
-typedef void
-(* JSWeakPointerCompartmentCallback)(JSContext* cx, JSCompartment* comp, void* data);
-
 typedef bool
 (* JSInterruptCallback)(JSContext* cx);
 
@@ -744,102 +694,6 @@ JS_PUBLIC_API(bool)
 JS_StringHasBeenPinned(JSContext* cx, JSString* str);
 
 namespace JS {
-
-/**
- * Container class for passing in script source buffers to the JS engine.  This
- * not only groups the buffer and length values, it also provides a way to
- * optionally pass ownership of the buffer to the JS engine without copying.
- * Rules for use:
- *
- *  1) The data array must be allocated with js_malloc() or js_realloc() if
- *     ownership is being granted to the SourceBufferHolder.
- *  2) If ownership is not given to the SourceBufferHolder, then the memory
- *     must be kept alive until the JS compilation is complete.
- *  3) Any code calling SourceBufferHolder::take() must guarantee to keep the
- *     memory alive until JS compilation completes.  Normally only the JS
- *     engine should be calling take().
- *
- * Example use:
- *
- *    size_t length = 512;
- *    char16_t* chars = static_cast<char16_t*>(js_malloc(sizeof(char16_t) * length));
- *    JS::SourceBufferHolder srcBuf(chars, length, JS::SourceBufferHolder::GiveOwnership);
- *    JS::Compile(cx, options, srcBuf);
- */
-class MOZ_STACK_CLASS SourceBufferHolder final
-{
-  public:
-    enum Ownership {
-      NoOwnership,
-      GiveOwnership
-    };
-
-    SourceBufferHolder(const char16_t* data, size_t dataLength, Ownership ownership)
-      : data_(data),
-        length_(dataLength),
-        ownsChars_(ownership == GiveOwnership)
-    {
-        // Ensure that null buffers properly return an unowned, empty,
-        // null-terminated string.
-        static const char16_t NullChar_ = 0;
-        if (!get()) {
-            data_ = &NullChar_;
-            length_ = 0;
-            ownsChars_ = false;
-        }
-    }
-
-    SourceBufferHolder(SourceBufferHolder&& other)
-      : data_(other.data_),
-        length_(other.length_),
-        ownsChars_(other.ownsChars_)
-    {
-        other.data_ = nullptr;
-        other.length_ = 0;
-        other.ownsChars_ = false;
-    }
-
-    ~SourceBufferHolder() {
-        if (ownsChars_)
-            js_free(const_cast<char16_t*>(data_));
-    }
-
-    // Access the underlying source buffer without affecting ownership.
-    const char16_t* get() const { return data_; }
-
-    // Length of the source buffer in char16_t code units (not bytes)
-    size_t length() const { return length_; }
-
-    // Returns true if the SourceBufferHolder owns the buffer and will free
-    // it upon destruction.  If true, it is legal to call take().
-    bool ownsChars() const { return ownsChars_; }
-
-    // Retrieve and take ownership of the underlying data buffer.  The caller
-    // is now responsible for calling js_free() on the returned value, *but only
-    // after JS script compilation has completed*.
-    //
-    // After the buffer has been taken the SourceBufferHolder functions as if
-    // it had been constructed on an unowned buffer;  get() and length() still
-    // work.  In order for this to be safe the taken buffer must be kept alive
-    // until after JS script compilation completes as noted above.
-    //
-    // Note, it's the caller's responsibility to check ownsChars() before taking
-    // the buffer.  Taking and then free'ing an unowned buffer will have dire
-    // consequences.
-    char16_t* take() {
-        MOZ_ASSERT(ownsChars_);
-        ownsChars_ = false;
-        return const_cast<char16_t*>(data_);
-    }
-
-  private:
-    SourceBufferHolder(SourceBufferHolder&) = delete;
-    SourceBufferHolder& operator=(SourceBufferHolder&) = delete;
-
-    const char16_t* data_;
-    size_t length_;
-    bool ownsChars_;
-};
 
 } /* namespace JS */
 
@@ -1002,6 +856,24 @@ JS_ResumeCooperativeContext(JSContext* cx);
 extern JS_PUBLIC_API(JSContext*)
 JS_NewCooperativeContext(JSContext* siblingContext);
 
+namespace JS {
+
+// Class to relinquish exclusive access to all zone groups in use by this
+// thread. This allows other cooperative threads to enter the zone groups
+// and modify their contents.
+struct AutoRelinquishZoneGroups
+{
+    explicit AutoRelinquishZoneGroups(JSContext* cx);
+    ~AutoRelinquishZoneGroups();
+
+  private:
+    JSContext* cx;
+    mozilla::Vector<void*> enterList;
+};
+
+} // namespace JS
+
+
 // Destroy a context allocated with JS_NewContext or JS_NewCooperativeContext.
 // The context must be the current active context in the runtime, and after
 // this call the runtime will have no active context.
@@ -1144,7 +1016,8 @@ class JS_PUBLIC_API(ContextOptions) {
         werror_(false),
         strictMode_(false),
         extraWarnings_(false),
-        arrayProtoValues_(true)
+        arrayProtoValues_(true),
+        weakRefs_(false)
     {
     }
 
@@ -1284,6 +1157,16 @@ class JS_PUBLIC_API(ContextOptions) {
         return *this;
     }
 
+    bool weakRefs() const { return weakRefs_; }
+    ContextOptions& setWeakRefs(bool flag) {
+        weakRefs_ = flag;
+        return *this;
+    }
+    ContextOptions& toggleWeakRefs() {
+        weakRefs_ = !weakRefs_;
+        return *this;
+    }
+
   private:
     bool baseline_ : 1;
     bool ion_ : 1;
@@ -1301,6 +1184,7 @@ class JS_PUBLIC_API(ContextOptions) {
     bool extraWarnings_ : 1;
     bool arrayProtoValues_ : 1;
     bool streams_ : 1;
+    bool weakRefs_ : 1;
 };
 
 JS_PUBLIC_API(ContextOptions&)
@@ -1687,236 +1571,6 @@ JS_updateMallocCounter(JSContext* cx, size_t nbytes);
 
 extern JS_PUBLIC_API(char*)
 JS_strdup(JSContext* cx, const char* s);
-
-/**
- * Register externally maintained GC roots.
- *
- * traceOp: the trace operation. For each root the implementation should call
- *          JS::TraceEdge whenever the root contains a traceable thing.
- * data:    the data argument to pass to each invocation of traceOp.
- */
-extern JS_PUBLIC_API(bool)
-JS_AddExtraGCRootsTracer(JSContext* cx, JSTraceDataOp traceOp, void* data);
-
-/** Undo a call to JS_AddExtraGCRootsTracer. */
-extern JS_PUBLIC_API(void)
-JS_RemoveExtraGCRootsTracer(JSContext* cx, JSTraceDataOp traceOp, void* data);
-
-/*
- * Garbage collector API.
- */
-extern JS_PUBLIC_API(void)
-JS_GC(JSContext* cx);
-
-extern JS_PUBLIC_API(void)
-JS_MaybeGC(JSContext* cx);
-
-extern JS_PUBLIC_API(void)
-JS_SetGCCallback(JSContext* cx, JSGCCallback cb, void* data);
-
-extern JS_PUBLIC_API(void)
-JS_SetObjectsTenuredCallback(JSContext* cx, JSObjectsTenuredCallback cb,
-                             void* data);
-
-extern JS_PUBLIC_API(bool)
-JS_AddFinalizeCallback(JSContext* cx, JSFinalizeCallback cb, void* data);
-
-extern JS_PUBLIC_API(void)
-JS_RemoveFinalizeCallback(JSContext* cx, JSFinalizeCallback cb);
-
-/*
- * Weak pointers and garbage collection
- *
- * Weak pointers are by their nature not marked as part of garbage collection,
- * but they may need to be updated in two cases after a GC:
- *
- *  1) Their referent was found not to be live and is about to be finalized
- *  2) Their referent has been moved by a compacting GC
- *
- * To handle this, any part of the system that maintain weak pointers to
- * JavaScript GC things must register a callback with
- * JS_(Add,Remove)WeakPointer{ZoneGroup,Compartment}Callback(). This callback
- * must then call JS_UpdateWeakPointerAfterGC() on all weak pointers it knows
- * about.
- *
- * Since sweeping is incremental, we have several callbacks to avoid repeatedly
- * having to visit all embedder structures. The WeakPointerZoneGroupCallback is
- * called once for each strongly connected group of zones, whereas the
- * WeakPointerCompartmentCallback is called once for each compartment that is
- * visited while sweeping. Structures that cannot contain references in more
- * than one compartment should sweep the relevant per-compartment structures
- * using the latter callback to minimizer per-slice overhead.
- *
- * The argument to JS_UpdateWeakPointerAfterGC() is an in-out param. If the
- * referent is about to be finalized the pointer will be set to null. If the
- * referent has been moved then the pointer will be updated to point to the new
- * location.
- *
- * Callers of this method are responsible for updating any state that is
- * dependent on the object's address. For example, if the object's address is
- * used as a key in a hashtable, then the object must be removed and
- * re-inserted with the correct hash.
- */
-
-extern JS_PUBLIC_API(bool)
-JS_AddWeakPointerZoneGroupCallback(JSContext* cx, JSWeakPointerZoneGroupCallback cb, void* data);
-
-extern JS_PUBLIC_API(void)
-JS_RemoveWeakPointerZoneGroupCallback(JSContext* cx, JSWeakPointerZoneGroupCallback cb);
-
-extern JS_PUBLIC_API(bool)
-JS_AddWeakPointerCompartmentCallback(JSContext* cx, JSWeakPointerCompartmentCallback cb,
-                                     void* data);
-
-extern JS_PUBLIC_API(void)
-JS_RemoveWeakPointerCompartmentCallback(JSContext* cx, JSWeakPointerCompartmentCallback cb);
-
-extern JS_PUBLIC_API(void)
-JS_UpdateWeakPointerAfterGC(JS::Heap<JSObject*>* objp);
-
-extern JS_PUBLIC_API(void)
-JS_UpdateWeakPointerAfterGCUnbarriered(JSObject** objp);
-
-typedef enum JSGCParamKey {
-    /** Maximum nominal heap before last ditch GC. */
-    JSGC_MAX_BYTES          = 0,
-
-    /** Initial value for the malloc bytes threshold. */
-    JSGC_MAX_MALLOC_BYTES   = 1,
-
-    /** Maximum size of the generational GC nurseries. */
-    JSGC_MAX_NURSERY_BYTES  = 2,
-
-    /** Amount of bytes allocated by the GC. */
-    JSGC_BYTES = 3,
-
-    /** Number of times GC has been invoked. Includes both major and minor GC. */
-    JSGC_NUMBER = 4,
-
-    /** Select GC mode. */
-    JSGC_MODE = 6,
-
-    /** Number of cached empty GC chunks. */
-    JSGC_UNUSED_CHUNKS = 7,
-
-    /** Total number of allocated GC chunks. */
-    JSGC_TOTAL_CHUNKS = 8,
-
-    /** Max milliseconds to spend in an incremental GC slice. */
-    JSGC_SLICE_TIME_BUDGET = 9,
-
-    /** Maximum size the GC mark stack can grow to. */
-    JSGC_MARK_STACK_LIMIT = 10,
-
-    /**
-     * GCs less than this far apart in time will be considered 'high-frequency GCs'.
-     * See setGCLastBytes in jsgc.cpp.
-     */
-    JSGC_HIGH_FREQUENCY_TIME_LIMIT = 11,
-
-    /** Start of dynamic heap growth. */
-    JSGC_HIGH_FREQUENCY_LOW_LIMIT = 12,
-
-    /** End of dynamic heap growth. */
-    JSGC_HIGH_FREQUENCY_HIGH_LIMIT = 13,
-
-    /** Upper bound of heap growth. */
-    JSGC_HIGH_FREQUENCY_HEAP_GROWTH_MAX = 14,
-
-    /** Lower bound of heap growth. */
-    JSGC_HIGH_FREQUENCY_HEAP_GROWTH_MIN = 15,
-
-    /** Heap growth for low frequency GCs. */
-    JSGC_LOW_FREQUENCY_HEAP_GROWTH = 16,
-
-    /**
-     * If false, the heap growth factor is fixed at 3. If true, it is determined
-     * based on whether GCs are high- or low- frequency.
-     */
-    JSGC_DYNAMIC_HEAP_GROWTH = 17,
-
-    /** If true, high-frequency GCs will use a longer mark slice. */
-    JSGC_DYNAMIC_MARK_SLICE = 18,
-
-    /** Lower limit after which we limit the heap growth. */
-    JSGC_ALLOCATION_THRESHOLD = 19,
-
-    /**
-     * We try to keep at least this many unused chunks in the free chunk pool at
-     * all times, even after a shrinking GC.
-     */
-    JSGC_MIN_EMPTY_CHUNK_COUNT = 21,
-
-    /** We never keep more than this many unused chunks in the free chunk pool. */
-    JSGC_MAX_EMPTY_CHUNK_COUNT = 22,
-
-    /** Whether compacting GC is enabled. */
-    JSGC_COMPACTING_ENABLED = 23,
-
-    /** If true, painting can trigger IGC slices. */
-    JSGC_REFRESH_FRAME_SLICES_ENABLED = 24,
-
-    /**
-     * Factor for triggering a GC based on JSGC_ALLOCATION_THRESHOLD
-     *
-     * Default: ZoneAllocThresholdFactorDefault
-     * Pref: None
-     */
-    JSGC_ALLOCATION_THRESHOLD_FACTOR = 25,
-
-    /**
-     * Factor for triggering a GC based on JSGC_ALLOCATION_THRESHOLD.
-     * Used if another GC (in different zones) is already running.
-     *
-     * Default: ZoneAllocThresholdFactorAvoidInterruptDefault
-     * Pref: None
-     */
-    JSGC_ALLOCATION_THRESHOLD_FACTOR_AVOID_INTERRUPT = 26,
-} JSGCParamKey;
-
-extern JS_PUBLIC_API(void)
-JS_SetGCParameter(JSContext* cx, JSGCParamKey key, uint32_t value);
-
-extern JS_PUBLIC_API(void)
-JS_ResetGCParameter(JSContext* cx, JSGCParamKey key);
-
-extern JS_PUBLIC_API(uint32_t)
-JS_GetGCParameter(JSContext* cx, JSGCParamKey key);
-
-extern JS_PUBLIC_API(void)
-JS_SetGCParametersBasedOnAvailableMemory(JSContext* cx, uint32_t availMem);
-
-/**
- * Create a new JSString whose chars member refers to external memory, i.e.,
- * memory requiring application-specific finalization.
- */
-extern JS_PUBLIC_API(JSString*)
-JS_NewExternalString(JSContext* cx, const char16_t* chars, size_t length,
-                     const JSStringFinalizer* fin);
-
-/**
- * Create a new JSString whose chars member may refer to external memory.
- * If a new external string is allocated, |*allocatedExternal| is set to true.
- * Otherwise the returned string is either not an external string or an
- * external string allocated by a previous call and |*allocatedExternal| is set
- * to false. If |*allocatedExternal| is false, |fin| won't be called.
- */
-extern JS_PUBLIC_API(JSString*)
-JS_NewMaybeExternalString(JSContext* cx, const char16_t* chars, size_t length,
-                          const JSStringFinalizer* fin, bool* allocatedExternal);
-
-/**
- * Return whether 'str' was created with JS_NewExternalString or
- * JS_NewExternalStringWithClosure.
- */
-extern JS_PUBLIC_API(bool)
-JS_IsExternalString(JSString* str);
-
-/**
- * Return the 'fin' arg passed to JS_NewExternalString.
- */
-extern JS_PUBLIC_API(const JSStringFinalizer*)
-JS_GetExternalStringFinalizer(JSString* str);
 
 /**
  * Set the size of the native stack that should not be exceed. To disable
@@ -3791,32 +3445,7 @@ CloneFunctionObject(JSContext* cx, HandleObject funobj, AutoObjectVector& scopeC
 
 } // namespace JS
 
-/**
- * Given a buffer, return false if the buffer might become a valid
- * javascript statement with the addition of more lines.  Otherwise return
- * true.  The intent is to support interactive compilation - accumulate
- * lines in a buffer until JS_BufferIsCompilableUnit is true, then pass it to
- * the compiler.
- */
-extern JS_PUBLIC_API(bool)
-JS_BufferIsCompilableUnit(JSContext* cx, JS::Handle<JSObject*> obj, const char* utf8,
-                          size_t length);
 
-/**
- * |script| will always be set. On failure, it will be set to nullptr.
- */
-extern JS_PUBLIC_API(bool)
-JS_CompileScript(JSContext* cx, const char* ascii, size_t length,
-                 const JS::CompileOptions& options,
-                 JS::MutableHandleScript script);
-
-/**
- * |script| will always be set. On failure, it will be set to nullptr.
- */
-extern JS_PUBLIC_API(bool)
-JS_CompileUCScript(JSContext* cx, const char16_t* chars, size_t length,
-                   const JS::CompileOptions& options,
-                   JS::MutableHandleScript script);
 
 extern JS_PUBLIC_API(JSObject*)
 JS_GetGlobalFromScript(JSScript* script);
@@ -3830,513 +3459,6 @@ JS_GetScriptBaseLineNumber(JSContext* cx, JSScript* script);
 extern JS_PUBLIC_API(JSScript*)
 JS_GetFunctionScript(JSContext* cx, JS::HandleFunction fun);
 
-namespace JS {
-
-/* Options for JavaScript compilation. */
-
-/*
- * In the most common use case, a CompileOptions instance is allocated on the
- * stack, and holds non-owning references to non-POD option values: strings;
- * principals; objects; and so on. The code declaring the instance guarantees
- * that such option values will outlive the CompileOptions itself: objects are
- * otherwise rooted; principals have had their reference counts bumped; strings
- * will not be freed until the CompileOptions goes out of scope. In this
- * situation, CompileOptions only refers to things others own, so it can be
- * lightweight.
- *
- * In some cases, however, we need to hold compilation options with a
- * non-stack-like lifetime. For example, JS::CompileOffThread needs to save
- * compilation options where a worker thread can find them, and then return
- * immediately. The worker thread will come along at some later point, and use
- * the options.
- *
- * The compiler itself just needs to be able to access a collection of options;
- * it doesn't care who owns them, or what's keeping them alive. It does its own
- * addrefs/copies/tracing/etc.
- *
- * Furthermore, in some cases compile options are propagated from one entity to
- * another (e.g. from a script to a function defined in that script).  This
- * involves copying over some, but not all, of the options.
- *
- * So, we have a class hierarchy that reflects these four use cases:
- *
- * - TransitiveCompileOptions is the common base class, representing options
- *   that should get propagated from a script to functions defined in that
- *   script.  This is never instantiated directly.
- *
- * - ReadOnlyCompileOptions is the only subclass of TransitiveCompileOptions,
- *   representing a full set of compile options.  It can be used by code that
- *   simply needs to access options set elsewhere, like the compiler.  This,
- *   again, is never instantiated directly.
- *
- * - The usual CompileOptions class must be stack-allocated, and holds
- *   non-owning references to the filename, element, and so on. It's derived
- *   from ReadOnlyCompileOptions, so the compiler can use it.
- *
- * - OwningCompileOptions roots / copies / reference counts of all its values,
- *   and unroots / frees / releases them when it is destructed. It too is
- *   derived from ReadOnlyCompileOptions, so the compiler accepts it.
- */
-
-enum class AsmJSOption : uint8_t { Enabled, Disabled, DisabledByDebugger };
-
-/**
- * The common base class for the CompileOptions hierarchy.
- *
- * Use this in code that needs to propagate compile options from one compilation
- * unit to another.
- */
-class JS_FRIEND_API(TransitiveCompileOptions)
-{
-  protected:
-    // The Web Platform allows scripts to be loaded from arbitrary cross-origin
-    // sources. This allows an attack by which a malicious website loads a
-    // sensitive file (say, a bank statement) cross-origin (using the user's
-    // cookies), and sniffs the generated syntax errors (via a window.onerror
-    // handler) for juicy morsels of its contents.
-    //
-    // To counter this attack, HTML5 specifies that script errors should be
-    // sanitized ("muted") when the script is not same-origin with the global
-    // for which it is loaded. Callers should set this flag for cross-origin
-    // scripts, and it will be propagated appropriately to child scripts and
-    // passed back in JSErrorReports.
-    bool mutedErrors_;
-    const char* filename_;
-    const char* introducerFilename_;
-    const char16_t* sourceMapURL_;
-
-    // This constructor leaves 'version' set to JSVERSION_UNKNOWN. The structure
-    // is unusable until that's set to something more specific; the derived
-    // classes' constructors take care of that, in ways appropriate to their
-    // purpose.
-    TransitiveCompileOptions()
-      : mutedErrors_(false),
-        filename_(nullptr),
-        introducerFilename_(nullptr),
-        sourceMapURL_(nullptr),
-        version(JSVERSION_UNKNOWN),
-        versionSet(false),
-        utf8(false),
-        selfHostingMode(false),
-        canLazilyParse(true),
-        strictOption(false),
-        extraWarningsOption(false),
-        werrorOption(false),
-        asmJSOption(AsmJSOption::Disabled),
-        throwOnAsmJSValidationFailureOption(false),
-        forceAsync(false),
-        installedFile(false),
-        sourceIsLazy(false),
-        introductionType(nullptr),
-        introductionLineno(0),
-        introductionOffset(0),
-        hasIntroductionInfo(false)
-    { }
-
-    // Set all POD options (those not requiring reference counts, copies,
-    // rooting, or other hand-holding) to their values in |rhs|.
-    void copyPODTransitiveOptions(const TransitiveCompileOptions& rhs);
-
-  public:
-    // Read-only accessors for non-POD options. The proper way to set these
-    // depends on the derived type.
-    bool mutedErrors() const { return mutedErrors_; }
-    const char* filename() const { return filename_; }
-    const char* introducerFilename() const { return introducerFilename_; }
-    const char16_t* sourceMapURL() const { return sourceMapURL_; }
-    virtual JSObject* element() const = 0;
-    virtual JSString* elementAttributeName() const = 0;
-    virtual JSScript* introductionScript() const = 0;
-
-    // POD options.
-    JSVersion version;
-    bool versionSet;
-    bool utf8;
-    bool selfHostingMode;
-    bool canLazilyParse;
-    bool strictOption;
-    bool extraWarningsOption;
-    bool werrorOption;
-    AsmJSOption asmJSOption;
-    bool throwOnAsmJSValidationFailureOption;
-    bool forceAsync;
-    bool installedFile;  // 'true' iff pre-compiling js file in packaged app
-    bool sourceIsLazy;
-
-    // |introductionType| is a statically allocated C string:
-    // one of "eval", "Function", or "GeneratorFunction".
-    const char* introductionType;
-    unsigned introductionLineno;
-    uint32_t introductionOffset;
-    bool hasIntroductionInfo;
-
-  private:
-    void operator=(const TransitiveCompileOptions&) = delete;
-};
-
-/**
- * The class representing a full set of compile options.
- *
- * Use this in code that only needs to access compilation options created
- * elsewhere, like the compiler. Don't instantiate this class (the constructor
- * is protected anyway); instead, create instances only of the derived classes:
- * CompileOptions and OwningCompileOptions.
- */
-class JS_FRIEND_API(ReadOnlyCompileOptions) : public TransitiveCompileOptions
-{
-    friend class CompileOptions;
-
-  protected:
-    ReadOnlyCompileOptions()
-      : TransitiveCompileOptions(),
-        lineno(1),
-        column(0),
-        isRunOnce(false),
-        noScriptRval(false)
-    { }
-
-    // Set all POD options (those not requiring reference counts, copies,
-    // rooting, or other hand-holding) to their values in |rhs|.
-    void copyPODOptions(const ReadOnlyCompileOptions& rhs);
-
-  public:
-    // Read-only accessors for non-POD options. The proper way to set these
-    // depends on the derived type.
-    bool mutedErrors() const { return mutedErrors_; }
-    const char* filename() const { return filename_; }
-    const char* introducerFilename() const { return introducerFilename_; }
-    const char16_t* sourceMapURL() const { return sourceMapURL_; }
-    virtual JSObject* element() const = 0;
-    virtual JSString* elementAttributeName() const = 0;
-    virtual JSScript* introductionScript() const = 0;
-
-    // POD options.
-    unsigned lineno;
-    unsigned column;
-    // isRunOnce only applies to non-function scripts.
-    bool isRunOnce;
-    bool noScriptRval;
-
-  private:
-    void operator=(const ReadOnlyCompileOptions&) = delete;
-};
-
-/**
- * Compilation options, with dynamic lifetime. An instance of this type
- * makes a copy of / holds / roots all dynamically allocated resources
- * (principals; elements; strings) that it refers to. Its destructor frees
- * / drops / unroots them. This is heavier than CompileOptions, below, but
- * unlike CompileOptions, it can outlive any given stack frame.
- *
- * Note that this *roots* any JS values it refers to - they're live
- * unconditionally. Thus, instances of this type can't be owned, directly
- * or indirectly, by a JavaScript object: if any value that this roots ever
- * comes to refer to the object that owns this, then the whole cycle, and
- * anything else it entrains, will never be freed.
- */
-class JS_FRIEND_API(OwningCompileOptions) : public ReadOnlyCompileOptions
-{
-    PersistentRootedObject elementRoot;
-    PersistentRootedString elementAttributeNameRoot;
-    PersistentRootedScript introductionScriptRoot;
-
-  public:
-    // A minimal constructor, for use with OwningCompileOptions::copy. This
-    // leaves |this.version| set to JSVERSION_UNKNOWN; the instance
-    // shouldn't be used until we've set that to something real (as |copy|
-    // will).
-    explicit OwningCompileOptions(JSContext* cx);
-    ~OwningCompileOptions();
-
-    JSObject* element() const override { return elementRoot; }
-    JSString* elementAttributeName() const override { return elementAttributeNameRoot; }
-    JSScript* introductionScript() const override { return introductionScriptRoot; }
-
-    // Set this to a copy of |rhs|. Return false on OOM.
-    bool copy(JSContext* cx, const ReadOnlyCompileOptions& rhs);
-
-    /* These setters make copies of their string arguments, and are fallible. */
-    bool setFile(JSContext* cx, const char* f);
-    bool setFileAndLine(JSContext* cx, const char* f, unsigned l);
-    bool setSourceMapURL(JSContext* cx, const char16_t* s);
-    bool setIntroducerFilename(JSContext* cx, const char* s);
-
-    /* These setters are infallible, and can be chained. */
-    OwningCompileOptions& setLine(unsigned l)             { lineno = l; return *this; }
-    OwningCompileOptions& setElement(JSObject* e) {
-        elementRoot = e;
-        return *this;
-    }
-    OwningCompileOptions& setElementAttributeName(JSString* p) {
-        elementAttributeNameRoot = p;
-        return *this;
-    }
-    OwningCompileOptions& setIntroductionScript(JSScript* s) {
-        introductionScriptRoot = s;
-        return *this;
-    }
-    OwningCompileOptions& setMutedErrors(bool mute) {
-        mutedErrors_ = mute;
-        return *this;
-    }
-    OwningCompileOptions& setVersion(JSVersion v) {
-        version = v;
-        versionSet = true;
-        return *this;
-    }
-    OwningCompileOptions& setUTF8(bool u) { utf8 = u; return *this; }
-    OwningCompileOptions& setColumn(unsigned c) { column = c; return *this; }
-    OwningCompileOptions& setIsRunOnce(bool once) { isRunOnce = once; return *this; }
-    OwningCompileOptions& setNoScriptRval(bool nsr) { noScriptRval = nsr; return *this; }
-    OwningCompileOptions& setSelfHostingMode(bool shm) { selfHostingMode = shm; return *this; }
-    OwningCompileOptions& setCanLazilyParse(bool clp) { canLazilyParse = clp; return *this; }
-    OwningCompileOptions& setSourceIsLazy(bool l) { sourceIsLazy = l; return *this; }
-    OwningCompileOptions& setIntroductionType(const char* t) { introductionType = t; return *this; }
-    bool setIntroductionInfo(JSContext* cx, const char* introducerFn, const char* intro,
-                             unsigned line, JSScript* script, uint32_t offset)
-    {
-        if (!setIntroducerFilename(cx, introducerFn))
-            return false;
-        introductionType = intro;
-        introductionLineno = line;
-        introductionScriptRoot = script;
-        introductionOffset = offset;
-        hasIntroductionInfo = true;
-        return true;
-    }
-
-  private:
-    void operator=(const CompileOptions& rhs) = delete;
-};
-
-/**
- * Compilation options stored on the stack. An instance of this type
- * simply holds references to dynamically allocated resources (element;
- * filename; source map URL) that are owned by something else. If you
- * create an instance of this type, it's up to you to guarantee that
- * everything you store in it will outlive it.
- */
-class MOZ_STACK_CLASS JS_FRIEND_API(CompileOptions) final : public ReadOnlyCompileOptions
-{
-    RootedObject elementRoot;
-    RootedString elementAttributeNameRoot;
-    RootedScript introductionScriptRoot;
-
-  public:
-    explicit CompileOptions(JSContext* cx, JSVersion version = JSVERSION_UNKNOWN);
-    CompileOptions(JSContext* cx, const ReadOnlyCompileOptions& rhs)
-      : ReadOnlyCompileOptions(), elementRoot(cx), elementAttributeNameRoot(cx),
-        introductionScriptRoot(cx)
-    {
-        copyPODOptions(rhs);
-
-        filename_ = rhs.filename();
-        introducerFilename_ = rhs.introducerFilename();
-        sourceMapURL_ = rhs.sourceMapURL();
-        elementRoot = rhs.element();
-        elementAttributeNameRoot = rhs.elementAttributeName();
-        introductionScriptRoot = rhs.introductionScript();
-    }
-
-    CompileOptions(JSContext* cx, const TransitiveCompileOptions& rhs)
-      : ReadOnlyCompileOptions(), elementRoot(cx), elementAttributeNameRoot(cx),
-        introductionScriptRoot(cx)
-    {
-        copyPODTransitiveOptions(rhs);
-
-        filename_ = rhs.filename();
-        introducerFilename_ = rhs.introducerFilename();
-        sourceMapURL_ = rhs.sourceMapURL();
-        elementRoot = rhs.element();
-        elementAttributeNameRoot = rhs.elementAttributeName();
-        introductionScriptRoot = rhs.introductionScript();
-    }
-
-    JSObject* element() const override { return elementRoot; }
-    JSString* elementAttributeName() const override { return elementAttributeNameRoot; }
-    JSScript* introductionScript() const override { return introductionScriptRoot; }
-
-    CompileOptions& setFile(const char* f) { filename_ = f; return *this; }
-    CompileOptions& setLine(unsigned l) { lineno = l; return *this; }
-    CompileOptions& setFileAndLine(const char* f, unsigned l) {
-        filename_ = f; lineno = l; return *this;
-    }
-    CompileOptions& setSourceMapURL(const char16_t* s) { sourceMapURL_ = s; return *this; }
-    CompileOptions& setElement(JSObject* e)          { elementRoot = e; return *this; }
-    CompileOptions& setElementAttributeName(JSString* p) {
-        elementAttributeNameRoot = p;
-        return *this;
-    }
-    CompileOptions& setIntroductionScript(JSScript* s) {
-        introductionScriptRoot = s;
-        return *this;
-    }
-    CompileOptions& setMutedErrors(bool mute) {
-        mutedErrors_ = mute;
-        return *this;
-    }
-    CompileOptions& setVersion(JSVersion v) {
-        version = v;
-        versionSet = true;
-        return *this;
-    }
-    CompileOptions& setUTF8(bool u) { utf8 = u; return *this; }
-    CompileOptions& setColumn(unsigned c) { column = c; return *this; }
-    CompileOptions& setIsRunOnce(bool once) { isRunOnce = once; return *this; }
-    CompileOptions& setNoScriptRval(bool nsr) { noScriptRval = nsr; return *this; }
-    CompileOptions& setSelfHostingMode(bool shm) { selfHostingMode = shm; return *this; }
-    CompileOptions& setCanLazilyParse(bool clp) { canLazilyParse = clp; return *this; }
-    CompileOptions& setSourceIsLazy(bool l) { sourceIsLazy = l; return *this; }
-    CompileOptions& setIntroductionType(const char* t) { introductionType = t; return *this; }
-    CompileOptions& setIntroductionInfo(const char* introducerFn, const char* intro,
-                                        unsigned line, JSScript* script, uint32_t offset)
-    {
-        introducerFilename_ = introducerFn;
-        introductionType = intro;
-        introductionLineno = line;
-        introductionScriptRoot = script;
-        introductionOffset = offset;
-        hasIntroductionInfo = true;
-        return *this;
-    }
-    CompileOptions& maybeMakeStrictMode(bool strict) {
-        strictOption = strictOption || strict;
-        return *this;
-    }
-
-  private:
-    void operator=(const CompileOptions& rhs) = delete;
-};
-
-/**
- * |script| will always be set. On failure, it will be set to nullptr.
- */
-extern JS_PUBLIC_API(bool)
-Compile(JSContext* cx, const ReadOnlyCompileOptions& options,
-        SourceBufferHolder& srcBuf, JS::MutableHandleScript script);
-
-extern JS_PUBLIC_API(bool)
-Compile(JSContext* cx, const ReadOnlyCompileOptions& options,
-        const char* bytes, size_t length, JS::MutableHandleScript script);
-
-extern JS_PUBLIC_API(bool)
-Compile(JSContext* cx, const ReadOnlyCompileOptions& options,
-        const char16_t* chars, size_t length, JS::MutableHandleScript script);
-
-extern JS_PUBLIC_API(bool)
-Compile(JSContext* cx, const ReadOnlyCompileOptions& options,
-        FILE* file, JS::MutableHandleScript script);
-
-extern JS_PUBLIC_API(bool)
-Compile(JSContext* cx, const ReadOnlyCompileOptions& options,
-        const char* filename, JS::MutableHandleScript script);
-
-extern JS_PUBLIC_API(bool)
-CompileForNonSyntacticScope(JSContext* cx, const ReadOnlyCompileOptions& options,
-                            SourceBufferHolder& srcBuf, JS::MutableHandleScript script);
-
-extern JS_PUBLIC_API(bool)
-CompileForNonSyntacticScope(JSContext* cx, const ReadOnlyCompileOptions& options,
-                            const char* bytes, size_t length, JS::MutableHandleScript script);
-
-extern JS_PUBLIC_API(bool)
-CompileForNonSyntacticScope(JSContext* cx, const ReadOnlyCompileOptions& options,
-                            const char16_t* chars, size_t length, JS::MutableHandleScript script);
-
-extern JS_PUBLIC_API(bool)
-CompileForNonSyntacticScope(JSContext* cx, const ReadOnlyCompileOptions& options,
-                            FILE* file, JS::MutableHandleScript script);
-
-extern JS_PUBLIC_API(bool)
-CompileForNonSyntacticScope(JSContext* cx, const ReadOnlyCompileOptions& options,
-                            const char* filename, JS::MutableHandleScript script);
-
-extern JS_PUBLIC_API(bool)
-CanCompileOffThread(JSContext* cx, const ReadOnlyCompileOptions& options, size_t length);
-
-/*
- * Off thread compilation control flow.
- *
- * After successfully triggering an off thread compile of a script, the
- * callback will eventually be invoked with the specified data and a token
- * for the compilation. The callback will be invoked while off thread,
- * so must ensure that its operations are thread safe. Afterwards, one of the
- * following functions must be invoked on the runtime's active thread:
- *
- * - FinishOffThreadScript, to get the result script (or nullptr on failure).
- * - CancelOffThreadScript, to free the resources without creating a script.
- *
- * The characters passed in to CompileOffThread must remain live until the
- * callback is invoked, and the resulting script will be rooted until the call
- * to FinishOffThreadScript.
- */
-
-extern JS_PUBLIC_API(bool)
-CompileOffThread(JSContext* cx, const ReadOnlyCompileOptions& options,
-                 const char16_t* chars, size_t length,
-                 OffThreadCompileCallback callback, void* callbackData);
-
-extern JS_PUBLIC_API(JSScript*)
-FinishOffThreadScript(JSContext* cx, void* token);
-
-extern JS_PUBLIC_API(void)
-CancelOffThreadScript(JSContext* cx, void* token);
-
-extern JS_PUBLIC_API(bool)
-CompileOffThreadModule(JSContext* cx, const ReadOnlyCompileOptions& options,
-                       const char16_t* chars, size_t length,
-                       OffThreadCompileCallback callback, void* callbackData);
-
-extern JS_PUBLIC_API(JSObject*)
-FinishOffThreadModule(JSContext* cx, void* token);
-
-extern JS_PUBLIC_API(void)
-CancelOffThreadModule(JSContext* cx, void* token);
-
-extern JS_PUBLIC_API(bool)
-DecodeOffThreadScript(JSContext* cx, const ReadOnlyCompileOptions& options,
-                      mozilla::Vector<uint8_t>& buffer /* TranscodeBuffer& */, size_t cursor,
-                      OffThreadCompileCallback callback, void* callbackData);
-
-extern JS_PUBLIC_API(JSScript*)
-FinishOffThreadScriptDecoder(JSContext* cx, void* token);
-
-extern JS_PUBLIC_API(void)
-CancelOffThreadScriptDecoder(JSContext* cx, void* token);
-
-/**
- * Compile a function with envChain plus the global as its scope chain.
- * envChain must contain objects in the current compartment of cx.  The actual
- * scope chain used for the function will consist of With wrappers for those
- * objects, followed by the current global of the compartment cx is in.  This
- * global must not be explicitly included in the scope chain.
- */
-extern JS_PUBLIC_API(bool)
-CompileFunction(JSContext* cx, AutoObjectVector& envChain,
-                const ReadOnlyCompileOptions& options,
-                const char* name, unsigned nargs, const char* const* argnames,
-                const char16_t* chars, size_t length, JS::MutableHandleFunction fun);
-
-/**
- * Same as above, but taking a SourceBufferHolder for the function body.
- */
-extern JS_PUBLIC_API(bool)
-CompileFunction(JSContext* cx, AutoObjectVector& envChain,
-                const ReadOnlyCompileOptions& options,
-                const char* name, unsigned nargs, const char* const* argnames,
-                SourceBufferHolder& srcBuf, JS::MutableHandleFunction fun);
-
-/**
- * Same as above, but taking a const char * for the function body.
- */
-extern JS_PUBLIC_API(bool)
-CompileFunction(JSContext* cx, AutoObjectVector& envChain,
-                const ReadOnlyCompileOptions& options,
-                const char* name, unsigned nargs, const char* const* argnames,
-                const char* bytes, size_t length, JS::MutableHandleFunction fun);
-
-} /* namespace JS */
-
 extern JS_PUBLIC_API(JSString*)
 JS_DecompileScript(JSContext* cx, JS::Handle<JSScript*> script);
 
@@ -4344,103 +3466,7 @@ extern JS_PUBLIC_API(JSString*)
 JS_DecompileFunction(JSContext* cx, JS::Handle<JSFunction*> fun);
 
 
-/*
- * NB: JS_ExecuteScript and the JS::Evaluate APIs come in two flavors: either
- * they use the global as the scope, or they take an AutoObjectVector of objects
- * to use as the scope chain.  In the former case, the global is also used as
- * the "this" keyword value and the variables object (ECMA parlance for where
- * 'var' and 'function' bind names) of the execution context for script.  In the
- * latter case, the first object in the provided list is used, unless the list
- * is empty, in which case the global is used.
- *
- * Why a runtime option?  The alternative is to add APIs duplicating those
- * for the other value of flags, and that doesn't seem worth the code bloat
- * cost.  Such new entry points would probably have less obvious names, too, so
- * would not tend to be used.  The ContextOptionsRef adjustment, OTOH, can be
- * more easily hacked into existing code that does not depend on the bug; such
- * code can continue to use the familiar JS::Evaluate, etc., entry points.
- */
-
-/**
- * Evaluate a script in the scope of the current global of cx.
- */
-extern JS_PUBLIC_API(bool)
-JS_ExecuteScript(JSContext* cx, JS::HandleScript script, JS::MutableHandleValue rval);
-
-extern JS_PUBLIC_API(bool)
-JS_ExecuteScript(JSContext* cx, JS::HandleScript script);
-
-/**
- * As above, but providing an explicit scope chain.  envChain must not include
- * the global object on it; that's implicit.  It needs to contain the other
- * objects that should end up on the script's scope chain.
- */
-extern JS_PUBLIC_API(bool)
-JS_ExecuteScript(JSContext* cx, JS::AutoObjectVector& envChain,
-                 JS::HandleScript script, JS::MutableHandleValue rval);
-
-extern JS_PUBLIC_API(bool)
-JS_ExecuteScript(JSContext* cx, JS::AutoObjectVector& envChain, JS::HandleScript script);
-
 namespace JS {
-
-/**
- * Like the above, but handles a cross-compartment script. If the script is
- * cross-compartment, it is cloned into the current compartment before executing.
- */
-extern JS_PUBLIC_API(bool)
-CloneAndExecuteScript(JSContext* cx, JS::Handle<JSScript*> script,
-                      JS::MutableHandleValue rval);
-
-} /* namespace JS */
-
-namespace JS {
-
-/**
- * Evaluate the given source buffer in the scope of the current global of cx.
- */
-extern JS_PUBLIC_API(bool)
-Evaluate(JSContext* cx, const ReadOnlyCompileOptions& options,
-         SourceBufferHolder& srcBuf, JS::MutableHandleValue rval);
-
-/**
- * As above, but providing an explicit scope chain.  envChain must not include
- * the global object on it; that's implicit.  It needs to contain the other
- * objects that should end up on the script's scope chain.
- */
-extern JS_PUBLIC_API(bool)
-Evaluate(JSContext* cx, AutoObjectVector& envChain, const ReadOnlyCompileOptions& options,
-         SourceBufferHolder& srcBuf, JS::MutableHandleValue rval);
-
-/**
- * Evaluate the given character buffer in the scope of the current global of cx.
- */
-extern JS_PUBLIC_API(bool)
-Evaluate(JSContext* cx, const ReadOnlyCompileOptions& options,
-         const char16_t* chars, size_t length, JS::MutableHandleValue rval);
-
-/**
- * As above, but providing an explicit scope chain.  envChain must not include
- * the global object on it; that's implicit.  It needs to contain the other
- * objects that should end up on the script's scope chain.
- */
-extern JS_PUBLIC_API(bool)
-Evaluate(JSContext* cx, AutoObjectVector& envChain, const ReadOnlyCompileOptions& options,
-         const char16_t* chars, size_t length, JS::MutableHandleValue rval);
-
-/**
- * Evaluate the given byte buffer in the scope of the current global of cx.
- */
-extern JS_PUBLIC_API(bool)
-Evaluate(JSContext* cx, const ReadOnlyCompileOptions& options,
-         const char* bytes, size_t length, JS::MutableHandleValue rval);
-
-/**
- * Evaluate the given file in the scope of the current global of cx.
- */
-extern JS_PUBLIC_API(bool)
-Evaluate(JSContext* cx, const ReadOnlyCompileOptions& options,
-         const char* filename, JS::MutableHandleValue rval);
 
 using ModuleResolveHook = JSObject* (*)(JSContext*, HandleValue, HandleString);
 
@@ -5926,12 +4952,13 @@ JS_ObjectIsDate(JSContext* cx, JS::HandleObject obj, bool* isDate);
 /*
  * Regular Expressions.
  */
-#define JSREG_FOLD      0x01u   /* fold uppercase to lowercase */
-#define JSREG_GLOB      0x02u   /* global exec, creates array of matches */
-#define JSREG_MULTILINE 0x04u   /* treat ^ and $ as begin and end of line */
-#define JSREG_STICKY    0x08u   /* only match starting at lastIndex */
-#define JSREG_UNICODE   0x10u   /* unicode */
-#define JSREG_DOTALL    0x20u   /* match . to everything including newlines */
+#define JSREG_FOLD       0x01u   /* fold uppercase to lowercase */
+#define JSREG_GLOB       0x02u   /* global exec, creates array of matches */
+#define JSREG_MULTILINE  0x04u   /* treat ^ and $ as begin and end of line */
+#define JSREG_STICKY     0x08u   /* only match starting at lastIndex */
+#define JSREG_UNICODE    0x10u   /* unicode */
+#define JSREG_DOTALL     0x20u   /* match . to everything including newlines */
+#define JSREG_HASINDICES 0x40u   /* add .indices property to the match result */
 
 extern JS_PUBLIC_API(JSObject*)
 JS_NewRegExpObject(JSContext* cx, const char* bytes, size_t length, unsigned flags);
@@ -6146,6 +5173,7 @@ JS_SetOffthreadIonCompilationEnabled(JSContext* cx, bool enabled);
     Register(ION_CHECK_RANGE_ANALYSIS, "ion.check-range-analysis")          \
     Register(BASELINE_ENABLE, "baseline.enable")                            \
     Register(OFFTHREAD_COMPILATION_ENABLE, "offthread-compilation.enable")  \
+    Register(FULL_DEBUG_CHECKS, "jit.full-debug-checks")                    \
     Register(JUMP_THRESHOLD, "jump-threshold")                              \
     Register(UNBOXED_OBJECTS, "unboxed_objects")                            \
     Register(ASMJS_ATOMICS_ENABLE, "asmjs.atomics.enable")                  \
@@ -6281,63 +5309,6 @@ class MOZ_RAII AutoHideScriptedCaller
     MOZ_DECL_USE_GUARD_OBJECT_NOTIFIER
 };
 
-/*
- * Encode/Decode interpreted scripts and functions to/from memory.
- */
-
-typedef mozilla::Vector<uint8_t> TranscodeBuffer;
-
-enum TranscodeResult
-{
-    // Successful encoding / decoding.
-    TranscodeResult_Ok = 0,
-
-    // A warning message, is set to the message out-param.
-    TranscodeResult_Failure = 0x100,
-    TranscodeResult_Failure_BadBuildId =          TranscodeResult_Failure | 0x1,
-    TranscodeResult_Failure_RunOnceNotSupported = TranscodeResult_Failure | 0x2,
-    TranscodeResult_Failure_AsmJSNotSupported =   TranscodeResult_Failure | 0x3,
-    TranscodeResult_Failure_BadDecode =           TranscodeResult_Failure | 0x4,
-
-    TranscodeResult_Failure_WrongCompileOption =  TranscodeResult_Failure | 0x5,
-    TranscodeResult_Failure_NotInterpretedFun =   TranscodeResult_Failure | 0x6,
-
-    // There is a pending exception on the context.
-    TranscodeResult_Throw = 0x200
-};
-
-extern JS_PUBLIC_API(TranscodeResult)
-EncodeScript(JSContext* cx, TranscodeBuffer& buffer, JS::HandleScript script);
-
-extern JS_PUBLIC_API(TranscodeResult)
-EncodeInterpretedFunction(JSContext* cx, TranscodeBuffer& buffer, JS::HandleObject funobj);
-
-extern JS_PUBLIC_API(TranscodeResult)
-DecodeScript(JSContext* cx, TranscodeBuffer& buffer, JS::MutableHandleScript scriptp,
-             size_t cursorIndex = 0);
-
-extern JS_PUBLIC_API(TranscodeResult)
-DecodeInterpretedFunction(JSContext* cx, TranscodeBuffer& buffer, JS::MutableHandleFunction funp,
-                          size_t cursorIndex = 0);
-
-// Register an encoder on the given script source, such that all functions can
-// be encoded as they are parsed. This strategy is used to avoid blocking the
-// active thread in a non-interruptible way.
-//
-// The |script| argument of |StartIncrementalEncoding| and
-// |FinishIncrementalEncoding| should be the top-level script returned either as
-// an out-param of any of the |Compile| functions, or the result of
-// |FinishOffThreadScript|.
-//
-// The |buffer| argument of |FinishIncrementalEncoding| is used for appending
-// the encoded bytecode into the buffer. If any of these functions failed, the
-// content of |buffer| would be undefined.
-extern JS_PUBLIC_API(bool)
-StartIncrementalEncoding(JSContext* cx, JS::HandleScript script);
-
-extern JS_PUBLIC_API(bool)
-FinishIncrementalEncoding(JSContext* cx, JS::HandleScript script, TranscodeBuffer& buffer);
-
 } /* namespace JS */
 
 namespace js {
@@ -6401,17 +5372,14 @@ enum AsmJSCacheResult
  * outparams. If the callback returns 'true', the JS engine guarantees a call
  * to CloseAsmJSCacheEntryForWriteOp passing the same base address, size and
  * handle.
- *
- * If 'installed' is true, then the cache entry is associated with a permanently
- * installed JS file (e.g., in a packaged webapp). This information allows the
- * embedding to store the cache entry in a installed location associated with
- * the principal of 'global' where it will not be evicted until the associated
- * installed JS file is removed.
  */
 typedef AsmJSCacheResult
-(* OpenAsmJSCacheEntryForWriteOp)(HandleObject global, bool installed,
-                                  const char16_t* begin, const char16_t* end,
-                                  size_t size, uint8_t** memory, intptr_t* handle);
+(* OpenAsmJSCacheEntryForWriteOp)(HandleObject global,
+                                  const char16_t* begin,
+                                  const char16_t* end,
+                                  size_t size,
+                                  uint8_t** memory,
+                                  intptr_t* handle);
 typedef void
 (* CloseAsmJSCacheEntryForWriteOp)(size_t size, uint8_t* memory, intptr_t handle);
 

@@ -3,7 +3,7 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-#include "builtin/TypedObject.h"
+#include "builtin/TypedObject-inl.h"
 
 #include "mozilla/Casting.h"
 #include "mozilla/CheckedInt.h"
@@ -940,9 +940,7 @@ StructMetaTypeDescr::create(JSContext* cx,
     if (!CreateTraceList(cx, descr))
         return nullptr;
 
-    if (!cx->zone()->addTypeDescrObject(cx, descr) ||
-        !cx->zone()->addTypeDescrObject(cx, fieldTypeVec))
-    {
+    if (!cx->zone()->addTypeDescrObject(cx, descr)) {
         ReportOutOfMemory(cx);
         return nullptr;
     }

@@ -52,6 +52,11 @@ public:
     mMatrix3D = new gfx::Matrix4x4(aMatrix);
   }
 
+  DOMMatrixReadOnly(nsISupports* aParent, const gfx::Matrix& aMatrix)
+    : mParent(aParent) {
+    mMatrix2D = new gfx::Matrix(aMatrix);
+  }
+
   NS_INLINE_DECL_CYCLE_COLLECTING_NATIVE_REFCOUNTING(DOMMatrixReadOnly)
   NS_DECL_CYCLE_COLLECTION_SCRIPT_HOLDER_NATIVE_CLASS(DOMMatrixReadOnly)
 
@@ -186,9 +191,9 @@ public:
                                               double aOriginX = 0,
                                               double aOriginY = 0,
                                               double aOriginZ = 0) const;
-  already_AddRefed<DOMMatrix> Rotate(double aAngle,
-                                     double aOriginX = 0,
-                                     double aOriginY = 0) const;
+  already_AddRefed<DOMMatrix> Rotate(double aRotX,
+                                     const Optional<double>& aRotY,
+                                     const Optional<double>& aRotZ) const;
   already_AddRefed<DOMMatrix> RotateFromVector(double aX,
                                                double aY) const;
   already_AddRefed<DOMMatrix> RotateAxisAngle(double aX,
@@ -234,7 +239,7 @@ protected:
    * The init dictionary's dimension must match the matrix one.
    */
   void SetDataFromMatrix2DInit(const DOMMatrix2DInit& aMatrixInit);
-  void SetDataFromMatrixInit(DOMMatrixInit& aMatrixInit);
+  void SetDataFromMatrixInit(const DOMMatrixInit& aMatrixInit);
 
   DOMMatrixReadOnly* SetMatrixValue(const nsAString& aTransformList, ErrorResult& aRv);
   void Ensure3DMatrix();
@@ -265,6 +270,10 @@ public:
   {}
 
   DOMMatrix(nsISupports* aParent, const gfx::Matrix4x4& aMatrix)
+    : DOMMatrixReadOnly(aParent, aMatrix)
+  {}
+
+  DOMMatrix(nsISupports* aParent, const gfx::Matrix& aMatrix)
     : DOMMatrixReadOnly(aParent, aMatrix)
   {}
 
@@ -315,9 +324,9 @@ public:
                                  double aOriginX = 0,
                                  double aOriginY = 0,
                                  double aOriginZ = 0);
-  DOMMatrix* RotateSelf(double aAngle,
-                        double aOriginX = 0,
-                        double aOriginY = 0);
+  DOMMatrix* RotateSelf(double aRotX,
+                        const Optional<double>& aRotY,
+                        const Optional<double>& aRotZ);
   DOMMatrix* RotateFromVectorSelf(double aX,
                                   double aY);
   DOMMatrix* RotateAxisAngleSelf(double aX,

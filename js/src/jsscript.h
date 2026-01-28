@@ -22,6 +22,7 @@
 #include "gc/Barrier.h"
 #include "gc/Rooting.h"
 #include "jit/IonCode.h"
+#include "js/CompileOptions.h"
 #include "js/UbiNode.h"
 #include "js/UniquePtr.h"
 #include "vm/NativeObject.h"
@@ -521,7 +522,8 @@ class ScriptSource
         if (--refs == 0)
             js_delete(this);
     }
-    bool initFromOptions(JSContext* cx, const ReadOnlyCompileOptions& options,
+
+    bool initFromOptions(JSContext* cx, const JS::ReadOnlyCompileOptions& options,
                          mozilla::Maybe<uint32_t> parameterListEnd = mozilla::Nothing());
     bool setSourceCopy(JSContext* cx, JS::SourceBufferHolder& srcBuf);
     void setSourceRetrievable() { sourceRetrievable_ = true; }
@@ -703,7 +705,7 @@ class ScriptSourceObject : public NativeObject
     // Initialize those properties of this ScriptSourceObject whose values
     // are provided by |options|, re-wrapping as necessary.
     static bool initFromOptions(JSContext* cx, HandleScriptSource source,
-                                const ReadOnlyCompileOptions& options);
+                                const JS::ReadOnlyCompileOptions& options);
 
     ScriptSource* source() const {
         return static_cast<ScriptSource*>(getReservedSlot(SOURCE_SLOT).toPrivate());
@@ -903,15 +905,17 @@ struct ScriptBytecodeHasher
     }
 };
 
-typedef HashSet<SharedScriptData*,
-                ScriptBytecodeHasher,
-                SystemAllocPolicy> ScriptDataTable;
+class AutoLockScriptData;
+
+using ScriptDataTable = HashSet<SharedScriptData*,
+                                ScriptBytecodeHasher,
+                                SystemAllocPolicy>;
 
 extern void
-SweepScriptData(JSRuntime* rt, AutoLockForExclusiveAccess& lock);
+SweepScriptData(JSRuntime* rt);
 
 extern void
-FreeScriptData(JSRuntime* rt, AutoLockForExclusiveAccess& lock);
+FreeScriptData(JSRuntime* rt);
 
 } /* namespace js */
 
@@ -1741,7 +1745,7 @@ class JSScript : public js::gc::TenuredCell
     bool isTopLevel() { return code() && !functionNonDelazifying(); }
 
     /* Ensure the script has a TypeScript. */
-    inline bool ensureHasTypes(JSContext* cx);
+    inline bool ensureHasTypes(JSContext* cx, js::AutoKeepTypeScripts&);
 
     inline js::TypeScript* types();
 
@@ -1924,8 +1928,11 @@ class JSScript : public js::gc::TenuredCell
     }
 
     js::PropertyName* getName(jsbytecode* pc) const {
-        MOZ_ASSERT(containsPC(pc) && containsPC(pc + sizeof(uint32_t)));
-        return getAtom(GET_UINT32_INDEX(pc))->asPropertyName();
+        if (containsPC(pc) && containsPC(pc + sizeof(uint32_t))) {
+            return getAtom(GET_UINT32_INDEX(pc))->asPropertyName();
+        } else {
+            return nullptr;
+        }
     }
 
     JSObject* getObject(size_t index) {

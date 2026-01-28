@@ -1255,14 +1255,6 @@ HTMLInputElement::BeforeSetAttr(int32_t aNameSpaceID, nsIAtom* aName,
         mType == NS_FORM_INPUT_RADIO &&
         (mForm || mDoneCreating)) {
       WillRemoveFromRadioGroup();
-    } else if (aNotify && aName == nsGkAtoms::src &&
-               mType == NS_FORM_INPUT_IMAGE) {
-      if (aValue) {
-        LoadImage(aValue->String(), true, aNotify, eImageLoadType_Normal);
-      } else {
-        // Null value means the attr got unset; drop the image
-        CancelImageRequests(aNotify);
-      }
     } else if (aNotify && aName == nsGkAtoms::disabled) {
       mDisabledChanged = true;
     } else if (mType == NS_FORM_INPUT_RADIO && aName == nsGkAtoms::required) {
@@ -1285,7 +1277,9 @@ HTMLInputElement::BeforeSetAttr(int32_t aNameSpaceID, nsIAtom* aName,
 nsresult
 HTMLInputElement::AfterSetAttr(int32_t aNameSpaceID, nsIAtom* aName,
                                const nsAttrValue* aValue,
-                               const nsAttrValue* aOldValue, bool aNotify)
+                               const nsAttrValue* aOldValue, 
+                               nsIPrincipal* aSubjectPrincipal,
+                               bool aNotify)
 {
   if (aNameSpaceID == kNameSpaceID_None) {
     //
@@ -1299,6 +1293,21 @@ HTMLInputElement::AfterSetAttr(int32_t aNameSpaceID, nsIAtom* aName,
         (mForm || mDoneCreating)) {
       AddedToRadioGroup();
       UpdateValueMissingValidityStateForRadio(false);
+    }
+
+    if (aName == nsGkAtoms::src) {
+      mSrcTriggeringPrincipal = nsContentUtils::GetAttrTriggeringPrincipal(
+          this, aValue ? aValue->GetStringValue() : EmptyString(),
+          aSubjectPrincipal);
+      if (aNotify && mType == NS_FORM_INPUT_IMAGE) {
+        if (aValue) {
+          LoadImage(aValue->GetStringValue(), true, aNotify, eImageLoadType_Normal,
+                    mSrcTriggeringPrincipal);
+        } else {
+          // Null value means the attr got unset; drop the image
+          CancelImageRequests(aNotify);
+        }
+      }
     }
 
     // If @value is changed and BF_VALUE_CHANGED is false, @value is the value
@@ -1436,6 +1445,7 @@ HTMLInputElement::AfterSetAttr(int32_t aNameSpaceID, nsIAtom* aName,
 
   return nsGenericHTMLFormElementWithState::AfterSetAttr(aNameSpaceID, aName,
                                                          aValue, aOldValue,
+                                                         aSubjectPrincipal,
                                                          aNotify);
 }
 
@@ -1481,6 +1491,26 @@ NS_IMPL_STRING_ATTR(HTMLInputElement, Pattern, pattern)
 NS_IMPL_STRING_ATTR(HTMLInputElement, Placeholder, placeholder)
 NS_IMPL_ENUM_ATTR_DEFAULT_VALUE(HTMLInputElement, Type, type,
                                 kInputDefaultType->tag)
+
+void HTMLInputElement::ResultForDialogSubmit(nsAString& aResult) {
+  if (mType == NS_FORM_INPUT_IMAGE) {
+    // Get a property set by the frame to find out where it was clicked.
+    nsIntPoint* lastClickedPoint =
+        static_cast<nsIntPoint*>(GetProperty(nsGkAtoms::imageClickedPoint));
+    int32_t x, y;
+    if (lastClickedPoint) {
+      x = lastClickedPoint->x;
+      y = lastClickedPoint->y;
+    } else {
+      x = y = 0;
+    }
+    aResult.AppendInt(x);
+    aResult.AppendLiteral(",");
+    aResult.AppendInt(y);
+  } else {
+    GetAttr(kNameSpaceID_None, nsGkAtoms::value, aResult);
+  }
+}
 
 NS_IMETHODIMP
 HTMLInputElement::GetAutocomplete(nsAString& aValue)
@@ -2802,6 +2832,20 @@ HTMLInputElement::SetUserInput(const nsAString& aValue)
   return NS_OK;
 }
 
+void
+HTMLInputElement::SetAutofilled(bool aAutofilled)
+{
+  nsAutoString value;
+  GetValueInternal(value);
+  if (aAutofilled) {
+    AddStates(NS_EVENT_STATE_AUTOFILL);
+    mAutofilledValue = value;
+  } else {
+    RemoveStates(NS_EVENT_STATE_AUTOFILL);
+    mAutofilledValue.Truncate();
+  }
+}
+
 nsIEditor*
 HTMLInputElement::GetEditor()
 {
@@ -3532,7 +3576,18 @@ HTMLInputElement::Blur(ErrorResult& aError)
   }
 
   nsGenericHTMLElement::Blur(aError);
-}
+
+  if (State().HasState(NS_EVENT_STATE_AUTOFILL)) {
+    // Force a complete restyle to ensure autofill pseudo-classes are processed
+    if (nsIDocument* doc = GetComposedDoc()) {
+      if (nsIPresShell* shell = doc->GetShell()) {
+        if (nsIFrame* frame = GetPrimaryFrame()) {
+          shell->FrameNeedsReflow(frame, nsIPresShell::eStyleChange, NS_FRAME_IS_DIRTY);
+        }
+      }
+    }
+  }
+} 
 
 void
 HTMLInputElement::Focus(ErrorResult& aError)
@@ -4938,7 +4993,7 @@ HTMLInputElement::MaybeLoadImage()
   nsAutoString uri;
   if (mType == NS_FORM_INPUT_IMAGE &&
       GetAttr(kNameSpaceID_None, nsGkAtoms::src, uri) &&
-      (NS_FAILED(LoadImage(uri, false, true, eImageLoadType_Normal)) ||
+      (NS_FAILED(LoadImage(uri, false, true, eImageLoadType_Normal, mSrcTriggeringPrincipal)) ||
        !LoadingEnabled())) {
     CancelImageRequests(true);
   }
@@ -5150,7 +5205,7 @@ HTMLInputElement::HandleTypeChange(uint8_t aNewType, bool aNotify)
     // whether we have an image to load;
     nsAutoString src;
     if (GetAttr(kNameSpaceID_None, nsGkAtoms::src, src)) {
-      LoadImage(src, false, aNotify, eImageLoadType_Normal);
+      LoadImage(src, false, aNotify, eImageLoadType_Normal, mSrcTriggeringPrincipal);
     }
   }
 
@@ -5924,6 +5979,9 @@ HTMLInputElement::ParseAttribute(int32_t aNamespaceID,
       return aResult.ParseEnumValue(aValue, kFormMethodTable, false);
     }
     if (aAttribute == nsGkAtoms::formenctype) {
+      if (Preferences::GetBool("dom.dialog_element.enabled", true)) {
+        return aResult.ParseEnumValue(aValue, kFormMethodTableDialogEnabled, false);
+      }
       return aResult.ParseEnumValue(aValue, kFormEnctypeTable, false);
     }
     if (aAttribute == nsGkAtoms::autocomplete) {
@@ -7033,6 +7091,13 @@ HTMLInputElement::IntrinsicState() const
 
   if (mForm && !mForm->GetValidity() && IsSubmitControl()) {
     state |= NS_EVENT_STATE_MOZ_SUBMITINVALID;
+  }
+
+  // Autofill highlight should persist as long as the value matches the autofilled value
+  nsAutoString value;
+  GetValueInternal(value);
+  if (!mAutofilledValue.IsEmpty() && value == mAutofilledValue) {
+    state |= NS_EVENT_STATE_AUTOFILL;
   }
 
   return state;
@@ -8470,7 +8535,22 @@ HTMLInputElement::InitializeKeyboardEventListeners()
 NS_IMETHODIMP_(void)
 HTMLInputElement::OnValueChanged(bool aNotify, bool aWasInteractiveUserChange)
 {
+  nsAutoString value;
+  GetValueInternal(value);
   mLastValueChangeWasInteractive = aWasInteractiveUserChange;
+
+  // Only remove autofilled state if the value actually changed from autofilled value
+  if (aWasInteractiveUserChange && State().HasState(NS_EVENT_STATE_AUTOFILL)) {
+    if (!mAutofilledValue.IsEmpty() && mAutofilledValue != value) {
+      RemoveStates(NS_EVENT_STATE_AUTOFILL);
+      mAutofilledValue.Truncate();
+    }
+  } else if (aWasInteractiveUserChange && !State().HasState(NS_EVENT_STATE_AUTOFILL)) {
+    // If the value is changed back to the autofilled value, restore the state
+    if (!mAutofilledValue.IsEmpty() && mAutofilledValue == value) {
+      AddStates(NS_EVENT_STATE_AUTOFILL);
+    }
+  }
 
   UpdateAllValidityStates(aNotify);
 
@@ -8500,6 +8580,24 @@ HTMLInputElement::HasCachedSelection()
     }
   }
   return isCached;
+}
+
+NS_IMETHODIMP
+HTMLInputElement::BeginProgrammaticValueSet() {
+  nsTextEditorState* state = GetEditorState();
+  if (state) {
+    state->SettingValue(true);
+  }
+  return NS_OK;
+}
+
+NS_IMETHODIMP
+HTMLInputElement::EndProgrammaticValueSet() {
+  nsTextEditorState* state = GetEditorState();
+  if (state) {
+    state->SettingValue(false);
+  }
+  return NS_OK;
 }
 
 void

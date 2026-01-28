@@ -201,6 +201,30 @@ class MacroAssembler : public MacroAssemblerSpecific
         return this;
     }
 
+public:
+template <typename T>
+void branchTestStringHelper(Assembler::Condition cond, const T& src, Label* label) {
+    if constexpr (std::is_same_v<T, ValueOperand>) {
+        this->branchTestString(cond, src, label);
+    } else if constexpr (std::is_same_v<T, Address>) {
+        // Use the Address-specific path instead of wrapping in Operand
+        // This avoids the C2665 "cannot convert Operand" error
+        this->branchTest32(cond, src, Imm32(JSString::TYPE_FLAGS_MASK), label);
+    } else {
+        // Fallback for other types (like Register)
+        this->branchTestString(cond, src, label);
+    }
+}
+
+template <typename T>
+void UnboxStringHelper(const T& src, Register dest) {
+    if constexpr (std::is_same_v<T, ValueOperand>) {
+        this->unboxString(src, dest);
+    } else {
+        this->unboxString(Operand(src), dest);
+    }
+}
+
   public:
     class AutoRooter : public JS::AutoGCRooter
     {
@@ -533,6 +557,13 @@ class MacroAssembler : public MacroAssemblerSpecific
     static void patchNopToNearJump(uint8_t* jump, uint8_t* target) PER_SHARED_ARCH;
     static void patchNearJumpToNop(uint8_t* jump) PER_SHARED_ARCH;
 
+    // Emit a nop that can be patched to and from a nop and a call with int32
+    // relative displacement.
+    CodeOffset nopPatchableToCall(const wasm::CallSiteDesc& desc) PER_SHARED_ARCH;
+    static void patchNopToCall(uint8_t* callsite, uint8_t* target) PER_SHARED_ARCH;
+    static void patchCallToNop(uint8_t* callsite) PER_SHARED_ARCH;
+
+
   public:
     // ===============================================================
     // ABI function calls.
@@ -781,7 +812,7 @@ class MacroAssembler : public MacroAssemblerSpecific
 
     inline void add64(Register64 src, Register64 dest) PER_ARCH;
     inline void add64(Imm32 imm, Register64 dest) PER_ARCH;
-    inline void add64(Imm64 imm, Register64 dest) DEFINED_ON(x86, x64, arm, mips32, mips64);
+    inline void add64(Imm64 imm, Register64 dest) PER_ARCH;
     inline void add64(const Operand& src, Register64 dest) DEFINED_ON(x64, mips64);
 
     inline void addFloat32(FloatRegister src, FloatRegister dest) PER_SHARED_ARCH;
@@ -807,7 +838,7 @@ class MacroAssembler : public MacroAssemblerSpecific
     inline void subPtr(const Address& addr, Register dest) DEFINED_ON(mips_shared, arm, arm64, x86, x64);
 
     inline void sub64(Register64 src, Register64 dest) PER_ARCH;
-    inline void sub64(Imm64 imm, Register64 dest) DEFINED_ON(x86, x64, arm, mips32, mips64);
+    inline void sub64(Imm64 imm, Register64 dest) PER_ARCH;
     inline void sub64(const Operand& src, Register64 dest) DEFINED_ON(x64, mips64);
 
     inline void subFloat32(FloatRegister src, FloatRegister dest) PER_SHARED_ARCH;
@@ -922,7 +953,7 @@ class MacroAssembler : public MacroAssemblerSpecific
     inline void rotateLeft64(Imm32 count, Register64 input, Register64 dest) DEFINED_ON(x64);
     inline void rotateLeft64(Register count, Register64 input, Register64 dest) DEFINED_ON(x64);
     inline void rotateLeft64(Imm32 count, Register64 input, Register64 dest, Register temp)
-        DEFINED_ON(x86, x64, arm, mips32, mips64);
+        PER_ARCH;
     inline void rotateLeft64(Register count, Register64 input, Register64 dest, Register temp)
         PER_ARCH;
 
@@ -931,7 +962,7 @@ class MacroAssembler : public MacroAssemblerSpecific
     inline void rotateRight64(Imm32 count, Register64 input, Register64 dest) DEFINED_ON(x64);
     inline void rotateRight64(Register count, Register64 input, Register64 dest) DEFINED_ON(x64);
     inline void rotateRight64(Imm32 count, Register64 input, Register64 dest, Register temp)
-        DEFINED_ON(x86, x64, arm, mips32, mips64);
+        PER_ARCH;
     inline void rotateRight64(Register count, Register64 input, Register64 dest, Register temp)
         PER_ARCH;
 
@@ -1033,6 +1064,10 @@ class MacroAssembler : public MacroAssemblerSpecific
     inline void branchPtr(Condition cond, wasm::SymbolicAddress lhs, Register rhs, Label* label)
         DEFINED_ON(arm, arm64, mips_shared, x86, x64);
 
+    // Given a pointer to a GC Cell, retrieve the StoreBuffer pointer from its
+    // chunk trailer, or nullptr if it is in the tenured heap.
+    void loadStoreBuffer(Register ptr, Register buffer) PER_ARCH;
+
     template <typename T>
     inline CodeOffsetJump branchPtrWithPatch(Condition cond, Register lhs, T rhs, RepatchLabel* label) PER_SHARED_ARCH;
     template <typename T>
@@ -1042,8 +1077,9 @@ class MacroAssembler : public MacroAssemblerSpecific
         DEFINED_ON(arm, arm64, mips_shared, x86, x64);
     void branchPtrInNurseryChunk(Condition cond, const Address& address, Register temp, Label* label)
         DEFINED_ON(x86);
-    void branchValueIsNurseryObject(Condition cond, const Address& address, Register temp, Label* label) PER_ARCH;
     void branchValueIsNurseryObject(Condition cond, ValueOperand value, Register temp, Label* label) PER_ARCH;
+	void branchValueIsNurseryCell(Condition cond, const Address& address, Register temp, Label* label) PER_ARCH;
+    void branchValueIsNurseryCell(Condition cond, ValueOperand value, Register temp, Label* label) PER_ARCH;
 
     // This function compares a Value (lhs) which is having a private pointer
     // boxed inside a js::Value, with a raw pointer (rhs).
@@ -1114,6 +1150,8 @@ class MacroAssembler : public MacroAssemblerSpecific
 
     inline void branchIfRope(Register str, Label* label);
     inline void branchIfRopeOrExternal(Register str, Register temp, Label* label);
+
+    inline void branchIfNotRope(Register str, Label* label);
 
     inline void branchLatin1String(Register string, Label* label);
     inline void branchTwoByteString(Register string, Label* label);
@@ -1263,7 +1301,7 @@ class MacroAssembler : public MacroAssemblerSpecific
     void branchPtrInNurseryChunkImpl(Condition cond, Register ptr, Label* label)
         DEFINED_ON(x86);
     template <typename T>
-    void branchValueIsNurseryObjectImpl(Condition cond, const T& value, Register temp, Label* label)
+    void branchValueIsNurseryCellImpl(Condition cond, const T& value, Register temp, Label* label)
         DEFINED_ON(arm64, mips64, x64);
 
     template <typename T>
@@ -1386,6 +1424,43 @@ class MacroAssembler : public MacroAssemblerSpecific
     void wasmStore(const wasm::MemoryAccessDesc& access, AnyRegister value, Operand dstAddr) DEFINED_ON(x86, x64);
     void wasmStoreI64(const wasm::MemoryAccessDesc& access, Register64 value, Operand dstAddr) DEFINED_ON(x86);
 
+    // For all the ARM wasmLoad and wasmStore functions, `ptr` MUST equal
+    // `ptrScratch`, and that register will be updated based on conditions
+    // listed below (where it is only mentioned as `ptr`).
+
+    // `ptr` will be updated if access.offset() != 0 or access.type() == Scalar::Int64.
+    void wasmLoad(const wasm::MemoryAccessDesc& access, Register ptr, Register ptrScratch, AnyRegister output) DEFINED_ON(arm);
+    void wasmLoadI64(const wasm::MemoryAccessDesc& access, Register ptr, Register ptrScratch, Register64 output) DEFINED_ON(arm);
+    void wasmStore(const wasm::MemoryAccessDesc& access, AnyRegister value, Register ptr, Register ptrScratch) DEFINED_ON(arm);
+    void wasmStoreI64(const wasm::MemoryAccessDesc& access, Register64 value, Register ptr, Register ptrScratch) DEFINED_ON(arm);
+
+    // `ptr` will always be updated.
+    void wasmUnalignedLoad(const wasm::MemoryAccessDesc& access, Register ptr, Register ptrScratch,
+                           Register output, Register tmp) DEFINED_ON(arm);
+
+    // `ptr` will always be updated and `tmp1` is always needed.  `tmp2` is
+    // needed for Float32; `tmp2` and `tmp3` are needed for Float64.  Temps must
+    // be Invalid when they are not needed.
+    void wasmUnalignedLoadFP(const wasm::MemoryAccessDesc& access, Register ptr, Register ptrScratch,
+                             FloatRegister output, Register tmp1, Register tmp2, Register tmp3) DEFINED_ON(arm);
+
+    // `ptr` will always be updated.
+    void wasmUnalignedLoadI64(const wasm::MemoryAccessDesc& access, Register ptr, Register ptrScratch,
+                              Register64 output, Register tmp) DEFINED_ON(arm);
+
+    // `ptr` and `value` will always be updated.
+    void wasmUnalignedStore(const wasm::MemoryAccessDesc& access, Register value, Register ptr, Register ptrScratch)
+        DEFINED_ON(arm);
+
+    // `ptr` will always be updated.
+    void wasmUnalignedStoreFP(const wasm::MemoryAccessDesc& access, FloatRegister floatValue, Register ptr,
+                              Register ptrScratch, Register tmp) DEFINED_ON(arm);
+
+    // `ptr` will always be updated.
+    void wasmUnalignedStoreI64(const wasm::MemoryAccessDesc& access, Register64 value, Register ptr, Register ptrScratch,
+                               Register tmp) DEFINED_ON(arm);
+
+
     // wasm specific methods, used in both the wasm baseline compiler and ion.
     void wasmTruncateDoubleToUInt32(FloatRegister input, Register output, Label* oolEntry) DEFINED_ON(x86, x64, arm);
     void wasmTruncateDoubleToInt32(FloatRegister input, Register output, Label* oolEntry) DEFINED_ON(x86_shared, arm);
@@ -1464,9 +1539,11 @@ class MacroAssembler : public MacroAssemblerSpecific
     }
 
     void loadStringChars(Register str, Register dest);
-    void loadStringChar(Register str, Register index, Register output);
+    void loadStringChar(Register str, Register index, Register output, Label* fail);
+	void leaNewDependentStringBase(Register str, Register dest);
 
     void loadJSContext(Register dest);
+
     void loadJitActivation(Register dest) {
         loadJSContext(dest);
         loadPtr(Address(dest, offsetof(JSContext, activation_)), dest);
@@ -1636,6 +1713,11 @@ class MacroAssembler : public MacroAssemblerSpecific
           case Scalar::Uint32:
             store32(value, dest);
             break;
+          case Scalar::BigInt64:
+          case Scalar::BigUint64:
+            //FIXME: storing 64-bit values doesn't actually work yet.
+            // store64(value, dest);
+            break;
           default:
             MOZ_CRASH("Invalid typed array type");
         }
@@ -1710,11 +1792,15 @@ class MacroAssembler : public MacroAssemblerSpecific
   private:
     void checkAllocatorState(Label* fail);
     bool shouldNurseryAllocate(gc::AllocKind allocKind, gc::InitialHeap initialHeap);
-    void nurseryAllocate(Register result, Register temp, gc::AllocKind allocKind,
-                         size_t nDynamicSlots, gc::InitialHeap initialHeap, Label* fail);
+    void nurseryAllocateObject(Register result, Register temp, gc::AllocKind allocKind,
+                               size_t nDynamicSlots, Label* fail);
     void freeListAllocate(Register result, Register temp, gc::AllocKind allocKind, Label* fail);
     void allocateObject(Register result, Register temp, gc::AllocKind allocKind,
                         uint32_t nDynamicSlots, gc::InitialHeap initialHeap, Label* fail);
+    void nurseryAllocateString(Register result, Register temp, gc::AllocKind allocKind,
+                               Label* fail);
+    void allocateString(Register result, Register temp, gc::AllocKind allocKind,
+                        gc::InitialHeap initialHeap, Label* fail);
     void allocateNonObject(Register result, Register temp, gc::AllocKind allocKind, Label* fail);
     void copySlotsFromTemplate(Register obj, const NativeObject* templateObj,
                                uint32_t start, uint32_t end);
@@ -1740,8 +1826,8 @@ class MacroAssembler : public MacroAssemblerSpecific
 
     void initUnboxedObjectContents(Register object, UnboxedPlainObject* templateObject);
 
-    void newGCString(Register result, Register temp, Label* fail);
-    void newGCFatInlineString(Register result, Register temp, Label* fail);
+    void newGCString(Register result, Register temp, Label* fail, bool attemptNursery);
+    void newGCFatInlineString(Register result, Register temp, Label* fail, bool attemptNursery);
 
     // Compares two strings for equality based on the JSOP.
     // This checks for identical pointers, atoms and length and fails for everything else.

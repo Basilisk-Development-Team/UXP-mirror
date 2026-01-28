@@ -34,7 +34,6 @@
 #include "nsIDOMHTMLAnchorElement.h"
 #include "nsISelectionController.h"
 #include "nsIDOMHTMLDocument.h"
-#include "nsILinkHandler.h"
 #include "nsIInlineSpellChecker.h"
 
 #include "mozilla/css/Loader.h"
@@ -165,11 +164,10 @@ HTMLEditor::~HTMLEditor()
   // free any default style propItems
   RemoveAllDefaultProperties();
 
-  if (mLinkHandler && IsInitialized()) {
-    nsCOMPtr<nsIPresShell> ps = GetPresShell();
-
-    if (ps && ps->GetPresContext()) {
-      ps->GetPresContext()->SetLinkHandler(mLinkHandler);
+  if (mDisabledLinkHandling) {
+    nsCOMPtr<nsIDocument> doc = GetDocument();
+    if (doc) {
+      doc->SetLinkHandlingEnabled(mOldLinkHandlingEnabled);
     }
   }
 
@@ -238,7 +236,7 @@ NS_IMPL_CYCLE_COLLECTION_TRAVERSE_END
 NS_IMPL_ADDREF_INHERITED(HTMLEditor, EditorBase)
 NS_IMPL_RELEASE_INHERITED(HTMLEditor, EditorBase)
 
-NS_INTERFACE_MAP_BEGIN_CYCLE_COLLECTION_INHERITED(HTMLEditor)
+NS_INTERFACE_MAP_BEGIN_CYCLE_COLLECTION(HTMLEditor)
   NS_INTERFACE_MAP_ENTRY(nsIHTMLEditor)
   NS_INTERFACE_MAP_ENTRY(nsIHTMLObjectResizer)
   NS_INTERFACE_MAP_ENTRY(nsIHTMLAbsPosEditor)
@@ -290,13 +288,14 @@ HTMLEditor::Init(nsIDOMDocument* aDoc,
     mCSSEditUtils = MakeUnique<CSSEditUtils>(this);
 
     // disable links
-    nsCOMPtr<nsIPresShell> presShell = GetPresShell();
-    NS_ENSURE_TRUE(presShell, NS_ERROR_FAILURE);
-    nsPresContext *context = presShell->GetPresContext();
-    NS_ENSURE_TRUE(context, NS_ERROR_NULL_POINTER);
+    nsCOMPtr<nsIDocument> doc = GetDocument();
+    if (NS_WARN_IF(!doc)) {
+      return NS_ERROR_FAILURE;
+    }
     if (!IsPlaintextEditor() && !IsInteractionAllowed()) {
-      mLinkHandler = context->GetLinkHandler();
-      context->SetLinkHandler(nullptr);
+      mDisabledLinkHandling = true;
+      mOldLinkHandlingEnabled = doc->LinkHandlingEnabled();
+      doc->SetLinkHandlingEnabled(false);
     }
 
     // init the type-in state
@@ -407,7 +406,7 @@ HTMLEditor::FindSelectionRoot(nsINode* aNode)
     // If the content is in read-write state but is not editable itself,
     // return it as the selection root.
     if (content->IsElement() &&
-        content->AsElement()->State().HasState(NS_EVENT_STATE_MOZ_READWRITE)) {
+        content->AsElement()->State().HasState(NS_EVENT_STATE_READWRITE)) {
       return content.forget();
     }
     return nullptr;

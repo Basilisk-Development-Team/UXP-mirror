@@ -949,7 +949,7 @@ protected:
 
 NS_IMPL_ADDREF_INHERITED(FakeTrackSourceGetter, MediaStreamTrackSourceGetter)
 NS_IMPL_RELEASE_INHERITED(FakeTrackSourceGetter, MediaStreamTrackSourceGetter)
-NS_INTERFACE_MAP_BEGIN_CYCLE_COLLECTION_INHERITED(FakeTrackSourceGetter)
+NS_INTERFACE_MAP_BEGIN_CYCLE_COLLECTION(FakeTrackSourceGetter)
 NS_INTERFACE_MAP_END_INHERITING(MediaStreamTrackSourceGetter)
 NS_IMPL_CYCLE_COLLECTION_INHERITED(FakeTrackSourceGetter,
                                    MediaStreamTrackSourceGetter,
@@ -1862,29 +1862,15 @@ MediaManager::NotifyRecordingStatusChange(nsPIDOMWindowInner* aWindow,
   props->SetPropertyAsBool(NS_LITERAL_STRING("isAudio"), aIsAudio);
   props->SetPropertyAsBool(NS_LITERAL_STRING("isVideo"), aIsVideo);
 
-  bool isApp = false;
-  nsString requestURL;
+  nsCString pageURL;
+  nsCOMPtr<nsIURI> docURI = aWindow->GetDocumentURI();
+  NS_ENSURE_TRUE(docURI, NS_ERROR_FAILURE);
 
-  if (nsCOMPtr<nsIDocShell> docShell = aWindow->GetDocShell()) {
-    isApp = docShell->GetIsApp();
-    if (isApp) {
-      nsresult rv = docShell->GetAppManifestURL(requestURL);
-      NS_ENSURE_SUCCESS(rv, rv);
-    }
-  }
+  nsresult rv = docURI->GetSpec(pageURL);
+  NS_ENSURE_SUCCESS(rv, rv);
 
-  if (!isApp) {
-    nsCString pageURL;
-    nsCOMPtr<nsIURI> docURI = aWindow->GetDocumentURI();
-    NS_ENSURE_TRUE(docURI, NS_ERROR_FAILURE);
+  NS_ConvertUTF8toUTF16 requestURL(pageURL);
 
-    nsresult rv = docURI->GetSpec(pageURL);
-    NS_ENSURE_SUCCESS(rv, rv);
-
-    requestURL = NS_ConvertUTF8toUTF16(pageURL);
-  }
-
-  props->SetPropertyAsBool(NS_LITERAL_STRING("isApp"), isApp);
   props->SetPropertyAsAString(NS_LITERAL_STRING("requestURL"), requestURL);
 
   obs->NotifyObservers(static_cast<nsIPropertyBag2*>(props),

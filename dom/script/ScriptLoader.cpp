@@ -11,6 +11,7 @@
 #include "prsystem.h"
 #include "jsapi.h"
 #include "jsfriendapi.h"
+#include "js/SourceBufferHolder.h"
 #include "xpcpublic.h"
 #include "nsCycleCollectionParticipant.h"
 #include "nsIContent.h"
@@ -447,7 +448,8 @@ ScriptLoader::CheckContentPolicy(nsIDocument* aDocument,
   int16_t shouldLoad = nsIContentPolicy::ACCEPT;
   nsresult rv = NS_CheckContentLoadPolicy(contentPolicyType,
                                           aURI,
-                                          aDocument->NodePrincipal(),
+                                          aDocument->NodePrincipal(), // loading principal
+                                          aDocument->NodePrincipal(), // triggering principal
                                           aContext,
                                           NS_LossyConvertUTF16toASCII(aType),
                                           nullptr,    //extra
@@ -866,6 +868,8 @@ ScriptLoader::StartFetchingModuleAndDependencies(ModuleLoadRequest* aParent,
 
   RefPtr<ModuleLoadRequest> childRequest =
       ModuleLoadRequest::CreateStaticImport(aURI, aParent);
+
+  childRequest->mTriggeringPrincipal = aParent->mTriggeringPrincipal;
 
   aParent->mImports.AppendElement(childRequest);
 
@@ -1315,9 +1319,8 @@ ScriptLoader::StartLoad(ScriptLoadRequest *aRequest, const nsAString &aType,
     // According to the spec, module scripts have different behaviour to classic
     // scripts and always use CORS.
     securityFlags = nsILoadInfo::SEC_REQUIRE_CORS_DATA_INHERITS;
-    if (aRequest->CORSMode() == CORS_NONE) {
-      securityFlags |= nsILoadInfo::SEC_COOKIES_OMIT;
-    } else if (aRequest->CORSMode() == CORS_ANONYMOUS) {
+    if (aRequest->CORSMode() == CORS_NONE ||
+        aRequest->CORSMode() == CORS_ANONYMOUS) {
       securityFlags |= nsILoadInfo::SEC_COOKIES_SAME_ORIGIN;
     } else {
       MOZ_ASSERT(aRequest->CORSMode() == CORS_USE_CREDENTIALS);
@@ -1336,14 +1339,16 @@ ScriptLoader::StartLoad(ScriptLoadRequest *aRequest, const nsAString &aType,
   securityFlags |= nsILoadInfo::SEC_ALLOW_CHROME;
 
   nsCOMPtr<nsIChannel> channel;
-  nsresult rv = NS_NewChannel(getter_AddRefs(channel),
-                              aRequest->mURI,
-                              context,
-                              securityFlags,
-                              contentPolicyType,
-                              loadGroup,
-                              prompter,
-                              nsIRequest::LOAD_NORMAL);
+  nsresult rv = NS_NewChannelWithTriggeringPrincipal(
+      getter_AddRefs(channel),
+      aRequest->mURI,
+      context,
+      aRequest->mTriggeringPrincipal,
+      securityFlags,
+      contentPolicyType,
+      loadGroup,
+      prompter,
+      nsIRequest::LOAD_NORMAL);
 
   NS_ENSURE_SUCCESS(rv, rv);
 
@@ -1571,7 +1576,7 @@ ScriptLoader::ProcessScriptElement(nsIScriptElement *aElement)
   // Step 15. and later in the HTML5 spec
   nsresult rv = NS_OK;
   RefPtr<ScriptLoadRequest> request;
-  mozilla::net::ReferrerPolicy ourRefPolicy = mDocument->GetReferrerPolicy();
+  mozilla::net::ReferrerPolicy referrerPolicy = GetReferrerPolicy(aElement);
   if (aElement->GetScriptExternal()) {
     // external script
     nsCOMPtr<nsIURI> scriptURI = aElement->GetScriptURI();
@@ -1601,7 +1606,7 @@ ScriptLoader::ProcessScriptElement(nsIScriptElement *aElement)
       aElement->GetScriptCharset(elementCharset);
       if (elementCharset.Equals(preloadCharset) &&
           ourCORSMode == request->CORSMode() &&
-          ourRefPolicy == request->ReferrerPolicy() &&
+          referrerPolicy == request->ReferrerPolicy() &&
           scriptKind == request->mKind) {
         rv = CheckContentPolicy(mDocument, aElement, request->mURI, type, false);
         if (NS_FAILED(rv)) {
@@ -1644,10 +1649,14 @@ ScriptLoader::ProcessScriptElement(nsIScriptElement *aElement)
         }
       }
 
-      nsCOMPtr<nsIPrincipal> principal = scriptContent->NodePrincipal();
+      nsCOMPtr<nsIPrincipal> principal = aElement->GetScriptURITriggeringPrincipal();
+      if (!principal) {
+        principal = scriptContent->NodePrincipal();
+      }
 
       request = CreateLoadRequest(scriptKind, scriptURI, aElement, principal,
-                                  ourCORSMode, sriMetadata, ourRefPolicy);
+                                  ourCORSMode, sriMetadata, referrerPolicy);
+      request->mTriggeringPrincipal = Move(principal);
       request->mIsInline = false;
       request->SetScriptMode(aElement->GetScriptDeferred(),
                              aElement->GetScriptAsync());
@@ -1768,8 +1777,9 @@ ScriptLoader::ProcessScriptElement(nsIScriptElement *aElement)
                               mDocument->NodePrincipal(),
                               CORS_NONE,
                               SRIMetadata(), // SRI doesn't apply
-                              ourRefPolicy);
+                              referrerPolicy);
   request->mIsInline = true;
+  request->mTriggeringPrincipal = mDocument->NodePrincipal();
   request->mLineNo = aElement->GetScriptLineNumber();
 
   // Only the 'async' attribute is heeded on an inline module script and
@@ -1832,6 +1842,17 @@ ScriptLoader::ProcessScriptElement(nsIScriptElement *aElement)
   NS_ASSERTION(nsContentUtils::IsSafeToRunScript(),
       "Not safe to run a parser-inserted script?");
   return ProcessRequest(request) == NS_ERROR_HTMLPARSER_BLOCK;
+}
+
+mozilla::net::ReferrerPolicy
+ScriptLoader::GetReferrerPolicy(nsIScriptElement* aElement)
+{
+  mozilla::net::ReferrerPolicy scriptReferrerPolicy =
+    aElement->GetReferrerPolicy();
+  if (scriptReferrerPolicy != mozilla::net::RP_Unset) {
+    return scriptReferrerPolicy;
+  }
+  return mDocument->GetReferrerPolicy();
 }
 
 namespace {
@@ -2374,10 +2395,7 @@ ScriptLoader::EvaluateScript(ScriptLoadRequest* aRequest)
             rv = exec.Compile(options, srcBuf);
           }
           if (rv == NS_OK) {
-             JS::Rooted<JSScript*> script(cx);
-             script = exec.GetScript();
-
-             // With scripts disabled GetScript() will return nullptr
+             JS::Rooted<JSScript*> script(cx, exec.GetScript());
              if (script) {
                  // Create a ClassicScript object and associate it with the
                  // JSScript.
@@ -3065,6 +3083,7 @@ ScriptLoader::PreloadURI(nsIURI *aURI,
                       mDocument->NodePrincipal(),
                       Element::StringToCORSMode(aCrossOrigin), sriMetadata,
                       aReferrerPolicy);
+  request->mTriggeringPrincipal = mDocument->NodePrincipal();
   request->mIsInline = false;
   request->SetScriptMode(aDefer, aAsync);
   request->SetIsPreloadRequest();

@@ -1253,17 +1253,6 @@ nsObjectLoadingContent::GetFrameLoader()
   return loader.forget();
 }
 
-NS_IMETHODIMP
-nsObjectLoadingContent::GetParentApplication(mozIApplication** aApplication)
-{
-  if (!aApplication) {
-    return NS_ERROR_FAILURE;
-  }
-
-  *aApplication = nullptr;
-  return NS_OK;
-}
-
 void
 nsObjectLoadingContent::PresetOpenerWindow(mozIDOMWindowProxy* aWindow, mozilla::ErrorResult& aRv)
 {
@@ -1569,13 +1558,9 @@ nsObjectLoadingContent::MaybeRewriteYoutubeEmbed(nsIURI* aURI, nsIURI* aBaseURI,
   }
 
   // See if requester is planning on using the JS API.
-  nsAutoCString uri;
-  nsresult rv = aURI->GetSpec(uri);
+  nsAutoCString prePath;
+  nsresult rv = aURI->GetPrePath(prePath);
   if (NS_FAILED(rv)) {
-    return;
-  }
-
-  if (uri.Find("enablejsapi=1", true, 0, -1) != kNotFound) {
     return;
   }
 
@@ -1585,10 +1570,10 @@ nsObjectLoadingContent::MaybeRewriteYoutubeEmbed(nsIURI* aURI, nsIURI* aBaseURI,
   // URLs, convert the parameters to query in order to make the video load
   // correctly as an iframe. In either case, warn about it in the
   // developer console.
-  int32_t ampIndex = uri.FindChar('&', 0);
+  int32_t ampIndex = path.FindChar('&', 0);
   bool replaceQuery = false;
   if (ampIndex != -1) {
-    int32_t qmIndex = uri.FindChar('?', 0);
+    int32_t qmIndex = path.FindChar('?', 0);
     if (qmIndex == -1 ||
         qmIndex > ampIndex) {
       replaceQuery = true;
@@ -1599,20 +1584,22 @@ nsObjectLoadingContent::MaybeRewriteYoutubeEmbed(nsIURI* aURI, nsIURI* aBaseURI,
     return;
   }
 
-  nsAutoString utf16OldURI = NS_ConvertUTF8toUTF16(uri);
+  NS_ConvertUTF8toUTF16 utf16OldURI(prePath);
+  AppendUTF8toUTF16(path, utf16OldURI);
   // If we need to convert the URL, it means an ampersand comes first.
   // Use the index we found earlier.
   if (replaceQuery) {
     // Replace question marks with ampersands.
-    uri.ReplaceChar('?', '&');
+    path.ReplaceChar('?', '&');
     // Replace the first ampersand with a question mark.
-    uri.SetCharAt('?', ampIndex);
+    path.SetCharAt('?', ampIndex);
   }
   // Switch out video access url formats, which should possibly allow HTML5
   // video loading.
-  uri.ReplaceSubstring(NS_LITERAL_CSTRING("/v/"),
-                       NS_LITERAL_CSTRING("/embed/"));
-  nsAutoString utf16URI = NS_ConvertUTF8toUTF16(uri);
+  path.ReplaceSubstring(NS_LITERAL_CSTRING("/v/"),
+                        NS_LITERAL_CSTRING("/embed/"));
+  NS_ConvertUTF8toUTF16 utf16URI(prePath);
+  AppendUTF8toUTF16(path, utf16URI);
   rv = nsContentUtils::NewURIWithDocumentCharset(aOutURI,
                                                  utf16URI,
                                                  thisContent->OwnerDoc(),
@@ -1656,7 +1643,8 @@ nsObjectLoadingContent::CheckLoadPolicy(int16_t *aContentPolicy)
   *aContentPolicy = nsIContentPolicy::ACCEPT;
   nsresult rv = NS_CheckContentLoadPolicy(contentPolicyType,
                                           mURI,
-                                          doc->NodePrincipal(),
+                                          doc->NodePrincipal(), // loading principal
+                                          doc->NodePrincipal(), // triggering principal
                                           thisContent,
                                           mContentType,
                                           nullptr, //extra
@@ -1707,7 +1695,8 @@ nsObjectLoadingContent::CheckProcessPolicy(int16_t *aContentPolicy)
   nsresult rv =
     NS_CheckContentProcessPolicy(objectType,
                                  mURI ? mURI : mBaseURI,
-                                 doc->NodePrincipal(),
+                                 doc->NodePrincipal(), // loading principal
+                                 doc->NodePrincipal(), // triggering principal
                                  static_cast<nsIImageLoadingContent*>(this),
                                  mContentType,
                                  nullptr, //extra
@@ -2347,28 +2336,31 @@ nsObjectLoadingContent::LoadObject(bool aNotify,
     }
   }
 
-  // Don't allow view-source scheme.
-  // view-source is the only scheme to which this applies at the moment due to
-  // potential timing attacks to read data from cross-origin documents. If this
-  // widens we should add a protocol flag for whether the scheme is only allowed
-  // in top and use something like nsNetUtil::NS_URIChainHasFlags.
-  if (mType != eType_Null) {
-    nsCOMPtr<nsIURI> tempURI = mURI;
-    nsCOMPtr<nsINestedURI> nestedURI = do_QueryInterface(tempURI);
-    while (nestedURI) {
-      // view-source should always be an nsINestedURI, loop and check the
-      // scheme on this and all inner URIs that are also nested URIs.
-      bool isViewSource = false;
-      rv = tempURI->SchemeIs("view-source", &isViewSource);
-      if (NS_FAILED(rv) || isViewSource) {
-        LOG(("OBJLC [%p]: Blocking as effective URI has view-source scheme",
-             this));
-        mType = eType_Null;
+  // https://html.spec.whatwg.org/multipage/iframe-embed-object.html#the-object-element
+  // requires that `embed` and `object` go through `Fetch` with mode=navigate,
+  // see 1.3.5. This will in https://fetch.spec.whatwg.org/#fetching plumb us
+  // through to https://fetch.spec.whatwg.org/#concept-main-fetch where in step
+  // 12 a switch is performed. Since `object` and `embed` have mode=navigate the
+  // result of https://fetch.spec.whatwg.org/#concept-scheme-fetch will decide
+  // if main fetch proceeds. We short-circuit that scheme-fetch here, inspecting
+  // if the scheme of `mURI` is one that would return a network error. The
+  // following schemes are allowed through in scheme fetch:
+  // "about", "blob", "data", "file", "http", "https".
+  //
+  // Some accessibility tests use our internal "chrome" scheme.
+  if (mType != eType_Null && mURI) {
+    bool isCandidate = false;
+    for (const auto& candidate :
+         {"about", "blob", "chrome", "data", "file", "http", "https"}) {
+      rv = mURI->SchemeIs(candidate, &isCandidate);
+      if (NS_SUCCEEDED(rv) && isCandidate) {
         break;
       }
-
-      nestedURI->GetInnerURI(getter_AddRefs(tempURI));
-      nestedURI = do_QueryInterface(tempURI);
+    }
+    if (!isCandidate) {
+      LOG(("OBJLC [%p]: Blocking as effective URI does not have an allowed scheme", 
+           this));
+      mType = eType_Null;
     }
   }
 

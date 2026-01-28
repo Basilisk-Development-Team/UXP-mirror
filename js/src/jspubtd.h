@@ -34,10 +34,6 @@ class CallArgs;
 template <typename T>
 class Rooted;
 
-class JS_FRIEND_API(CompileOptions);
-class JS_FRIEND_API(ReadOnlyCompileOptions);
-class JS_FRIEND_API(OwningCompileOptions);
-class JS_FRIEND_API(TransitiveCompileOptions);
 class JS_PUBLIC_API(CompartmentOptions);
 
 class Value;
@@ -110,13 +106,6 @@ template<typename T> struct JSConstScalarSpec;
 typedef JSConstScalarSpec<double> JSConstDoubleSpec;
 typedef JSConstScalarSpec<int32_t> JSConstIntegerSpec;
 
-/*
- * Generic trace operation that calls JS::TraceEdge on each traceable thing's
- * location reachable from data.
- */
-typedef void
-(* JSTraceDataOp)(JSTracer* trc, void* data);
-
 namespace js {
 namespace gc {
 class AutoTraceSession;
@@ -145,8 +134,6 @@ namespace JS {
 class JS_PUBLIC_API(AutoEnterCycleCollection);
 class JS_PUBLIC_API(AutoAssertOnBarrier);
 struct JS_PUBLIC_API(PropertyDescriptor);
-
-typedef void (*OffThreadCompileCallback)(void* token, void* callbackData);
 
 enum class HeapState {
     Idle,             // doing nothing with the GC heap

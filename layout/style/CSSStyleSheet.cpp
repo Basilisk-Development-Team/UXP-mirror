@@ -1246,7 +1246,7 @@ CSSStyleSheet::TraverseInner(nsCycleCollectionTraversalCallback &cb)
 }
 
 // QueryInterface implementation for CSSStyleSheet
-NS_INTERFACE_MAP_BEGIN_CYCLE_COLLECTION_INHERITED(CSSStyleSheet)
+NS_INTERFACE_MAP_BEGIN_CYCLE_COLLECTION(CSSStyleSheet)
   NS_INTERFACE_MAP_ENTRY(nsICSSLoaderObserver)
   NS_INTERFACE_MAP_ENTRY_AMBIGUOUS(nsISupports, StyleSheet)
   if (aIID.Equals(NS_GET_IID(CSSStyleSheet)))
@@ -1594,7 +1594,7 @@ CSSStyleSheet::ClearRuleCascades()
         RuleProcessorCache::RemoveSheet(this);
         removedSheetFromRuleProcessorCache = true;
       }
-      (*iter)->ClearRuleCascades();
+      (*iter)->ClearGroup();
     }
   }
   if (mParent) {
@@ -1896,6 +1896,8 @@ CSSStyleSheet::InsertRuleIntoGroup(const nsAString & aRule,
     case css::Rule::COUNTER_STYLE_RULE:
     case css::Rule::DOCUMENT_RULE:
     case css::Rule::SUPPORTS_RULE:
+    case css::Rule::LAYER_BLOCK_RULE:
+    case css::Rule::LAYER_STATEMENT_RULE:
       // these types are OK to insert into a group
       break;
     case css::Rule::CHARSET_RULE:

@@ -1,12 +1,14 @@
 /* -*- Mode: C++; tab-width: 8; indent-tabs-mode: nil; c-basic-offset: 4 -*-
+ * vim: set ts=8 sts=4 et sw=4 tw=99:
  * This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
+#include "gc/Iteration-inl.h"
+
 #include "mozilla/DebugOnly.h"
 
 #include "jscompartment.h"
-#include "jsgc.h"
 
 #include "gc/GCInternals.h"
 #include "js/HashTable.h"
@@ -107,7 +109,7 @@ IterateGrayObjects(Zone* zone, GCThingCallback cellCallback, void* data)
 {
     for (auto kind : ObjectAllocKinds()) {
         for (GrayObjectIter obj(zone, kind); !obj.done(); obj.next()) {
-            if (obj->asTenured().isMarked(GRAY))
+            if (obj->asTenured().isMarkedGray())
                 cellCallback(data, JS::GCCellPtr(obj.get()));
         }
     }

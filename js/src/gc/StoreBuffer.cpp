@@ -8,8 +8,6 @@
 
 #include "mozilla/Assertions.h"
 
-#include "jscompartment.h"
-
 #include "gc/Statistics.h"
 #include "vm/ArgumentsObject.h"
 #include "vm/Runtime.h"
@@ -132,10 +130,8 @@ js::gc::AllocateWholeCellSet(Arena* arena)
     AutoEnterOOMUnsafeRegion oomUnsafe;
     Nursery& nursery = zone->group()->nursery();
     void* data = nursery.allocateBuffer(zone, sizeof(ArenaCellSet));
-    if (!data) {
+    if (!data)
         oomUnsafe.crash("Failed to allocate WholeCellSet");
-        return nullptr;
-    }
 
     if (nursery.freeSpace() < ArenaCellSet::NurseryFreeThresholdBytes)
         zone->group()->storeBuffer().setAboutToOverflow(JS::gcreason::FULL_WHOLE_CELL_BUFFER);

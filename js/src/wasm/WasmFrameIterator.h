@@ -32,6 +32,8 @@ namespace wasm {
 class CallSite;
 class Code;
 class CodeRange;
+class DebugFrame;
+class Instance;
 class SigIdDesc;
 struct CallThunk;
 struct FuncOffsets;
@@ -48,19 +50,23 @@ struct TrapOffset;
 // function stack frame.
 class FrameIterator
 {
-    const WasmActivation* activation_;
+    public:
+    enum class Unwind { True, False };
+
+  private:
+    WasmActivation* activation_;
     const Code* code_;
     const CallSite* callsite_;
     const CodeRange* codeRange_;
     uint8_t* fp_;
-    uint8_t* pc_;
+    Unwind unwind_;
     bool missingFrameMessage_;
 
     void settle();
 
   public:
     explicit FrameIterator();
-    explicit FrameIterator(const WasmActivation& activation);
+    explicit FrameIterator(WasmActivation* activation, Unwind unwind = Unwind::False);
     void operator++();
     bool done() const;
     const char* filename() const;
@@ -68,8 +74,11 @@ class FrameIterator
     bool mutedErrors() const;
     JSAtom* functionDisplayAtom() const;
     unsigned lineOrBytecode() const;
-    inline void* fp() const { return fp_; }
-    inline uint8_t* pc() const { return pc_; }
+    const CodeRange* codeRange() const { return codeRange_; }
+    Instance* instance() const;
+    bool debugEnabled() const;
+    DebugFrame* debugFrame() const;
+    const CallSite* debugTrapCallsite() const;
 };
 
 // An ExitReason describes the possible reasons for leaving compiled wasm code
@@ -80,7 +89,8 @@ enum class ExitReason : uint32_t
     ImportJit,     // fast-path call directly into JIT code
     ImportInterp,  // slow-path call into C++ Invoke()
     Native,        // call to native C++ code (e.g., Math.sin, ToInt32(), interrupt)
-    Trap           // call to trap handler for the trap in WasmActivation::trap
+    Trap,          // call to trap handler for the trap in WasmActivation::trap
+    DebugTrap      // call to debug trap handler
 };
 
 // Iterates over the frames of a single WasmActivation, given an

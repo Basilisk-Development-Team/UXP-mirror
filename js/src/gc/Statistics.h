@@ -16,8 +16,13 @@
 #include "jsalloc.h"
 #include "jsgc.h"
 #include "jspubtd.h"
+#include "NamespaceImports.h"
 
+#include "gc/GCEnum.h"
 #include "js/GCAPI.h"
+#include "js/SliceBudget.h"
+#include "js/GCAPI.h"
+#include "js/UniquePtr.h"
 #include "js/Vector.h"
 #include "vm/JSONPrinter.h"
 
@@ -35,11 +40,14 @@ enum Phase : uint8_t {
     PHASE_MUTATOR = PHASE_FIRST,
     PHASE_GC_BEGIN,
     PHASE_WAIT_BACKGROUND_THREAD,
+    PHASE_PREPARE,
+    PHASE_UNMARK,
+    PHASE_BUFFER_GRAY_ROOTS,
     PHASE_MARK_DISCARD_CODE,
     PHASE_RELAZIFY_FUNCTIONS,
     PHASE_PURGE,
+    PHASE_PURGE_SHAPE_TABLES,
     PHASE_MARK,
-    PHASE_UNMARK,
     PHASE_MARK_DELAYED,
     PHASE_SWEEP,
     PHASE_SWEEP_MARK,
@@ -91,13 +99,11 @@ enum Phase : uint8_t {
     PHASE_BARRIER,
     PHASE_UNMARK_GRAY,
     PHASE_MARK_ROOTS,
-    PHASE_BUFFER_GRAY_ROOTS,
     PHASE_MARK_CCWS,
     PHASE_MARK_STACK,
     PHASE_MARK_RUNTIME_DATA,
     PHASE_MARK_EMBEDDING,
     PHASE_MARK_COMPARTMENTS,
-    PHASE_PURGE_SHAPE_TABLES,
 
     PHASE_LIMIT,
     PHASE_NONE = PHASE_LIMIT,

@@ -20,6 +20,7 @@
 
 #include "mozilla/CheckedInt.h"
 #include "mozilla/Maybe.h"
+#include "mozilla/RangedPtr.h"
 
 #include "jsprf.h"
 
@@ -31,6 +32,7 @@
 #include "wasm/WasmInstance.h"
 #include "wasm/WasmModule.h"
 #include "wasm/WasmSignalHandlers.h"
+#include "wasm/WasmValidate.h"
 
 #include "jsobjinlines.h"
 
@@ -39,10 +41,12 @@
 using namespace js;
 using namespace js::jit;
 using namespace js::wasm;
+using mozilla::BitwiseCast;
 using mozilla::CheckedInt;
 using mozilla::IsNaN;
 using mozilla::IsSame;
 using mozilla::Nothing;
+using mozilla::RangedPtr;
 
 bool
 wasm::HasCompilerSupport(JSContext* cx)
@@ -298,7 +302,9 @@ GetImports(JSContext* cx,
                     uint32_t bits;
                     if (!ReadCustomFloat32NaNObject(cx, v, &bits))
                         return false;
-                    val = Val(RawF32::fromBits(bits));
+                    float f;
+                    BitwiseCast(bits, &f);
+                    val = Val(f);
                     break;
                 }
                 if (!v.isNumber())
@@ -306,7 +312,7 @@ GetImports(JSContext* cx,
                 double d;
                 if (!ToNumber(cx, v, &d))
                     return false;
-                val = Val(RawF32(float(d)));
+                val = Val(float(d));
                 break;
               }
               case ValType::F64: {
@@ -314,7 +320,9 @@ GetImports(JSContext* cx,
                     uint64_t bits;
                     if (!ReadCustomDoubleNaNObject(cx, v, &bits))
                         return false;
-                    val = Val(RawF64::fromBits(bits));
+                    double d;
+                    BitwiseCast(bits, &d);
+                    val = Val(d);
                     break;
                 }
                 if (!v.isNumber())
@@ -322,7 +330,7 @@ GetImports(JSContext* cx,
                 double d;
                 if (!ToNumber(cx, v, &d))
                     return false;
-                val = Val(RawF64(d));
+                val = Val(d);
                 break;
               }
               default: {
@@ -502,6 +510,7 @@ const JSFunctionSpec WasmModuleObject::static_methods[] =
 {
     JS_FN("imports", WasmModuleObject::imports, 1, 0),
     JS_FN("exports", WasmModuleObject::exports, 1, 0),
+    JS_FN("customSections", WasmModuleObject::customSections, 2, 0),
     JS_FS_END
 };
 
@@ -688,6 +697,58 @@ WasmModuleObject::exports(JSContext* cx, unsigned argc, Value* vp)
     return true;
 }
 
+/* static */ bool
+WasmModuleObject::customSections(JSContext* cx, unsigned argc, Value* vp)
+{
+    CallArgs args = CallArgsFromVp(argc, vp);
+
+    Module* module;
+    if (!GetModuleArg(cx, args, "WebAssembly.Module.customSections", &module))
+        return false;
+
+    Vector<char, 8> name(cx);
+    {
+        RootedString str(cx, ToString(cx, args.get(1)));
+        if (!str)
+            return false;
+
+        Rooted<JSFlatString*> flat(cx, str->ensureFlat(cx));
+        if (!flat)
+            return false;
+
+        if (!name.initLengthUninitialized(JS::GetDeflatedUTF8StringLength(flat)))
+            return false;
+
+        JS::DeflateStringToUTF8Buffer(flat, RangedPtr<char>(name.begin(), name.length()));
+    }
+
+    const uint8_t* bytecode = module->bytecode().begin();
+
+    AutoValueVector elems(cx);
+    RootedArrayBufferObject buf(cx);
+    for (const CustomSection& sec : module->metadata().customSections) {
+        if (name.length() != sec.name.length)
+            continue;
+        if (memcmp(name.begin(), bytecode + sec.name.offset, name.length()))
+            continue;
+
+        buf = ArrayBufferObject::create(cx, sec.length);
+        if (!buf)
+            return false;
+
+        memcpy(buf->dataPointer(), bytecode + sec.offset, sec.length);
+        if (!elems.append(ObjectValue(*buf)))
+            return false;
+    }
+
+    JSObject* arr = NewDenseCopiedArray(cx, elems.length(), elems.begin());
+    if (!arr)
+        return false;
+
+    args.rval().setObject(*arr);
+    return true;
+}
+
 /* static */ WasmModuleObject*
 WasmModuleObject::create(JSContext* cx, Module& module, HandleObject proto)
 {
@@ -843,6 +904,7 @@ WasmInstanceObject::isNewborn() const
 WasmInstanceObject::finalize(FreeOp* fop, JSObject* obj)
 {
     fop->delete_(&obj->as<WasmInstanceObject>().exports());
+    fop->delete_(&obj->as<WasmInstanceObject>().scopes());
     if (!obj->as<WasmInstanceObject>().isNewborn())
         fop->delete_(&obj->as<WasmInstanceObject>().instance());
 }
@@ -850,24 +912,34 @@ WasmInstanceObject::finalize(FreeOp* fop, JSObject* obj)
 /* static */ void
 WasmInstanceObject::trace(JSTracer* trc, JSObject* obj)
 {
-    if (!obj->as<WasmInstanceObject>().isNewborn())
-        obj->as<WasmInstanceObject>().instance().tracePrivate(trc);
+    WasmInstanceObject& instanceObj = obj->as<WasmInstanceObject>();
+    instanceObj.exports().trace(trc);
+    if (!instanceObj.isNewborn())
+        instanceObj.instance().tracePrivate(trc);
 }
 
 /* static */ WasmInstanceObject*
 WasmInstanceObject::create(JSContext* cx,
                            UniqueCode code,
+                           UniqueGlobalSegment globals,
                            HandleWasmMemoryObject memory,
                            SharedTableVector&& tables,
                            Handle<FunctionVector> funcImports,
                            const ValVector& globalImports,
                            HandleObject proto)
 {
-    UniquePtr<WeakExportMap> exports = js::MakeUnique<WeakExportMap>(cx->zone(), ExportMap());
+    UniquePtr<ExportMap> exports = js::MakeUnique<ExportMap>();
     if (!exports || !exports->init()) {
         ReportOutOfMemory(cx);
         return nullptr;
     }
+
+    UniquePtr<WeakScopeMap> scopes = js::MakeUnique<WeakScopeMap>(cx->zone(), ScopeMap());
+    if (!scopes || !scopes->init()) {
+        ReportOutOfMemory(cx);
+        return nullptr;
+    }
+
 
     AutoSetNewObjectMetadata metadata(cx);
     RootedWasmInstanceObject obj(cx, NewObjectWithGivenProto<WasmInstanceObject>(cx, proto));
@@ -875,6 +947,7 @@ WasmInstanceObject::create(JSContext* cx,
         return nullptr;
 
     obj->setReservedSlot(EXPORTS_SLOT, PrivateValue(exports.release()));
+    obj->setReservedSlot(SCOPES_SLOT, PrivateValue(scopes.release()));
     MOZ_ASSERT(obj->isNewborn());
 
     MOZ_ASSERT(obj->isTenured(), "assumed by WasmTableObject write barriers");
@@ -883,6 +956,7 @@ WasmInstanceObject::create(JSContext* cx,
     auto* instance = cx->new_<Instance>(cx,
                                         obj,
                                         Move(code),
+                                        Move(globals),
                                         memory,
                                         Move(tables),
                                         funcImports,
@@ -954,10 +1028,16 @@ WasmInstanceObject::instance() const
     return *(Instance*)getReservedSlot(INSTANCE_SLOT).toPrivate();
 }
 
-WasmInstanceObject::WeakExportMap&
+WasmInstanceObject::ExportMap&
 WasmInstanceObject::exports() const
 {
-    return *(WeakExportMap*)getReservedSlot(EXPORTS_SLOT).toPrivate();
+    return *(ExportMap*)getReservedSlot(EXPORTS_SLOT).toPrivate();
+}
+
+WasmInstanceObject::WeakScopeMap&
+WasmInstanceObject::scopes() const
+{
+    return *(WeakScopeMap*)getReservedSlot(SCOPES_SLOT).toPrivate();
 }
 
 static bool
@@ -1022,6 +1102,25 @@ WasmInstanceObject::getExportedFunctionCodeRange(HandleFunction fun)
     MOZ_ASSERT(exports().lookup(funcIndex)->value() == fun);
     const Metadata& metadata = instance().metadata();
     return metadata.codeRanges[metadata.lookupFuncExport(funcIndex).codeRangeIndex()];
+}
+
+/* static */ WasmFunctionScope*
+WasmInstanceObject::getFunctionScope(JSContext* cx, HandleWasmInstanceObject instanceObj,
+                                     uint32_t funcIndex)
+{
+    if (ScopeMap::Ptr p = instanceObj->scopes().lookup(funcIndex))
+        return p->value();
+
+    Rooted<WasmFunctionScope*> funcScope(cx, WasmFunctionScope::create(cx, instanceObj, funcIndex));
+    if (!funcScope)
+        return nullptr;
+
+    if (!instanceObj->scopes().putNew(funcIndex, funcScope)) {
+        ReportOutOfMemory(cx);
+        return nullptr;
+    }
+
+    return funcScope;
 }
 
 bool
@@ -1924,12 +2023,8 @@ WebAssembly_validate(JSContext* cx, unsigned argc, Value* vp)
     if (!GetBufferSource(cx, callArgs, "WebAssembly.validate", &bytecode))
         return false;
 
-    CompileArgs compileArgs;
-    if (!InitCompileArgs(cx, &compileArgs))
-        return false;
-
     UniqueChars error;
-    bool validated = !!Compile(*bytecode, compileArgs, &error);
+    bool validated = Validate(*bytecode, &error);
 
     // If the reason for validation failure was OOM (signalled by null error
     // message), report out-of-memory so that validate's return is always

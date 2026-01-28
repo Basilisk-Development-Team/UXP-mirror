@@ -2,18 +2,6 @@
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
- *
- * This Original Code has been modified by IBM Corporation.
- * Modifications made by IBM described herein are
- * Copyright (c) International Business Machines
- * Corporation, 2000
- *
- * Modifications to Mozilla code or documentation
- * identified per MPL Section 3.3
- *
- * Date         Modified by     Description of modification
- * 03/27/2000   IBM Corp.       Added PR_CALLBACK for Optlink
- *                               use in OS2
  */
 
 #include "nsCOMPtr.h"
@@ -38,6 +26,7 @@
 #include "mozilla/EventListenerManager.h"
 #include "mozilla/EventStateManager.h"
 #include "mozilla/EventStates.h"
+#include "js/SourceBufferHolder.h"
 #include "nsFocusManager.h"
 #include "nsHTMLStyleSheet.h"
 #include "nsNameSpaceManager.h"
@@ -167,8 +156,8 @@ nsXULElement::nsXULElement(already_AddRefed<mozilla::dom::NodeInfo> aNodeInfo)
 
     // We may be READWRITE by default; check.
     if (IsReadWriteTextElement()) {
-        AddStatesSilently(NS_EVENT_STATE_MOZ_READWRITE);
-        RemoveStatesSilently(NS_EVENT_STATE_MOZ_READONLY);
+        AddStatesSilently(NS_EVENT_STATE_READWRITE);
+        RemoveStatesSilently(NS_EVENT_STATE_READONLY);
     }
 }
 
@@ -1057,7 +1046,9 @@ nsXULElement::BeforeSetAttr(int32_t aNamespaceID, nsIAtom* aName,
 nsresult
 nsXULElement::AfterSetAttr(int32_t aNamespaceID, nsIAtom* aName,
                            const nsAttrValue* aValue,
-                           const nsAttrValue* aOldValue, bool aNotify)
+                           const nsAttrValue* aOldValue,
+                           nsIPrincipal* aSubjectPrincipal,
+                           bool aNotify)
 {
     if (aNamespaceID == kNameSpaceID_None) {
         if (aValue) {
@@ -1178,7 +1169,7 @@ nsXULElement::AfterSetAttr(int32_t aNamespaceID, nsIAtom* aName,
     }
 
     return nsStyledElement::AfterSetAttr(aNamespaceID, aName,
-                                         aValue, aOldValue, aNotify);
+                                         aValue, aOldValue, aSubjectPrincipal, aNotify);
 }
 
 bool
@@ -1299,7 +1290,6 @@ nsXULElement::DispatchXULCommand(const EventChainVisitor& aVisitor,
 nsresult
 nsXULElement::GetEventTargetParent(EventChainPreVisitor& aVisitor)
 {
-    aVisitor.mForceContentDispatch = true; //FIXME! Bug 329119
     if (IsEventStoppedFromAnonymousScrollbar(aVisitor.mEvent->mMessage)) {
         // Don't propagate these events from native anonymous scrollbar.
         aVisitor.mCanHandle = true;
@@ -1632,17 +1622,6 @@ nsXULElement::GetFrameLoader()
     return already_AddRefed<nsFrameLoader>(static_cast<nsFrameLoader*>(loader.forget().take()));
 }
 
-nsresult
-nsXULElement::GetParentApplication(mozIApplication** aApplication)
-{
-    if (!aApplication) {
-        return NS_ERROR_FAILURE;
-    }
-
-    *aApplication = nullptr;
-    return NS_OK;
-}
-
 void
 nsXULElement::PresetOpenerWindow(mozIDOMWindowProxy* aWindow, ErrorResult& aRv)
 {
@@ -1876,8 +1855,8 @@ nsXULElement::IntrinsicState() const
     EventStates state = nsStyledElement::IntrinsicState();
 
     if (IsReadWriteTextElement()) {
-        state |= NS_EVENT_STATE_MOZ_READWRITE;
-        state &= ~NS_EVENT_STATE_MOZ_READONLY;
+        state |= NS_EVENT_STATE_READWRITE;
+        state &= ~NS_EVENT_STATE_READONLY;
     }
 
     return state;

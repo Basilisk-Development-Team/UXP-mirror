@@ -985,7 +985,7 @@ nsComputedDOMStyle::DoGetFloat()
 already_AddRefed<CSSValue>
 nsComputedDOMStyle::DoGetBottom()
 {
-  return GetOffsetWidthFor(NS_SIDE_BOTTOM);
+  return GetOffsetWidthFor(eSideBottom);
 }
 
 already_AddRefed<CSSValue>
@@ -2799,8 +2799,10 @@ nsComputedDOMStyle::GetGridTemplateColumnsRows(
             AppendGridLineNames(valueList, lineNames);
           }
         } else {
-          const nsTArray<nsString>& lineNames = aTrackList.mLineNameLists[i];
-          AppendGridLineNames(valueList, lineNames);
+          if (aTrackList.mLineNameLists.Length() > 0) {
+            const nsTArray<nsString>& lineNames = aTrackList.mLineNameLists[i];
+            AppendGridLineNames(valueList, lineNames);
+          }
         }
         if (uint32_t(i) == numExplicitTracks) {
           break;
@@ -3011,25 +3013,25 @@ nsComputedDOMStyle::DoGetRowGap()
 already_AddRefed<CSSValue>
 nsComputedDOMStyle::DoGetPaddingTop()
 {
-  return GetPaddingWidthFor(NS_SIDE_TOP);
+  return GetPaddingWidthFor(eSideTop);
 }
 
 already_AddRefed<CSSValue>
 nsComputedDOMStyle::DoGetPaddingBottom()
 {
-  return GetPaddingWidthFor(NS_SIDE_BOTTOM);
+  return GetPaddingWidthFor(eSideBottom);
 }
 
 already_AddRefed<CSSValue>
 nsComputedDOMStyle::DoGetPaddingLeft()
 {
-  return GetPaddingWidthFor(NS_SIDE_LEFT);
+  return GetPaddingWidthFor(eSideLeft);
 }
 
 already_AddRefed<CSSValue>
 nsComputedDOMStyle::DoGetPaddingRight()
 {
-  return GetPaddingWidthFor(NS_SIDE_RIGHT);
+  return GetPaddingWidthFor(eSideRight);
 }
 
 already_AddRefed<CSSValue>
@@ -3093,150 +3095,150 @@ nsComputedDOMStyle::DoGetTableLayout()
 already_AddRefed<CSSValue>
 nsComputedDOMStyle::DoGetBorderTopStyle()
 {
-  return GetBorderStyleFor(NS_SIDE_TOP);
+  return GetBorderStyleFor(eSideTop);
 }
 
 already_AddRefed<CSSValue>
 nsComputedDOMStyle::DoGetBorderBottomStyle()
 {
-  return GetBorderStyleFor(NS_SIDE_BOTTOM);
+  return GetBorderStyleFor(eSideBottom);
 }
 
 already_AddRefed<CSSValue>
 nsComputedDOMStyle::DoGetBorderLeftStyle()
 {
-  return GetBorderStyleFor(NS_SIDE_LEFT);
+  return GetBorderStyleFor(eSideLeft);
 }
 
 already_AddRefed<CSSValue>
 nsComputedDOMStyle::DoGetBorderRightStyle()
 {
-  return GetBorderStyleFor(NS_SIDE_RIGHT);
+  return GetBorderStyleFor(eSideRight);
 }
 
 already_AddRefed<CSSValue>
 nsComputedDOMStyle::DoGetBorderBottomColors()
 {
-  return GetBorderColorsFor(NS_SIDE_BOTTOM);
+  return GetBorderColorsFor(eSideBottom);
 }
 
 already_AddRefed<CSSValue>
 nsComputedDOMStyle::DoGetBorderLeftColors()
 {
-  return GetBorderColorsFor(NS_SIDE_LEFT);
+  return GetBorderColorsFor(eSideLeft);
 }
 
 already_AddRefed<CSSValue>
 nsComputedDOMStyle::DoGetBorderRightColors()
 {
-  return GetBorderColorsFor(NS_SIDE_RIGHT);
+  return GetBorderColorsFor(eSideRight);
 }
 
 
 already_AddRefed<CSSValue>
 nsComputedDOMStyle::DoGetBorderTopColors()
 {
-  return GetBorderColorsFor(NS_SIDE_TOP);
+  return GetBorderColorsFor(eSideTop);
 }
 
 already_AddRefed<CSSValue>
 nsComputedDOMStyle::DoGetBorderBottomLeftRadius()
 {
   return GetEllipseRadii(StyleBorder()->mBorderRadius,
-                         NS_CORNER_BOTTOM_LEFT);
+                         eCornerBottomLeft);
 }
 
 already_AddRefed<CSSValue>
 nsComputedDOMStyle::DoGetBorderBottomRightRadius()
 {
   return GetEllipseRadii(StyleBorder()->mBorderRadius,
-                         NS_CORNER_BOTTOM_RIGHT);
+                         eCornerBottomRight);
 }
 
 already_AddRefed<CSSValue>
 nsComputedDOMStyle::DoGetBorderTopLeftRadius()
 {
   return GetEllipseRadii(StyleBorder()->mBorderRadius,
-                         NS_CORNER_TOP_LEFT);
+                         eCornerTopLeft);
 }
 
 already_AddRefed<CSSValue>
 nsComputedDOMStyle::DoGetBorderTopRightRadius()
 {
   return GetEllipseRadii(StyleBorder()->mBorderRadius,
-                         NS_CORNER_TOP_RIGHT);
+                         eCornerTopRight);
 }
 
 already_AddRefed<CSSValue>
 nsComputedDOMStyle::DoGetBorderTopWidth()
 {
-  return GetBorderWidthFor(NS_SIDE_TOP);
+  return GetBorderWidthFor(eSideTop);
 }
 
 already_AddRefed<CSSValue>
 nsComputedDOMStyle::DoGetBorderBottomWidth()
 {
-  return GetBorderWidthFor(NS_SIDE_BOTTOM);
+  return GetBorderWidthFor(eSideBottom);
 }
 
 already_AddRefed<CSSValue>
 nsComputedDOMStyle::DoGetBorderLeftWidth()
 {
-  return GetBorderWidthFor(NS_SIDE_LEFT);
+  return GetBorderWidthFor(eSideLeft);
 }
 
 already_AddRefed<CSSValue>
 nsComputedDOMStyle::DoGetBorderRightWidth()
 {
-  return GetBorderWidthFor(NS_SIDE_RIGHT);
+  return GetBorderWidthFor(eSideRight);
 }
 
 already_AddRefed<CSSValue>
 nsComputedDOMStyle::DoGetBorderTopColor()
 {
-  return GetBorderColorFor(NS_SIDE_TOP);
+  return GetBorderColorFor(eSideTop);
 }
 
 already_AddRefed<CSSValue>
 nsComputedDOMStyle::DoGetBorderBottomColor()
 {
-  return GetBorderColorFor(NS_SIDE_BOTTOM);
+  return GetBorderColorFor(eSideBottom);
 }
 
 already_AddRefed<CSSValue>
 nsComputedDOMStyle::DoGetBorderLeftColor()
 {
-  return GetBorderColorFor(NS_SIDE_LEFT);
+  return GetBorderColorFor(eSideLeft);
 }
 
 already_AddRefed<CSSValue>
 nsComputedDOMStyle::DoGetBorderRightColor()
 {
-  return GetBorderColorFor(NS_SIDE_RIGHT);
+  return GetBorderColorFor(eSideRight);
 }
 
 already_AddRefed<CSSValue>
 nsComputedDOMStyle::DoGetMarginTopWidth()
 {
-  return GetMarginWidthFor(NS_SIDE_TOP);
+  return GetMarginWidthFor(eSideTop);
 }
 
 already_AddRefed<CSSValue>
 nsComputedDOMStyle::DoGetMarginBottomWidth()
 {
-  return GetMarginWidthFor(NS_SIDE_BOTTOM);
+  return GetMarginWidthFor(eSideBottom);
 }
 
 already_AddRefed<CSSValue>
 nsComputedDOMStyle::DoGetMarginLeftWidth()
 {
-  return GetMarginWidthFor(NS_SIDE_LEFT);
+  return GetMarginWidthFor(eSideLeft);
 }
 
 already_AddRefed<CSSValue>
 nsComputedDOMStyle::DoGetMarginRightWidth()
 {
-  return GetMarginWidthFor(NS_SIDE_RIGHT);
+  return GetMarginWidthFor(eSideRight);
 }
 
 already_AddRefed<CSSValue>
@@ -3300,7 +3302,7 @@ nsComputedDOMStyle::DoGetScrollbarWidth()
 {
   RefPtr<nsROCSSPrimitiveValue> val = new nsROCSSPrimitiveValue;
   val->SetIdent(
-    nsCSSProps::ValueToKeywordEnum(StyleUserInterface()->mScrollbarWidth,
+    nsCSSProps::ValueToKeywordEnum(StyleUIReset()->mScrollbarWidth,
                                    nsCSSProps::kScrollbarWidthKTable));
   return val.forget();
 }
@@ -3404,28 +3406,28 @@ already_AddRefed<CSSValue>
 nsComputedDOMStyle::DoGetOutlineRadiusBottomLeft()
 {
   return GetEllipseRadii(StyleOutline()->mOutlineRadius,
-                         NS_CORNER_BOTTOM_LEFT);
+                         eCornerBottomLeft);
 }
 
 already_AddRefed<CSSValue>
 nsComputedDOMStyle::DoGetOutlineRadiusBottomRight()
 {
   return GetEllipseRadii(StyleOutline()->mOutlineRadius,
-                         NS_CORNER_BOTTOM_RIGHT);
+                         eCornerBottomRight);
 }
 
 already_AddRefed<CSSValue>
 nsComputedDOMStyle::DoGetOutlineRadiusTopLeft()
 {
   return GetEllipseRadii(StyleOutline()->mOutlineRadius,
-                         NS_CORNER_TOP_LEFT);
+                         eCornerTopLeft);
 }
 
 already_AddRefed<CSSValue>
 nsComputedDOMStyle::DoGetOutlineRadiusTopRight()
 {
   return GetEllipseRadii(StyleOutline()->mOutlineRadius,
-                         NS_CORNER_TOP_RIGHT);
+                         eCornerTopRight);
 }
 
 already_AddRefed<CSSValue>
@@ -3438,10 +3440,10 @@ nsComputedDOMStyle::DoGetOutlineColor()
 
 already_AddRefed<CSSValue>
 nsComputedDOMStyle::GetEllipseRadii(const nsStyleCorners& aRadius,
-                                    uint8_t aFullCorner)
+                                    Corner aFullCorner)
 {
-  nsStyleCoord radiusX = aRadius.Get(NS_FULL_TO_HALF_CORNER(aFullCorner, false));
-  nsStyleCoord radiusY = aRadius.Get(NS_FULL_TO_HALF_CORNER(aFullCorner, true));
+  nsStyleCoord radiusX = aRadius.Get(FullToHalfCorner(aFullCorner, false));
+  nsStyleCoord radiusY = aRadius.Get(FullToHalfCorner(aFullCorner, true));
 
   // for compatibility, return a single value if X and Y are equal
   if (radiusX == radiusY) {
@@ -4743,20 +4745,39 @@ nsComputedDOMStyle::DoGetWillChange()
   return valueList.forget();
 }
 
+// Helper for overflow computed value remapping according to CSS Overflow-3 spec.
+static nsCSSKeyword ComputeOverflowKeyword(int32_t selfEnum, int32_t otherEnum, const KTableEntry* table) {
+  nsCSSKeyword selfKw = nsCSSProps::ValueToKeywordEnum(selfEnum, table);
+  nsCSSKeyword otherKw = nsCSSProps::ValueToKeywordEnum(otherEnum, table);
+  // The visible/clip values of overflow compute to auto/hidden (respectively)
+  // if one of overflow-x or overflow-y is neither visible nor clip.
+  if (selfKw == eCSSKeyword_visible && otherKw != eCSSKeyword_visible && otherKw != eCSSKeyword_clip) {
+    selfKw = eCSSKeyword_auto;
+  }
+  if (selfKw == eCSSKeyword_clip && otherKw != eCSSKeyword_visible && otherKw != eCSSKeyword_clip) {
+    selfKw = eCSSKeyword_hidden;
+  }
+  return selfKw;
+}
+
 already_AddRefed<CSSValue>
 nsComputedDOMStyle::DoGetOverflow()
 {
   const nsStyleDisplay* display = StyleDisplay();
 
-  if (display->mOverflowX != display->mOverflowY) {
-    // No value to return.  We can't express this combination of
-    // values as a shorthand.
-    return nullptr;
-  }
+  nsCSSKeyword xKeyword = ComputeOverflowKeyword(display->mOverflowX, display->mOverflowY, nsCSSProps::kOverflowKTable);
+  nsCSSKeyword yKeyword = ComputeOverflowKeyword(display->mOverflowY, display->mOverflowX, nsCSSProps::kOverflowKTable);
 
   RefPtr<nsROCSSPrimitiveValue> val = new nsROCSSPrimitiveValue;
-  val->SetIdent(nsCSSProps::ValueToKeywordEnum(display->mOverflowX,
-                                               nsCSSProps::kOverflowKTable));
+  if (xKeyword == yKeyword) {
+    val->SetIdent(xKeyword);
+    return val.forget();
+  }
+  nsAutoString result;
+  result.AppendASCII(nsCSSKeywords::GetStringValue(xKeyword).get());
+  result.Append(char16_t(' '));
+  result.AppendASCII(nsCSSKeywords::GetStringValue(yKeyword).get());
+  val->SetString(result);
   return val.forget();
 }
 
@@ -4764,9 +4785,9 @@ already_AddRefed<CSSValue>
 nsComputedDOMStyle::DoGetOverflowX()
 {
   RefPtr<nsROCSSPrimitiveValue> val = new nsROCSSPrimitiveValue;
-  val->SetIdent(
-    nsCSSProps::ValueToKeywordEnum(StyleDisplay()->mOverflowX,
-                                   nsCSSProps::kOverflowSubKTable));
+  const nsStyleDisplay* display = StyleDisplay();
+  nsCSSKeyword kw = ComputeOverflowKeyword(display->mOverflowX, display->mOverflowY, nsCSSProps::kOverflowSubKTable);
+  val->SetIdent(kw);
   return val.forget();
 }
 
@@ -4774,9 +4795,9 @@ already_AddRefed<CSSValue>
 nsComputedDOMStyle::DoGetOverflowY()
 {
   RefPtr<nsROCSSPrimitiveValue> val = new nsROCSSPrimitiveValue;
-  val->SetIdent(
-    nsCSSProps::ValueToKeywordEnum(StyleDisplay()->mOverflowY,
-                                   nsCSSProps::kOverflowSubKTable));
+  const nsStyleDisplay* display = StyleDisplay();
+  nsCSSKeyword kw = ComputeOverflowKeyword(display->mOverflowY, display->mOverflowX, nsCSSProps::kOverflowSubKTable);
+  val->SetIdent(kw);
   return val.forget();
 }
 
@@ -5067,23 +5088,23 @@ nsComputedDOMStyle::DoGetObjectPosition()
 already_AddRefed<CSSValue>
 nsComputedDOMStyle::DoGetLeft()
 {
-  return GetOffsetWidthFor(NS_SIDE_LEFT);
+  return GetOffsetWidthFor(eSideLeft);
 }
 
 already_AddRefed<CSSValue>
 nsComputedDOMStyle::DoGetRight()
 {
-  return GetOffsetWidthFor(NS_SIDE_RIGHT);
+  return GetOffsetWidthFor(eSideRight);
 }
 
 already_AddRefed<CSSValue>
 nsComputedDOMStyle::DoGetTop()
 {
-  return GetOffsetWidthFor(NS_SIDE_TOP);
+  return GetOffsetWidthFor(eSideTop);
 }
 
 already_AddRefed<CSSValue>
-nsComputedDOMStyle::GetOffsetWidthFor(mozilla::css::Side aSide)
+nsComputedDOMStyle::GetOffsetWidthFor(mozilla::Side aSide)
 {
   const nsStyleDisplay* display = StyleDisplay();
 
@@ -5114,7 +5135,7 @@ nsComputedDOMStyle::GetOffsetWidthFor(mozilla::css::Side aSide)
 }
 
 already_AddRefed<CSSValue>
-nsComputedDOMStyle::GetAbsoluteOffset(mozilla::css::Side aSide)
+nsComputedDOMStyle::GetAbsoluteOffset(mozilla::Side aSide)
 {
   MOZ_ASSERT(mOuterFrame, "need a frame, so we can call GetContainingBlock()");
 
@@ -5141,21 +5162,21 @@ nsComputedDOMStyle::GetAbsoluteOffset(mozilla::css::Side aSide)
 
   nscoord offset = 0;
   switch (aSide) {
-    case NS_SIDE_TOP:
+    case eSideTop:
       offset = rect.y - margin.top - border.top - scrollbarSizes.top;
 
       break;
-    case NS_SIDE_RIGHT:
+    case eSideRight:
       offset = containerRect.width - rect.width -
         rect.x - margin.right - border.right - scrollbarSizes.right;
 
       break;
-    case NS_SIDE_BOTTOM:
+    case eSideBottom:
       offset = containerRect.height - rect.height -
         rect.y - margin.bottom - border.bottom - scrollbarSizes.bottom;
 
       break;
-    case NS_SIDE_LEFT:
+    case eSideLeft:
       offset = rect.x - margin.left - border.left - scrollbarSizes.left;
 
       break;
@@ -5169,13 +5190,13 @@ nsComputedDOMStyle::GetAbsoluteOffset(mozilla::css::Side aSide)
   return val.forget();
 }
 
-static_assert(NS_SIDE_TOP == 0 && NS_SIDE_RIGHT == 1 &&
-              NS_SIDE_BOTTOM == 2 && NS_SIDE_LEFT == 3,
+static_assert(eSideTop == 0 && eSideRight == 1 &&
+              eSideBottom == 2 && eSideLeft == 3,
               "box side constants not as expected for NS_OPPOSITE_SIDE");
-#define NS_OPPOSITE_SIDE(s_) mozilla::css::Side(((s_) + 2) & 3)
+#define NS_OPPOSITE_SIDE(s_) mozilla::Side(((s_) + 2) & 3)
 
 already_AddRefed<CSSValue>
-nsComputedDOMStyle::GetRelativeOffset(mozilla::css::Side aSide)
+nsComputedDOMStyle::GetRelativeOffset(mozilla::Side aSide)
 {
   RefPtr<nsROCSSPrimitiveValue> val = new nsROCSSPrimitiveValue;
 
@@ -5194,7 +5215,7 @@ nsComputedDOMStyle::GetRelativeOffset(mozilla::css::Side aSide)
     sign = -1;
   }
   PercentageBaseGetter baseGetter;
-  if (aSide == NS_SIDE_LEFT || aSide == NS_SIDE_RIGHT) {
+  if (aSide == eSideLeft || aSide == eSideRight) {
     baseGetter = &nsComputedDOMStyle::GetCBContentWidth;
   } else {
     baseGetter = &nsComputedDOMStyle::GetCBContentHeight;
@@ -5205,7 +5226,7 @@ nsComputedDOMStyle::GetRelativeOffset(mozilla::css::Side aSide)
 }
 
 already_AddRefed<CSSValue>
-nsComputedDOMStyle::GetStickyOffset(mozilla::css::Side aSide)
+nsComputedDOMStyle::GetStickyOffset(mozilla::Side aSide)
 {
   RefPtr<nsROCSSPrimitiveValue> val = new nsROCSSPrimitiveValue;
 
@@ -5223,7 +5244,7 @@ nsComputedDOMStyle::GetStickyOffset(mozilla::css::Side aSide)
     return val.forget();
   }
   PercentageBaseGetter baseGetter;
-  if (aSide == NS_SIDE_LEFT || aSide == NS_SIDE_RIGHT) {
+  if (aSide == eSideLeft || aSide == eSideRight) {
     baseGetter = &nsComputedDOMStyle::GetScrollFrameContentWidth;
   } else {
     baseGetter = &nsComputedDOMStyle::GetScrollFrameContentHeight;
@@ -5235,7 +5256,7 @@ nsComputedDOMStyle::GetStickyOffset(mozilla::css::Side aSide)
 
 
 already_AddRefed<CSSValue>
-nsComputedDOMStyle::GetStaticOffset(mozilla::css::Side aSide)
+nsComputedDOMStyle::GetStaticOffset(mozilla::Side aSide)
 
 {
   RefPtr<nsROCSSPrimitiveValue> val = new nsROCSSPrimitiveValue;
@@ -5244,7 +5265,7 @@ nsComputedDOMStyle::GetStaticOffset(mozilla::css::Side aSide)
 }
 
 already_AddRefed<CSSValue>
-nsComputedDOMStyle::GetPaddingWidthFor(mozilla::css::Side aSide)
+nsComputedDOMStyle::GetPaddingWidthFor(mozilla::Side aSide)
 {
   RefPtr<nsROCSSPrimitiveValue> val = new nsROCSSPrimitiveValue;
 
@@ -5300,7 +5321,7 @@ nsComputedDOMStyle::GetLineHeightCoord(nscoord& aCoord)
 }
 
 already_AddRefed<CSSValue>
-nsComputedDOMStyle::GetBorderColorsFor(mozilla::css::Side aSide)
+nsComputedDOMStyle::GetBorderColorsFor(mozilla::Side aSide)
 {
   const nsStyleBorder *border = StyleBorder();
 
@@ -5328,7 +5349,7 @@ nsComputedDOMStyle::GetBorderColorsFor(mozilla::css::Side aSide)
 }
 
 already_AddRefed<CSSValue>
-nsComputedDOMStyle::GetBorderWidthFor(mozilla::css::Side aSide)
+nsComputedDOMStyle::GetBorderWidthFor(mozilla::Side aSide)
 {
   RefPtr<nsROCSSPrimitiveValue> val = new nsROCSSPrimitiveValue;
 
@@ -5345,7 +5366,7 @@ nsComputedDOMStyle::GetBorderWidthFor(mozilla::css::Side aSide)
 }
 
 already_AddRefed<CSSValue>
-nsComputedDOMStyle::GetBorderColorFor(mozilla::css::Side aSide)
+nsComputedDOMStyle::GetBorderColorFor(mozilla::Side aSide)
 {
   RefPtr<nsROCSSPrimitiveValue> val = new nsROCSSPrimitiveValue;
   SetValueFromComplexColor(val, StyleBorder()->mBorderColor[aSide]);
@@ -5353,7 +5374,7 @@ nsComputedDOMStyle::GetBorderColorFor(mozilla::css::Side aSide)
 }
 
 already_AddRefed<CSSValue>
-nsComputedDOMStyle::GetMarginWidthFor(mozilla::css::Side aSide)
+nsComputedDOMStyle::GetMarginWidthFor(mozilla::Side aSide)
 {
   RefPtr<nsROCSSPrimitiveValue> val = new nsROCSSPrimitiveValue;
 
@@ -5374,7 +5395,7 @@ nsComputedDOMStyle::GetMarginWidthFor(mozilla::css::Side aSide)
 }
 
 already_AddRefed<CSSValue>
-nsComputedDOMStyle::GetBorderStyleFor(mozilla::css::Side aSide)
+nsComputedDOMStyle::GetBorderStyleFor(mozilla::Side aSide)
 {
   RefPtr<nsROCSSPrimitiveValue> val = new nsROCSSPrimitiveValue;
   val->SetIdent(
@@ -6000,9 +6021,9 @@ nsComputedDOMStyle::BasicShapeRadiiToString(nsAString& aCssText,
   nsAutoString horizontalString, verticalString;
   NS_FOR_CSS_FULL_CORNERS(corner) {
     horizontal.AppendElement(
-      aCorners.Get(NS_FULL_TO_HALF_CORNER(corner, false)));
+      aCorners.Get(FullToHalfCorner(corner, false)));
     vertical.AppendElement(
-      aCorners.Get(NS_FULL_TO_HALF_CORNER(corner, true)));
+      aCorners.Get(FullToHalfCorner(corner, true)));
   }
   BoxValuesToString(horizontalString, horizontal);
   BoxValuesToString(verticalString, vertical);
@@ -6769,3 +6790,57 @@ nsComputedDOMStyle::UnregisterPrefChangeCallbacks()
 #undef CSS_PROP
 #undef UNREGISTER_CALLBACK
 }
+
+already_AddRefed<CSSValue>
+nsComputedDOMStyle::DoGetOverflowBlock()
+{
+  RefPtr<nsROCSSPrimitiveValue> val = new nsROCSSPrimitiveValue;
+  uint8_t writingMode = StyleVisibility()->mWritingMode;
+  bool isVertical = writingMode == NS_STYLE_WRITING_MODE_VERTICAL_LR ||
+                    writingMode == NS_STYLE_WRITING_MODE_VERTICAL_RL ||
+                    writingMode == NS_STYLE_WRITING_MODE_SIDEWAYS_LR ||
+                    writingMode == NS_STYLE_WRITING_MODE_SIDEWAYS_RL;
+  auto overflow = isVertical ? StyleDisplay()->mOverflowX : StyleDisplay()->mOverflowY;
+  val->SetIdent(nsCSSProps::ValueToKeywordEnum(overflow, nsCSSProps::kOverflowSubKTable));
+  return val.forget();
+}
+
+already_AddRefed<CSSValue>
+nsComputedDOMStyle::DoGetOverflowInline()
+{
+  RefPtr<nsROCSSPrimitiveValue> val = new nsROCSSPrimitiveValue;
+  uint8_t writingMode = StyleVisibility()->mWritingMode;
+  bool isVertical = writingMode == NS_STYLE_WRITING_MODE_VERTICAL_LR ||
+                    writingMode == NS_STYLE_WRITING_MODE_VERTICAL_RL ||
+                    writingMode == NS_STYLE_WRITING_MODE_SIDEWAYS_LR ||
+                    writingMode == NS_STYLE_WRITING_MODE_SIDEWAYS_RL;
+  auto overflow = isVertical ? StyleDisplay()->mOverflowY : StyleDisplay()->mOverflowX;
+  val->SetIdent(nsCSSProps::ValueToKeywordEnum(overflow, nsCSSProps::kOverflowSubKTable));
+  return val.forget();
+}
+
+already_AddRefed<CSSValue>
+nsComputedDOMStyle::DoGetOverflowInlineStart()
+{
+  return DoGetOverflowInline();
+}
+
+already_AddRefed<CSSValue>
+nsComputedDOMStyle::DoGetOverflowInlineEnd()
+{
+  return DoGetOverflowInline();
+}
+
+already_AddRefed<CSSValue>
+nsComputedDOMStyle::DoGetOverflowBlockStart()
+{
+  return DoGetOverflowBlock();
+}
+
+already_AddRefed<CSSValue>
+nsComputedDOMStyle::DoGetOverflowBlockEnd()
+{
+  return DoGetOverflowBlock();
+}
+
+

@@ -9,7 +9,9 @@
 
 #include "gc/StoreBuffer.h"
 
+#include "gc/Cell.h"
 #include "gc/Heap.h"
+#include "gc/Cell.h"
 
 #include "gc/Heap-inl.h"
 

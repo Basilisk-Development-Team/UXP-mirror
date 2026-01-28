@@ -412,7 +412,6 @@ public:
     virtual mozilla::EventStates IntrinsicState() const override;
 
     nsresult GetFrameLoaderXPCOM(nsIFrameLoader** aFrameLoader);
-    nsresult GetParentApplication(mozIApplication** aApplication);
     void PresetOpenerWindow(mozIDOMWindowProxy* aWindow, ErrorResult& aRv);
     nsresult SetIsPrerendered();
 
@@ -629,6 +628,7 @@ protected:
     virtual nsresult AfterSetAttr(int32_t aNamespaceID, nsIAtom* aName,
                                   const nsAttrValue* aValue,
                                   const nsAttrValue* aOldValue,
+                                  nsIPrincipal* aSubjectPrincipal,
                                   bool aNotify) override;
 
     virtual void UpdateEditableState(bool aNotify) override;

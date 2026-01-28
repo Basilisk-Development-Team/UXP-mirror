@@ -217,7 +217,7 @@ class CrossCompartmentKey
             using ReturnType = bool;
             ReturnType operator()(JSObject** tp) { return !IsInsideNursery(*tp); }
             ReturnType operator()(JSScript** tp) { return true; }
-            ReturnType operator()(JSString** tp) { return true; }
+            ReturnType operator()(JSString** tp) { return !IsInsideNursery(*tp); }
         };
         return const_cast<CrossCompartmentKey*>(this)->applyToWrapped(IsTenuredFunctor());
     }
@@ -1101,6 +1101,7 @@ struct JSCompartment
         compartmentStats_ = newStats;
     }
 
+    MOZ_ALWAYS_INLINE bool objectMaybeInIteration(JSObject* obj);
     // These flags help us to discover if a compartment that shouldn't be alive
     // manages to outlive a GC.
     bool scheduledForDestruction;
@@ -1200,8 +1201,11 @@ class AutoCompartment
     JSCompartment* origin() const { return origin_; }
 
     protected:
+      inline AutoCompartment(JSContext* cx, JSCompartment* target);
+
+    // Used only for entering the atoms compartment.
     inline AutoCompartment(JSContext* cx, JSCompartment* target,
-                           AutoLockForExclusiveAccess* maybeLock = nullptr);
+                           AutoLockForExclusiveAccess& lock);
 
   private:
     AutoCompartment(const AutoCompartment&) = delete;

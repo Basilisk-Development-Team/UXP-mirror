@@ -1,4 +1,5 @@
 /* -*- Mode: C++; tab-width: 8; indent-tabs-mode: nil; c-basic-offset: 4 -*-
+ * vim: set ts=8 sts=4 et sw=4 tw=99:
  * This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
@@ -8,7 +9,7 @@
 
 #include "NamespaceImports.h"
 
-#include "gc/Heap.h"
+#include "gc/Cell.h"
 #include "gc/StoreBuffer.h"
 #include "js/HeapAPI.h"
 #include "js/Id.h"
@@ -196,6 +197,7 @@ class JSLinearString;
 
 namespace JS {
 class Symbol;
+class BigInt;
 } // namespace JS
 
 namespace js {
@@ -282,24 +284,24 @@ struct InternalBarrierMethods<Value>
         DispatchTyped(PreBarrierFunctor<Value>(), v);
     }
 
-    static void postBarrier(Value* vp, const Value& prev, const Value& next) {
+    static MOZ_ALWAYS_INLINE void postBarrier(Value* vp, const Value& prev, const Value& next) {
         MOZ_ASSERT(!CurrentThreadIsIonCompiling());
         MOZ_ASSERT(vp);
 
         // If the target needs an entry, add it.
         js::gc::StoreBuffer* sb;
-        if (next.isObject() && (sb = reinterpret_cast<gc::Cell*>(&next.toObject())->storeBuffer())) {
+        if ((next.isObject() || next.isString()) && (sb = next.toGCThing()->storeBuffer())) {
             // If we know that the prev has already inserted an entry, we can
             // skip doing the lookup to add the new entry. Note that we cannot
             // safely assert the presence of the entry because it may have been
             // added via a different store buffer.
-            if (prev.isObject() && reinterpret_cast<gc::Cell*>(&prev.toObject())->storeBuffer())
+            if ((prev.isObject() || prev.isString()) && prev.toGCThing()->storeBuffer())
                 return;
             sb->putValue(vp);
             return;
         }
         // Remove the prev entry if the new value does not need it.
-        if (prev.isObject() && (sb = reinterpret_cast<gc::Cell*>(&prev.toObject())->storeBuffer()))
+        if ((prev.isObject() || prev.isString()) && (sb = prev.toGCThing()->storeBuffer()))
             sb->unputValue(vp);
     }
 
@@ -317,8 +319,11 @@ struct InternalBarrierMethods<jsid>
 };
 
 // Base class of all barrier types.
+//
+// This is marked non-memmovable since post barriers added by derived classes
+// can add pointers to class instances to the store buffer.
 template <typename T>
-class BarrieredBase
+class MOZ_NON_MEMMOVABLE BarrieredBase
 {
   protected:
     // BarrieredBase is not directly instantiable.
@@ -368,7 +373,7 @@ class WriteBarrieredBase : public BarrieredBase<T>,
 
   protected:
     void pre() { InternalBarrierMethods<T>::preBarrier(this->value); }
-    void post(const T& prev, const T& next) {
+    MOZ_ALWAYS_INLINE void post(const T& prev, const T& next) {
         InternalBarrierMethods<T>::postBarrier(&this->value, prev, next);
     }
 };
@@ -656,27 +661,13 @@ class HeapSlot : public WriteBarrieredBase<Value>
         Element = 1
     };
 
-    explicit HeapSlot() = delete;
-
-    explicit HeapSlot(NativeObject* obj, Kind kind, uint32_t slot, const Value& v)
-      : WriteBarrieredBase<Value>(v)
-    {
-        post(obj, kind, slot, v);
-    }
-
-    explicit HeapSlot(NativeObject* obj, Kind kind, uint32_t slot, const HeapSlot& s)
-      : WriteBarrieredBase<Value>(s.value)
-    {
-        post(obj, kind, slot, s);
-    }
-
-    ~HeapSlot() {
-        pre();
-    }
-
     void init(NativeObject* owner, Kind kind, uint32_t slot, const Value& v) {
         value = v;
         post(owner, kind, slot, v);
+    }
+
+    void destroy() {
+        pre();
     }
 
 #ifdef DEBUG
@@ -692,18 +683,13 @@ class HeapSlot : public WriteBarrieredBase<Value>
         post(owner, kind, slot, v);
     }
 
-    /* For users who need to manually barrier the raw types. */
-    static void writeBarrierPost(NativeObject* owner, Kind kind, uint32_t slot, const Value& target) {
-        reinterpret_cast<HeapSlot*>(const_cast<Value*>(&target))->post(owner, kind, slot, target);
-    }
-
   private:
     void post(NativeObject* owner, Kind kind, uint32_t slot, const Value& target) {
 #ifdef DEBUG
         assertPreconditionForWriteBarrierPost(owner, kind, slot, target);
 #endif
-        if (this->value.isObject()) {
-            gc::Cell* cell = reinterpret_cast<gc::Cell*>(&this->value.toObject());
+        if (this->value.isObject() || this->value.isString()) {
+            gc::Cell* cell = this->value.toGCThing();
             if (cell->storeBuffer())
                 cell->storeBuffer()->putSlot(owner, kind, slot, 1);
         }

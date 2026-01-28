@@ -10,6 +10,7 @@
 #include "mozilla/dom/ShadowRoot.h"
 #include "nsGkAtoms.h"
 #include "nsDocument.h"
+#include "nsLayoutUtils.h"
 
 nsGenericHTMLElement*
 NS_NewHTMLSlotElement(already_AddRefed<mozilla::dom::NodeInfo>&& aNodeInfo,
@@ -101,6 +102,7 @@ nsresult
 HTMLSlotElement::AfterSetAttr(int32_t aNameSpaceID, nsIAtom* aName,
                               const nsAttrValue* aValue,
                               const nsAttrValue* aOldValue,
+                              nsIPrincipal* aSubjectPrincipal,
                               bool aNotify)
 {
 
@@ -118,7 +120,8 @@ HTMLSlotElement::AfterSetAttr(int32_t aNameSpaceID, nsIAtom* aName,
   }
 
   return nsGenericHTMLElement::AfterSetAttr(aNameSpaceID, aName, aValue,
-                                            aOldValue, aNotify);
+                                            aOldValue, aSubjectPrincipal,
+                                            aNotify);
 }
 
 /**

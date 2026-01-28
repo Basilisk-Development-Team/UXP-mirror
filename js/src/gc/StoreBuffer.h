@@ -8,12 +8,14 @@
 #define gc_StoreBuffer_h
 
 #include "mozilla/Attributes.h"
+#include "mozilla/HashFunctions.h"
 #include "mozilla/ReentrancyGuard.h"
 
 #include <algorithm>
 
 #include "jsalloc.h"
 
+#include "ds/BitArray.h"
 #include "ds/LifoAlloc.h"
 #include "gc/Nursery.h"
 #include "js/MemoryMetrics.h"
@@ -21,6 +23,7 @@
 namespace js {
 namespace gc {
 
+class Arena;
 class ArenaCellSet;
 
 /*
@@ -40,7 +43,7 @@ class BufferableRef
     bool maybeInRememberedSet(const Nursery&) const { return true; }
 };
 
-typedef HashSet<void*, PointerHasher<void*, 3>, SystemAllocPolicy> EdgeSet;
+typedef HashSet<void*, PointerHasher<void*>, SystemAllocPolicy> EdgeSet;
 
 /* The size of a single block of store buffer storage space. */
 static const size_t LifoAllocBlockSize = 1 << 13; /* 8KiB */
@@ -207,7 +210,7 @@ class StoreBuffer
     struct PointerEdgeHasher
     {
         typedef Edge Lookup;
-        static HashNumber hash(const Lookup& l) { return uintptr_t(l.edge) >> 3; }
+        static HashNumber hash(const Lookup& l) { return mozilla::HashGeneric(l.edge); }
         static bool match(const Edge& k, const Lookup& l) { return k == l; }
     };
 
@@ -339,11 +342,13 @@ class StoreBuffer
 
         typedef struct {
             typedef SlotsEdge Lookup;
-            static HashNumber hash(const Lookup& l) { return l.objectAndKind_ ^ l.start_ ^ l.count_; }
+            static HashNumber hash(const Lookup& l) {
+                return mozilla::HashGeneric(l.objectAndKind_, l.start_, l.count_);
+            }
             static bool match(const SlotsEdge& k, const Lookup& l) { return k == l; }
         } Hasher;
 
-            static const auto FullBufferReason = JS::gcreason::FULL_SLOT_BUFFER;
+        static const auto FullBufferReason = JS::gcreason::FULL_SLOT_BUFFER;
     };
 
     template <typename Buffer, typename Edge>
@@ -399,6 +404,8 @@ class StoreBuffer
     bool isEnabled() const { return enabled_; }
 
     void clear();
+
+    const Nursery& nursery() const { return nursery_; }
 
     /* Get the overflowed status. */
     bool isAboutToOverflow() const { return aboutToOverflow_; }

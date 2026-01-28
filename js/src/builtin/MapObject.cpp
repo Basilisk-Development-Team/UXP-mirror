@@ -10,7 +10,6 @@
 #include "jsobj.h"
 
 #include "ds/OrderedHashTable.h"
-#include "gc/Marking.h"
 #include "js/Utility.h"
 #include "vm/EqualityOperations.h"  // js::SameValue
 #include "vm/GlobalObject.h"
@@ -18,8 +17,7 @@
 #include "vm/SelfHosting.h"
 #include "vm/Symbol.h"
 
-#include "jsobjinlines.h"
-
+#include "gc/Marking-inl.h"
 #include "vm/Interpreter-inl.h"
 #include "vm/NativeObject-inl.h"
 
@@ -87,7 +85,7 @@ HashValue(const Value& v, const mozilla::HashCodeScrambler& hcs)
         return hcs.scramble(v.asRawBits());
 
     MOZ_ASSERT(v.isNull() || !v.isGCThing(), "do not reveal pointers via hash codes");
-    return v.asRawBits();
+    return mozilla::HashGeneric(v.asRawBits());
 }
 
 HashNumber
@@ -589,8 +587,7 @@ MapObject::construct(JSContext* cx, unsigned argc, Value* vp)
         return false;
 
     RootedObject proto(cx);
-    RootedObject newTarget(cx, &args.newTarget().toObject());
-    if (!GetPrototypeFromConstructor(cx, newTarget, &proto))
+    if (!GetPrototypeFromBuiltinConstructor(cx, args, &proto))
         return false;
 
     Rooted<MapObject*> obj(cx, MapObject::create(cx, proto));
@@ -1195,8 +1192,7 @@ SetObject::construct(JSContext* cx, unsigned argc, Value* vp)
         return false;
 
     RootedObject proto(cx);
-    RootedObject newTarget(cx, &args.newTarget().toObject());
-    if (!GetPrototypeFromConstructor(cx, newTarget, &proto))
+    if (!GetPrototypeFromBuiltinConstructor(cx, args, &proto))
         return false;
 
     Rooted<SetObject*> obj(cx, SetObject::create(cx, proto));

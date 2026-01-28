@@ -31,8 +31,6 @@
 #include "mozilla/Preferences.h"
 #include "mozilla/HashFunctions.h"
 
-#include "nsIAppsService.h"
-
 using namespace mozilla;
 
 static bool gCodeBasePrincipalSupport = false;
@@ -66,10 +64,11 @@ nsPrincipal::InitializeStatics()
 }
 
 nsPrincipal::nsPrincipal()
-  : mCodebaseImmutable(false)
+  : BasePrincipal(eCodebasePrincipal)
+  , mCodebaseImmutable(false)
   , mDomainImmutable(false)
   , mInitialized(false)
-{ }
+{}
 
 nsPrincipal::~nsPrincipal()
 { 
@@ -516,6 +515,7 @@ struct OriginComparator
 
 nsExpandedPrincipal::nsExpandedPrincipal(nsTArray<nsCOMPtr<nsIPrincipal>> &aWhiteList,
                                          const PrincipalOriginAttributes& aAttrs)
+  : BasePrincipal(eExpandedPrincipal)
 {
   // We force the principals to be sorted by origin so that nsExpandedPrincipal
   // origins can have a canonical form.

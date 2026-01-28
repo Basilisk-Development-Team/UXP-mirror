@@ -19,6 +19,7 @@
 #include "js/CallArgs.h"
 #include "js/CallNonGenericMethod.h"
 #include "js/Class.h"
+#include "js/HeapAPI.h"
 #include "js/Utility.h"
 
 #if JS_STACK_GROWTH_DIRECTION > 0
@@ -538,9 +539,11 @@ struct Function {
 
 struct String
 {
-    static const uint32_t INLINE_CHARS_BIT = JS_BIT(2);
+    static const uint32_t NON_ATOM_BIT     = JS_BIT(0);
+    static const uint32_t LINEAR_BIT       = JS_BIT(1);
+    static const uint32_t INLINE_CHARS_BIT = JS_BIT(3);
     static const uint32_t LATIN1_CHARS_BIT = JS_BIT(6);
-    static const uint32_t ROPE_FLAGS       = 0;
+    static const uint32_t EXTERNAL_FLAGS   = LINEAR_BIT | NON_ATOM_BIT | JS_BIT(5);
     static const uint32_t TYPE_FLAGS_MASK  = JS_BIT(6) - 1;
     uint32_t flags;
     uint32_t length;
@@ -550,6 +553,11 @@ struct String
         JS::Latin1Char inlineStorageLatin1[1];
         char16_t inlineStorageTwoByte[1];
     };
+
+    static bool nurseryCellIsString(const js::gc::Cell* cell) {
+        MOZ_ASSERT(IsInsideNursery(cell));
+        return reinterpret_cast<const String*>(cell)->flags & NON_ATOM_BIT;
+    }
 };
 
 } /* namespace shadow */
@@ -826,7 +834,7 @@ StringToLinearString(JSContext* cx, JSString* str)
 {
     using shadow::String;
     String* s = reinterpret_cast<String*>(str);
-    if (MOZ_UNLIKELY((s->flags & String::TYPE_FLAGS_MASK) == String::ROPE_FLAGS))
+    if (MOZ_UNLIKELY(!(s->flags & String::LINEAR_BIT)))
         return StringToLinearStringSlow(cx, str);
     return reinterpret_cast<JSLinearString*>(str);
 }

@@ -191,7 +191,7 @@ CacheRegisterAllocator::saveIonLiveRegisters(MacroAssembler& masm, LiveRegisterS
     // work. Try to keep it simple by taking one small step at a time.
 
     // Step 1. Discard any dead operands so we can reuse their registers.
-    freeDeadOperandRegisters();
+    freeDeadOperandLocations(masm);
 
     // Step 2. Figure out the size of our live regs.
     size_t sizeOfLiveRegsInBytes =
@@ -291,6 +291,8 @@ CacheRegisterAllocator::saveIonLiveRegisters(MacroAssembler& masm, LiveRegisterS
         }
         masm.PushRegsInMask(liveRegs);
     }
+    freePayloadSlots_.clear();
+    freeValueSlots_.clear();
 
     MOZ_ASSERT(masm.framePushed() == ionScript->frameSize() + sizeOfLiveRegsInBytes);
 
@@ -682,8 +684,8 @@ IonCacheIRCompiler::emitGuardSpecificAtom()
 
     // The pointers are not equal, so if the input string is also an atom it
     // must be a different string.
-    masm.branchTest32(Assembler::NonZero, Address(str, JSString::offsetOfFlags()),
-                      Imm32(JSString::ATOM_BIT), failure->label());
+    masm.branchTest32(Assembler::Zero, Address(str, JSString::offsetOfFlags()),
+                      Imm32(JSString::NON_ATOM_BIT), failure->label());
 
     // Check the length.
     masm.branch32(Assembler::NotEqual, Address(str, JSString::offsetOfLength()),
@@ -1224,9 +1226,9 @@ IonCacheIRCompiler::emitCallStringSplitResult()
 static bool
 GroupHasPropertyTypes(ObjectGroup* group, jsid* id, Value* v)
 {
-    if (group->unknownProperties())
+    if (group->unknownPropertiesDontCheckGeneration())
         return true;
-    HeapTypeSet* propTypes = group->maybeGetProperty(*id);
+    HeapTypeSet* propTypes = group->maybeGetPropertyDontCheckGeneration(*id);
     if (!propTypes)
         return true;
     if (!propTypes->nonConstantProperty())
@@ -1420,8 +1422,7 @@ IonCacheIRCompiler::emitAddAndStoreSlotShared(CacheOp op)
         int32_t numNewSlots = int32StubField(reader.stubOffset());
         MOZ_ASSERT(numNewSlots > 0);
 
-        AllocatableRegisterSet regs(RegisterSet::Volatile());
-        LiveRegisterSet save(regs.asLiveSet());
+        LiveRegisterSet save(GeneralRegisterSet::Volatile(), liveVolatileFloatRegs());
 
         masm.PushRegsInMask(save);
 

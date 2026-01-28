@@ -27,6 +27,7 @@
 #include "builtin/SymbolObject.h"
 #include "builtin/TypedObject.h"
 #include "builtin/WeakMapObject.h"
+#include "builtin/WeakRefObject.h"
 #include "builtin/WeakSetObject.h"
 #include "vm/Debugger.h"
 #include "vm/EnvironmentObject.h"
@@ -388,10 +389,9 @@ GlobalObject::new_(JSContext* cx, const Class* clasp, JSPrincipals* principals,
         global = GlobalObject::createInternal(cx, clasp);
         if (!global)
             return nullptr;
+        if (hookOption == JS::FireOnNewGlobalHook)
+            JS_FireOnNewGlobalObject(cx, global);
     }
-
-    if (hookOption == JS::FireOnNewGlobalHook)
-        JS_FireOnNewGlobalObject(cx, global);
 
     return global;
 }
@@ -521,6 +521,7 @@ GlobalObject::initSelfHostingBuiltins(JSContext* cx, Handle<GlobalObject*> globa
            InitBareBuiltinCtor(cx, global, JSProto_Int32Array) &&
            InitBareSymbolCtor(cx, global) &&
            InitBareWeakMapCtor(cx, global) &&
+           InitBareWeakRefCtor(cx, global) &&
            InitStopIterationClass(cx, global) &&
            DefineFunctions(cx, global, builtins, AsIntrinsic);
 }

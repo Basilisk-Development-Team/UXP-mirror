@@ -13,13 +13,15 @@
 #include "mozilla/TypeTraits.h"
 #include "mozilla/Unused.h"
 
+#include "gc/GCInternals.h"
 #include "gc/Marking.h"
-#include "js/GCAPI.h"
+#include "gc/Nursery.h"
 #include "js/UbiNode.h"
 #include "vm/SPSProfiler.h"
 
 #include "jscntxtinlines.h"
 #include "jscompartmentinlines.h"
+
 
 using namespace js;
 
@@ -88,9 +90,9 @@ JS::ubi::Concrete<JSString>::size(mozilla::MallocSizeOf mallocSizeOf) const
     else
         size = str.isFatInline() ? sizeof(JSFatInlineString) : sizeof(JSString);
 
-    // We can't use mallocSizeof on things in the nursery. At the moment,
-    // strings are never in the nursery, but that may change.
-    MOZ_ASSERT(!IsInsideNursery(&str));
+    if (IsInsideNursery(&str))
+        size += Nursery::stringHeaderSize();
+
     size += str.sizeOfExcludingThis(mallocSizeOf);
 
     return size;
@@ -201,12 +203,14 @@ JSString::dumpRepresentationHeader(FILE* fp, int indent, const char* subclass) c
     // Print the string's address as an actual C++ expression, to facilitate
     // copy-and-paste into a debugger.
     fprintf(fp, "((%s*) %p) length: %" PRIuSIZE "  flags: 0x%x", subclass, this, length(), flags);
-    if (flags & FLAT_BIT)               fputs(" FLAT", fp);
+    if (flags & LINEAR_BIT)             fputs(" LINEAR",  fp);
     if (flags & HAS_BASE_BIT)           fputs(" HAS_BASE", fp);
     if (flags & INLINE_CHARS_BIT)       fputs(" INLINE_CHARS", fp);
-    if (flags & ATOM_BIT)               fputs(" ATOM", fp);
+    if (flags & NON_ATOM_BIT)           fputs(" NON_ATOM", fp);
+	else                                fputs(" (ATOM)", fp);
     if (isPermanentAtom())              fputs(" PERMANENT", fp);
     if (flags & LATIN1_CHARS_BIT)       fputs(" LATIN1", fp);
+    if (!isTenured())                   fputs(" NURSERY", fp);
     fputc('\n', fp);
 }
 
@@ -459,6 +463,8 @@ JSRope::flattenInternal(JSContext* maybecx)
 
     AutoCheckCannotGC nogc;
 
+    gc::StoreBuffer* bufferIfNursery = storeBuffer();
+
     /* Find the left most string, containing the first string. */
     JSRope* leftMostRope = this;
     while (leftMostRope->leftChild()->isRope())
@@ -468,6 +474,9 @@ JSRope::flattenInternal(JSContext* maybecx)
         JSExtensibleString& left = leftMostRope->leftChild()->asExtensible();
         size_t capacity = left.capacity();
         if (capacity >= wholeLength && left.hasTwoByteChars() == IsSame<CharT, char16_t>::value) {
+			wholeChars = const_cast<CharT*>(left.nonInlineChars<CharT>(nogc));
+            wholeCapacity = capacity;
+
             /*
              * Simulate a left-most traversal from the root to leftMost->leftChild()
              * via first_visit_node
@@ -479,8 +488,9 @@ JSRope::flattenInternal(JSContext* maybecx)
                     JSString::writeBarrierPre(str->d.s.u3.right);
                 }
                 JSString* child = str->d.s.u2.left;
+                // 'child' will be post-barriered during the later traversal.
                 MOZ_ASSERT(child->isRope());
-                str->setNonInlineChars(left.nonInlineChars<CharT>(nogc));
+                str->setNonInlineChars(wholeChars);
                 child->d.u1.flattenData = uintptr_t(str) | Tag_VisitRightChild;
                 str = child;
             }
@@ -488,15 +498,26 @@ JSRope::flattenInternal(JSContext* maybecx)
                 JSString::writeBarrierPre(str->d.s.u2.left);
                 JSString::writeBarrierPre(str->d.s.u3.right);
             }
-            str->setNonInlineChars(left.nonInlineChars<CharT>(nogc));
-            wholeCapacity = capacity;
-            wholeChars = const_cast<CharT*>(left.nonInlineChars<CharT>(nogc));
+            str->setNonInlineChars(wholeChars);
             pos = wholeChars + left.d.u1.length;
-            JS_STATIC_ASSERT(!(EXTENSIBLE_FLAGS & DEPENDENT_FLAGS));
-            left.d.u1.flags ^= (EXTENSIBLE_FLAGS | DEPENDENT_FLAGS);
+            if (IsSame<CharT, char16_t>::value)
+                left.d.u1.flags = DEPENDENT_FLAGS;
+            else
+                left.d.u1.flags = DEPENDENT_FLAGS | LATIN1_CHARS_BIT;
             left.d.s.u3.base = (JSLinearString*)this;  /* will be true on exit */
-            StringWriteBarrierPostRemove(maybecx, &left.d.s.u2.left);
-            StringWriteBarrierPost(maybecx, (JSString**)&left.d.s.u3.base);
+			Nursery& nursery = zone()->group()->nursery();
+            bool inTenured = !bufferIfNursery;
+            if (!inTenured && left.isTenured()) {
+                // tenured leftmost child is giving its chars buffer to the
+                // nursery-allocated root node.
+                nursery.registerMallocedBuffer(wholeChars);
+                // leftmost child -> root is a tenured -> nursery edge.
+                bufferIfNursery->putWholeCell(&left);
+            } else if (inTenured && !left.isTenured()) {
+                // leftmost child is giving its nursery-held chars buffer to a
+                // tenured string.
+                nursery.removeMallocedBuffer(wholeChars);
+            }
             goto visit_right_child;
         }
     }
@@ -505,6 +526,16 @@ JSRope::flattenInternal(JSContext* maybecx)
         if (maybecx)
             ReportOutOfMemory(maybecx);
         return nullptr;
+    }
+
+    if (!isTenured()) {
+        Nursery& nursery = zone()->group()->nursery();
+        if (!nursery.registerMallocedBuffer(wholeChars)) {
+            js_free(wholeChars);
+            if (maybecx)
+                ReportOutOfMemory(maybecx);
+            return nullptr;
+        }
     }
 
     pos = wholeChars;
@@ -516,7 +547,6 @@ JSRope::flattenInternal(JSContext* maybecx)
 
         JSString& left = *str->d.s.u2.left;
         str->setNonInlineChars(pos);
-        StringWriteBarrierPostRemove(maybecx, &str->d.s.u2.left);
         if (left.isRope()) {
             /* Return to this node when 'left' done, then goto visit_right_child. */
             left.d.u1.flattenData = uintptr_t(str) | Tag_VisitRightChild;
@@ -548,8 +578,6 @@ JSRope::flattenInternal(JSContext* maybecx)
                 str->d.u1.flags = EXTENSIBLE_FLAGS | LATIN1_CHARS_BIT;
             str->setNonInlineChars(wholeChars);
             str->d.s.u3.capacity = wholeCapacity;
-            StringWriteBarrierPostRemove(maybecx, &str->d.s.u2.left);
-            StringWriteBarrierPostRemove(maybecx, &str->d.s.u3.right);
             return &this->asFlat();
         }
         uintptr_t flattenData = str->d.u1.flattenData;
@@ -559,7 +587,19 @@ JSRope::flattenInternal(JSContext* maybecx)
             str->d.u1.flags = DEPENDENT_FLAGS | LATIN1_CHARS_BIT;
         str->d.u1.length = pos - str->asLinear().nonInlineChars<CharT>(nogc);
         str->d.s.u3.base = (JSLinearString*)this;       /* will be true on exit */
-        StringWriteBarrierPost(maybecx, (JSString**)&str->d.s.u3.base);
+
+        // Every interior (rope) node in the rope's tree will be visited during
+        // the traversal and post-barriered here, so earlier additions of
+        // dependent.base -> root pointers are handled by this barrier as well.
+        //
+        // The only time post-barriers need do anything is when the root is in
+        // the nursery. Note that the root was a rope but will be an extensible
+        // string when we return, so it will not point to any strings and need
+        // not be barriered.
+        gc::StoreBuffer* bufferIfNursery = storeBuffer();
+        if (bufferIfNursery && str->isTenured())
+            bufferIfNursery->putWholeCell(str);
+
         str = (JSString*)(flattenData & ~Tag_Mask);
         if ((flattenData & Tag_Mask) == Tag_VisitRightChild)
             goto visit_right_child;
@@ -629,7 +669,7 @@ js::ConcatStrings(JSContext* cx,
     bool canUseInline = isLatin1
                         ? JSInlineString::lengthFits<Latin1Char>(wholeLength)
                         : JSInlineString::lengthFits<char16_t>(wholeLength);
-    if (canUseInline && !cx->helperThread()) {
+    if (canUseInline) {
         Latin1Char* latin1Buf = nullptr;  // initialize to silence GCC warning
         char16_t* twoByteBuf = nullptr;  // initialize to silence GCC warning
         JSInlineString* str = isLatin1
@@ -682,6 +722,14 @@ JSDependentString::undependInternal(JSContext* cx)
     CharT* s = cx->pod_malloc<CharT>(n + 1);
     if (!s)
         return nullptr;
+
+    if (!isTenured()) {
+        if (!cx->runtime()->gc.nursery().registerMallocedBuffer(s)) {
+            js_free(s);
+            ReportOutOfMemory(cx);
+            return nullptr;
+        }
+    }
 
     AutoCheckCannotGC nogc;
     PodCopy(s, nonInlineChars<CharT>(nogc), n);
@@ -869,20 +917,27 @@ StaticStrings::init(JSContext* cx)
     return true;
 }
 
+inline void
+TraceStaticString(JSTracer* trc, JSAtom* atom, const char* name)
+{
+    MOZ_ASSERT(atom->isPinned());
+    TraceProcessGlobalRoot(trc, atom, name);
+}
+
 void
 StaticStrings::trace(JSTracer* trc)
 {
     /* These strings never change, so barriers are not needed. */
 
     for (uint32_t i = 0; i < UNIT_STATIC_LIMIT; i++)
-        TraceProcessGlobalRoot(trc, unitStaticTable[i], "unit-static-string");
+        TraceStaticString(trc, unitStaticTable[i], "unit-static-string");
 
     for (uint32_t i = 0; i < NUM_SMALL_CHARS * NUM_SMALL_CHARS; i++)
-        TraceProcessGlobalRoot(trc, length2StaticTable[i], "length2-static-string");
+        TraceStaticString(trc, length2StaticTable[i], "length2-static-string");
 
     /* This may mark some strings more than once, but so be it. */
     for (uint32_t i = 0; i < INT_STATIC_LIMIT; i++)
-        TraceProcessGlobalRoot(trc, intStaticTable[i], "int-static-string");
+        TraceStaticString(trc, intStaticTable[i], "int-static-string");
 }
 
 template <typename CharT>
@@ -1082,6 +1137,14 @@ JSExternalString::ensureFlat(JSContext* cx)
     if (!s)
         return nullptr;
 
+    if (!isTenured()) {
+        if (!cx->runtime()->gc.nursery().registerMallocedBuffer(s)) {
+            js_free(s);
+            ReportOutOfMemory(cx);
+            return nullptr;
+        }
+    }
+
     // Copy the chars before finalizing the string.
     {
         AutoCheckCannotGC nogc;
@@ -1092,9 +1155,11 @@ JSExternalString::ensureFlat(JSContext* cx)
     // Release the external chars.
     finalize(cx->runtime()->defaultFreeOp());
 
-    // Transform the string into a non-external, flat string.
+    // Transform the string into a non-external, flat string. Note that the
+    // resulting string will still be in an AllocKind::EXTERNAL_STRING arena,
+    // but will no longer be an external string.
     setNonInlineChars<char16_t>(s);
-    d.u1.flags = FLAT_BIT;
+    d.u1.flags = INIT_FLAT_FLAGS;
 
     return &this->asFlat();
 }

@@ -13,7 +13,7 @@
 
 [HTMLConstructor]
 interface HTMLIFrameElement : HTMLElement {
-  [CEReactions, SetterThrows, Pure]
+  [CEReactions, NeedsSubjectPrincipal, SetterThrows, Pure]
            attribute DOMString src;
   [CEReactions, SetterThrows, Pure]
            attribute DOMString srcdoc;
@@ -61,12 +61,6 @@ partial interface HTMLIFrameElement {
   // nsIDOMMozBrowserFrame
   [ChromeOnly,SetterThrows]
            attribute boolean mozbrowser;
-};
-
-partial interface HTMLIFrameElement {
-  // nsIMozBrowserFrame
-  [ChromeOnly]
-  readonly attribute DOMString appManifestURL;
 };
 
 HTMLIFrameElement implements MozFrameLoaderOwner;

@@ -20,11 +20,41 @@
 #define wasm_instance_h
 
 #include "gc/Barrier.h"
+#include "vm/SharedMem.h"
 #include "wasm/WasmCode.h"
 #include "wasm/WasmTable.h"
 
 namespace js {
 namespace wasm {
+
+// A wasm GlobalSegment owns the allocated global data for a wasm module.  A
+// module may be compiled multiple times (at multiple tiers) but the compiled
+// representations share the same GlobalSegment.
+
+class GlobalSegment
+{
+    uint32_t globalDataLength_;
+    TlsData* tlsData_;
+
+    GlobalSegment(const GlobalSegment&) = delete;
+    GlobalSegment(GlobalSegment&&) = delete;
+    void operator=(const GlobalSegment&) = delete;
+    void operator=(GlobalSegment&&) = delete;
+
+  public:
+    static UniquePtr<GlobalSegment> create(uint32_t globalDataLength);
+
+    GlobalSegment() { PodZero(this); }
+    ~GlobalSegment();
+
+    TlsData* tlsData() const { return tlsData_; }
+    uint8_t* globalData() const { return (uint8_t*)&tlsData_->globalArea; }
+    uint32_t globalDataLength() const { return globalDataLength_; }
+
+    size_t sizeOfMisc(MallocSizeOf mallocSizeOf) const;
+};
+
+typedef UniquePtr<GlobalSegment> UniqueGlobalSegment;
 
 // Instance represents a wasm instance and provides all the support for runtime
 // execution of code in the instance. Instances share various immutable data
@@ -38,9 +68,10 @@ class Instance
     JSCompartment* const            compartment_;
     ReadBarrieredWasmInstanceObject object_;
     const UniqueCode                code_;
+    const UniqueGlobalSegment       globals_;
     GCPtrWasmMemoryObject           memory_;
     SharedTableVector               tables_;
-    TlsData                         tlsData_;
+    bool                            enterFrameTrapsEnabled_;
 
     // Internal helpers:
     const void** addressOfSigId(const SigIdDesc& sigId) const;
@@ -66,6 +97,7 @@ class Instance
     Instance(JSContext* cx,
              HandleWasmInstanceObject object,
              UniqueCode code,
+             UniqueGlobalSegment globals,
              HandleWasmMemoryObject memory,
              SharedTableVector&& tables,
              Handle<FunctionVector> funcImports,
@@ -74,11 +106,12 @@ class Instance
     bool init(JSContext* cx);
     void trace(JSTracer* trc);
 
-    JSContext* cx() const { return tlsData_.cx; }
+    JSContext* cx() const { return tlsData()->cx; }
     JSCompartment* compartment() const { return compartment_; }
     Code& code() { return *code_; }
     const Code& code() const { return *code_; }
     const CodeSegment& codeSegment() const { return code_->segment(); }
+    const GlobalSegment& globalSegment() const { return *globals_; }
     uint8_t* codeBase() const { return code_->segment().base(); }
     const Metadata& metadata() const { return code_->metadata(); }
     bool isAsmJS() const { return metadata().isAsmJS(); }
@@ -87,7 +120,7 @@ class Instance
     size_t memoryLength() const;
     size_t memoryMappedSize() const;
     bool memoryAccessInGuardRegion(uint8_t* addr, unsigned numBytes) const;
-    TlsData& tlsData() { return tlsData_; }
+    TlsData* tlsData() const { return globals_->tlsData(); }
 
     // This method returns a pointer to the GC object that owns this Instance.
     // Instances may be reached via weak edges (e.g., Compartment::instances_)
@@ -123,6 +156,11 @@ class Instance
     // See Code::ensureProfilingState comment.
 
     [[nodiscard]] bool ensureProfilingState(JSContext* cx, bool enabled);
+
+    // Debug support:
+    bool debugEnabled() const { return code_->metadata().debugEnabled; }
+    bool enterFrameTrapsEnabled() const { return enterFrameTrapsEnabled_; }
+    void ensureEnterFrameTrapsState(JSContext* cx, bool enabled);
 
     // about:memory reporting:
 

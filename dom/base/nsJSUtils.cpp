@@ -13,6 +13,7 @@
 #include "nsJSUtils.h"
 #include "jsapi.h"
 #include "jsfriendapi.h"
+#include "js/SourceBufferHolder.h"
 #include "nsIScriptContext.h"
 #include "nsIScriptGlobalObject.h"
 #include "nsIXPConnect.h"
@@ -315,8 +316,11 @@ nsJSUtils::ExecutionContext::JoinDecode(void **aOffThreadToken)
 }
 
 JSScript* nsJSUtils::ExecutionContext::GetScript() {
+  if (mSkip) {
+    return nullptr;
+  }
+
 #ifdef DEBUG
-  MOZ_ASSERT(!mSkip);
   MOZ_ASSERT(mScript);
   mScriptUsed = true;
 #endif

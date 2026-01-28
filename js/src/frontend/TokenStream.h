@@ -22,6 +22,7 @@
 #include "jspubtd.h"
 
 #include "frontend/TokenKind.h"
+#include "js/CompileOptions.h"
 #include "js/UniquePtr.h"
 #include "js/Vector.h"
 #include "vm/RegExpShared.h"
@@ -323,7 +324,7 @@ class MOZ_STACK_CLASS TokenStream
   public:
     typedef Vector<char16_t, 32> CharBuffer;
 
-    TokenStream(JSContext* cx, const ReadOnlyCompileOptions& options,
+    TokenStream(JSContext* cx, const JS::ReadOnlyCompileOptions& options,
                 const char16_t* base, size_t length, StrictModeGetter* smg);
 
     ~TokenStream();
@@ -427,6 +428,13 @@ class MOZ_STACK_CLASS TokenStream
 
     // asm.js reporter
     void reportAsmJSError(uint32_t offset, unsigned errorNumber, ...);
+
+    /**
+     * Consume any hashbang comment at the start of a Script or Module, if one is
+     * present.  Stops consuming just before any terminating LineTerminator or
+     * before an encoding error is encountered.
+     */
+    void consumeOptionalHashbangComment();
 
     JSAtom* getRawTemplateStringAtom() {
         MOZ_ASSERT(currentToken().type == TOK_TEMPLATE_HEAD ||
@@ -857,7 +865,7 @@ class MOZ_STACK_CLASS TokenStream
         return cx;
     }
 
-    const ReadOnlyCompileOptions& options() const {
+    const JS::ReadOnlyCompileOptions& options() const {
         return options_;
     }
 
@@ -1012,7 +1020,7 @@ class MOZ_STACK_CLASS TokenStream
         return true;
     }
 
-    void skipChars(uint8_t n) {
+    void skipChars(uint32_t n) {
         while (n-- > 0) {
             MOZ_ASSERT(userbuf.hasRawChars());
             mozilla::DebugOnly<int32_t> c = getCharIgnoreEOL();
@@ -1034,7 +1042,7 @@ class MOZ_STACK_CLASS TokenStream
     bool hasLookahead() const { return lookahead > 0; }
 
     // Options used for parsing/tokenizing.
-    const ReadOnlyCompileOptions& options_;
+    const JS::ReadOnlyCompileOptions& options_;
 
     Token               tokens[ntokens];    // circular token buffer
     unsigned            cursor;             // index of last parsed token

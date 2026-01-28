@@ -12,6 +12,7 @@
 #ifndef vm_RegExpShared_h
 #define vm_RegExpShared_h
 
+#include "js/GCHashTable.h"   
 #include "mozilla/Assertions.h"
 #include "mozilla/MemoryReporting.h"
 
@@ -22,6 +23,7 @@
 #include "gc/Barrier.h"
 #include "gc/Heap.h"
 #include "gc/Marking.h"
+#include "jsalloc.h"
 #include "js/UbiNode.h"
 #include "js/Vector.h"
 #include "irregexp/InfallibleVector.h"
@@ -49,9 +51,10 @@ enum RegExpFlag : uint8_t
     StickyFlag      = 0x08,
     UnicodeFlag     = 0x10,
     DotAllFlag      = 0x20,
+    HasIndicesFlag  = 0x40,
 
     NoFlags         = 0x00,
-    AllFlags        = 0x3f
+    AllFlags        = 0x7f
 };
 
 static_assert(IgnoreCaseFlag == REGEXP_IGNORECASE_FLAG &&
@@ -125,8 +128,13 @@ class RegExpShared : public gc::TenuredCell
     bool               canStringMatch;
     size_t             parenCount;
 
+    struct NamedCaptureData;        // forward-declare at namespace scope
     uint32_t            numNamedCaptures_;
-    GCPtr<PlainObject*> groupsTemplate_;
+    NamedCaptureData* namedCaptureData_;   // nullptr if none
+	public:
+  NamedCaptureData* namedCaptureData() const { return namedCaptureData_; }
+
+bool namedCaptureDataInited_;
 
     RegExpCompilation  compilationArray[4];
 
@@ -187,16 +195,17 @@ class RegExpShared : public gc::TenuredCell
 
     // not public due to circular inclusion problems
     static bool initializeNamedCaptures(JSContext* cx, MutableHandleRegExpShared re, irregexp::CharacterVectorVector* names, irregexp::IntegerVector* indices);
-    PlainObject* getGroupsTemplate() { return groupsTemplate_; }
+    PlainObject* getOrCreateGroupsTemplate(JSContext* cx);
     uint32_t numNamedCaptures() const { return numNamedCaptures_; }
     JSAtom* getSource() const           { return source; }
     RegExpFlag getFlags() const         { return flags; }
-    bool ignoreCase() const             { return flags & IgnoreCaseFlag; }
+    bool hasIndices() const             { return flags & HasIndicesFlag; }
     bool global() const                 { return flags & GlobalFlag; }
+    bool ignoreCase() const             { return flags & IgnoreCaseFlag; }
     bool multiline() const              { return flags & MultilineFlag; }
-    bool sticky() const                 { return flags & StickyFlag; }
-    bool unicode() const                { return flags & UnicodeFlag; }
     bool dotAll() const                 { return flags & DotAllFlag; }
+    bool unicode() const                { return flags & UnicodeFlag; }
+    bool sticky() const                 { return flags & StickyFlag; }
 
     bool isCompiled(CompilationMode mode, bool latin1,
                     ForceByteCodeEnum force = DontForceByteCode) const {
@@ -234,8 +243,8 @@ class RegExpShared : public gc::TenuredCell
              + offsetof(RegExpCompilation, jitCode);
     }
 
-    static size_t offsetOfGroupsTemplate() {
-        return offsetof(RegExpShared, groupsTemplate_);
+    static size_t offsetOfNumNamedCaptures() {
+    return offsetof(RegExpShared, numNamedCaptures_);
     }
 
     size_t sizeOfExcludingThis(mozilla::MallocSizeOf mallocSizeOf);
@@ -263,7 +272,8 @@ class RegExpZone
 
         typedef Key Lookup;
         static HashNumber hash(const Lookup& l) {
-            return DefaultHasher<JSAtom*>::hash(l.atom) ^ (l.flag << 1);
+            HashNumber hash = DefaultHasher<JSAtom*>::hash(l.atom);
+            return mozilla::AddToHash(hash, l.flag);
         }
         static bool match(Key l, Key r) {
             return l.atom == r.atom && l.flag == r.flag;
@@ -294,17 +304,44 @@ class RegExpZone
     bool get(JSContext* cx, HandleAtom source, JSString* maybeOpt,
              MutableHandleRegExpShared shared);
 
+#ifdef DEBUG
+    void clear() { set_.clear(); }
+#endif
+
     size_t sizeOfExcludingThis(mozilla::MallocSizeOf mallocSizeOf);
 };
 
 class RegExpCompartment
 {
-    /*
-     * This is the template object where the result of re.exec() is based on,
-     * if there is a result. This is used in CreateRegExpMatchResult to set
-     * the input/index properties faster.
-     */
-    ReadBarriered<ArrayObject*> matchResultTemplateObject_;
+public:
+  enum ResultTemplateKind { Normal, WithIndices, Indices, NumKinds };
+
+private:
+
+struct PerCompartmentData {
+        ReadBarriered<ArrayObject*> matchResultTemplateObjects_[NumKinds];
+        ReadBarriered<Shape*> optimizableRegExpPrototypeShape_;
+        ReadBarriered<Shape*> optimizableRegExpInstanceShape_;
+
+        PerCompartmentData()
+          : optimizableRegExpPrototypeShape_(nullptr),
+            optimizableRegExpInstanceShape_(nullptr)
+        {
+            for (auto& t : matchResultTemplateObjects_)
+                t = nullptr;
+        }
+    };
+
+    using PerCompartmentMap =
+        GCHashMap<JSCompartment*, PerCompartmentData,
+                  DefaultHasher<JSCompartment*>,
+                  ZoneAllocPolicy>;
+
+    PerCompartmentMap perCompartment_;   // <-- add this
+	
+	ArrayObject* createMatchResultTemplateObject(JSContext* cx,
+                                                 ResultTemplateKind kind,
+                                                 PerCompartmentData& data);
 
     /*
      * The shape of RegExp.prototype object that satisfies following:
@@ -327,19 +364,13 @@ class RegExpCompartment
      */
     ReadBarriered<Shape*> optimizableRegExpInstanceShape_;
 
-    ArrayObject* createMatchResultTemplateObject(JSContext* cx);
-
   public:
     explicit RegExpCompartment(Zone* zone);
 
     void sweep(JSRuntime* rt);
 
-    /* Get or create template object used to base the result of .exec() on. */
-    ArrayObject* getOrCreateMatchResultTemplateObject(JSContext* cx) {
-        if (matchResultTemplateObject_)
-            return matchResultTemplateObject_;
-        return createMatchResultTemplateObject(cx);
-    }
+    ArrayObject* getOrCreateMatchResultTemplateObject(JSContext* cx,
+                                                      ResultTemplateKind kind = Normal);
 
     Shape* getOptimizableRegExpPrototypeShape() {
         return optimizableRegExpPrototypeShape_;

@@ -24,6 +24,7 @@
 
 #include "jsapi.h"
 #include "jsfriendapi.h"
+#include "js/SourceBufferHolder.h"
 #include "nsError.h"
 #include "nsContentPolicyUtils.h"
 #include "nsContentUtils.h"
@@ -208,8 +209,10 @@ ChannelFromScriptURL(nsIPrincipal* principal,
   NS_ENSURE_SUCCESS(rv, rv);
 
   if (nsCOMPtr<nsIHttpChannel> httpChannel = do_QueryInterface(channel)) {
+    mozilla::net::ReferrerPolicy referrerPolicy = parentDoc ?
+      parentDoc->GetReferrerPolicy() : mozilla::net::RP_Default;
     rv = nsContentUtils::SetFetchReferrerURIWithPolicy(principal, parentDoc,
-                                                       httpChannel, mozilla::net::RP_Default);
+                                                       httpChannel, referrerPolicy);
     if (NS_WARN_IF(NS_FAILED(rv))) {
       return rv;
     }
@@ -1098,17 +1101,19 @@ private:
         return NS_ERROR_NOT_AVAILABLE;
       }
 
-      httpChannel->GetResponseHeader(
-        NS_LITERAL_CSTRING("content-security-policy"),
-        tCspHeaderValue);
+      if (CSPService::sCSPEnabled) {
+        httpChannel->GetResponseHeader(
+          NS_LITERAL_CSTRING("content-security-policy"),
+          tCspHeaderValue);
 
-      httpChannel->GetResponseHeader(
-        NS_LITERAL_CSTRING("content-security-policy-report-only"),
-        tCspROHeaderValue);
+        httpChannel->GetResponseHeader(
+          NS_LITERAL_CSTRING("content-security-policy-report-only"),
+          tCspROHeaderValue);
 
-      httpChannel->GetResponseHeader(
-        NS_LITERAL_CSTRING("referrer-policy"),
-        tRPHeaderCValue);
+        httpChannel->GetResponseHeader(
+          NS_LITERAL_CSTRING("referrer-policy"),
+          tRPHeaderCValue);
+      }
     }
 
     // May be null.
@@ -1160,13 +1165,15 @@ private:
       //  by using the SRICheck module
       MOZ_LOG(SRILogHelper::GetSriLog(), mozilla::LogLevel::Debug,
             ("Scriptloader::Load, SRI required but not supported in workers"));
-      nsCOMPtr<nsIContentSecurityPolicy> wcsp;
-      chanLoadInfo->LoadingPrincipal()->GetCsp(getter_AddRefs(wcsp));
-      MOZ_ASSERT(wcsp, "We should have a CSP for the worker here");
-      if (wcsp) {
-        wcsp->LogViolationDetails(
-            nsIContentSecurityPolicy::VIOLATION_TYPE_REQUIRE_SRI_FOR_SCRIPT,
-            aLoadInfo.mURL, EmptyString(), 0, 0, EmptyString(), EmptyString());
+      if (CSPService::sCSPEnabled) {      
+        nsCOMPtr<nsIContentSecurityPolicy> wcsp;
+        chanLoadInfo->LoadingPrincipal()->GetCsp(getter_AddRefs(wcsp));
+        MOZ_ASSERT(wcsp, "We should have a CSP for the worker here");
+        if (wcsp) {
+          wcsp->LogViolationDetails(
+              nsIContentSecurityPolicy::VIOLATION_TYPE_REQUIRE_SRI_FOR_SCRIPT,
+              aLoadInfo.mURL, EmptyString(), 0, 0, EmptyString(), EmptyString());
+        }
       }
       return NS_ERROR_SRI_CORRUPT;
     }
@@ -1238,7 +1245,8 @@ private:
 
       // We did inherit CSP in bug 1223647. If we do not already have a CSP, we
       // should get it from the HTTP headers on the worker script.
-      if (!mWorkerPrivate->GetCSP() && CSPService::sCSPEnabled) {
+      if (CSPService::sCSPEnabled &&
+          !mWorkerPrivate->GetCSP()) {
         rv = mWorkerPrivate->SetCSPFromHeaderValues(tCspHeaderValue,
                                                     tCspROHeaderValue);
         NS_ENSURE_SUCCESS(rv, rv);
@@ -1316,9 +1324,11 @@ private:
       MOZ_ALWAYS_SUCCEEDS(responsePrincipal->Equals(principal, &equal));
       MOZ_DIAGNOSTIC_ASSERT(equal);
 
-      nsCOMPtr<nsIContentSecurityPolicy> csp;
-      MOZ_ALWAYS_SUCCEEDS(responsePrincipal->GetCsp(getter_AddRefs(csp)));
-      MOZ_DIAGNOSTIC_ASSERT(!csp);
+      if (CSPService::sCSPEnabled) {
+        nsCOMPtr<nsIContentSecurityPolicy> csp;
+        MOZ_ALWAYS_SUCCEEDS(responsePrincipal->GetCsp(getter_AddRefs(csp)));
+        MOZ_DIAGNOSTIC_ASSERT(!csp);
+      }
 #endif
 
       mWorkerPrivate->InitChannelInfo(aChannelInfo);
@@ -1331,9 +1341,11 @@ private:
       rv = mWorkerPrivate->SetPrincipalOnMainThread(responsePrincipal, loadGroup);
       MOZ_DIAGNOSTIC_ASSERT(NS_SUCCEEDED(rv));
 
-      rv = mWorkerPrivate->SetCSPFromHeaderValues(aCSPHeaderValue,
-                                                  aCSPReportOnlyHeaderValue);
-      MOZ_DIAGNOSTIC_ASSERT(NS_SUCCEEDED(rv));
+      if (CSPService::sCSPEnabled) {
+        rv = mWorkerPrivate->SetCSPFromHeaderValues(aCSPHeaderValue,
+                                                    aCSPReportOnlyHeaderValue);
+        MOZ_DIAGNOSTIC_ASSERT(NS_SUCCEEDED(rv));
+      }
     }
 
     if (NS_SUCCEEDED(rv)) {
@@ -1353,9 +1365,13 @@ private:
         // XHR Params Allowed
         mWorkerPrivate->SetXHRParamsAllowed(parent->XHRParamsAllowed());
 
-        // Set Eval and ContentSecurityPolicy
-        mWorkerPrivate->SetCSP(parent->GetCSP());
-        mWorkerPrivate->SetEvalAllowed(parent->IsEvalAllowed());
+        if (mWorkerPrivate->CSPEnabled()) {
+          // Set Eval and ContentSecurityPolicy
+          mWorkerPrivate->SetCSP(parent->GetCSP());
+          mWorkerPrivate->SetEvalAllowed(parent->IsEvalAllowed());
+        } else {
+          mWorkerPrivate->SetEvalAllowed(true);
+        }
       }
     }
   }
@@ -1750,10 +1766,12 @@ CacheScriptLoader::ResolvedCallback(JSContext* aCx,
   InternalHeaders* headers = response->GetInternalHeaders();
 
   IgnoredErrorResult ignored;
-  headers->Get(NS_LITERAL_CSTRING("content-security-policy"),
-               mCSPHeaderValue, ignored);
-  headers->Get(NS_LITERAL_CSTRING("content-security-policy-report-only"),
-               mCSPReportOnlyHeaderValue, ignored);
+  if (nsContentUtils::CSPEnabled(aCx, obj)) {
+    headers->Get(NS_LITERAL_CSTRING("content-security-policy"),
+                 mCSPHeaderValue, ignored);
+    headers->Get(NS_LITERAL_CSTRING("content-security-policy-report-only"),
+                 mCSPReportOnlyHeaderValue, ignored);
+  }
 
   nsCOMPtr<nsIInputStream> inputStream;
   response->GetBody(getter_AddRefs(inputStream));
@@ -2242,9 +2260,10 @@ void ReportLoadError(ErrorResult& aRv, nsresult aLoadResult,
   MOZ_ASSERT(!aRv.Failed());
 
   switch (aLoadResult) {
-    case NS_ERROR_FILE_NOT_FOUND:
-    case NS_ERROR_NOT_AVAILABLE:
-      aLoadResult = NS_ERROR_DOM_NETWORK_ERR;
+    case NS_ERROR_DOM_SECURITY_ERR:
+    case NS_ERROR_DOM_SYNTAX_ERR:
+    case NS_ERROR_DOM_NETWORK_ERR:
+      // These are OK, pass them through immediately.
       break;
 
     case NS_ERROR_MALFORMED_URI:
@@ -2260,10 +2279,6 @@ void ReportLoadError(ErrorResult& aRv, nsresult aLoadResult,
       // for this case, because that will make it impossible for consumers to
       // realize that our error was NS_BINDING_ABORTED.
       aRv.Throw(aLoadResult);
-      return;
-
-    case NS_ERROR_DOM_SECURITY_ERR:
-    case NS_ERROR_DOM_SYNTAX_ERR:
       break;
 
     case NS_ERROR_DOM_BAD_URI:
@@ -2271,19 +2286,15 @@ void ReportLoadError(ErrorResult& aRv, nsresult aLoadResult,
       aLoadResult = NS_ERROR_DOM_SECURITY_ERR;
       break;
 
+    case NS_ERROR_FILE_NOT_FOUND:
+    case NS_ERROR_NOT_AVAILABLE:
     case NS_ERROR_CORRUPTED_CONTENT:
+    // For lack of anything better, go ahead and throw a NetworkError here.
+    // We don't want to throw a JS exception, because for toplevel script
+    // loads that would get squelched.
+    default:
       aLoadResult = NS_ERROR_DOM_NETWORK_ERR;
       break;
-
-    default:
-      // For lack of anything better, go ahead and throw a NetworkError here.
-      // We don't want to throw a JS exception, because for toplevel script
-      // loads that would get squelched.
-      aRv.ThrowDOMException(NS_ERROR_DOM_NETWORK_ERR,
-        nsPrintfCString("Failed to load worker script at %s (nsresult = 0x%x)",
-                        NS_ConvertUTF16toUTF8(aScriptURL).get(),
-                        aLoadResult));
-      return;
   }
 
   aRv.ThrowDOMException(aLoadResult,

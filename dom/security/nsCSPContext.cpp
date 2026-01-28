@@ -263,7 +263,7 @@ nsCSPContext::permitsInternal(CSPDirective aDir,
       // Do not send a report or notify observers if this is a preload - the
       // decision may be wrong due to the inability to get the nonce, and will
       // incorrectly fail the unit tests.
-      if (!aIsPreload && aSendViolationReports) {
+      if (CSPService::sCSPReportingEnabled && !aIsPreload && aSendViolationReports) {
         uint32_t lineNumber = 0;
         uint32_t columnNumber = 0;
         nsAutoCString spec;
@@ -395,48 +395,6 @@ nsCSPContext::GetEnforcesFrameAncestors(bool *outEnforcesFrameAncestors)
       return NS_OK;
     }
   }
-  return NS_OK;
-}
-
-NS_IMETHODIMP
-nsCSPContext::GetReferrerPolicy(uint32_t* outPolicy, bool* outIsSet)
-{
-  *outIsSet = false;
-  *outPolicy = mozilla::net::RP_Default;
-  nsAutoString refpol;
-  mozilla::net::ReferrerPolicy previousPolicy = mozilla::net::RP_Default;
-  for (uint32_t i = 0; i < mPolicies.Length(); i++) {
-    mPolicies[i]->getReferrerPolicy(refpol);
-    // only set the referrer policy if not delievered through a CSPRO and
-    // note that and an empty string in refpol means it wasn't set
-    // (that's the default in nsCSPPolicy).
-    if (!mPolicies[i]->getReportOnlyFlag() && !refpol.IsEmpty()) {
-      // Referrer Directive in CSP is no more used and going to be replaced by
-      // Referrer-Policy HTTP header. But we still keep using referrer directive,
-      // and would remove it later.
-      // Referrer Directive specs is not fully compliant with new referrer policy
-      // specs. What we are using here:
-      // - If the value of the referrer directive is invalid, the user agent
-      // should set the referrer policy to no-referrer.
-      // - If there are two policies that specify a referrer policy, then they
-      // must agree or the employed policy is no-referrer.
-      if (!mozilla::net::IsValidReferrerPolicy(refpol)) {
-        *outPolicy = mozilla::net::RP_No_Referrer;
-        *outIsSet = true;
-        return NS_OK;
-      }
-
-      uint32_t currentPolicy = mozilla::net::ReferrerPolicyFromString(refpol);
-      if (*outIsSet && previousPolicy != currentPolicy) {
-        *outPolicy = mozilla::net::RP_No_Referrer;
-        return NS_OK;
-      }
-
-      *outPolicy = currentPolicy;
-      *outIsSet = true;
-    }
-  }
-
   return NS_OK;
 }
 
@@ -601,13 +559,15 @@ nsCSPContext::GetAllowsInline(CSPDirective aDirective,
       }
       nsAutoString violatedDirective;
       mPolicies[i]->getDirectiveStringForContentType(aDirective, violatedDirective);
-      reportInlineViolation(aDirective,
-                            aNonce,
-                            aContent,
-                            violatedDirective,
-                            i,
-                            aLineNumber,
-                            aColumnNumber);
+      if(CSPService::sCSPReportingEnabled) {
+        reportInlineViolation(aDirective,
+                              aNonce,
+                              aContent,
+                              violatedDirective,
+                              i,
+                              aLineNumber,
+                              aColumnNumber);
+      }
     }
   }
   return NS_OK;
@@ -648,7 +608,8 @@ nsCSPContext::GetAllowsInline(CSPDirective aDirective,
     PR_BEGIN_MACRO                                                             \
     static_assert(directive##_SRC_DIRECTIVE == SCRIPT_SRC_DIRECTIVE ||         \
                   directive##_SRC_DIRECTIVE == STYLE_SRC_DIRECTIVE);           \
-    if (!mPolicies[p]->allows(directive##_SRC_DIRECTIVE, keyword, nonceOrHash, \
+    if(CSPService::sCSPReportingEnabled &&                                     \
+       !mPolicies[p]->allows(directive##_SRC_DIRECTIVE, keyword, nonceOrHash,  \
                               false)) {                                        \
       nsAutoString violatedDirective;                                          \
       mPolicies[p]->getDirectiveStringForContentType(                          \
@@ -849,33 +810,51 @@ StripURIForReporting(nsIURI* aURI,
                      nsIURI* aSelfURI,
                      nsACString& outStrippedURI)
 {
-  // 1) If the origin of uri is a globally unique identifier (for example,
-  // aURI has a scheme of data, blob, or filesystem), then return the
-  // ASCII serialization of uri’s scheme.
-  bool isHttpOrFtp =
-    (NS_SUCCEEDED(aURI->SchemeIs("http", &isHttpOrFtp)) && isHttpOrFtp) ||
-    (NS_SUCCEEDED(aURI->SchemeIs("https", &isHttpOrFtp)) && isHttpOrFtp) ||
-    (NS_SUCCEEDED(aURI->SchemeIs("ftp", &isHttpOrFtp)) && isHttpOrFtp);
+  bool isAllowedScheme =
+    (NS_SUCCEEDED(aURI->SchemeIs("http", &isAllowedScheme)) && isAllowedScheme) ||
+    (NS_SUCCEEDED(aURI->SchemeIs("https", &isAllowedScheme)) && isAllowedScheme) ||
+    (NS_SUCCEEDED(aURI->SchemeIs("ftp", &isAllowedScheme)) && isAllowedScheme) ||
+    (NS_SUCCEEDED(aURI->SchemeIs("ws", &isAllowedScheme)) && isAllowedScheme) ||
+    (NS_SUCCEEDED(aURI->SchemeIs("wss", &isAllowedScheme)) && isAllowedScheme);
 
-  if (!isHttpOrFtp) {
-    // not strictly spec compliant, but what we really care about is
-    // http/https and also ftp. If it's not http/https or ftp, then treat aURI
-    // as if it's a globally unique identifier and just return the scheme.
+  if (!isAllowedScheme) {
+    // Step 1. If url's scheme is not an allowed scheme, then just return url's scheme,
+    // i.e. treat aURI as a globally unique identifier.
+    // What we really care about reporting is http/https/ftp.
+    // https://github.com/w3c/webappsec-csp/issues/735: We also allow WS(S) schemes.
     aURI->GetScheme(outStrippedURI);
     return;
   }
 
-  // 2) If the origin of uri is not the same as the origin of the protected
-  // resource, then return the ASCII serialization of uri’s origin.
-  if (!NS_SecurityCompareURIs(aSelfURI, aURI, false)) {
-    // cross origin redirects also fall into this category, see:
-    // http://www.w3.org/TR/CSP/#violation-reports
-    aURI->GetPrePath(outStrippedURI);
+  // Step 2. Set url's fragment to the empty string.
+  // Implicit in GetSpecIgnoringRef() below.
+  
+  // Step 3. Set url's username/password to the empty string.
+  nsCOMPtr<nsIURI> stripped;
+  nsresult rv = aURI->Clone(getter_AddRefs(stripped));
+  if (NS_FAILED(rv)) {
+    // Cloning the URI failed for some reason, just return the scheme.
+    aURI->GetScheme(outStrippedURI);
+    return;
+  }
+  rv = stripped->SetUserPass(EmptyCString());
+  if (NS_FAILED(rv)) {
+    // Mutating the URI failed for some reason, just return the scheme.
+    aURI->GetScheme(outStrippedURI);
     return;
   }
 
-  // 3) Return uri, with any fragment component removed.
-  aURI->GetSpecIgnoringRef(outStrippedURI);
+  // Non-standard: https://github.com/w3c/webappsec-csp/issues/735
+  // We match other browsers here: To avoid leaking the whole URL when blocking
+  // (or reporting!) cross-origin navigations inside a frame, we restrict the URLs
+  // to just the (ASCII serialization of) uri's origin.
+  if (!NS_SecurityCompareURIs(aSelfURI, stripped, false)) {
+    stripped->GetPrePath(outStrippedURI);
+    return;
+  }
+
+  // Step 4. Return uri, with any unwanted component removed.
+  stripped->GetSpecIgnoringRef(outStrippedURI);
 }
 
 nsresult

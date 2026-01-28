@@ -79,7 +79,7 @@ CheckZoneGroup<Helper>::check() const
 
     JSContext* cx = TlsContext.get();
     if (group) {
-        if (group->usedByHelperThread) {
+        if (group->usedByHelperThread()) {
             MOZ_ASSERT(group->ownedByCurrentThread());
         } else {
             // This check is disabled on windows for the same reason as in
@@ -123,6 +123,9 @@ CheckGlobalLock<Lock, Helper>::check() const
       case GlobalLock::ExclusiveAccessLock:
         MOZ_ASSERT(TlsContext.get()->runtime()->currentThreadHasExclusiveAccess());
         break;
+      case GlobalLock::ScriptDataLock:
+        MOZ_ASSERT(TlsContext.get()->runtime()->currentThreadHasScriptDataAccess());
+        break;
       case GlobalLock::HelperThreadLock:
         MOZ_ASSERT(HelperThreadState().isLockedByCurrentThread());
         break;
@@ -132,6 +135,7 @@ CheckGlobalLock<Lock, Helper>::check() const
 template class CheckGlobalLock<GlobalLock::GCLock, AllowedHelperThread::None>;
 template class CheckGlobalLock<GlobalLock::ExclusiveAccessLock, AllowedHelperThread::None>;
 template class CheckGlobalLock<GlobalLock::ExclusiveAccessLock, AllowedHelperThread::GCTask>;
+template class CheckGlobalLock<GlobalLock::ScriptDataLock, AllowedHelperThread::None>;
 template class CheckGlobalLock<GlobalLock::HelperThreadLock, AllowedHelperThread::None>;
 
 #endif // JS_HAS_PROTECTED_DATA_CHECKS

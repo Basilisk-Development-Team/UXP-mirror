@@ -174,7 +174,8 @@ MapSinglePropertyInto(nsCSSPropertyID aTargetProp,
   // then records any resulting ImageValue objects in the
   // CSSVariableImageTable, to give them the appropriate lifetime.
   MOZ_ASSERT(aTargetValue->GetUnit() == eCSSUnit_TokenStream ||
-             aTargetValue->GetUnit() == eCSSUnit_Null,
+             aTargetValue->GetUnit() == eCSSUnit_Null ||
+             aTargetValue->GetUnit() == eCSSUnit_Revert,
              "aTargetValue must only be a token stream (when re-parsing "
              "properties with variable references) or null");
 
@@ -238,7 +239,7 @@ EnsurePhysicalProperty(nsCSSPropertyID& aProperty, nsRuleData* aRuleData)
     // We handle block axis logical properties separately to save a bit of
     // work that the WritingMode constructor does that is unnecessary
     // unless we have an inline axis property.
-    mozilla::css::Side side;
+    mozilla::Side side;
     if (isBlock) {
       uint8_t wm = aRuleData->mStyleContext->StyleVisibility()->mWritingMode;
       side = WritingMode::PhysicalSideForBlockAxis(wm, edge);
@@ -249,8 +250,8 @@ EnsurePhysicalProperty(nsCSSPropertyID& aProperty, nsRuleData* aRuleData)
 
     // We rely on the physical side constant values matching the order of
     // the physical properties in the logical group array.
-    static_assert(NS_SIDE_TOP == 0 && NS_SIDE_RIGHT == 1 &&
-                  NS_SIDE_BOTTOM == 2 && NS_SIDE_LEFT == 3,
+    static_assert(eSideTop == 0 && eSideRight == 1 &&
+                  eSideBottom == 2 && eSideLeft == 3,
                   "unexpected side constant values");
     index = side;
   }
@@ -316,19 +317,26 @@ nsCSSCompressedDataBlock::MapRuleInfoInto(nsRuleData *aRuleData) const
         EnsurePhysicalProperty(iProp, aRuleData);
       }
       nsCSSValue* target = aRuleData->ValueFor(iProp);
-      if (target->GetUnit() == eCSSUnit_Null) {
-        const nsCSSValue *val = ValueAtIndex(i);
-        // In order for variable resolution to have the right information
-        // about the stylesheet level of a value, that level needs to be
-        // stored on the token stream. We can't do that at creation time
-        // because the CSS parser (which creates the object) has no idea
-        // about the stylesheet level, so we do it here instead, where
-        // the rule walking will have just updated aRuleData.
-        if (val->GetUnit() == eCSSUnit_TokenStream) {
-          val->GetTokenStreamValue()->mLevel = aRuleData->mLevel;
+      if (target->GetUnit() == eCSSUnit_Revert) {
+        if (aRuleData->mLevel >= target->GetCascadeOriginValue()) {
+          continue;
         }
-        MapSinglePropertyInto(iProp, val, target, aRuleData);
+      } else if (target->GetUnit() != eCSSUnit_Null) {
+        continue;
       }
+      const nsCSSValue* val = ValueAtIndex(i);
+      // In order for variable resolution to have the right information
+      // about the stylesheet level of a value, that level needs to be
+      // stored on the token stream. We can't do that at creation time
+      // because the CSS parser (which creates the object) has no idea
+      // about the stylesheet level, so we do it here instead, where
+      // the rule walking will have just updated aRuleData.
+      if (val->GetUnit() == eCSSUnit_TokenStream) {
+        val->GetTokenStreamValue()->mLevel = aRuleData->mLevel;
+      } else if (val->GetUnit() == eCSSUnit_Revert) {
+        aRuleData->mConditions.SetUncacheable();
+      }
+      MapSinglePropertyInto(iProp, val, target, aRuleData);
     }
   }
 }

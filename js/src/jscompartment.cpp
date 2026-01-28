@@ -14,7 +14,6 @@
 #include "jsiter.h"
 #include "jswrapper.h"
 
-#include "gc/Marking.h"
 #include "gc/Policy.h"
 #include "jit/JitCompartment.h"
 #include "jit/JitOptions.h"
@@ -32,6 +31,7 @@
 #include "jsobjinlines.h"
 #include "jsscriptinlines.h"
 
+#include "gc/Marking-inl.h"
 #include "vm/NativeObject-inl.h"
 
 using namespace js;
@@ -106,7 +106,7 @@ JSCompartment::~JSCompartment()
     js_delete(debugEnvs);
     js_delete(objectMetadataTable);
     js_delete(lazyArrayBuffers);
-    js_delete(nonSyntacticLexicalEnvironments_),
+    js_delete(nonSyntacticLexicalEnvironments_);
     js_free(enumerators);
 
     runtime_->numCompartments--;
@@ -197,7 +197,7 @@ JSCompartment::ensureJitCompartmentExists(JSContext* cx)
     if (!jitCompartment_)
         return false;
 
-    if (!jitCompartment_->initialize(cx)) {
+    if (!jitCompartment_->initialize(cx, zone()->allocNurseryStrings)) {
         js_delete(jitCompartment_);
         jitCompartment_ = nullptr;
         return false;
@@ -749,6 +749,8 @@ JSCompartment::sweepAfterMinorGC(JSTracer* trc)
         table.sweepAfterMinorGC();
 
     crossCompartmentWrappers.sweepAfterMinorGC(trc);
+
+    dtoaCache.purge();
 }
 
 void

@@ -23,6 +23,7 @@
 #include "mozilla/dom/StorageEventBinding.h"
 #include "mozilla/dom/Timeout.h"
 #include "mozilla/dom/TimeoutHandler.h"
+#include "mozilla/dom/VisualViewport.h"
 #include "mozilla/IntegerPrintfMacros.h"
 #include "nsDOMOfflineResourceList.h"
 #include "nsError.h"
@@ -2304,13 +2305,11 @@ NS_IMPL_CYCLE_COLLECTION_UNLINK_BEGIN(nsGlobalWindow)
   NS_IMPL_CYCLE_COLLECTION_UNLINK_PRESERVED_WRAPPER
 NS_IMPL_CYCLE_COLLECTION_UNLINK_END
 
-#ifdef DEBUG
 void
 nsGlobalWindow::RiskyUnlink()
 {
   NS_CYCLE_COLLECTION_INNERNAME.Unlink(this);
 }
-#endif
 
 NS_IMPL_CYCLE_COLLECTION_TRACE_BEGIN(nsGlobalWindow)
   if (tmp->mCachedXBLPrototypeHandlers) {
@@ -3552,12 +3551,6 @@ nsGlobalWindow::GetEventTargetParent(EventChainPreVisitor& aVisitor)
   EventMessage msg = aVisitor.mEvent->mMessage;
 
   aVisitor.mCanHandle = true;
-  // Middle/right click shouldn't dispatch click event, use auxclick to instead.
-  // Note: mDoc should always exist here, but check just in case someone yanked
-  // it out from under us.
-  if (mDoc && mDoc->IsXULDocument()) {
-    aVisitor.mForceContentDispatch = true; //FIXME! Bug 329119
-  }
   if (msg == eResize && aVisitor.mEvent->IsTrusted()) {
     // QIing to window so that we can keep the old behavior also in case
     // a child window is handling resize.
@@ -4172,6 +4165,16 @@ nsGlobalWindow::GetNavigator()
   return navigator;
 }
 
+VisualViewport*
+nsGlobalWindow::VisualViewport()
+{
+  if (!mVisualViewport) {
+    mVisualViewport = new mozilla::dom::VisualViewport(this);
+  }
+
+  return mVisualViewport;
+}
+
 nsScreen*
 nsGlobalWindow::GetScreen(ErrorResult& aError)
 {
@@ -4501,7 +4504,7 @@ nsGlobalWindow::GetParentOuter()
   }
 
   nsCOMPtr<nsPIDOMWindowOuter> parent;
-  if (mDocShell->GetIsMozBrowserOrApp()) {
+  if (mDocShell->GetIsMozBrowser()) {
     parent = AsOuter();
   } else {
     parent = GetParent();
@@ -4559,7 +4562,7 @@ nsGlobalWindow::GetParent()
   }
 
   nsCOMPtr<nsIDocShell> parent;
-  mDocShell->GetSameTypeParentIgnoreBrowserAndAppBoundaries(getter_AddRefs(parent));
+  mDocShell->GetSameTypeParentIgnoreBrowserBoundaries(getter_AddRefs(parent));
 
   if (parent) {
     nsCOMPtr<nsPIDOMWindowOuter> win = parent->GetWindow();
@@ -4678,9 +4681,9 @@ nsGlobalWindow::GetContentInternal(ErrorResult& aError, bool aUnprivilegedCaller
     return domWindow.forget();
   }
 
-  // If we're contained in <iframe mozbrowser> or <iframe mozapp>, then
-  // GetContent is the same as window.top.
-  if (mDocShell && mDocShell->GetIsInMozBrowserOrApp()) {
+  // If we're contained in <iframe mozbrowser>, then GetContent is the same as
+  // window.top.
+  if (mDocShell && mDocShell->GetIsInMozBrowser()) {
     return GetTopOuter();
   }
 
@@ -8004,7 +8007,7 @@ nsGlobalWindow::ResizeToOuter(int32_t aWidth, int32_t aHeight, ErrorResult& aErr
    * If caller is a browser-element then dispatch a resize event to
    * the embedder.
    */
-  if (mDocShell && mDocShell->GetIsMozBrowserOrApp()) {
+  if (mDocShell && mDocShell->GetIsMozBrowser()) {
     CSSIntSize size(aWidth, aHeight);
     if (!DispatchResizeEvent(size)) {
       // The embedder chose to prevent the default action for this
@@ -8054,7 +8057,7 @@ nsGlobalWindow::ResizeByOuter(int32_t aWidthDif, int32_t aHeightDif,
    * If caller is a browser-element then dispatch a resize event to
    * parent.
    */
-  if (mDocShell && mDocShell->GetIsMozBrowserOrApp()) {
+  if (mDocShell && mDocShell->GetIsMozBrowser()) {
     CSSIntSize size;
     if (NS_FAILED(GetInnerSize(size))) {
       return;
@@ -8889,8 +8892,7 @@ nsGlobalWindow::PostMessageMozOuter(JSContext* aCx, JS::Handle<JS::Value> aMessa
                          providedPrincipal,
                          callerInnerWin
                          ? callerInnerWin->GetDoc()
-                         : nullptr,
-                         nsContentUtils::IsCallerChrome());
+                         : nullptr);
 
   JS::Rooted<JS::Value> message(aCx, aMessage);
   JS::Rooted<JS::Value> transfer(aCx, aTransfer);
@@ -9026,7 +9028,7 @@ nsGlobalWindow::CloseOuter(bool aTrustedCaller)
   MOZ_RELEASE_ASSERT(IsOuterWindow());
 
   if (!mDocShell || IsInModalState() ||
-      (IsFrame() && !mDocShell->GetIsMozBrowserOrApp())) {
+      (IsFrame() && !mDocShell->GetIsMozBrowser())) {
     // window.close() is called on a frame in a frameset, on a window
     // that's already closed, or on a window for which there's
     // currently a modal dialog open. Ignore such calls.
@@ -9047,14 +9049,13 @@ nsGlobalWindow::CloseOuter(bool aTrustedCaller)
     return;
   }
 
-  // Don't allow scripts from content to close non-app or non-neterror
-  // windows that were not opened by script.
+  // Don't allow scripts from content to close non-neterror windows that
+  // were not opened by script.
   nsAutoString url;
   nsresult rv = mDoc->GetURL(url);
   NS_ENSURE_SUCCESS_VOID(rv);
 
-  if (!mDocShell->GetIsApp() &&
-      !StringBeginsWith(url, NS_LITERAL_STRING("about:neterror")) &&
+  if (!StringBeginsWith(url, NS_LITERAL_STRING("about:neterror")) &&
       !mHadOriginalOpener && !aTrustedCaller) {
     bool allowClose = mAllowScriptsToClose ||
       Preferences::GetBool("dom.allow_scripts_to_close_windows", true);
@@ -9512,7 +9513,7 @@ nsGlobalWindow::GetFrameElementOuter(nsIPrincipal& aSubjectPrincipal)
 {
   MOZ_RELEASE_ASSERT(IsOuterWindow());
 
-  if (!mDocShell || mDocShell->GetIsMozBrowserOrApp()) {
+  if (!mDocShell || mDocShell->GetIsMozBrowser()) {
     return nullptr;
   }
 
@@ -9547,7 +9548,7 @@ nsGlobalWindow::GetRealFrameElementOuter()
   }
 
   nsCOMPtr<nsIDocShell> parent;
-  mDocShell->GetSameTypeParentIgnoreBrowserAndAppBoundaries(getter_AddRefs(parent));
+  mDocShell->GetSameTypeParentIgnoreBrowserBoundaries(getter_AddRefs(parent));
 
   if (!parent || parent == mDocShell) {
     // We're at a chrome boundary, don't expose the chrome iframe
@@ -12965,10 +12966,11 @@ nsGlobalWindow::RunTimeoutHandler(Timeout* aTimeout,
          nsJSUtils::ExecutionContext exec(aes.cx(), global);
          rv = exec.Compile(options, handler->GetHandlerText());
 
-         if (rv == NS_OK) {
+         JS::Rooted<JSScript*> script(aes.cx(), exec.GetScript());
+         if (script) {
            LoadedScript* initiatingScript = handler->GetInitiatingScript();
            if (initiatingScript) {
-             initiatingScript->AssociateWithScript(exec.GetScript());
+             initiatingScript->AssociateWithScript(script);
            }
 
            rv = exec.ExecScript();
@@ -13941,7 +13943,7 @@ NS_IMPL_CYCLE_COLLECTION_UNLINK_BEGIN_INHERITED(nsGlobalChromeWindow,
 NS_IMPL_CYCLE_COLLECTION_UNLINK_END
 
 // QueryInterface implementation for nsGlobalChromeWindow
-NS_INTERFACE_MAP_BEGIN_CYCLE_COLLECTION_INHERITED(nsGlobalChromeWindow)
+NS_INTERFACE_MAP_BEGIN_CYCLE_COLLECTION(nsGlobalChromeWindow)
   NS_INTERFACE_MAP_ENTRY(nsIDOMChromeWindow)
 NS_INTERFACE_MAP_END_INHERITING(nsGlobalWindow)
 
@@ -14620,11 +14622,6 @@ already_AddRefed<Promise>
 nsGlobalWindow::CreateImageBitmap(const ImageBitmapSource& aImage,
                                   ErrorResult& aRv)
 {
-  if (aImage.IsArrayBuffer() || aImage.IsArrayBufferView()) {
-    aRv.Throw(NS_ERROR_NOT_IMPLEMENTED);
-    return nullptr;
-  }
-
   return ImageBitmap::Create(this, aImage, Nothing(), aRv);
 }
 
@@ -14633,32 +14630,7 @@ nsGlobalWindow::CreateImageBitmap(const ImageBitmapSource& aImage,
                                   int32_t aSx, int32_t aSy, int32_t aSw, int32_t aSh,
                                   ErrorResult& aRv)
 {
-  if (aImage.IsArrayBuffer() || aImage.IsArrayBufferView()) {
-    aRv.Throw(NS_ERROR_NOT_IMPLEMENTED);
-    return nullptr;
-  }
-
   return ImageBitmap::Create(this, aImage, Some(gfx::IntRect(aSx, aSy, aSw, aSh)), aRv);
-}
-
-already_AddRefed<mozilla::dom::Promise>
-nsGlobalWindow::CreateImageBitmap(const ImageBitmapSource& aImage,
-                                  int32_t aOffset, int32_t aLength,
-                                  ImageBitmapFormat aFormat,
-                                  const Sequence<ChannelPixelLayout>& aLayout,
-                                  ErrorResult& aRv)
-{
-  if (!ImageBitmap::ExtensionsEnabled(nullptr, nullptr)) {
-    aRv.Throw(NS_ERROR_TYPE_ERR);
-    return nullptr;
-  }
-  if (aImage.IsArrayBuffer() || aImage.IsArrayBufferView()) {
-    return ImageBitmap::Create(this, aImage, aOffset, aLength, aFormat, aLayout,
-                               aRv);
-  } else {
-    aRv.Throw(NS_ERROR_TYPE_ERR);
-    return nullptr;
-  }
 }
 
 // https://html.spec.whatwg.org/#structured-cloning

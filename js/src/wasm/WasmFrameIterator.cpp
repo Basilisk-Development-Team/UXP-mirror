@@ -17,6 +17,7 @@
 
 #include "wasm/WasmFrameIterator.h"
 
+#include "wasm/WasmDebugFrame.h"
 #include "wasm/WasmInstance.h"
 
 #include "jit/MacroAssembler-inl.h"
@@ -43,25 +44,32 @@ CallerFPFromFP(void* fp)
     return reinterpret_cast<Frame*>(fp)->callerFP;
 }
 
+static TlsData*
+TlsDataFromFP(void *fp)
+{
+    void* debugFrame = (uint8_t*)fp - DebugFrame::offsetOfFrame();
+    return reinterpret_cast<DebugFrame*>(debugFrame)->tlsData();
+}
+
 FrameIterator::FrameIterator()
   : activation_(nullptr),
     code_(nullptr),
     callsite_(nullptr),
     codeRange_(nullptr),
     fp_(nullptr),
-    pc_(nullptr),
+    unwind_(Unwind::False),
     missingFrameMessage_(false)
 {
     MOZ_ASSERT(done());
 }
 
-FrameIterator::FrameIterator(const WasmActivation& activation)
-  : activation_(&activation),
+FrameIterator::FrameIterator(WasmActivation* activation, Unwind unwind)
+  : activation_(activation),
     code_(nullptr),
     callsite_(nullptr),
     codeRange_(nullptr),
-    fp_(activation.fp()),
-    pc_(nullptr),
+    fp_(activation->fp()),
+    unwind_(unwind),
     missingFrameMessage_(false)
 {
     if (fp_) {
@@ -69,12 +77,11 @@ FrameIterator::FrameIterator(const WasmActivation& activation)
         return;
     }
 
-    void* pc = activation.resumePC();
+    void* pc = activation_->resumePC();
     if (!pc) {
         MOZ_ASSERT(done());
         return;
     }
-    pc_ = (uint8_t*)pc;
 
     code_ = activation_->compartment()->wasm.lookupCode(pc);
     MOZ_ASSERT(code_);
@@ -101,12 +108,8 @@ FrameIterator::operator++()
 {
     MOZ_ASSERT(!done());
     if (fp_) {
-        DebugOnly<uint8_t*> oldfp = fp_;
-        fp_ += callsite_->stackDepth();
-        MOZ_ASSERT_IF(code_->profilingEnabled(), fp_ == CallerFPFromFP(oldfp));
         settle();
     } else if (codeRange_) {
-        MOZ_ASSERT(codeRange_);
         codeRange_ = nullptr;
         missingFrameMessage_ = true;
     } else {
@@ -118,6 +121,9 @@ FrameIterator::operator++()
 void
 FrameIterator::settle()
 {
+    if (unwind_ == Unwind::True)
+        activation_->unwindFP(fp_);
+
     void* returnAddress = ReturnAddressFromFP(fp_);
 
     code_ = activation_->compartment()->wasm.lookupCode(returnAddress);
@@ -126,26 +132,28 @@ FrameIterator::settle()
     codeRange_ = code_->lookupRange(returnAddress);
     MOZ_ASSERT(codeRange_);
 
-    switch (codeRange_->kind()) {
-      case CodeRange::Function:
-        pc_ = (uint8_t*)returnAddress;
-        callsite_ = code_->lookupCallSite(returnAddress);
-        MOZ_ASSERT(callsite_);
-        break;
-      case CodeRange::Entry:
+    if (codeRange_->kind() == CodeRange::Entry) {
         fp_ = nullptr;
-        pc_ = nullptr;
         code_ = nullptr;
         codeRange_ = nullptr;
+        callsite_ = nullptr;
+
+        if (unwind_ == Unwind::True)
+            activation_->unwindFP(nullptr);
         MOZ_ASSERT(done());
-        break;
-      case CodeRange::ImportJitExit:
-      case CodeRange::ImportInterpExit:
-      case CodeRange::TrapExit:
-      case CodeRange::Inline:
-      case CodeRange::FarJumpIsland:
-        MOZ_CRASH("Should not encounter an exit during iteration");
+        return;
     }
+
+    MOZ_RELEASE_ASSERT(codeRange_->kind() == CodeRange::Function);
+
+    callsite_ = code_->lookupCallSite(returnAddress);
+    MOZ_ASSERT(callsite_);
+
+    DebugOnly<uint8_t*> oldfp = fp_;
+    fp_ += callsite_->stackDepth();
+    MOZ_ASSERT_IF(code_->profilingEnabled(), fp_ == CallerFPFromFP(oldfp));
+
+    MOZ_ASSERT(!done());
 }
 
 const char*
@@ -205,6 +213,40 @@ FrameIterator::lineOrBytecode() const
     MOZ_ASSERT(!done());
     return callsite_ ? callsite_->lineOrBytecode()
                      : (codeRange_ ? codeRange_->funcLineOrBytecode() : 0);
+}
+
+Instance*
+FrameIterator::instance() const
+{
+    MOZ_ASSERT(!done() && debugEnabled());
+    return TlsDataFromFP(fp_)->instance;
+}
+
+bool
+FrameIterator::debugEnabled() const
+{
+    MOZ_ASSERT(!done() && code_);
+    MOZ_ASSERT_IF(!missingFrameMessage_, codeRange_->kind() == CodeRange::Function);
+    // Only non-imported functions can have debug frames.
+    return code_->metadata().debugEnabled &&
+           codeRange_->funcIndex() >= code_->metadata().funcImports.length();
+}
+
+DebugFrame*
+FrameIterator::debugFrame() const
+{
+    MOZ_ASSERT(!done() && debugEnabled());
+    // The fp() points to wasm::Frame.
+    void* buf = static_cast<uint8_t*>(fp_) - DebugFrame::offsetOfFrame();
+    return static_cast<DebugFrame*>(buf);
+}
+
+const CallSite*
+FrameIterator::debugTrapCallsite() const
+{
+    MOZ_ASSERT(!done() && debugEnabled());
+    MOZ_ASSERT(callsite_->kind() == CallSite::EnterFrame || callsite_->kind() == CallSite::LeaveFrame);
+    return callsite_;
 }
 
 /*****************************************************************************/
@@ -560,6 +602,7 @@ ProfilingFrameIterator::initFromFP()
       case CodeRange::ImportJitExit:
       case CodeRange::ImportInterpExit:
       case CodeRange::TrapExit:
+      case CodeRange::DebugTrap:
       case CodeRange::Inline:
       case CodeRange::FarJumpIsland:
         MOZ_CRASH("Unexpected CodeRange kind");
@@ -688,6 +731,7 @@ ProfilingFrameIterator::ProfilingFrameIterator(const WasmActivation& activation,
         callerFP_ = nullptr;
         break;
       }
+      case CodeRange::DebugTrap:
       case CodeRange::Inline: {
         // The throw stub clears WasmActivation::fp on it's way out.
         if (!fp) {
@@ -744,6 +788,7 @@ ProfilingFrameIterator::operator++()
       case CodeRange::ImportJitExit:
       case CodeRange::ImportInterpExit:
       case CodeRange::TrapExit:
+      case CodeRange::DebugTrap:
       case CodeRange::Inline:
       case CodeRange::FarJumpIsland:
         stackAddress_ = callerFP_;
@@ -770,6 +815,7 @@ ProfilingFrameIterator::label() const
     const char* importInterpDescription = "slow FFI trampoline (in asm.js)";
     const char* nativeDescription = "native call (in asm.js)";
     const char* trapDescription = "trap handling (in asm.js)";
+    const char* debugTrapDescription = "debug trap handling (in asm.js)";
 
     switch (exitReason_) {
       case ExitReason::None:
@@ -782,6 +828,8 @@ ProfilingFrameIterator::label() const
         return nativeDescription;
       case ExitReason::Trap:
         return trapDescription;
+      case ExitReason::DebugTrap:
+        return debugTrapDescription;
     }
 
     switch (codeRange_->kind()) {
@@ -790,6 +838,7 @@ ProfilingFrameIterator::label() const
       case CodeRange::ImportJitExit:    return importJitDescription;
       case CodeRange::ImportInterpExit: return importInterpDescription;
       case CodeRange::TrapExit:         return trapDescription;
+      case CodeRange::DebugTrap:        return debugTrapDescription;
       case CodeRange::Inline:           return "inline stub (in asm.js)";
       case CodeRange::FarJumpIsland:    return "interstitial (in asm.js)";
     }

@@ -22,7 +22,6 @@
 #include "jsscript.h"
 #include "jsstr.h"
 
-#include "gc/Marking.h"
 #include "jit/BaselineJIT.h"
 #include "jit/CompileInfo.h"
 #include "jit/Ion.h"
@@ -39,6 +38,8 @@
 #include "jsatominlines.h"
 #include "jsscriptinlines.h"
 
+#include "gc/Iteration-inl.h"
+#include "gc/Marking-inl.h"
 #include "vm/NativeObject-inl.h"
 
 using namespace js;
@@ -1472,6 +1473,13 @@ js::FinishCompilation(JSContext* cx, HandleScript script, CompilerConstraintList
                 succeeded = false;
         }
 
+        // Add this compilation to the inlinedCompilations list of each inlined
+        // script, so we can invalidate it on changes to stack type sets.
+        if (entry.script != script) {
+            if (!entry.script->types()->addInlinedCompilation(*precompileInfo))
+                succeeded = false;
+        }
+
         // If necessary, add constraints to trigger invalidation on the script
         // after any future changes to the stack type sets.
         if (entry.script->hasFreezeConstraints())
@@ -1870,37 +1878,6 @@ ObjectGroup::initialHeap(CompilerConstraintList* constraints)
 
 namespace {
 
-// Constraint which triggers recompilation on any type change in an inlined
-// script. The freeze constraints added to stack type sets will only directly
-// invalidate the script containing those stack type sets. To invalidate code
-// for scripts into which the base script was inlined, ObjectStateChange is used.
-class ConstraintDataFreezeObjectForInlinedCall
-{
-  public:
-    ConstraintDataFreezeObjectForInlinedCall()
-    {}
-
-    const char* kind() { return "freezeObjectForInlinedCall"; }
-
-    bool invalidateOnNewType(TypeSet::Type type) { return false; }
-    bool invalidateOnNewPropertyState(TypeSet* property) { return false; }
-    bool invalidateOnNewObjectState(ObjectGroup* group) {
-        // We don't keep track of the exact dependencies the caller has on its
-        // inlined scripts' type sets, so always invalidate the caller.
-        return true;
-    }
-
-    bool constraintHolds(JSContext* cx,
-                         const HeapTypeSetKey& property, TemporaryTypeSet* expected)
-    {
-        return true;
-    }
-
-    bool shouldSweep() { return false; }
-
-    JSCompartment* maybeCompartment() { return nullptr; }
-};
-
 // Constraint which triggers recompilation when a typed array's data becomes
 // invalid.
 class ConstraintDataFreezeObjectForTypedArrayData
@@ -1973,16 +1950,6 @@ class ConstraintDataFreezeObjectForUnboxedConvertedToNative
 };
 
 } /* anonymous namespace */
-
-void
-TypeSet::ObjectKey::watchStateChangeForInlinedCall(CompilerConstraintList* constraints)
-{
-    HeapTypeSetKey objectProperty = property(JSID_EMPTY);
-    LifoAlloc* alloc = constraints->alloc();
-
-    typedef CompilerConstraintInstance<ConstraintDataFreezeObjectForInlinedCall> T;
-    constraints->add(alloc->new_<T>(alloc, objectProperty, ConstraintDataFreezeObjectForInlinedCall()));
-}
 
 void
 TypeSet::ObjectKey::watchStateChangeForTypedArrayData(CompilerConstraintList* constraints)
@@ -2579,11 +2546,12 @@ TypeZone::addPendingRecompile(JSContext* cx, JSScript* script)
     if (script->hasIonScript())
         addPendingRecompile(cx, script->ionScript()->recompileInfo());
 
-    // When one script is inlined into another the caller listens to state
-    // changes on the callee's script, so trigger these to force recompilation
-    // of any such callers.
-    if (script->functionNonDelazifying() && !script->functionNonDelazifying()->hasLazyGroup())
-        ObjectStateChange(cx, script->functionNonDelazifying()->group(), false);
+    // Trigger recompilation of any callers inlining this script.
+    if (TypeScript* types = script->types()) {
+        for (RecompileInfo info : types->inlinedCompilations())
+            addPendingRecompile(cx, info);
+        types->inlinedCompilations().clearAndFree();
+    }
 }
 
 void
@@ -2875,6 +2843,9 @@ ObjectGroup::markStateChange(JSContext* cx)
 void
 ObjectGroup::setFlags(JSContext* cx, ObjectGroupFlags flags)
 {
+    MOZ_ASSERT(!(flags & OBJECT_FLAG_UNKNOWN_PROPERTIES),
+               "Should use markUnknown to set unknownProperties");
+
     if (hasAllFlags(flags))
         return;
 
@@ -2984,7 +2955,7 @@ ObjectGroup::maybeClearNewScriptOnOOM()
 {
     MOZ_ASSERT(zone()->isGCSweepingOrCompacting());
 
-    if (!isMarked())
+    if (!isMarkedAny())
         return;
 
     TypeNewScript* newScript = anyNewScript();
@@ -4038,96 +4009,92 @@ TypeNewScript::rollbackPartiallyInitializedObjects(JSContext* cx, ObjectGroup* g
 
     RootedFunction function(cx, this->function());
     Vector<uint32_t, 32> pcOffsets(cx);
-    for (ScriptFrameIter iter(cx); !iter.done(); ++iter) {
-        {
-            AutoEnterOOMUnsafeRegion oomUnsafe;
-            if (!pcOffsets.append(iter.script()->pcToOffset(iter.pc())))
-                oomUnsafe.crash("rollbackPartiallyInitializedObjects");
-        }
+    JSRuntime::AutoProhibitActiveContextChange apacc(cx->runtime());
+    for (const CooperatingContext& target : cx->runtime()->cooperatingContexts()) {
+        for (AllScriptFramesIter iter(cx, target); !iter.done(); ++iter) {
+            {
+                AutoEnterOOMUnsafeRegion oomUnsafe;
+                if (!pcOffsets.append(iter.script()->pcToOffset(iter.pc())))
+                    oomUnsafe.crash("rollbackPartiallyInitializedObjects");
+            }
 
-        if (!iter.isConstructing()) {
-            continue;
-        }
+            if (!iter.isConstructing() || !iter.matchCallee(cx, function))
+                continue;
 
-        MOZ_ASSERT(iter.calleeTemplate()->maybeCanonicalFunction());
+            // Derived class constructors initialize their this-binding later and
+            // we shouldn't run the definite properties analysis on them.
+            MOZ_ASSERT(!iter.script()->isDerivedClassConstructor());
 
-        if (iter.calleeTemplate()->maybeCanonicalFunction() != function) {
-            continue;
-        }
+            Value thisv = iter.thisArgument(cx);
+            if (!thisv.isObject() ||
+                thisv.toObject().hasLazyGroup() ||
+                thisv.toObject().group() != group)
+            {
+                continue;
+            }
 
-        // Derived class constructors initialize their this-binding later and
-        // we shouldn't run the definite properties analysis on them.
-        MOZ_ASSERT(!iter.script()->isDerivedClassConstructor());
+            if (thisv.toObject().is<UnboxedPlainObject>()) {
+                AutoEnterOOMUnsafeRegion oomUnsafe;
+                if (!UnboxedPlainObject::convertToNative(cx, &thisv.toObject()))
+                    oomUnsafe.crash("rollbackPartiallyInitializedObjects");
+            }
 
-        Value thisv = iter.thisArgument(cx);
-        if (!thisv.isObject() ||
-            thisv.toObject().hasLazyGroup() ||
-            thisv.toObject().group() != group)
-        {
-            continue;
-        }
+            // Found a matching frame.
+            RootedPlainObject obj(cx, &thisv.toObject().as<PlainObject>());
 
-        if (thisv.toObject().is<UnboxedPlainObject>()) {
-            AutoEnterOOMUnsafeRegion oomUnsafe;
-            if (!UnboxedPlainObject::convertToNative(cx, &thisv.toObject()))
-                oomUnsafe.crash("rollbackPartiallyInitializedObjects");
-        }
+            // Whether all identified 'new' properties have been initialized.
+            bool finished = false;
 
-        // Found a matching frame.
-        RootedPlainObject obj(cx, &thisv.toObject().as<PlainObject>());
+            // If not finished, number of properties that have been added.
+            uint32_t numProperties = 0;
 
-        // Whether all identified 'new' properties have been initialized.
-        bool finished = false;
+            // Whether the current SETPROP is within an inner frame which has
+            // finished entirely.
+            bool pastProperty = false;
 
-        // If not finished, number of properties that have been added.
-        uint32_t numProperties = 0;
+            // Index in pcOffsets of the outermost frame.
+            int callDepth = pcOffsets.length() - 1;
 
-        // Whether the current SETPROP is within an inner frame which has
-        // finished entirely.
-        bool pastProperty = false;
+            // Index in pcOffsets of the frame currently being checked for a SETPROP.
+            int setpropDepth = callDepth;
 
-        // Index in pcOffsets of the outermost frame.
-        int callDepth = pcOffsets.length() - 1;
-
-        // Index in pcOffsets of the frame currently being checked for a SETPROP.
-        int setpropDepth = callDepth;
-
-        for (Initializer* init = initializerList;; init++) {
-            if (init->kind == Initializer::SETPROP) {
-                if (!pastProperty && pcOffsets[setpropDepth] < init->offset) {
-                    // Have not yet reached this setprop.
+            for (Initializer* init = initializerList;; init++) {
+                if (init->kind == Initializer::SETPROP) {
+                    if (!pastProperty && pcOffsets[setpropDepth] < init->offset) {
+                        // Have not yet reached this setprop.
+                        break;
+                    }
+                    // This setprop has executed, reset state for the next one.
+                    numProperties++;
+                    pastProperty = false;
+                    setpropDepth = callDepth;
+                } else if (init->kind == Initializer::SETPROP_FRAME) {
+                    if (!pastProperty) {
+                        if (pcOffsets[setpropDepth] < init->offset) {
+                            // Have not yet reached this inner call.
+                            break;
+                        } else if (pcOffsets[setpropDepth] > init->offset) {
+                            // Have advanced past this inner call.
+                            pastProperty = true;
+                        } else if (setpropDepth == 0) {
+                            // Have reached this call but not yet in it.
+                            break;
+                        } else {
+                            // Somewhere inside this inner call.
+                            setpropDepth--;
+                        }
+                    }
+                } else {
+                    MOZ_ASSERT(init->kind == Initializer::DONE);
+                    finished = true;
                     break;
                 }
-                // This setprop has executed, reset state for the next one.
-                numProperties++;
-                pastProperty = false;
-                setpropDepth = callDepth;
-            } else if (init->kind == Initializer::SETPROP_FRAME) {
-                if (!pastProperty) {
-                    if (pcOffsets[setpropDepth] < init->offset) {
-                        // Have not yet reached this inner call.
-                        break;
-                    } else if (pcOffsets[setpropDepth] > init->offset) {
-                        // Have advanced past this inner call.
-                        pastProperty = true;
-                    } else if (setpropDepth == 0) {
-                        // Have reached this call but not yet in it.
-                        break;
-                    } else {
-                        // Somewhere inside this inner call.
-                        setpropDepth--;
-                    }
-                }
-            } else {
-                MOZ_ASSERT(init->kind == Initializer::DONE);
-                finished = true;
-                break;
             }
-        }
 
-        if (!finished) {
-            (void) NativeObject::rollbackProperties(cx, obj, numProperties);
-            found = true;
+            if (!finished) {
+                (void) NativeObject::rollbackProperties(cx, obj, numProperties);
+                found = true;
+            }
         }
     }
 
@@ -4455,10 +4422,24 @@ JSScript::maybeSweepTypes(AutoClearTypeInferenceStateOnOOM* oom)
 
     TypeZone& types = zone()->types;
 
+    // Sweep the inlinedCompilations Vector.
+    {
+        RecompileInfoVector& inlinedCompilations = types_->inlinedCompilations();
+        size_t dest = 0;
+        for (size_t i = 0; i < inlinedCompilations.length(); i++) {
+            if (inlinedCompilations[i].shouldSweep(types))
+                continue;
+            inlinedCompilations[dest] = inlinedCompilations[i];
+            dest++;
+        }
+        inlinedCompilations.shrinkTo(dest);
+    }
+
     // Destroy all type information attached to the script if desired. We can
     // only do this if nothing has been compiled for the script, which will be
     // the case unless the script has been compiled since we started sweeping.
     if (types.sweepReleaseTypes &&
+        !types.keepTypeScripts &&
         !hasBaselineScript() &&
         !hasIonScript())
     {
@@ -4493,7 +4474,7 @@ JSScript::maybeSweepTypes(AutoClearTypeInferenceStateOnOOM* oom)
 void
 TypeScript::destroy()
 {
-    js_free(this);
+    js_delete(this);
 }
 
 void
@@ -4526,6 +4507,7 @@ TypeZone::TypeZone(Zone* zone)
     sweepCompilerOutputs(zone->group(), nullptr),
     sweepReleaseTypes(zone->group(), false),
     sweepingTypes(zone->group(), false),
+    keepTypeScripts(zone->group(), false),
     activeAnalysis(zone->group(), nullptr)
 {
 }
@@ -4535,6 +4517,7 @@ TypeZone::~TypeZone()
     js_delete(compilerOutputs.ref());
     js_delete(sweepCompilerOutputs.ref());
     MOZ_RELEASE_ASSERT(!sweepingTypes);
+    MOZ_ASSERT(!keepTypeScripts);
 }
 
 void

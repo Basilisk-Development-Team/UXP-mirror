@@ -136,7 +136,6 @@ public:
   nsresult
   GetEventTargetParent(EventChainPreVisitor& aVisitor) override
   {
-    aVisitor.mForceContentDispatch = true;
     return NS_OK;
   }
 
@@ -278,13 +277,6 @@ public:
            uint32_t aChromeFlags);
 
   nsresult Init();
-
-  /**
-   * This is expected to be called off the critical path to content
-   * startup.  This is an opportunity to load things that are slow
-   * on the critical path.
-   */
-  static void PreloadSlowThings();
 
   /** Return a TabChild with the given attributes. */
   static already_AddRefed<TabChild>
@@ -700,17 +692,13 @@ private:
 
   void ActorDestroy(ActorDestroyReason why) override;
 
-  enum FrameScriptLoading { DONT_LOAD_SCRIPTS, DEFAULT_LOAD_SCRIPTS };
-
-  bool InitTabChildGlobal(FrameScriptLoading aScriptLoading = DEFAULT_LOAD_SCRIPTS);
+  bool InitTabChildGlobal();
 
   bool InitRenderingState(const TextureFactoryIdentifier& aTextureFactoryIdentifier,
                           const uint64_t& aLayersId,
                           PRenderFrameChild* aRenderFrame);
 
   void DestroyWindow();
-
-  void SetProcessNameToAppName();
 
   void ApplyShowInfo(const ShowInfo& aInfo);
 

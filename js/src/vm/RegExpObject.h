@@ -75,12 +75,12 @@ class RegExpObject : public NativeObject
 
     static RegExpObject*
     create(JSContext* cx, const char16_t* chars, size_t length, RegExpFlag flags,
-           const ReadOnlyCompileOptions* options, frontend::TokenStream* ts, LifoAlloc& alloc,
+           const JS::ReadOnlyCompileOptions* options, frontend::TokenStream* ts, LifoAlloc& alloc,
            NewObjectKind newKind);
 
     static RegExpObject*
     create(JSContext* cx, HandleAtom atom, RegExpFlag flags,
-           const ReadOnlyCompileOptions* options, frontend::TokenStream* ts, LifoAlloc& alloc,
+           const JS::ReadOnlyCompileOptions* options, frontend::TokenStream* ts, LifoAlloc& alloc,
            NewObjectKind newKind);
 
     /*
@@ -136,12 +136,13 @@ class RegExpObject : public NativeObject
         setSlot(FLAGS_SLOT, Int32Value(flags));
     }
 
-    bool ignoreCase() const { return getFlags() & IgnoreCaseFlag; }
+    bool hasIndices() const { return getFlags() & HasIndicesFlag; }
     bool global() const     { return getFlags() & GlobalFlag; }
+    bool ignoreCase() const { return getFlags() & IgnoreCaseFlag; }
     bool multiline() const  { return getFlags() & MultilineFlag; }
-    bool sticky() const     { return getFlags() & StickyFlag; }
-    bool unicode() const    { return getFlags() & UnicodeFlag; }
     bool dotAll() const     { return getFlags() & DotAllFlag; }
+    bool unicode() const    { return getFlags() & UnicodeFlag; }
+    bool sticky() const     { return getFlags() & StickyFlag; }
 
     static bool isOriginalFlagGetter(JSNative native, RegExpFlag* mask);
 

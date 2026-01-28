@@ -42,6 +42,7 @@
 #include "nsLayoutUtils.h"
 #include "LayoutLogging.h"
 #include "mozilla/RestyleManager.h"
+#include "nsGridContainerFrame.h"
 
 #include "nsIDOMNode.h"
 #include "nsISelection.h"
@@ -1237,7 +1238,7 @@ nsIFrame::ComputeBorderRadii(const nsStyleCorners& aBorderRadius,
   NS_FOR_CSS_HALF_CORNERS(i) {
     const nsStyleCoord c = aBorderRadius.Get(i);
     nscoord axis =
-      NS_HALF_CORNER_IS_X(i) ? aFrameSize.width : aFrameSize.height;
+      HalfCornerIsX(i) ? aFrameSize.width : aFrameSize.height;
 
     if (c.IsCoordPercentCalcUnit()) {
       aRadii[i] = nsRuleNode::ComputeCoordPercentCalc(c, axis);
@@ -1252,31 +1253,31 @@ nsIFrame::ComputeBorderRadii(const nsStyleCorners& aBorderRadius,
   }
 
   if (aSkipSides.Top()) {
-    aRadii[NS_CORNER_TOP_LEFT_X] = 0;
-    aRadii[NS_CORNER_TOP_LEFT_Y] = 0;
-    aRadii[NS_CORNER_TOP_RIGHT_X] = 0;
-    aRadii[NS_CORNER_TOP_RIGHT_Y] = 0;
+    aRadii[eCornerTopLeftX] = 0;
+    aRadii[eCornerTopLeftY] = 0;
+    aRadii[eCornerTopRightX] = 0;
+    aRadii[eCornerTopRightY] = 0;
   }
 
   if (aSkipSides.Right()) {
-    aRadii[NS_CORNER_TOP_RIGHT_X] = 0;
-    aRadii[NS_CORNER_TOP_RIGHT_Y] = 0;
-    aRadii[NS_CORNER_BOTTOM_RIGHT_X] = 0;
-    aRadii[NS_CORNER_BOTTOM_RIGHT_Y] = 0;
+    aRadii[eCornerTopRightX] = 0;
+    aRadii[eCornerTopRightY] = 0;
+    aRadii[eCornerBottomRightX] = 0;
+    aRadii[eCornerBottomRightY] = 0;
   }
 
   if (aSkipSides.Bottom()) {
-    aRadii[NS_CORNER_BOTTOM_RIGHT_X] = 0;
-    aRadii[NS_CORNER_BOTTOM_RIGHT_Y] = 0;
-    aRadii[NS_CORNER_BOTTOM_LEFT_X] = 0;
-    aRadii[NS_CORNER_BOTTOM_LEFT_Y] = 0;
+    aRadii[eCornerBottomRightX] = 0;
+    aRadii[eCornerBottomRightY] = 0;
+    aRadii[eCornerBottomLeftX] = 0;
+    aRadii[eCornerBottomLeftY] = 0;
   }
 
   if (aSkipSides.Left()) {
-    aRadii[NS_CORNER_BOTTOM_LEFT_X] = 0;
-    aRadii[NS_CORNER_BOTTOM_LEFT_Y] = 0;
-    aRadii[NS_CORNER_TOP_LEFT_X] = 0;
-    aRadii[NS_CORNER_TOP_LEFT_Y] = 0;
+    aRadii[eCornerBottomLeftX] = 0;
+    aRadii[eCornerBottomLeftY] = 0;
+    aRadii[eCornerTopLeftX] = 0;
+    aRadii[eCornerTopLeftY] = 0;
   }
 
   // css3-background specifies this algorithm for reducing
@@ -1284,10 +1285,10 @@ nsIFrame::ComputeBorderRadii(const nsStyleCorners& aBorderRadius,
   bool haveRadius = false;
   double ratio = 1.0f;
   NS_FOR_CSS_SIDES(side) {
-    uint32_t hc1 = NS_SIDE_TO_HALF_CORNER(side, false, true);
-    uint32_t hc2 = NS_SIDE_TO_HALF_CORNER(side, true, true);
+    uint32_t hc1 = SideToHalfCorner(side, false, true);
+    uint32_t hc2 = SideToHalfCorner(side, true, true);
     nscoord length =
-      NS_SIDE_IS_VERTICAL(side) ? aBorderArea.height : aBorderArea.width;
+      SideIsVertical(side) ? aBorderArea.height : aBorderArea.width;
     nscoord sum = aRadii[hc1] + aRadii[hc2];
     if (sum)
       haveRadius = true;
@@ -1310,8 +1311,8 @@ nsIFrame::InsetBorderRadii(nscoord aRadii[8], const nsMargin &aOffsets)
 {
   NS_FOR_CSS_SIDES(side) {
     nscoord offset = aOffsets.Side(side);
-    uint32_t hc1 = NS_SIDE_TO_HALF_CORNER(side, false, false);
-    uint32_t hc2 = NS_SIDE_TO_HALF_CORNER(side, true, false);
+    uint32_t hc1 = SideToHalfCorner(side, false, false);
+    uint32_t hc2 = SideToHalfCorner(side, true, false);
     aRadii[hc1] = std::max(0, aRadii[hc1] - offset);
     aRadii[hc2] = std::max(0, aRadii[hc2] - offset);
   }
@@ -1322,8 +1323,8 @@ nsIFrame::OutsetBorderRadii(nscoord aRadii[8], const nsMargin &aOffsets)
 {
   NS_FOR_CSS_SIDES(side) {
     nscoord offset = aOffsets.Side(side);
-    uint32_t hc1 = NS_SIDE_TO_HALF_CORNER(side, false, false);
-    uint32_t hc2 = NS_SIDE_TO_HALF_CORNER(side, true, false);
+    uint32_t hc1 = SideToHalfCorner(side, false, false);
+    uint32_t hc2 = SideToHalfCorner(side, true, false);
     if (aRadii[hc1] > 0)
       aRadii[hc1] += offset;
     if (aRadii[hc2] > 0)
@@ -1933,14 +1934,15 @@ ApplyOverflowClipping(nsDisplayListBuilder* aBuilder,
                       const nsStyleDisplay* aDisp,
                       DisplayListClipState::AutoClipMultiple& aClipState)
 {
-  // Only -moz-hidden-unscrollable is handled here (and 'hidden' for table
+  // Only clip is handled here (and 'hidden' for table
   // frames, and any non-visible value for blocks in a paginated context).
-  // We allow -moz-hidden-unscrollable to apply to any kind of frame. This
+  // We allow clip to apply to any kind of frame. This
   // is required by comboboxes which make their display text (an inline frame)
   // have clipping.
   if (!nsFrame::ShouldApplyOverflowClipping(aFrame, aDisp)) {
     return;
   }
+  
   nsRect clipRect;
   bool haveRadii = false;
   nscoord radii[8];
@@ -1954,6 +1956,23 @@ ApplyOverflowClipping(nsDisplayListBuilder* aBuilder,
       aBuilder->ToReferenceFrame(aFrame);
     // XXX border-radius
   }
+
+  // Support per-axis clipping: If only one axis has 'clip' or 'hidden' value,
+  // only clip that axis by extending the clip rect to infinity on the other axis
+  bool clipX = (aDisp->mOverflowX == NS_STYLE_OVERFLOW_CLIP || aDisp->mOverflowX == NS_STYLE_OVERFLOW_HIDDEN);
+  bool clipY = (aDisp->mOverflowY == NS_STYLE_OVERFLOW_CLIP || aDisp->mOverflowY == NS_STYLE_OVERFLOW_HIDDEN);
+  
+  if (clipX && !clipY) {
+    // Only clip X axis - extend Y to infinity
+    clipRect.y = nscoord_MIN / 2;
+    clipRect.height = nscoord_MAX;
+  } else if (clipY && !clipX) {
+    // Only clip Y axis - extend X to infinity
+    clipRect.x = nscoord_MIN / 2;
+    clipRect.width = nscoord_MAX;
+  }
+  // If both axes are clip/hidden, use the normal rect (no modification needed)
+
   aClipState.ClipContainingBlockDescendantsExtra(clipRect, haveRadii ? radii : nullptr);
 }
 
@@ -2828,7 +2847,7 @@ nsIFrame::BuildDisplayListForChild(nsDisplayListBuilder*   aBuilder,
     clipState.SetScrollClipForContainingBlockDescendants(aBuilder, nullptr);
   }
 
-  // Setup clipping for the parent's overflow:-moz-hidden-unscrollable,
+  // Setup clipping for the parent's overflow:clip,
   // or overflow:hidden on elements that don't support scrolling (and therefore
   // don't create nsHTML/XULScrollFrame). This clipping needs to not clip
   // anything directly rendered by the parent, only the rendering of its
@@ -3445,7 +3464,7 @@ nsFrame::HandlePress(nsPresContext* aPresContext,
   {
     // A single node is selected and we aren't extending an existing
     // selection, which means the user clicked directly on an object (either
-    // -moz-user-select: all or a non-text node without children).
+    // user-select: all or a non-text node without children).
     // Therefore, disable selection extension during mouse moves.
     // XXX This is a bit hacky; shouldn't editor be able to deal with this?
     fc->SetDragState(false);
@@ -4253,7 +4272,7 @@ nsIFrame::ContentOffsets nsIFrame::GetContentOffsetsFromPoint(nsPoint aPoint,
 
     adjustedFrame = AdjustFrameForSelectionStyles(this);
 
-    // -moz-user-select: all needs special handling, because clicking on it
+    // user-select: all needs special handling, because clicking on it
     // should lead to the whole frame being selected
     if (adjustedFrame && adjustedFrame->StyleUIReset()->mUserSelect ==
         StyleUserSelect::All) {
@@ -4385,6 +4404,8 @@ nsFrame::MarkIntrinsicISizesDirty()
   if (GetStateBits() & NS_FRAME_FONT_INFLATION_FLOW_ROOT) {
     nsFontInflationData::MarkFontInflationDataTextDirty(this);
   }
+  
+  RemoveProperty(nsGridContainerFrame::CachedBAxisMeasurement::Prop());
 }
 
 /* virtual */ nscoord
@@ -4582,11 +4603,11 @@ IntrinsicSizeOffsets(nsIFrame* aFrame, nscoord aPercentageBasis, bool aForISize)
 
   const nsStyleBorder* styleBorder = aFrame->StyleBorder();
   if (verticalAxis) {
-    result.hBorder += styleBorder->GetComputedBorderWidth(NS_SIDE_TOP);
-    result.hBorder += styleBorder->GetComputedBorderWidth(NS_SIDE_BOTTOM);
+    result.hBorder += styleBorder->GetComputedBorderWidth(eSideTop);
+    result.hBorder += styleBorder->GetComputedBorderWidth(eSideBottom);
   } else {
-    result.hBorder += styleBorder->GetComputedBorderWidth(NS_SIDE_LEFT);
-    result.hBorder += styleBorder->GetComputedBorderWidth(NS_SIDE_RIGHT);
+    result.hBorder += styleBorder->GetComputedBorderWidth(eSideLeft);
+    result.hBorder += styleBorder->GetComputedBorderWidth(eSideRight);
   }
 
   const nsStyleDisplay* disp = aFrame->StyleDisplay();

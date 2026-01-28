@@ -20,36 +20,34 @@
 #define wasm_code_h
 
 #include "wasm/WasmGeneratedSourceMap.h"
+
+#include "js/HashTable.h"
 #include "wasm/WasmTypes.h"
 
 namespace js {
 
 struct AsmJSMetadata;
+class WasmActivation;
 
 namespace wasm {
 
 struct LinkData;
 struct Metadata;
+class FrameIterator;
 
 // A wasm CodeSegment owns the allocated executable code for a wasm module.
-// This allocation also currently includes the global data segment, which allows
-// RIP-relative access to global data on some architectures, but this will
-// change in the future to give global data its own allocation.
 
 class CodeSegment;
 typedef UniquePtr<CodeSegment> UniqueCodeSegment;
 
 class CodeSegment
 {
-    // bytes_ points to a single allocation with two contiguous ranges:
-    // executable machine code in the range [0, codeLength) and global data in
-    // the range [codeLength, codeLength + globalDataLength). The range
-    // [0, functionCodeLength) is the subrange of [0, codeLength) which contains
-    // function code.
+    // bytes_ points to a single allocation of executable machine code in
+    // the range [0, length_).  The range [0, functionLength_) is
+    // the subrange of [0, length_) which contains function code.
     uint8_t* bytes_;
-    uint32_t functionCodeLength_;
-    uint32_t codeLength_;
-    uint32_t globalDataLength_;
+    uint32_t functionLength_;
+    uint32_t length_;
 
     // These are pointers into code for stubs used for asynchronous
     // signal-handler control-flow transfer.
@@ -77,10 +75,7 @@ class CodeSegment
     ~CodeSegment();
 
     uint8_t* base() const { return bytes_; }
-    uint8_t* globalData() const { return bytes_ + codeLength_; }
-    uint32_t codeLength() const { return codeLength_; }
-    uint32_t globalDataLength() const { return globalDataLength_; }
-    uint32_t totalLength() const { return codeLength_ + globalDataLength_; }
+    uint32_t length() const { return length_; }
 
     uint8_t* interruptCode() const { return interruptCode_; }
     uint8_t* outOfBoundsCode() const { return outOfBoundsCode_; }
@@ -93,10 +88,10 @@ class CodeSegment
     // enter/exit.
 
     bool containsFunctionPC(const void* pc) const {
-        return pc >= base() && pc < (base() + functionCodeLength_);
+        return pc >= base() && pc < (base() + functionLength_);
     }
     bool containsCodePC(const void* pc) const {
-        return pc >= base() && pc < (base() + codeLength_);
+        return pc >= base() && pc < (base() + length_);
     }
 
     // onMovingGrow must be called if the memory passed to 'create' performs a
@@ -241,6 +236,8 @@ class CodeRange
         ImportJitExit,     // fast-path calling from wasm into JIT code
         ImportInterpExit,  // slow-path calling from wasm into C++ interp
         TrapExit,          // calls C++ to report and jumps to throw stub
+        DebugTrap,         // calls C++ to handle debug event such as
+                           // enter/leave frame or breakpoint
         FarJumpIsland,     // inserted to connect otherwise out-of-range insns
         Inline             // stub that is jumped-to, not called, and thus
                            // replaces/loses preceding innermost frame
@@ -398,10 +395,30 @@ struct NameInBytecode
     uint32_t length;
 
     NameInBytecode() = default;
-    NameInBytecode(uint32_t offset, uint32_t length) : offset(offset), length(length) {}
+    NameInBytecode(uint32_t offset, uint32_t length)
+      : offset(offset), length(length)
+    {}
 };
 
 typedef Vector<NameInBytecode, 0, SystemAllocPolicy> NameInBytecodeVector;
+
+// CustomSection represents a custom section in the bytecode which can be
+// extracted via Module.customSections. The (offset, length) pair does not
+// include the custom section name.
+
+struct CustomSection
+{
+    NameInBytecode name;
+    uint32_t offset;
+    uint32_t length;
+
+    CustomSection() = default;
+    CustomSection(NameInBytecode name, uint32_t offset, uint32_t length)
+      : name(name), offset(offset), length(length)
+    {}
+};
+
+typedef Vector<CustomSection, 0, SystemAllocPolicy> CustomSectionVector;
 
 // Metadata holds all the data that is needed to describe compiled wasm code
 // at runtime (as opposed to data that is only used to statically link or
@@ -445,7 +462,12 @@ struct Metadata : ShareableBase<Metadata>, MetadataCacheablePod
     CallSiteVector        callSites;
     CallThunkVector       callThunks;
     NameInBytecodeVector  funcNames;
+    CustomSectionVector   customSections;
     CacheableChars        filename;
+
+    // Debug-enabled code is not serialized.
+    bool                  debugEnabled;
+    Uint32Vector          debugTrapFarJumpOffsets;
 
     bool usesMemory() const { return UsesMemory(memoryUsage); }
     bool hasSharedMemory() const { return memoryUsage == MemoryUsage::Shared; }
@@ -493,7 +515,10 @@ class Code
     const SharedBytes        maybeBytecode_;
     UniqueGeneratedSourceMap maybeSourceMap_;
     CacheableCharsVector     funcLabels_;
+    uint32_t                 enterAndLeaveFrameTrapsCounter_;
     bool                     profilingEnabled_;
+
+    void toggleDebugTrap(uint32_t offset, bool enabled);
 
   public:
     Code(UniqueCodeSegment segment,
@@ -532,6 +557,12 @@ class Code
     [[nodiscard]] bool ensureProfilingState(JSRuntime* rt, bool enabled);
     bool profilingEnabled() const { return profilingEnabled_; }
     const char* profilingLabel(uint32_t funcIndex) const { return funcLabels_[funcIndex].get(); }
+
+    // The Code can track enter/leave frame events. Any such event triggers
+    // debug trap. The enter frame events enabled across all functions, but
+    // the leave frame events only for particular function.
+
+    void adjustEnterAndLeaveFrameTrapsState(JSContext* cx, bool enabled);
 
     // about:memory reporting:
 

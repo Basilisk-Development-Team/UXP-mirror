@@ -25,9 +25,11 @@
 using namespace mozilla;
 using namespace mozilla::dom;
 
-NS_IMPL_QUERY_INTERFACE_INHERITED(nsStyledElement,
-                                  nsStyledElementBase,
-                                  nsStyledElement)
+// Using the CC variant of this, even though this class does not define
+// a new CC participant, to make QIing to the CC interfaces faster.
+NS_IMPL_QUERY_INTERFACE_CYCLE_COLLECTION_INHERITED(nsStyledElement,
+                                                   nsStyledElementBase,
+                                                   nsStyledElement)
 
 //----------------------------------------------------------------------
 // nsIContent methods
@@ -108,7 +110,8 @@ nsStyledElement::SetInlineStyleDeclaration(css::Declaration* aDeclaration,
   nsIDocument* document = GetComposedDoc();
   mozAutoDocUpdate updateBatch(document, UPDATE_CONTENT_MODEL, aNotify);
   return SetAttrAndNotify(kNameSpaceID_None, nsGkAtoms::style, nullptr,
-                          oldValueSet ? &oldValue : nullptr, attrValue, modType,
+                          oldValueSet ? &oldValue : nullptr, attrValue,
+                          nullptr, modType,
                           hasListeners, aNotify, kDontCallAfterSetAttr,
                           document, updateBatch);
 }

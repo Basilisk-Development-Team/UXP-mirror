@@ -660,28 +660,6 @@ class CodeLocationLabel
 
 namespace wasm {
 
-// As an invariant across architectures, within wasm code:
-//   $sp % WasmStackAlignment = (sizeof(wasm::Frame) + masm.framePushed) % WasmStackAlignment
-// Thus, wasm::Frame represents the bytes pushed after the call (which occurred
-// with a WasmStackAlignment-aligned StackPointer) that are not included in
-// masm.framePushed.
-
-struct Frame
-{
-    // The caller's saved frame pointer. In non-profiling mode, internal
-    // wasm-to-wasm calls don't update fp and thus don't save the caller's
-    // frame pointer; the space is reserved, however, so that profiling mode can
-    // reuse the same function body without recompiling.
-    uint8_t* callerFP;
-
-    // The return address pushed by the call (in the case of ARM/MIPS the return
-    // address is pushed by the first instruction of the prologue).
-    void* returnAddress;
-};
-
-static_assert(sizeof(Frame) == 2 * sizeof(void*), "?!");
-static const uint32_t FrameBytesAfterReturnAddress = sizeof(void*);
-
 // Represents an instruction to be patched and the intended pointee. These
 // links are accumulated in the MacroAssembler, but patching is done outside
 // the MacroAssembler (in Module::staticallyLink).
@@ -819,7 +797,6 @@ class AssemblerShared
     wasm::MemoryAccessVector memoryAccesses_;
     wasm::MemoryPatchVector memoryPatches_;
     wasm::BoundsCheckVector boundsChecks_;
-    wasm::GlobalAccessVector globalAccesses_;
     wasm::SymbolicAccessVector symbolicAccesses_;
 
   protected:
@@ -900,9 +877,6 @@ class AssemblerShared
     void append(wasm::BoundsCheck check) { enoughMemory_ &= boundsChecks_.append(check); }
     wasm::BoundsCheckVector&& extractBoundsChecks() { return Move(boundsChecks_); }
 
-    void append(wasm::GlobalAccess access) { enoughMemory_ &= globalAccesses_.append(access); }
-    const wasm::GlobalAccessVector& globalAccesses() const { return globalAccesses_; }
-
     void append(wasm::SymbolicAccess access) { enoughMemory_ &= symbolicAccesses_.append(access); }
     size_t numSymbolicAccesses() const { return symbolicAccesses_.length(); }
     wasm::SymbolicAccess symbolicAccess(size_t i) const { return symbolicAccesses_[i]; }
@@ -948,11 +922,6 @@ class AssemblerShared
         enoughMemory_ &= boundsChecks_.appendAll(other.boundsChecks_);
         for (; i < boundsChecks_.length(); i++)
             boundsChecks_[i].offsetBy(delta);
-
-        i = globalAccesses_.length();
-        enoughMemory_ &= globalAccesses_.appendAll(other.globalAccesses_);
-        for (; i < globalAccesses_.length(); i++)
-            globalAccesses_[i].patchAt.offsetBy(delta);
 
         i = symbolicAccesses_.length();
         enoughMemory_ &= symbolicAccesses_.appendAll(other.symbolicAccesses_);

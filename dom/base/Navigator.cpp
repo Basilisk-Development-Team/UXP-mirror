@@ -64,8 +64,6 @@
 #include "nsIHttpChannelInternal.h"
 #include "TimeManager.h"
 #include "nsStreamUtils.h"
-#include "nsIAppsService.h"
-#include "mozIApplication.h"
 #include "WidgetUtils.h"
 #include "mozilla/dom/MediaDevices.h"
 #include "MediaManager.h"
@@ -1517,6 +1515,14 @@ Navigator::Clipboard()
     mClipboard = new dom::Clipboard(GetWindow());
   }
   return mClipboard;
+}
+
+/* static */
+bool
+Navigator::Webdriver()
+{
+  // We don't support Selenium or marionette, so this is always false.
+  return false;
 }
 
 } // namespace dom

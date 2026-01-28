@@ -7,6 +7,7 @@
 #define vm_Stack_h
 
 #include "mozilla/Atomics.h"
+#include "mozilla/HashFunctions.h"
 #include "mozilla/Maybe.h"
 #include "mozilla/MemoryReporting.h"
 #include "mozilla/Variant.h"
@@ -61,6 +62,7 @@ namespace jit {
 class CommonFrameLayout;
 }
 namespace wasm {
+class DebugFrame;
 class Instance;
 }
 
@@ -134,7 +136,8 @@ class AbstractFramePtr
         Tag_InterpreterFrame = 0x1,
         Tag_BaselineFrame = 0x2,
         Tag_RematerializedFrame = 0x3,
-        TagMask = 0x3
+        Tag_WasmDebugFrame = 0x4,
+        TagMask = 0x7
     };
 
   public:
@@ -158,6 +161,12 @@ class AbstractFramePtr
       : ptr_(fp ? uintptr_t(fp) | Tag_RematerializedFrame : 0)
     {
         MOZ_ASSERT_IF(fp, asRematerializedFrame() == fp);
+    }
+
+    MOZ_IMPLICIT AbstractFramePtr(wasm::DebugFrame* fp)
+      : ptr_(fp ? uintptr_t(fp) | Tag_WasmDebugFrame : 0)
+    {
+        MOZ_ASSERT_IF(fp, asWasmDebugFrame() == fp);
     }
 
     static AbstractFramePtr FromRaw(void* raw) {
@@ -196,6 +205,15 @@ class AbstractFramePtr
         MOZ_ASSERT(res);
         return res;
     }
+    bool isWasmDebugFrame() const {
+        return (ptr_ & TagMask) == Tag_WasmDebugFrame;
+    }
+    wasm::DebugFrame* asWasmDebugFrame() const {
+        MOZ_ASSERT(isWasmDebugFrame());
+        wasm::DebugFrame* res = (wasm::DebugFrame*)(ptr_ & ~TagMask);
+        MOZ_ASSERT(res);
+        return res;
+    }
 
     void* raw() const { return reinterpret_cast<void*>(ptr_); }
 
@@ -223,7 +241,10 @@ class AbstractFramePtr
     inline bool hasCachedSavedFrame() const;
     inline void setHasCachedSavedFrame();
 
+    inline bool hasScript() const;
     inline JSScript* script() const;
+    inline wasm::Instance* wasmInstance() const;
+    inline GlobalObject* global() const;
     inline JSFunction* callee() const;
     inline Value calleev() const;
     inline Value& thisArgument() const;
@@ -268,6 +289,7 @@ class AbstractFramePtr
     friend void GDBTestInitAbstractFramePtr(AbstractFramePtr&, InterpreterFrame*);
     friend void GDBTestInitAbstractFramePtr(AbstractFramePtr&, jit::BaselineFrame*);
     friend void GDBTestInitAbstractFramePtr(AbstractFramePtr&, jit::RematerializedFrame*);
+    friend void GDBTestInitAbstractFramePtr(AbstractFramePtr& frame, wasm::DebugFrame* ptr);
 };
 
 class NullFramePtr : public AbstractFramePtr
@@ -1082,7 +1104,7 @@ struct DefaultHasher<AbstractFramePtr> {
     typedef AbstractFramePtr Lookup;
 
     static js::HashNumber hash(const Lookup& key) {
-        return size_t(key.raw());
+        return mozilla::HashGeneric(key.raw());
     }
 
     static bool match(const AbstractFramePtr& k, const Lookup& l) {
@@ -1743,6 +1765,9 @@ class WasmActivation : public Activation
     // Read/written from SIGSEGV handler:
     void setResumePC(void* pc) { resumePC_ = pc; }
     void* resumePC() const { return resumePC_; }
+
+    // Used by wasm::FrameIterator during stack unwinding.
+    void unwindFP(uint8_t* fp) { fp_ = fp; }
 };
 
 // A FrameIter walks over a context's stack of JS script activations,
@@ -1789,11 +1814,13 @@ class FrameIter
         wasm::FrameIterator wasmFrames_;
 
         Data(JSContext* cx, DebuggerEvalOption debuggerEvalOption, JSPrincipals* principals);
+        Data(JSContext* cx, const CooperatingContext& target, DebuggerEvalOption debuggerEvalOption);
         Data(const Data& other);
     };
 
     explicit FrameIter(JSContext* cx,
                        DebuggerEvalOption = FOLLOW_DEBUGGER_EVAL_PREV_LINK);
+    FrameIter(JSContext* cx, const CooperatingContext&, DebuggerEvalOption);
     FrameIter(JSContext* cx, DebuggerEvalOption, JSPrincipals*);
     FrameIter(const FrameIter& iter);
     MOZ_IMPLICIT FrameIter(const Data& data);
@@ -1833,6 +1860,13 @@ class FrameIter
     bool mutedErrors() const;
 
     bool hasScript() const { return !isWasm(); }
+
+    // -----------------------------------------------------------
+	//  The following functions can only be called when isWasm()
+    // -----------------------------------------------------------
+
+    inline bool wasmDebugEnabled() const;
+    inline wasm::Instance* wasmInstance() const;
 
     // -----------------------------------------------------------
     // The following functions can only be called when hasScript()
@@ -1895,7 +1929,7 @@ class FrameIter
 
     // -----------------------------------------------------------
     // The following functions can only be called when isInterp(),
-    // isBaseline(), or isIon(). Further, abstractFramePtr() can
+    // isBaseline(), isWasm() or isIon(). Further, abstractFramePtr() can
     // only be called when hasUsableAbstractFramePtr().
     // -----------------------------------------------------------
 
@@ -1938,6 +1972,14 @@ class ScriptFrameIter : public FrameIter
     explicit ScriptFrameIter(JSContext* cx,
                              DebuggerEvalOption debuggerEvalOption = FOLLOW_DEBUGGER_EVAL_PREV_LINK)
       : FrameIter(cx, debuggerEvalOption)
+    {
+        settle();
+    }
+
+    ScriptFrameIter(JSContext* cx,
+                    const CooperatingContext& target,
+                     DebuggerEvalOption debuggerEvalOption)
+       : FrameIter(cx, target, debuggerEvalOption)
     {
         settle();
     }
@@ -2064,6 +2106,10 @@ class AllScriptFramesIter : public ScriptFrameIter
     explicit AllScriptFramesIter(JSContext* cx)
       : ScriptFrameIter(cx, ScriptFrameIter::IGNORE_DEBUGGER_EVAL_PREV_LINK)
     {}
+
+    explicit AllScriptFramesIter(JSContext* cx, const CooperatingContext& target)
+      : ScriptFrameIter(cx, target, ScriptFrameIter::IGNORE_DEBUGGER_EVAL_PREV_LINK)
+    {}
 };
 
 /* Popular inline definitions. */
@@ -2078,6 +2124,22 @@ FrameIter::script() const
     if (data_.jitFrames_.isIonJS())
         return ionInlineFrames_.script();
     return data_.jitFrames_.script();
+}
+
+inline bool
+FrameIter::wasmDebugEnabled() const
+{
+    MOZ_ASSERT(!done());
+    MOZ_ASSERT(data_.state_ == WASM);
+    return data_.wasmFrames_.debugEnabled();
+}
+
+inline wasm::Instance*
+FrameIter::wasmInstance() const
+{
+    MOZ_ASSERT(!done());
+    MOZ_ASSERT(data_.state_ == WASM && wasmDebugEnabled());
+    return data_.wasmFrames_.instance();
 }
 
 inline bool

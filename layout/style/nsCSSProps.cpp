@@ -1869,11 +1869,11 @@ const KTableEntry nsCSSProps::kOverflowKTable[] = {
   { eCSSKeyword_visible, NS_STYLE_OVERFLOW_VISIBLE },
   { eCSSKeyword_hidden, NS_STYLE_OVERFLOW_HIDDEN },
   { eCSSKeyword_scroll, NS_STYLE_OVERFLOW_SCROLL },
+  { eCSSKeyword_clip, NS_STYLE_OVERFLOW_CLIP },
   // Deprecated:
   { eCSSKeyword__moz_scrollbars_none, NS_STYLE_OVERFLOW_HIDDEN },
   { eCSSKeyword__moz_scrollbars_horizontal, NS_STYLE_OVERFLOW_SCROLLBARS_HORIZONTAL },
   { eCSSKeyword__moz_scrollbars_vertical, NS_STYLE_OVERFLOW_SCROLLBARS_VERTICAL },
-  { eCSSKeyword__moz_hidden_unscrollable, NS_STYLE_OVERFLOW_CLIP },
   { eCSSKeyword_UNKNOWN, -1 }
 };
 
@@ -1888,8 +1888,7 @@ const KTableEntry nsCSSProps::kOverflowSubKTable[] = {
   { eCSSKeyword_visible, NS_STYLE_OVERFLOW_VISIBLE },
   { eCSSKeyword_hidden, NS_STYLE_OVERFLOW_HIDDEN },
   { eCSSKeyword_scroll, NS_STYLE_OVERFLOW_SCROLL },
-  // Deprecated:
-  { eCSSKeyword__moz_hidden_unscrollable, NS_STYLE_OVERFLOW_CLIP },
+  { eCSSKeyword_clip, NS_STYLE_OVERFLOW_CLIP },
   { eCSSKeyword_UNKNOWN, -1 }
 };
 
@@ -2214,6 +2213,7 @@ const KTableEntry nsCSSProps::kUserSelectKTable[] = {
   { eCSSKeyword_auto,       StyleUserSelect::Auto },
   { eCSSKeyword_text,       StyleUserSelect::Text },
   { eCSSKeyword_element,    StyleUserSelect::Element },
+  { eCSSKeyword_contain,    StyleUserSelect::Contain },
   { eCSSKeyword_elements,   StyleUserSelect::Elements },
   { eCSSKeyword_all,        StyleUserSelect::All },
   { eCSSKeyword_toggle,     StyleUserSelect::Toggle },
@@ -2792,8 +2792,8 @@ static const nsCSSPropertyID gBorderBottomSubpropTable[] = {
   eCSSProperty_UNKNOWN
 };
 
-static_assert(NS_SIDE_TOP == 0 && NS_SIDE_RIGHT == 1 &&
-              NS_SIDE_BOTTOM == 2 && NS_SIDE_LEFT == 3,
+static_assert(eSideTop == 0 && eSideRight == 1 &&
+              eSideBottom == 2 && eSideLeft == 3,
               "box side constants not top/right/bottom/left == 0/1/2/3");
 static const nsCSSPropertyID gBorderColorSubpropTable[] = {
   // Code relies on these being in top-right-bottom-left order.
@@ -3175,6 +3175,13 @@ static const nsCSSPropertyID gMinSizeLogicalGroupTable[] = {
 static const nsCSSPropertyID gSizeLogicalGroupTable[] = {
   eCSSProperty_height,
   eCSSProperty_width,
+  eCSSProperty_UNKNOWN
+};
+
+
+static const nsCSSPropertyID gOverflowLogicalGroupTable[] = {
+  eCSSProperty_overflow_y,
+  eCSSProperty_overflow_x,
   eCSSProperty_UNKNOWN
 };
 

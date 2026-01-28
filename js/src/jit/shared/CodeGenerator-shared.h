@@ -146,6 +146,10 @@ class CodeGeneratorShared : public LElementVisitor
         return gen->isProfilerInstrumentationEnabled();
     }
 
+    bool stringsCanBeInNursery() const {
+        return gen->stringsCanBeInNursery();
+    }
+
     js::Vector<NativeToTrackedOptimizations, 0, SystemAllocPolicy> trackedOptimizations_;
     uint8_t* trackedOptimizationsMap_;
     uint32_t trackedOptimizationsMapSize_;
@@ -346,6 +350,10 @@ class CodeGeneratorShared : public LElementVisitor
     void emitTruncateFloat32(FloatRegister src, Register dest, MInstruction* mir);
 
     void emitWasmCallBase(LWasmCallBase* ins);
+    void visitWasmLoadGlobalVar(LWasmLoadGlobalVar* ins);
+    void visitWasmStoreGlobalVar(LWasmStoreGlobalVar* ins);
+    void visitWasmLoadGlobalVarI64(LWasmLoadGlobalVarI64* ins);
+    void visitWasmStoreGlobalVarI64(LWasmStoreGlobalVarI64* ins);
 
     void emitPreBarrier(Register base, const LAllocation* index, int32_t offsetAdjustment);
     void emitPreBarrier(Address address);

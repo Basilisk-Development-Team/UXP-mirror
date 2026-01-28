@@ -1,9 +1,15 @@
 Twemoji Mozilla
 ================
 
-The upstream repository of Twemoji Mozilla can be found at
+This is a COLR compiled version of the Twemoji font in TTF format.
 
-  https://github.com/mozilla/twemoji-colr
+The upstream repository of our Twemoji font can be found at
 
-Please refer commit history for the current version of the font.
+  https://repo.palemoon.org/MoonchildProductions/twemoji-colr
+
+Please refer to the commit history for the current version of the font.
 This file purposely omits the version, so there is no need to update it here.
+
+Note: this version slightly deviates from upstream to account for slow uptake
+of changes by upstream.
+

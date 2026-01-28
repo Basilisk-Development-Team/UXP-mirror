@@ -49,10 +49,6 @@ public:
 
   static already_AddRefed<URL>
   Constructor(const GlobalObject& aGlobal, const nsAString& aURL,
-              URL& aBase, ErrorResult& aRv);
-
-  static already_AddRefed<URL>
-  Constructor(const GlobalObject& aGlobal, const nsAString& aURL,
               const Optional<nsAString>& aBase, ErrorResult& aRv);
 
   // Helper for window.URL constructor
@@ -91,6 +87,10 @@ public:
   static bool
   IsValidURL(const GlobalObject& aGlobal, const nsAString& aURL,
              ErrorResult& aRv);
+
+  static bool
+  CanParse(const GlobalObject& aGlobal, const nsAString& aURL,
+           const Optional<nsAString>& aBase);
 
   virtual void
   GetHref(nsAString& aHref, ErrorResult& aRv) const = 0;

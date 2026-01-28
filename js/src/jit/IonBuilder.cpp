@@ -29,6 +29,7 @@
 #include "jsopcodeinlines.h"
 #include "jsscriptinlines.h"
 
+#include "gc/Nursery-inl.h"
 #include "jit/CompileInfo-inl.h"
 #include "jit/shared/Lowering-shared-inl.h"
 #include "vm/EnvironmentObject-inl.h"
@@ -159,7 +160,9 @@ IonBuilder::IonBuilder(JSContext* analysisContext, CompileCompartment* comp,
     failedShapeGuard_(info->script()->failedShapeGuard()),
     failedLexicalCheck_(info->script()->failedLexicalCheck()),
     nonStringIteration_(false),
-    lazyArguments_(nullptr),
+#ifdef DEBUG
+    hasLazyArguments_(false),
+#endif
     inlineCallInfo_(nullptr),
     maybeFallbackFunctionGetter_(nullptr)
 {
@@ -273,7 +276,7 @@ IonBuilder::getSingleCallTarget(TemporaryTypeSet* calleeTypes)
 
 AbortReasonOr<Ok>
 IonBuilder::getPolyCallTargets(TemporaryTypeSet* calleeTypes, bool constructing,
-                               ObjectVector& targets, uint32_t maxTargets)
+                               InliningTargets& targets, uint32_t maxTargets)
 {
     MOZ_ASSERT(targets.empty());
 
@@ -292,10 +295,11 @@ IonBuilder::getPolyCallTargets(TemporaryTypeSet* calleeTypes, bool constructing,
         return abort(AbortReason::Alloc);
     for (unsigned i = 0; i < objCount; i++) {
         JSObject* obj = calleeTypes->getSingleton(i);
+        ObjectGroup* group = nullptr;
         if (obj) {
             MOZ_ASSERT(obj->isSingleton());
         } else {
-            ObjectGroup* group = calleeTypes->getGroup(i);
+            group = calleeTypes->getGroup(i);
             if (!group)
                 continue;
 
@@ -316,7 +320,7 @@ IonBuilder::getPolyCallTargets(TemporaryTypeSet* calleeTypes, bool constructing,
             return Ok();
         }
 
-        targets.infallibleAppend(obj);
+        targets.infallibleAppend(InliningTarget(obj, group));
     }
 
     return Ok();
@@ -500,12 +504,6 @@ IonBuilder::canInlineTarget(JSFunction* target, CallInfo& callInfo)
     if (inlineScript->isDebuggee()) {
         trackOptimizationOutcome(TrackedOutcome::CantInlineDebuggee);
         return DontInline(inlineScript, "Script is debuggee");
-    }
-
-    TypeSet::ObjectKey* targetKey = TypeSet::ObjectKey::get(target);
-    if (targetKey->unknownProperties()) {
-        trackOptimizationOutcome(TrackedOutcome::CantInlineUnknownProps);
-        return DontInline(inlineScript, "Target type has unknown properties");
     }
 
     return InliningDecision_Inline;
@@ -844,11 +842,11 @@ IonBuilder::build()
         ins->setResumePoint(entryRpCopy);
     }
 
+#ifdef DEBUG
     // lazyArguments should never be accessed in |argsObjAliasesFormals| scripts.
-    if (info().hasArguments() && !info().argsObjAliasesFormals()) {
-        lazyArguments_ = MConstant::New(alloc(), MagicValue(JS_OPTIMIZED_ARGUMENTS));
-        current->add(lazyArguments_);
-    }
+    if (info().hasArguments() && !info().argsObjAliasesFormals())
+        hasLazyArguments_ = true;
+#endif
 
     insertRecompileCheck();
 
@@ -1005,10 +1003,10 @@ IonBuilder::buildInline(IonBuilder* callerBuilder, MResumePoint* callerResumePoi
     // +2 for the env chain and |this|, maybe another +1 for arguments object slot.
     MOZ_ASSERT(current->entryResumePoint()->stackDepth() == info().totalSlots());
 
-    if (script_->argumentsHasVarBinding()) {
-        lazyArguments_ = MConstant::New(alloc(), MagicValue(JS_OPTIMIZED_ARGUMENTS));
-        current->add(lazyArguments_);
-    }
+#ifdef DEBUG
+    if (script_->argumentsHasVarBinding())
+        hasLazyArguments_ = true;
+#endif
 
     insertRecompileCheck();
 
@@ -1286,11 +1284,14 @@ IonBuilder::addOsrValueTypeBarrier(uint32_t slot, MInstruction** def_,
       }
 
       case MIRType::MagicOptimizedArguments:
-        MOZ_ASSERT(lazyArguments_);
-        osrBlock->rewriteSlot(slot, lazyArguments_);
-        def = lazyArguments_;
+        {
+        MOZ_ASSERT(hasLazyArguments_);
+        MConstant* lazyArg = MConstant::New(alloc(), MagicValue(JS_OPTIMIZED_ARGUMENTS));
+        osrBlock->insertBefore(osrBlock->lastIns(), lazyArg);
+        osrBlock->rewriteSlot(slot, lazyArg);
+        def = lazyArg;
         break;
-
+		}
       default:
         break;
     }
@@ -1507,6 +1508,13 @@ IonBuilder::visitBlock(const CFGBlock* cfgblock, MBasicBlock* mblock)
 
     if (mblock->pc() && script()->hasScriptCounts())
         mblock->setHitCount(script()->getHitCount(mblock->pc()));
+
+    // Optimization to move a predecessor that only has this block as successor
+    // just before this block.
+    if (mblock->numPredecessors() == 1 && mblock->getPredecessor(0)->numSuccessors() == 1) {
+        graph().removeBlockFromList(mblock->getPredecessor(0));
+        graph().addBlock(mblock->getPredecessor(0));
+    }
 
     MOZ_TRY(setCurrentAndSpecializePhis(mblock));
     graph().addBlock(mblock);
@@ -2426,6 +2434,8 @@ IonBuilder::replaceTypeSet(MDefinition* subject, TemporaryTypeSet* type, MTest* 
     if (type->unknown())
         return Ok();
 
+    MOZ_ASSERT(!type->hasType(TypeSet::MagicArgType()));
+
     // Don't emit MFilterTypeSet if it doesn't improve the typeset.
     if (subject->resultTypeSet()) {
         if (subject->resultTypeSet()->equals(type))
@@ -2914,6 +2924,9 @@ IonBuilder::visitTest(CFGTest* test)
     MOZ_TRY_VAR(ifFalse, newBlock(filterBlock, test->falseBranch()->startPc()));
     filterBlock->end(MGoto::New(alloc(), ifFalse));
 
+    if (filterBlock->pc() && script()->hasScriptCounts())
+        filterBlock->setHitCount(script()->getHitCount(filterBlock->pc()));
+
     blockWorklist[test->falseBranch()->id()] = ifFalse;
 
     current = nullptr;
@@ -3145,6 +3158,9 @@ IonBuilder::visitTableSwitch(CFGTableSwitch* cfgIns)
                 caseBlock->setSlot(j, constant);
             }
             graph().addBlock(caseBlock);
+
+            if (caseBlock->pc() && script()->hasScriptCounts())
+                caseBlock->setHitCount(script()->getHitCount(caseBlock->pc()));
 
             MBasicBlock* merge;
             MOZ_TRY_VAR(merge, newBlock(caseBlock, cfgblock->startPc()));
@@ -4054,18 +4070,14 @@ IonBuilder::makeInliningDecision(JSObject* targetArg, CallInfo& callInfo)
 
     // End of heuristics, we will inline this function.
 
-    // TI calls ObjectStateChange to trigger invalidation of the caller.
-    TypeSet::ObjectKey* targetKey = TypeSet::ObjectKey::get(target);
-    targetKey->watchStateChangeForInlinedCall(constraints());
-
     outerBuilder->inlinedBytecodeLength_ += targetScript->length();
 
     return InliningDecision_Inline;
 }
 
 AbortReasonOr<Ok>
-IonBuilder::selectInliningTargets(const ObjectVector& targets, CallInfo& callInfo, BoolVector& choiceSet,
-                                  uint32_t* numInlineable)
+IonBuilder::selectInliningTargets(const InliningTargets& targets, CallInfo& callInfo,
+                                  BoolVector& choiceSet, uint32_t* numInlineable)
 {
     *numInlineable = 0;
     uint32_t totalSize = 0;
@@ -4080,7 +4092,7 @@ IonBuilder::selectInliningTargets(const ObjectVector& targets, CallInfo& callInf
         return Ok();
 
     for (size_t i = 0; i < targets.length(); i++) {
-        JSObject* target = targets[i];
+        JSObject* target = targets[i].target;
 
         trackOptimizationAttempt(TrackedStrategy::Call_Inline);
         trackTypeInfo(TrackedTypeSite::Call_Target, target);
@@ -4114,6 +4126,16 @@ IonBuilder::selectInliningTargets(const ObjectVector& targets, CallInfo& callInf
             inlineable = false;
         }
 
+    // Only use a group guard and inline the target if we will recompile when
+    // the target function gets a new group.
+    if (inlineable && targets[i].group) {
+      ObjectGroup* group = targets[i].group;
+      TypeSet::ObjectKey* key = TypeSet::ObjectKey::get(group);
+      if (!key->hasStableClassAndProto(constraints())) {
+        inlineable = false;
+      }
+    }
+
         choiceSet.infallibleAppend(inlineable);
         if (inlineable)
             *numInlineable += 1;
@@ -4124,7 +4146,7 @@ IonBuilder::selectInliningTargets(const ObjectVector& targets, CallInfo& callInf
     // depend on the types of the arguments and the return value.
     if (isOptimizationTrackingEnabled()) {
         for (size_t i = 0; i < targets.length(); i++) {
-            if (choiceSet[i] && targets[i]->as<JSFunction>().isNative()) {
+            if (choiceSet[i] && targets[i].target->as<JSFunction>().isNative()) {
                 trackTypeInfo(callInfo);
                 break;
             }
@@ -4276,7 +4298,7 @@ IonBuilder::inlineSingleCall(CallInfo& callInfo, JSObject* targetArg)
 }
 
 IonBuilder::InliningResult
-IonBuilder::inlineCallsite(const ObjectVector& targets, CallInfo& callInfo)
+IonBuilder::inlineCallsite(const InliningTargets& targets, CallInfo& callInfo)
 {
     if (targets.empty()) {
         trackOptimizationAttempt(TrackedStrategy::Call_Inline);
@@ -4293,7 +4315,7 @@ IonBuilder::inlineCallsite(const ObjectVector& targets, CallInfo& callInfo)
     // Inline single targets -- unless they derive from a cache, in which case
     // avoiding the cache and guarding is still faster.
     if (!propCache.get() && targets.length() == 1) {
-        JSObject* target = targets[0];
+        JSObject* target = targets[0].target;
 
         trackOptimizationAttempt(TrackedStrategy::Call_Inline);
         trackTypeInfo(TrackedTypeSite::Call_Target, target);
@@ -4462,7 +4484,7 @@ IonBuilder::inlineObjectGroupFallback(CallInfo& callInfo, MBasicBlock* dispatchB
 }
 
 AbortReasonOr<Ok>
-IonBuilder::inlineCalls(CallInfo& callInfo, const ObjectVector& targets, BoolVector& choiceSet,
+IonBuilder::inlineCalls(CallInfo& callInfo, const InliningTargets& targets, BoolVector& choiceSet,
                         MGetPropertyCache* maybeCache)
 {
     // Only handle polymorphic inlining.
@@ -4535,7 +4557,7 @@ IonBuilder::inlineCalls(CallInfo& callInfo, const ObjectVector& targets, BoolVec
         amendOptimizationAttempt(i);
 
         // Target must be reachable by the MDispatchInstruction.
-        JSFunction* target = &targets[i]->as<JSFunction>();
+        JSFunction* target = &targets[i].target->as<JSFunction>();
         if (maybeCache && !maybeCache->propTable()->hasFunction(target)) {
             choiceSet[i] = false;
             trackOptimizationOutcome(TrackedOutcome::CantInlineNotInDispatch);
@@ -4601,8 +4623,7 @@ IonBuilder::inlineCalls(CallInfo& callInfo, const ObjectVector& targets, BoolVec
         setCurrent(dispatchBlock);
 
         // Connect the inline path to the returnBlock.
-        ObjectGroup* funcGroup = target->isSingleton() ? nullptr : target->group();
-        if (!dispatch->addCase(target, funcGroup, inlineBlock))
+        if (!dispatch->addCase(target, targets[i].group, inlineBlock))
             return abort(AbortReason::Alloc);
 
         MDefinition* retVal = inlineReturnBlock->peek(-1);
@@ -4687,8 +4708,9 @@ IonBuilder::inlineCalls(CallInfo& callInfo, const ObjectVector& targets, BoolVec
                         continue;
 
                     MOZ_ASSERT(!remaining);
-                    if (targets[i]->is<JSFunction>() && targets[i]->as<JSFunction>().isSingleton())
-                        remaining = &targets[i]->as<JSFunction>();
+                    JSObject* target = targets[i].target;
+                    if (target->is<JSFunction>() && target->isSingleton())
+                        remaining = &target->as<JSFunction>();
                     break;
                 }
             }
@@ -4753,14 +4775,16 @@ IonBuilder::createCallObject(MDefinition* callee, MDefinition* env)
     // Get a template CallObject that we'll use to generate inline object
     // creation.
     CallObject* templateObj = inspector->templateCallObject();
+    MConstant* templateCst = MConstant::NewConstraintlessObject(alloc(), templateObj);
+    current->add(templateCst);
 
     // Allocate the object. Run-once scripts need a singleton type, so always do
     // a VM call in such cases.
     MNewCallObjectBase* callObj;
     if (script()->treatAsRunOnce() || templateObj->isSingleton())
-        callObj = MNewSingletonCallObject::New(alloc(), templateObj);
+        callObj = MNewSingletonCallObject::New(alloc(), templateCst);
     else
-        callObj = MNewCallObject::New(alloc(), templateObj);
+        callObj = MNewCallObject::New(alloc(), templateCst);
     current->add(callObj);
 
     // Initialize the object's reserved slots. No post barrier is needed here,
@@ -5315,7 +5339,7 @@ IonBuilder::jsop_call(uint32_t argc, bool constructing, bool ignoresReturnValue)
     int calleeDepth = -((int)argc + 2 + constructing);
 
     // Acquire known call target if existent.
-    ObjectVector targets(alloc());
+    InliningTargets targets(alloc());
     TemporaryTypeSet* calleeTypes = current->peek(calleeDepth)->resultTypeSet();
     if (calleeTypes)
         MOZ_TRY(getPolyCallTargets(calleeTypes, constructing, targets, 4));
@@ -5335,8 +5359,8 @@ IonBuilder::jsop_call(uint32_t argc, bool constructing, bool ignoresReturnValue)
 
     // No inline, just make the call.
     JSFunction* target = nullptr;
-    if (targets.length() == 1 && targets[0]->is<JSFunction>())
-        target = &targets[0]->as<JSFunction>();
+    if (targets.length() == 1 && targets[0].target->is<JSFunction>())
+        target = &targets[0].target->as<JSFunction>();
 
     if (target && status == InliningStatus_WarmUpCountTooLow) {
         MRecompileCheck* check =
@@ -7255,9 +7279,14 @@ IonBuilder::loadStaticSlot(JSObject* staticObject, BarrierKind barrier, Temporar
 bool
 jit::NeedsPostBarrier(MDefinition* value)
 {
-    if (!GetJitContext()->compartment->zone()->nurseryExists())
+    CompileZone* zone = GetJitContext()->compartment->zone();
+    if (!zone->nurseryExists())
         return false;
-    return value->mightBeType(MIRType::Object);
+    if (value->mightBeType(MIRType::Object))
+        return true;
+    if (value->mightBeType(MIRType::String) && zone->canNurseryAllocateStrings())
+        return true;
+    return false;
 }
 
 AbortReasonOr<Ok>
@@ -9292,8 +9321,10 @@ IonBuilder::jsop_arguments()
         current->push(current->argumentsObject());
         return Ok();
     }
-    MOZ_ASSERT(lazyArguments_);
-    current->push(lazyArguments_);
+    MOZ_ASSERT(hasLazyArguments_);
+    MConstant* lazyArg = MConstant::New(alloc(), MagicValue(JS_OPTIMIZED_ARGUMENTS));
+    current->add(lazyArg);
+    current->push(lazyArg);
     return Ok();
 }
 
@@ -11671,7 +11702,7 @@ IonBuilder::storeUnboxedValue(MDefinition* obj, MDefinition* elements, int32_t e
         break;
 
       case JSVAL_TYPE_STRING:
-        store = MStoreUnboxedString::New(alloc(), elements, scaledOffset, value,
+        store = MStoreUnboxedString::New(alloc(), elements, scaledOffset, value, obj,
                                          elementsOffset, preBarrier);
         break;
 
@@ -11971,8 +12002,10 @@ IonBuilder::jsop_lambda_arrow(JSFunction* fun)
     MOZ_ASSERT(!fun->isNative());
 
     MDefinition* newTargetDef = current->pop();
+    MConstant* cst = MConstant::NewConstraintlessObject(alloc(), fun);
+    current->add(cst);
     MLambdaArrow* ins = MLambdaArrow::New(alloc(), constraints(), current->environmentChain(),
-                                          newTargetDef, fun);
+                                          newTargetDef, cst);
     current->add(ins);
     current->push(ins);
 
@@ -13333,9 +13366,9 @@ IonBuilder::storeReferenceTypedObjectValue(MDefinition* typedObj,
         store = MStoreUnboxedObjectOrNull::New(alloc(), elements, scaledOffset, value, typedObj, adjustment);
         break;
       case ReferenceTypeDescr::TYPE_STRING:
-        // Strings are not nursery allocated, so these writes do not need post
-        // barriers.
-        store = MStoreUnboxedString::New(alloc(), elements, scaledOffset, value, adjustment);
+        // See previous comment. The StoreUnboxedString type policy may insert
+        // ToString instructions that require a post barrier.
+        store = MStoreUnboxedString::New(alloc(), elements, scaledOffset, value, typedObj, adjustment);
         break;
     }
 

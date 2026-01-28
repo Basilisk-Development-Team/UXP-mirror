@@ -56,6 +56,7 @@ using mozilla::PodZero;
 using mozilla::Some;
 
 using JS::AutoGCRooter;
+using JS::ReadOnlyCompileOptions;
 
 namespace js {
 namespace frontend {
@@ -2285,8 +2286,8 @@ Parser<FullParseHandler>::moduleBody(ModuleSharedContext* modulesc)
             if (!str.encodeLatin1(context, name))
                 return null();
 
-            JS_ReportErrorNumberLatin1(context, GetErrorMessage, nullptr,
-                                       JSMSG_MISSING_EXPORT, str.ptr());
+
+            error(JSMSG_MISSING_EXPORT, str.ptr());
             return null();
         }
 
@@ -4142,8 +4143,15 @@ Parser<ParseHandler>::statementList(YieldHandling yieldHandling)
         return null();
 
     bool canHaveDirectives = pc->atBodyLevel();
-    if (canHaveDirectives)
+    if (canHaveDirectives) {
         tokenStream.clearSawOctalEscape();
+    }
+
+    bool canHaveHashbangComment = pc->atTopLevel();
+    if (canHaveHashbangComment) {
+        tokenStream.consumeOptionalHashbangComment();
+    }
+
     bool afterReturn = false;
     bool warnedAboutStatementsAfterReturn = false;
     uint32_t statementBegin = 0;

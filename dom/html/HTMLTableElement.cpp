@@ -48,6 +48,7 @@ public:
 
   // nsWrapperCache
   using nsWrapperCache::GetWrapperPreserveColor;
+  using nsWrapperCache::PreserveWrapper;
   virtual JSObject* WrapObject(JSContext* aCx, JS::Handle<JSObject*> aGivenProto) override;
 protected:
   virtual ~TableRowsCollection();
@@ -55,6 +56,10 @@ protected:
   virtual JSObject* GetWrapperPreserveColorInternal() override
   {
     return nsWrapperCache::GetWrapperPreserveColor();
+  }
+  virtual void PreserveWrapperInternal(nsISupports* aScriptObjectHolder) override
+  {
+    nsWrapperCache::PreserveWrapper(aScriptObjectHolder);
   }
 
   // Those rows that are not in table sections
@@ -359,7 +364,7 @@ NS_IMPL_ADDREF_INHERITED(HTMLTableElement, Element)
 NS_IMPL_RELEASE_INHERITED(HTMLTableElement, Element)
 
 // QueryInterface implementation for HTMLTableElement
-NS_INTERFACE_MAP_BEGIN_CYCLE_COLLECTION_INHERITED(HTMLTableElement)
+NS_INTERFACE_MAP_BEGIN_CYCLE_COLLECTION(HTMLTableElement)
 NS_INTERFACE_MAP_END_INHERITING(nsGenericHTMLElement)
 
 
@@ -1000,13 +1005,16 @@ HTMLTableElement::BeforeSetAttr(int32_t aNameSpaceID, nsIAtom* aName,
 nsresult
 HTMLTableElement::AfterSetAttr(int32_t aNameSpaceID, nsIAtom* aName,
                                const nsAttrValue* aValue,
-                               const nsAttrValue* aOldValue, bool aNotify)
+                               const nsAttrValue* aOldValue,
+                               nsIPrincipal* aSubjectPrincipal,
+                               bool aNotify)
 {
   if (aName == nsGkAtoms::cellpadding && aNameSpaceID == kNameSpaceID_None) {
     BuildInheritedAttributes();
   }
   return nsGenericHTMLElement::AfterSetAttr(aNameSpaceID, aName, aValue,
-                                            aOldValue, aNotify);
+                                            aOldValue, aSubjectPrincipal,
+                                            aNotify);
 }
 
 } // namespace dom

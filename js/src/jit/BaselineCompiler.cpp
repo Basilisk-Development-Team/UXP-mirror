@@ -35,6 +35,7 @@
 #include "jit/MacroAssembler-inl.h"
 #include "vm/Interpreter-inl.h"
 #include "vm/NativeObject-inl.h"
+#include "vm/TypeInference-inl.h"
 
 using namespace js;
 using namespace js::jit;
@@ -97,7 +98,8 @@ BaselineCompiler::compile()
     AutoTraceLog logScript(logger, scriptEvent);
     AutoTraceLog logCompile(logger, TraceLogger_BaselineCompilation);
 
-    if (!script->ensureHasTypes(cx) || !script->ensureHasAnalyzedArgsUsage(cx))
+    AutoKeepTypeScripts keepTypes(cx);
+    if (!script->ensureHasTypes(cx, keepTypes) || !script->ensureHasAnalyzedArgsUsage(cx))
         return Method_Error;
 
     // When code coverage is only enabled for optimizations, or when a Debugger
@@ -2825,7 +2827,7 @@ BaselineCompiler::emit_JSOP_SETALIASEDVAR()
 
     Label skipBarrier;
     masm.branchPtrInNurseryChunk(Assembler::Equal, objReg, temp, &skipBarrier);
-    masm.branchValueIsNurseryObject(Assembler::NotEqual, R0, temp, &skipBarrier);
+    masm.branchValueIsNurseryCell(Assembler::NotEqual, R0, temp, &skipBarrier);
 
     masm.call(&postBarrierSlot_); // Won't clobber R0
 
@@ -3249,7 +3251,7 @@ BaselineCompiler::emitFormalArgAccess(uint32_t arg, bool get)
         Label skipBarrier;
 
         masm.branchPtrInNurseryChunk(Assembler::Equal, reg, temp, &skipBarrier);
-        masm.branchValueIsNurseryObject(Assembler::NotEqual, R0, temp, &skipBarrier);
+        masm.branchValueIsNurseryCell(Assembler::NotEqual, R0, temp, &skipBarrier);
 
         masm.call(&postBarrierSlot_);
 
@@ -5037,7 +5039,7 @@ BaselineCompiler::emit_JSOP_INITHOMEOBJECT()
     Register temp = R1.scratchReg();
     Label skipBarrier;
     masm.branchPtrInNurseryChunk(Assembler::Equal, func, temp, &skipBarrier);
-    masm.branchValueIsNurseryObject(Assembler::NotEqual, R0, temp, &skipBarrier);
+    masm.branchValueIsNurseryCell(Assembler::NotEqual, R0, temp, &skipBarrier);
     masm.call(&postBarrierSlot_);
     masm.bind(&skipBarrier);
 

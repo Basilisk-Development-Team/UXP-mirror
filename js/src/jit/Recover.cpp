@@ -13,7 +13,6 @@
 #include "jsobj.h"
 #include "jsstr.h"
 
-#include "builtin/RegExp.h"
 #include "builtin/TypedObject.h"
 
 #include "gc/Heap.h"
@@ -1088,32 +1087,6 @@ RNaNToZero::recover(JSContext* cx, SnapshotIterator& iter) const
 }
 
 bool
-MRegExpMatcher::writeRecoverData(CompactBufferWriter& writer) const
-{
-    MOZ_ASSERT(canRecoverOnBailout());
-    writer.writeUnsigned(uint32_t(RInstruction::Recover_RegExpMatcher));
-    return true;
-}
-
-RRegExpMatcher::RRegExpMatcher(CompactBufferReader& reader)
-{}
-
-bool
-RRegExpMatcher::recover(JSContext* cx, SnapshotIterator& iter) const
-{
-    RootedObject regexp(cx, &iter.read().toObject());
-    RootedString input(cx, iter.read().toString());
-    int32_t lastIndex = iter.read().toInt32();
-
-    RootedValue result(cx);
-    if (!RegExpMatcherRaw(cx, regexp, input, lastIndex, nullptr, &result))
-        return false;
-
-    iter.storeInstructionResult(result);
-    return true;
-}
-
-bool
 MRegExpSearcher::writeRecoverData(CompactBufferWriter& writer) const
 {
     MOZ_ASSERT(canRecoverOnBailout());
@@ -1480,6 +1453,65 @@ RLambda::recover(JSContext* cx, SnapshotIterator& iter) const
     RootedFunction fun(cx, &iter.read().toObject().as<JSFunction>());
 
     JSObject* resultObject = js::Lambda(cx, fun, scopeChain);
+    if (!resultObject)
+        return false;
+
+    RootedValue result(cx);
+    result.setObject(*resultObject);
+    iter.storeInstructionResult(result);
+    return true;
+}
+    
+    
+bool
+MLambdaArrow::writeRecoverData(CompactBufferWriter& writer) const
+{
+    MOZ_ASSERT(canRecoverOnBailout());
+    writer.writeUnsigned(uint32_t(RInstruction::Recover_LambdaArrow));
+    return true;
+}
+
+RLambdaArrow::RLambdaArrow(CompactBufferReader& reader)
+{
+}
+
+bool
+RLambdaArrow::recover(JSContext* cx, SnapshotIterator& iter) const
+{
+    RootedObject scopeChain(cx, &iter.read().toObject());
+    RootedValue newTarget(cx, iter.read());
+    RootedFunction fun(cx, &iter.read().toObject().as<JSFunction>());
+
+    JSObject* resultObject = js::LambdaArrow(cx, fun, scopeChain, newTarget);
+    if (!resultObject)
+        return false;
+
+    RootedValue result(cx);
+    result.setObject(*resultObject);
+    iter.storeInstructionResult(result);
+    return true;
+}
+
+bool
+MNewCallObject::writeRecoverData(CompactBufferWriter& writer) const
+{
+    MOZ_ASSERT(canRecoverOnBailout());
+    writer.writeUnsigned(uint32_t(RInstruction::Recover_NewCallObject));
+    return true;
+}
+
+RNewCallObject::RNewCallObject(CompactBufferReader& reader)
+{
+}
+
+bool
+RNewCallObject::recover(JSContext* cx, SnapshotIterator& iter) const
+{
+    Rooted<CallObject*> templateObj(cx, &iter.read().toObject().as<CallObject>());
+
+    RootedShape shape(cx, templateObj->lastProperty());
+    RootedObjectGroup group(cx, templateObj->group());
+    JSObject* resultObject = NewCallObject(cx, shape, group);
     if (!resultObject)
         return false;
 

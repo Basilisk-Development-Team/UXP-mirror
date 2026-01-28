@@ -1231,15 +1231,6 @@ MacroAssemblerMIPSShared::ma_lis(FloatRegister dest, float value)
 }
 
 void
-MacroAssemblerMIPSShared::ma_lis(FloatRegister dest, wasm::RawF32 value)
-{
-    Imm32 imm(value.bits());
-
-    ma_li(ScratchRegister, imm);
-    moveToFloat32(ScratchRegister, dest);
-}
-
-void
 MacroAssemblerMIPSShared::ma_liNegZero(FloatRegister dest)
 {
     moveToDoubleLo(zero, dest);
@@ -1908,6 +1899,25 @@ MacroAssembler::call(JitCode* c)
     addPendingJump(bo, ImmPtr(c->raw()), Relocation::JITCODE);
     ma_liPatchable(ScratchRegister, ImmPtr(c->raw()));
     callJitNoProfiler(ScratchRegister);
+}
+
+CodeOffset
+MacroAssembler::nopPatchableToCall(const wasm::CallSiteDesc& desc)
+{
+    MOZ_CRASH("NYI");
+    return CodeOffset();
+}
+
+void
+MacroAssembler::patchNopToCall(uint8_t* call, uint8_t* target)
+{
+    MOZ_CRASH("NYI");
+}
+
+void
+MacroAssembler::patchCallToNop(uint8_t* call)
+{
+    MOZ_CRASH("NYI");
 }
 
 void

@@ -12,9 +12,7 @@
 #include "SharedSSLState.h"
 #include "cert.h"
 #include "certdb.h"
-#ifdef MOZ_SECURITY_SQLSTORE
 #include "mozStorageCID.h"
-#endif
 #include "mozilla/ArrayUtils.h"
 #include "mozilla/Casting.h"
 #include "mozilla/Preferences.h"
@@ -1436,8 +1434,7 @@ nsNSSComponent::FillTLSVersionRange(SSLVersionRange& rangeOut,
 static const int32_t OCSP_ENABLED_DEFAULT = 1;
 static const bool REQUIRE_SAFE_NEGOTIATION_DEFAULT = false;
 static const bool FALSE_START_ENABLED_DEFAULT = true;
-static const bool NPN_ENABLED_DEFAULT = true;
-static const bool ALPN_ENABLED_DEFAULT = false;
+static const bool ALPN_ENABLED_DEFAULT = true;
 static const bool ENABLED_0RTT_DATA_DEFAULT = false;
 static const bool TLS13_COMPAT_MODE_DEFAULT = false;
 static const bool HELLO_DOWNGRADE_CHECK_DEFAULT = true;
@@ -1702,17 +1699,11 @@ GetNSSProfilePath(nsAutoCString& aProfilePath)
            ("Could not get nsILocalFileWin for profile directory.\n"));
     return NS_ERROR_FAILURE;
   }
-#ifdef MOZ_SECURITY_SQLSTORE
   // SQLite always takes UTF-8 file paths regardless of the current system
   // code page.
   nsAutoString u16ProfilePath;
   rv = profileFileWin->GetCanonicalPath(u16ProfilePath);
   CopyUTF16toUTF8(u16ProfilePath, aProfilePath);
-#else
-  // Native path will drop Unicode characters that cannot be mapped to system's
-  // codepage, using short (canonical) path as workaround.
-  rv = profileFileWin->GetNativeCanonicalPath(aProfilePath);
-#endif
 #else
   // On non-Windows, just get the native profile path.
   rv = profileFile->GetNativePath(aProfilePath);
@@ -1865,13 +1856,10 @@ nsNSSComponent::InitializeNSS()
                        Preferences::GetBool("security.ssl.enable_false_start",
                                             FALSE_START_ENABLED_DEFAULT));
 
-  // SSL_ENABLE_NPN and SSL_ENABLE_ALPN also require calling
-  // SSL_SetNextProtoNego in order for the extensions to be negotiated.
-  // WebRTC does not do that so it will not use NPN or ALPN even when these
-  // preferences are true.
-  SSL_OptionSetDefault(SSL_ENABLE_NPN,
-                       Preferences::GetBool("security.ssl.enable_npn",
-                                            NPN_ENABLED_DEFAULT));
+  // SSL_ENABLE_ALPN also requires calling SSL_SetNextProtoNego in order for
+  // the extensions to be negotiated.
+  // WebRTC does not do that so it will not use ALPN even when this preference
+  // is true.
   SSL_OptionSetDefault(SSL_ENABLE_ALPN,
                        Preferences::GetBool("security.ssl.enable_alpn",
                                             ALPN_ENABLED_DEFAULT));
@@ -1980,13 +1968,11 @@ nsNSSComponent::Init()
     return NS_ERROR_NOT_SAME_THREAD;
   }
 
-#ifdef MOZ_SECURITY_SQLSTORE
   // To avoid an sqlite3_config race in NSS init, we require the storage service to get initialized first.
   nsCOMPtr<nsISupports> storageService = do_GetService(MOZ_STORAGE_SERVICE_CONTRACTID);
   if (!storageService) {
     return NS_ERROR_NOT_AVAILABLE;
   }
-#endif
 
   nsresult rv = NS_OK;
 
@@ -2062,10 +2048,6 @@ nsNSSComponent::Observe(nsISupports* aSubject, const char* aTopic,
       SSL_OptionSetDefault(SSL_ENABLE_FALSE_START,
                            Preferences::GetBool("security.ssl.enable_false_start",
                                                 FALSE_START_ENABLED_DEFAULT));
-    } else if (prefName.EqualsLiteral("security.ssl.enable_npn")) {
-      SSL_OptionSetDefault(SSL_ENABLE_NPN,
-                           Preferences::GetBool("security.ssl.enable_npn",
-                                                NPN_ENABLED_DEFAULT));
     } else if (prefName.EqualsLiteral("security.ssl.enable_alpn")) {
       SSL_OptionSetDefault(SSL_ENABLE_ALPN,
                            Preferences::GetBool("security.ssl.enable_alpn",

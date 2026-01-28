@@ -40,6 +40,7 @@
 #include "nsIFrame.h"
 #include "nsIScriptSecurityManager.h"
 #include "nsFocusManager.h"
+#include "mozilla/dom/HTMLInputElement.h"
 
 using namespace mozilla;
 using namespace mozilla::dom;
@@ -541,9 +542,24 @@ nsFormFillController::SetTextValue(const nsAString & aTextValue)
 {
   nsCOMPtr<nsIDOMNSEditableElement> editable = do_QueryInterface(mFocusedInput);
   if (editable) {
+    editable->BeginProgrammaticValueSet();
     mSuppressOnInput = true;
     editable->SetUserInput(aTextValue);
     mSuppressOnInput = false;
+    editable->EndProgrammaticValueSet();
+
+    if (mFocusedInput) {
+      nsCOMPtr<nsIContent> content = do_QueryInterface(mFocusedInput);
+      if (content) {
+        mozilla::dom::HTMLInputElement* htmlInput = mozilla::dom::HTMLInputElement::FromContentOrNull(content);
+        if (htmlInput) {
+          htmlInput->SetAutofilled(true);
+          nsAutoString value;
+          htmlInput->GetValue(value);
+          htmlInput->SetAutofilledValue(value);
+        }
+      }
+    }
   }
   return NS_OK;
 }
@@ -919,6 +935,11 @@ nsFormFillController::HandleEvent(nsIDOMEvent* aEvent)
       mFocusedPopup->ClosePopup();
     return NS_OK;
   }
+  if (type.EqualsLiteral("resize")) {
+    if (mFocusedPopup)
+      mFocusedPopup->ClosePopup();
+    return NS_OK;
+  }    
   if (type.EqualsLiteral("pagehide")) {
 
     nsCOMPtr<nsIDocument> doc = do_QueryInterface(
@@ -1213,6 +1234,8 @@ nsFormFillController::AddWindowListeners(nsPIDOMWindowOuter* aWindow)
                               TrustedEventsAtCapture());
   elm->AddEventListenerByType(this, NS_LITERAL_STRING("contextmenu"),
                               TrustedEventsAtCapture());
+  elm->AddEventListenerByType(this, NS_LITERAL_STRING("resize"),
+                              TrustedEventsAtCapture());
 
   // Note that any additional listeners added should ensure that they ignore
   // untrusted events, which might be sent by content that's up to no good.
@@ -1256,6 +1279,8 @@ nsFormFillController::RemoveWindowListeners(nsPIDOMWindowOuter* aWindow)
   elm->RemoveEventListenerByType(this, NS_LITERAL_STRING("compositionend"),
                                  TrustedEventsAtCapture());
   elm->RemoveEventListenerByType(this, NS_LITERAL_STRING("contextmenu"),
+                                 TrustedEventsAtCapture());
+  elm->RemoveEventListenerByType(this, NS_LITERAL_STRING("resize"),
                                  TrustedEventsAtCapture());
 }
 
@@ -1322,9 +1347,6 @@ nsFormFillController::StopControllingInput()
     nsresult rv;
     nsCOMPtr <nsIFormAutoComplete> formAutoComplete =
       do_GetService("@mozilla.org/satchel/form-autocomplete;1", &rv);
-    if (formAutoComplete) {
-      formAutoComplete->StopControllingInput(mFocusedInput);
-    }
 
     mFocusedInputNode = nullptr;
     mFocusedInput = nullptr;

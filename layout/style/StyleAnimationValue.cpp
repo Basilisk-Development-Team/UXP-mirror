@@ -2675,8 +2675,10 @@ StyleAnimationValue::AddWeighted(nsCSSPropertyID aProperty,
       switch (aProperty) {
         case eCSSProperty_font_stretch: {
           // Animate just like eUnit_Integer.
-          int32_t result = floor(aCoeff1 * double(aValue1.GetIntValue()) +
-                                 aCoeff2 * double(aValue2.GetIntValue()));
+          // https://drafts.csswg.org/css-fonts-3/#font-stretch-animation
+          double interpolatedValue = aCoeff1 * double(aValue1.GetIntValue()) +
+                                     aCoeff2 * double(aValue2.GetIntValue());
+          int32_t result = floor(interpolatedValue + 0.5); // Fast round.
           if (result < NS_STYLE_FONT_STRETCH_ULTRA_CONDENSED) {
             result = NS_STYLE_FONT_STRETCH_ULTRA_CONDENSED;
           } else if (result > NS_STYLE_FONT_STRETCH_ULTRA_EXPANDED) {
@@ -2708,10 +2710,11 @@ StyleAnimationValue::AddWeighted(nsCSSPropertyID aProperty,
       return true;
     }
     case eUnit_Integer: {
-      // http://dev.w3.org/csswg/css3-transitions/#animation-of-property-types-
-      // says we should use floor
-      int32_t result = floor(aCoeff1 * double(aValue1.GetIntValue()) +
-                             aCoeff2 * double(aValue2.GetIntValue()));
+      // https://drafts.csswg.org/css-transitions/#animtype-integer
+      // Spec says animation of properties should use rounding.
+      double interpolatedValue = aCoeff1 * double(aValue1.GetIntValue()) +
+                                 aCoeff2 * double(aValue2.GetIntValue());
+      int32_t result = floor(interpolatedValue + 0.5);
       if (aProperty == eCSSProperty_font_weight) {
         if (result < 100) {
           result = 100;
@@ -3945,9 +3948,9 @@ StyleClipBasicShapeToCSSArray(const StyleClipPath& aClipPath,
       const nsStyleCorners& radii = shape->GetRadius();
       NS_FOR_CSS_FULL_CORNERS(corner) {
         auto pair = MakeUnique<nsCSSValuePair>();
-        if (!StyleCoordToCSSValue(radii.Get(NS_FULL_TO_HALF_CORNER(corner, false)),
+        if (!StyleCoordToCSSValue(radii.Get(FullToHalfCorner(corner, false)),
                                   pair->mXValue) ||
-            !StyleCoordToCSSValue(radii.Get(NS_FULL_TO_HALF_CORNER(corner, true)),
+            !StyleCoordToCSSValue(radii.Get(FullToHalfCorner(corner, true)),
                                   pair->mYValue)) {
           return false;
         }
@@ -4373,15 +4376,15 @@ StyleAnimationValue::ExtractComputedValue(nsCSSPropertyID aProperty,
     case eStyleAnimType_Sides_Bottom:
     case eStyleAnimType_Sides_Left: {
       static_assert(
-       NS_SIDE_TOP    == eStyleAnimType_Sides_Top   -eStyleAnimType_Sides_Top &&
-       NS_SIDE_RIGHT  == eStyleAnimType_Sides_Right -eStyleAnimType_Sides_Top &&
-       NS_SIDE_BOTTOM == eStyleAnimType_Sides_Bottom-eStyleAnimType_Sides_Top &&
-       NS_SIDE_LEFT   == eStyleAnimType_Sides_Left  -eStyleAnimType_Sides_Top,
+       eSideTop    == eStyleAnimType_Sides_Top   -eStyleAnimType_Sides_Top &&
+       eSideRight  == eStyleAnimType_Sides_Right -eStyleAnimType_Sides_Top &&
+       eSideBottom == eStyleAnimType_Sides_Bottom-eStyleAnimType_Sides_Top &&
+       eSideLeft   == eStyleAnimType_Sides_Left  -eStyleAnimType_Sides_Top,
        "box side constants out of sync with animation side constants");
 
       const nsStyleCoord &coord =
         StyleDataAtOffset<nsStyleSides>(styleStruct, ssOffset).
-          Get(mozilla::css::Side(animType - eStyleAnimType_Sides_Top));
+          Get(mozilla::Side(animType - eStyleAnimType_Sides_Top));
       return StyleCoordToValue(coord, aComputedValue);
     }
     case eStyleAnimType_Corner_TopLeft:
@@ -4389,23 +4392,23 @@ StyleAnimationValue::ExtractComputedValue(nsCSSPropertyID aProperty,
     case eStyleAnimType_Corner_BottomRight:
     case eStyleAnimType_Corner_BottomLeft: {
       static_assert(
-       NS_CORNER_TOP_LEFT     == eStyleAnimType_Corner_TopLeft -
-                                 eStyleAnimType_Corner_TopLeft        &&
-       NS_CORNER_TOP_RIGHT    == eStyleAnimType_Corner_TopRight -
-                                 eStyleAnimType_Corner_TopLeft        &&
-       NS_CORNER_BOTTOM_RIGHT == eStyleAnimType_Corner_BottomRight -
-                                 eStyleAnimType_Corner_TopLeft        &&
-       NS_CORNER_BOTTOM_LEFT  == eStyleAnimType_Corner_BottomLeft -
-                                 eStyleAnimType_Corner_TopLeft,
+       eCornerTopLeft     == eStyleAnimType_Corner_TopLeft -
+                             eStyleAnimType_Corner_TopLeft        &&
+       eCornerTopRight    == eStyleAnimType_Corner_TopRight -
+                             eStyleAnimType_Corner_TopLeft        &&
+       eCornerBottomRight == eStyleAnimType_Corner_BottomRight -
+                             eStyleAnimType_Corner_TopLeft        &&
+       eCornerBottomLeft  == eStyleAnimType_Corner_BottomLeft -
+                             eStyleAnimType_Corner_TopLeft,
        "box corner constants out of sync with animation corner constants");
 
       const nsStyleCorners& corners =
         StyleDataAtOffset<nsStyleCorners>(styleStruct, ssOffset);
-      uint8_t fullCorner = animType - eStyleAnimType_Corner_TopLeft;
+      Corner fullCorner = Corner(animType - eStyleAnimType_Corner_TopLeft);
       const nsStyleCoord &horiz =
-        corners.Get(NS_FULL_TO_HALF_CORNER(fullCorner, false));
+        corners.Get(FullToHalfCorner(fullCorner, false));
       const nsStyleCoord &vert =
-        corners.Get(NS_FULL_TO_HALF_CORNER(fullCorner, true));
+        corners.Get(FullToHalfCorner(fullCorner, true));
       nsAutoPtr<nsCSSValuePair> pair(new nsCSSValuePair);
       if (!StyleCoordToCSSValue(horiz, pair->mXValue) ||
           !StyleCoordToCSSValue(vert, pair->mYValue)) {

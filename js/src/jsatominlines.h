@@ -34,6 +34,38 @@ js::AtomStateEntry::asPtrUnbarriered() const
 
 namespace js {
 
+struct AtomHasher::Lookup
+{
+    union {
+        const JS::Latin1Char* latin1Chars;
+        const char16_t* twoByteChars;
+    };
+    bool isLatin1;
+    size_t length;
+    const JSAtom* atom; /* Optional. */
+    JS::AutoCheckCannotGC nogc;
+
+    HashNumber hash;
+
+    MOZ_ALWAYS_INLINE Lookup(const char16_t* chars, size_t length)
+      : twoByteChars(chars), isLatin1(false), length(length), atom(nullptr)
+        {
+            hash = mozilla::HashString(chars, length);
+        }
+    MOZ_ALWAYS_INLINE Lookup(const JS::Latin1Char* chars, size_t length)
+      : latin1Chars(chars), isLatin1(true), length(length), atom(nullptr)
+        {
+            hash = mozilla::HashString(chars, length);
+        }
+    inline explicit Lookup(const JSAtom* atom);
+};
+
+inline HashNumber
+AtomHasher::hash(const Lookup& l)
+{
+    return l.hash;
+}
+
 inline jsid
 AtomToId(JSAtom* atom)
 {
@@ -49,6 +81,13 @@ AtomToId(JSAtom* atom)
 inline bool
 ValueToIdPure(const Value& v, jsid* id)
 {
+    if (v.isString()) {
+        if (v.toString()->isAtom()) {
+            *id = AtomToId(&v.toString()->asAtom());
+            return true;
+        }
+        return false;
+    }
     int32_t i;
     if (ValueFitsInInt32(v, &i) && INT_FITS_IN_JSID(i)) {
         *id = INT_TO_JSID(i);
@@ -60,11 +99,7 @@ ValueToIdPure(const Value& v, jsid* id)
         return true;
     }
 
-    if (!v.isString() || !v.toString()->isAtom())
-        return false;
-
-    *id = AtomToId(&v.toString()->asAtom());
-    return true;
+    return false;
 }
 
 template <AllowGC allowGC>
@@ -72,15 +107,22 @@ inline bool
 ValueToId(JSContext* cx, typename MaybeRooted<Value, allowGC>::HandleType v,
           typename MaybeRooted<jsid, allowGC>::MutableHandleType idp)
 {
-    int32_t i;
-    if (ValueFitsInInt32(v, &i) && INT_FITS_IN_JSID(i)) {
-        idp.set(INT_TO_JSID(i));
-        return true;
-    }
+    if (v.isString()) {
+        if (v.toString()->isAtom()) {
+            idp.set(AtomToId(&v.toString()->asAtom()));
+            return true;
+        }
+    } else {
+        int32_t i;
+        if (ValueFitsInInt32(v, &i) && INT_FITS_IN_JSID(i)) {
+            idp.set(INT_TO_JSID(i));
+            return true;
+        }
 
-    if (js::IsSymbolOrSymbolWrapper(v)) {
-        idp.set(SYMBOL_TO_JSID(js::ToSymbolPrimitive(v)));
-        return true;
+        if (js::IsSymbolOrSymbolWrapper(v)) {
+            idp.set(SYMBOL_TO_JSID(js::ToSymbolPrimitive(v)));
+            return true;
+        }
     }
 
     JSAtom* atom = ToAtom<allowGC>(cx, v);

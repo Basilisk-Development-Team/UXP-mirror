@@ -343,7 +343,8 @@ OriginAttributes::IsFirstPartyEnabled()
   return sFirstPartyIsolation;
 }
 
-BasePrincipal::BasePrincipal()
+BasePrincipal::BasePrincipal(PrincipalKind aKind)
+  : mKind(aKind)
 {}
 
 BasePrincipal::~BasePrincipal()
@@ -561,6 +562,23 @@ BasePrincipal::GetCspJSON(nsAString& outCSPinJSON)
 }
 
 NS_IMETHODIMP
+BasePrincipal::IsSameOrigin(nsIURI* aURI, bool aIsPrivateWin, bool* aRes) {
+  *aRes = false;
+  nsCOMPtr<nsIURI> prinURI;
+  nsresult rv = GetURI(getter_AddRefs(prinURI));
+  if (NS_FAILED(rv) || !prinURI) {
+    return NS_OK;
+  }
+  nsIScriptSecurityManager* ssm = nsContentUtils::GetSecurityManager();
+  if (!ssm) {
+    return NS_ERROR_UNEXPECTED;
+    ;
+  }
+  *aRes = NS_SUCCEEDED(ssm->CheckSameOriginURI(prinURI, aURI, aIsPrivateWin));
+  return NS_OK;
+}
+
+NS_IMETHODIMP
 BasePrincipal::GetIsNullPrincipal(bool* aResult)
 {
   *aResult = Kind() == eNullPrincipal;
@@ -607,13 +625,8 @@ BasePrincipal::GetOriginSuffix(nsACString& aOriginAttributes)
 NS_IMETHODIMP
 BasePrincipal::GetAppStatus(uint16_t* aAppStatus)
 {
-  if (AppId() == nsIScriptSecurityManager::UNKNOWN_APP_ID) {
-    NS_WARNING("Asking for app status on a principal with an unknown app id");
-    *aAppStatus = nsIPrincipal::APP_STATUS_NOT_INSTALLED;
-    return NS_OK;
-  }
-
-  *aAppStatus = nsScriptSecurityManager::AppStatusForPrincipal(this);
+  // TODO: Remove GetAppStatus.
+  *aAppStatus = nsIPrincipal::APP_STATUS_NOT_INSTALLED;
   return NS_OK;
 }
 

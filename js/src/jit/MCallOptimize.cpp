@@ -670,10 +670,6 @@ IonBuilder::inlineArrayPopShift(CallInfo& callInfo, MArrayPopShift::Mode mode)
     const Class* clasp = thisTypes->getKnownClass(constraints());
     if (clasp != &ArrayObject::class_ && clasp != &UnboxedArrayObject::class_)
         return InliningStatus_NotInlined;
-    if (thisTypes->hasObjectFlags(constraints(), unhandledFlags)) {
-        trackOptimizationOutcome(TrackedOutcome::ArrayBadFlags);
-        return InliningStatus_NotInlined;
-    }
 
     // Watch out for extra indexed properties on the object or its prototype.
     bool hasIndexedProperty;
@@ -1043,20 +1039,30 @@ IonBuilder::inlineMathFloor(CallInfo& callInfo)
         return InliningStatus_Inlined;
     }
 
-    if (IsFloatingPointType(argType) && returnType == MIRType::Int32) {
-        callInfo.setImplicitlyUsedUnchecked();
-        MFloor* ins = MFloor::New(alloc(), callInfo.getArg(0));
-        current->add(ins);
-        current->push(ins);
-        return InliningStatus_Inlined;
-    }
+    if (IsFloatingPointType(argType)) {
+        if (returnType == MIRType::Int32) {
+            callInfo.setImplicitlyUsedUnchecked();
+            MFloor* ins = MFloor::New(alloc(), callInfo.getArg(0));
+            current->add(ins);
+            current->push(ins);
+            return InliningStatus_Inlined;
+        }
 
-    if (IsFloatingPointType(argType) && returnType == MIRType::Double) {
-        callInfo.setImplicitlyUsedUnchecked();
-        MMathFunction* ins = MMathFunction::New(alloc(), callInfo.getArg(0), MMathFunction::Floor, nullptr);
-        current->add(ins);
-        current->push(ins);
-        return InliningStatus_Inlined;
+        if (returnType == MIRType::Double) {
+            callInfo.setImplicitlyUsedUnchecked();
+
+            MInstruction* ins = nullptr;
+            if (MNearbyInt::HasAssemblerSupport(RoundingMode::Down)) {
+                ins = MNearbyInt::New(alloc(), callInfo.getArg(0), argType, RoundingMode::Down);
+            } else {
+                ins = MMathFunction::New(alloc(), callInfo.getArg(0), MMathFunction::Floor,
+                                         /* cache */ nullptr);
+            }
+
+            current->add(ins);
+            current->push(ins);
+            return InliningStatus_Inlined;
+        }
     }
 
     return InliningStatus_NotInlined;
@@ -1087,20 +1093,30 @@ IonBuilder::inlineMathCeil(CallInfo& callInfo)
         return InliningStatus_Inlined;
     }
 
-    if (IsFloatingPointType(argType) && returnType == MIRType::Int32) {
-        callInfo.setImplicitlyUsedUnchecked();
-        MCeil* ins = MCeil::New(alloc(), callInfo.getArg(0));
-        current->add(ins);
-        current->push(ins);
-        return InliningStatus_Inlined;
-    }
+    if (IsFloatingPointType(argType)) {
+        if (returnType == MIRType::Int32) {
+            callInfo.setImplicitlyUsedUnchecked();
+            MCeil* ins = MCeil::New(alloc(), callInfo.getArg(0));
+            current->add(ins);
+            current->push(ins);
+            return InliningStatus_Inlined;
+        }
 
-    if (IsFloatingPointType(argType) && returnType == MIRType::Double) {
-        callInfo.setImplicitlyUsedUnchecked();
-        MMathFunction* ins = MMathFunction::New(alloc(), callInfo.getArg(0), MMathFunction::Ceil, nullptr);
-        current->add(ins);
-        current->push(ins);
-        return InliningStatus_Inlined;
+        if (returnType == MIRType::Double) {
+            callInfo.setImplicitlyUsedUnchecked();
+
+            MInstruction* ins = nullptr;
+            if (MNearbyInt::HasAssemblerSupport(RoundingMode::Up)) {
+                ins = MNearbyInt::New(alloc(), callInfo.getArg(0), argType, RoundingMode::Up);
+            } else {
+                ins = MMathFunction::New(alloc(), callInfo.getArg(0), MMathFunction::Ceil,
+                                         /* cache */ nullptr);
+            }
+
+            current->add(ins);
+            current->push(ins);
+            return InliningStatus_Inlined;
+        }
     }
 
     return InliningStatus_NotInlined;
@@ -1165,7 +1181,8 @@ IonBuilder::inlineMathRound(CallInfo& callInfo)
 
     if (IsFloatingPointType(argType) && returnType == MIRType::Double) {
         callInfo.setImplicitlyUsedUnchecked();
-        MMathFunction* ins = MMathFunction::New(alloc(), callInfo.getArg(0), MMathFunction::Round, nullptr);
+        MMathFunction* ins = MMathFunction::New(alloc(), callInfo.getArg(0), MMathFunction::Round,
+                                                /* cache */ nullptr);
         current->add(ins);
         current->push(ins);
         return InliningStatus_Inlined;
@@ -1429,7 +1446,9 @@ IonBuilder::inlineMathMinMax(CallInfo& callInfo, bool max)
     current->add(last);
 
     for (unsigned i = 2; i < cases.length(); i++) {
-        MMinMax* ins = MMinMax::New(alloc(), last, cases[i], returnType, max);
+        MMinMax* ins = MMinMax::New(alloc().fallible(), last, cases[i], returnType, max);
+        if (!ins)
+            return abort(AbortReason::Alloc);
         current->add(ins);
         last = ins;
     }

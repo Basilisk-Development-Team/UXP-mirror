@@ -40,7 +40,6 @@
 #include "builtin/Object.h"
 #include "builtin/SymbolObject.h"
 #include "frontend/BytecodeCompiler.h"
-#include "gc/Marking.h"
 #include "gc/Policy.h"
 #include "jit/BaselineJIT.h"
 #include "js/MemoryMetrics.h"
@@ -59,6 +58,8 @@
 #include "jscntxtinlines.h"
 #include "jscompartmentinlines.h"
 
+#include "gc/Marking-inl.h"
+#include "builtin/TypedObject-inl.h"
 #include "vm/ArrayObject-inl.h"
 #include "vm/BooleanObject-inl.h"
 #include "vm/Caches-inl.h"
@@ -67,6 +68,8 @@
 #include "vm/NumberObject-inl.h"
 #include "vm/Shape-inl.h"
 #include "vm/StringObject-inl.h"
+#include "vm/TypedArrayObject-inl.h"
+#include "vm/UnboxedObject-inl.h"
 
 using namespace js;
 using namespace js::gc;
@@ -968,17 +971,6 @@ js::GetPrototypeFromConstructor(JSContext* cx, HandleObject newTarget, MutableHa
     return true;
 }
 
-bool
-js::GetPrototypeFromCallableConstructor(JSContext* cx, const CallArgs& args, MutableHandleObject proto)
-{
-    RootedObject newTarget(cx);
-    if (args.isConstructing())
-        newTarget = &args.newTarget().toObject();
-    else
-        newTarget = &args.callee();
-    return GetPrototypeFromConstructor(cx, newTarget, proto);
-}
-
 JSObject*
 js::CreateThisForFunction(JSContext* cx, HandleObject callee, HandleObject newTarget,
                           NewObjectKind newKind)
@@ -1565,6 +1557,10 @@ JSObject::swap(JSContext* cx, HandleObject a, HandleObject b)
     if (!JSObject::getGroup(cx, b))
         oomUnsafe.crash("JSObject::swap");
 
+    // Don't allow a GC which may observe intermediate states or run before we
+    // execute all necessary barriers.
+    AutoSuppressGC suppress(cx);
+
     /*
      * Neither object may be in the nursery, but ensure we update any embedded
      * nursery pointers in either object.
@@ -1615,10 +1611,6 @@ JSObject::swap(JSContext* cx, HandleObject a, HandleObject b)
         if (bIsProxyWithInlineValues)
             a->as<ProxyObject>().setInlineValueArray();
     } else {
-        // Avoid GC in here to avoid confusing the tracing code with our
-        // intermediate state.
-        AutoSuppressGC suppress(cx);
-
         // When the objects have different sizes, they will have different
         // numbers of fixed slots before and after the swap, so the slots for
         // native objects will need to be rearranged.
@@ -1977,27 +1969,38 @@ js::SetClassAndProto(JSContext* cx, HandleObject obj,
         return true;
     }
 
-    if (proto.isObject()) {
-        RootedObject protoObj(cx, proto.toObject());
-        if (!JSObject::setNewGroupUnknown(cx, clasp, protoObj))
+    RootedObjectGroup oldGroup(cx, obj->group());
+
+    ObjectGroup* newGroup;
+    if (oldGroup->maybeInterpretedFunction()) {
+        // We're changing the group/proto of a scripted function. Create a new
+        // group so we can keep track of the interpreted function for Ion
+        // inlining.
+        MOZ_ASSERT(obj->is<JSFunction>());
+        newGroup = ObjectGroupCompartment::makeGroup(cx, &JSFunction::class_, proto);
+        if (!newGroup)
+            return false;
+        newGroup->setInterpretedFunction(oldGroup->maybeInterpretedFunction());
+    } else {
+        newGroup = ObjectGroup::defaultNewGroup(cx, clasp, proto);
+        if (!newGroup)
             return false;
     }
 
-    ObjectGroup* group = ObjectGroup::defaultNewGroup(cx, clasp, proto);
-    if (!group)
-        return false;
+    obj->setGroup(newGroup);
 
-    /*
-     * Setting __proto__ on an object that has escaped and may be referenced by
-     * other heap objects can only be done if the properties of both objects
-     * are unknown. Type sets containing this object will contain the original
-     * type but not the new type of the object, so we need to treat all such
-     * type sets as unknown.
-     */
-    MarkObjectGroupUnknownProperties(cx, obj->group());
-    MarkObjectGroupUnknownProperties(cx, group);
+    // Add the object's property types to the new group.
+    if (!newGroup->unknownProperties()) {
+        if (obj->isNative())
+            AddPropertyTypesAfterProtoChange(cx, &obj->as<NativeObject>(), oldGroup);
+        else
+            MarkObjectGroupUnknownProperties(cx, newGroup);
+    }
 
-    obj->setGroup(group);
+    // Type sets containing this object will contain the old group but not the
+    // new group of the object, so we need to treat all such type sets as
+    // unknown.
+    MarkObjectGroupUnknownProperties(cx, oldGroup);
 
     return true;
 }

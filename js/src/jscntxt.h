@@ -16,6 +16,7 @@
 #include "js/Utility.h"
 #include "js/Vector.h"
 #include "threading/ProtectedData.h"
+#include "vm/MallocProvider.h"
 #include "vm/Runtime.h"
 
 #ifdef _MSC_VER
@@ -33,6 +34,10 @@ namespace jit {
 class JitContext;
 class DebugModeOSRVolatileJitFrameIterator;
 } // namespace jit
+
+namespace gc {
+class AutoSuppressNurseryCellAlloc;
+}
 
 typedef HashSet<Shape*> ShapeSet;
 
@@ -68,6 +73,8 @@ namespace frontend { class CompileError; }
 
 struct HelperThread;
 
+class AutoLockScriptData;
+
 void ReportOverRecursed(JSContext* cx, unsigned errorNumber);
 
 /* Thread Local Storage slot for storing the context for a thread. */
@@ -102,6 +109,9 @@ struct JSContext : public JS::RootingContext,
 
     // The thread on which this context is running, if this is performing a parse task.
     js::ThreadLocalData<js::HelperThread*> helperThread_;
+
+    friend class js::gc::AutoSuppressNurseryCellAlloc;
+    js::ThreadLocalData<size_t> nurserySuppressions_;
 
     js::ThreadLocalData<JS::ContextOptions> options_;
 
@@ -198,10 +208,13 @@ struct JSContext : public JS::RootingContext,
 #endif
 
   private:
-    // If |c| or |oldCompartment| is the atoms compartment, the
-    // |exclusiveAccessLock| must be held.
-    inline void enterCompartment(JSCompartment* c,
-                                 const js::AutoLockForExclusiveAccess* maybeLock = nullptr);
+    // We distinguish between entering the atoms compartment and all other
+    // compartments. Entering the atoms compartment requires a lock. Also, we
+    // don't call enterZoneGroup when entering the atoms compartment since that
+    // can induce GC hazards.
+    inline void enterNonAtomsCompartment(JSCompartment* c);
+    inline void enterAtomsCompartment(JSCompartment* c,
+                                      const js::AutoLockForExclusiveAccess& lock);
 
   friend class js::AutoCompartment;
 
@@ -217,6 +230,10 @@ struct JSContext : public JS::RootingContext,
 
     void setHelperThread(js::HelperThread* helperThread);
     js::HelperThread* helperThread() const { return helperThread_; }
+
+    bool isNurseryAllocSuppressed() const {
+        return nurserySuppressions_;
+    }
 
     // Threads may freely access any data in their compartment and zone.
     JSCompartment* compartment() const {
@@ -256,7 +273,7 @@ struct JSContext : public JS::RootingContext,
     js::SymbolRegistry& symbolRegistry(js::AutoLockForExclusiveAccess& lock) {
         return runtime_->symbolRegistry(lock);
     }
-    js::ScriptDataTable& scriptDataTable(js::AutoLockForExclusiveAccess& lock) {
+    js::ScriptDataTable& scriptDataTable(js::AutoLockScriptData& lock) {
         return runtime_->scriptDataTable(lock);
     }
 
@@ -1219,6 +1236,37 @@ class MOZ_RAII AutoLockForExclusiveAccess
             MOZ_ASSERT(runtime->activeThreadHasExclusiveAccess);
 #ifdef DEBUG
             runtime->activeThreadHasExclusiveAccess = false;
+#endif
+        }
+    }
+
+    MOZ_DECL_USE_GUARD_OBJECT_NOTIFIER
+};
+
+class MOZ_RAII AutoLockScriptData
+{
+    JSRuntime* runtime;
+
+  public:
+    explicit AutoLockScriptData(JSRuntime* rt MOZ_GUARD_OBJECT_NOTIFIER_PARAM) {
+        MOZ_GUARD_OBJECT_NOTIFIER_INIT;
+        runtime = rt;
+        if (runtime->hasHelperThreadZones()) {
+            runtime->scriptDataLock.lock();
+        } else {
+            MOZ_ASSERT(!runtime->activeThreadHasScriptDataAccess);
+#ifdef DEBUG
+            runtime->activeThreadHasScriptDataAccess = true;
+#endif
+        }
+    }
+    ~AutoLockScriptData() {
+        if (runtime->hasHelperThreadZones()) {
+            runtime->scriptDataLock.unlock();
+        } else {
+            MOZ_ASSERT(runtime->activeThreadHasScriptDataAccess);
+#ifdef DEBUG
+            runtime->activeThreadHasScriptDataAccess = false;
 #endif
         }
     }

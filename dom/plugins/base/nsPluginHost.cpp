@@ -1085,6 +1085,18 @@ nsPluginHost::GetBlocklistStateForType(const nsACString &aMimeType,
 }
 
 NS_IMETHODIMP
+nsPluginHost::IsPluginOOP(const nsACString& aMimeType,
+                          bool* aResult)
+{
+  nsPluginTag* tag = FindNativePluginForType(aMimeType, true);
+  if (!tag) {
+    return NS_ERROR_NOT_AVAILABLE;
+  }
+  *aResult = nsNPAPIPlugin::RunPluginOOP(tag);
+  return NS_OK;
+}
+
+NS_IMETHODIMP
 nsPluginHost::GetPermissionStringForType(const nsACString &aMimeType,
                                          uint32_t aExcludeFlags,
                                          nsACString &aPermissionString)
@@ -1160,6 +1172,15 @@ nsPluginHost::GetPlugins(nsTArray<nsCOMPtr<nsIInternalPluginTag>>& aPluginArray,
       aPluginArray.AppendElement(plugin);
     }
     plugin = plugin->mNext;
+  }
+
+  // Durstenfeld shuffle
+  size_t pluginCount = aPluginArray.Length();
+  if (pluginCount >= 2) {
+    for (size_t i = pluginCount - 1; i > 0; i--) {
+      size_t j = rand() % (i + 1);
+      std::swap(aPluginArray[i],aPluginArray[j]);
+    }
   }
 }
 
@@ -2652,6 +2673,12 @@ nsPluginHost::FindPluginsForContent(uint32_t aPluginEpoch,
     /// FIXME-jsplugins - We need to cleanup the various plugintag classes
     /// to be more sane and avoid this dance
     nsPluginTag *tag = static_cast<nsPluginTag *>(basetag.get());
+
+    if (!nsNPAPIPlugin::RunPluginOOP(tag)) {
+      // Don't expose non-OOP plugins to content processes since we have no way
+      // to bridge them over.
+      continue;
+    }
 
     aPlugins->AppendElement(PluginTag(tag->mId,
                                       tag->Name(),

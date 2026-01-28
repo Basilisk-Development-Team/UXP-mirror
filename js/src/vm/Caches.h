@@ -32,7 +32,7 @@ namespace js {
 struct GSNCache {
     typedef HashMap<jsbytecode*,
                     jssrcnote*,
-                    PointerHasher<jsbytecode*, 0>,
+                    PointerHasher<jsbytecode*>,
                     SystemAllocPolicy> Map;
 
     jsbytecode*     code;
@@ -66,6 +66,15 @@ struct EvalCacheEntry
     JSScript* script;
     JSScript* callerScript;
     jsbytecode* pc;
+
+    // We sweep this cache before a nursery collection to remove entries with
+    // string keys in the nursery.
+    //
+    // The entire cache is purged on a major GC, so we don't need to sweep it
+    // then.
+    bool needsSweep() {
+        return !str->isTenured();
+    }
 };
 
 struct EvalCacheLookup
@@ -85,7 +94,7 @@ struct EvalCacheHashPolicy
     static bool match(const EvalCacheEntry& entry, const EvalCacheLookup& l);
 };
 
-typedef HashSet<EvalCacheEntry, EvalCacheHashPolicy, SystemAllocPolicy> EvalCache;
+typedef GCHashSet<EvalCacheEntry, EvalCacheHashPolicy, SystemAllocPolicy> EvalCache;
 
 struct LazyScriptHashPolicy
 {
@@ -304,6 +313,25 @@ class RuntimeCaches
     }
     js::MathCache* maybeGetMathCache() {
         return mathCache_.get();
+    }
+    
+    void purgeForMinorGC(JSRuntime* rt) {
+        newObjectCache.clearNurseryObjects(rt);
+        evalCache.sweep();
+    }
+
+    void purgeForCompaction() {
+        newObjectCache.purge();
+        if (evalCache.initialized())
+            evalCache.clear();
+    }
+
+    void purge() {
+        purgeForCompaction();
+        gsnCache.purge();
+        envCoordinateNameCache.purge();
+        nativeIterCache.purge();
+        uncompressedSourceCache.purge();
     }
 };
 

@@ -23,10 +23,10 @@
 #include "jit/CodeGenerator.h"
 
 #include "wasm/WasmBaselineCompile.h"
-#include "wasm/WasmBinaryFormat.h"
 #include "wasm/WasmBinaryIterator.h"
 #include "wasm/WasmGenerator.h"
 #include "wasm/WasmSignalHandlers.h"
+#include "wasm/WasmValidate.h"
 
 using namespace js;
 using namespace js::jit;
@@ -147,7 +147,7 @@ class FunctionCompiler
     typedef Vector<ControlFlowPatchVector, 0, SystemAllocPolicy> ControlFlowPatchsVector;
     typedef Vector<CallCompileState*, 0, SystemAllocPolicy> CallCompileStateVector;
 
-    const ModuleGeneratorData& mg_;
+    const ModuleEnvironment&   env_;
     IonOpIter                  iter_;
     const FuncBytes&           func_;
     const ValTypeVector&       locals_;
@@ -157,8 +157,6 @@ class FunctionCompiler
     MIRGraph&                  graph_;
     const CompileInfo&         info_;
     MIRGenerator&              mirGen_;
-
-    MInstruction*              dummyIns_;
 
     MBasicBlock*               curBlock_;
     CallCompileStateVector     callStack_;
@@ -172,12 +170,12 @@ class FunctionCompiler
     MWasmParameter*            tlsPointer_;
 
   public:
-    FunctionCompiler(const ModuleGeneratorData& mg,
+    FunctionCompiler(const ModuleEnvironment& env,
                      Decoder& decoder,
                      const FuncBytes& func,
                      const ValTypeVector& locals,
                      MIRGenerator& mirGen)
-      : mg_(mg),
+      : env_(env),
         iter_(decoder, func.lineOrBytecode()),
         func_(func),
         locals_(locals),
@@ -186,7 +184,6 @@ class FunctionCompiler
         graph_(mirGen.graph()),
         info_(mirGen.info()),
         mirGen_(mirGen),
-        dummyIns_(nullptr),
         curBlock_(nullptr),
         maxStackArgBytes_(0),
         loopDepth_(0),
@@ -194,7 +191,7 @@ class FunctionCompiler
         tlsPointer_(nullptr)
     {}
 
-    const ModuleGeneratorData& mg() const    { return mg_; }
+    const ModuleEnvironment&   env() const   { return env_; }
     IonOpIter&                 iter()        { return iter_; }
     TempAllocator&             alloc() const { return alloc_; }
     const Sig&                 sig() const   { return func_.sig(); }
@@ -203,7 +200,7 @@ class FunctionCompiler
         return iter_.trapOffset();
     }
     Maybe<TrapOffset> trapIfNotAsmJS() const {
-        return mg_.isAsmJS() ? Nothing() : Some(iter_.trapOffset());
+        return env_.isAsmJS() ? Nothing() : Some(iter_.trapOffset());
     }
 
     bool init()
@@ -254,9 +251,6 @@ class FunctionCompiler
                 return false;
         }
 
-        dummyIns_ = MConstant::New(alloc(), Int32Value(0), MIRType::Int32);
-        curBlock_->add(dummyIns_);
-
         addInterruptCheck();
 
         return true;
@@ -304,29 +298,29 @@ class FunctionCompiler
         return constant;
     }
 
+    MDefinition* constant(float f)
+    {
+        if (inDeadCode())
+            return nullptr;
+        MConstant* constant = MConstant::NewRawFloat32(alloc(), f);
+        curBlock_->add(constant);
+        return constant;
+    }
+
+    MDefinition* constant(double d)
+    {
+        if (inDeadCode())
+            return nullptr;
+        MConstant* constant = MConstant::NewRawDouble(alloc(), d);
+        curBlock_->add(constant);
+        return constant;
+    }
+
     MDefinition* constant(int64_t i)
     {
         if (inDeadCode())
             return nullptr;
         MConstant* constant = MConstant::NewInt64(alloc(), i);
-        curBlock_->add(constant);
-        return constant;
-    }
-
-    MDefinition* constant(RawF32 f)
-    {
-        if (inDeadCode())
-            return nullptr;
-        MConstant* constant = MConstant::New(alloc(), f);
-        curBlock_->add(constant);
-        return constant;
-    }
-
-    MDefinition* constant(RawF64 d)
-    {
-        if (inDeadCode())
-            return nullptr;
-        MConstant* constant = MConstant::New(alloc(), d);
         curBlock_->add(constant);
         return constant;
     }
@@ -373,7 +367,7 @@ class FunctionCompiler
 
     bool mustPreserveNaN(MIRType type)
     {
-        return IsFloatingPointType(type) && mg().kind == ModuleKind::Wasm;
+        return IsFloatingPointType(type) && !env().isAsmJS();
     }
 
     MDefinition* sub(MDefinition* lhs, MDefinition* rhs, MIRType type)
@@ -383,6 +377,16 @@ class FunctionCompiler
 
         // wasm can't fold x - 0.0 because of NaN with custom payloads.
         MSub* ins = MSub::New(alloc(), lhs, rhs, type, mustPreserveNaN(type));
+        curBlock_->add(ins);
+        return ins;
+    }
+
+    MDefinition* nearbyInt(MDefinition* input, RoundingMode roundingMode)
+    {
+        if (inDeadCode())
+            return nullptr;
+
+        auto* ins = MNearbyInt::New(alloc(), input, input->type(), roundingMode);
         curBlock_->add(ins);
         return ins;
     }
@@ -418,7 +422,7 @@ class FunctionCompiler
     {
         if (inDeadCode())
             return nullptr;
-        bool trapOnError = !mg().isAsmJS();
+        bool trapOnError = !env().isAsmJS();
         auto* ins = MDiv::New(alloc(), lhs, rhs, type, unsignd, trapOnError, trapOffset(),
                               mustPreserveNaN(type));
         curBlock_->add(ins);
@@ -429,7 +433,7 @@ class FunctionCompiler
     {
         if (inDeadCode())
             return nullptr;
-        bool trapOnError = !mg().isAsmJS();
+        bool trapOnError = !env().isAsmJS();
         auto* ins = MMod::New(alloc(), lhs, rhs, type, unsignd, trapOnError, trapOffset());
         curBlock_->add(ins);
         return ins;
@@ -637,7 +641,7 @@ class FunctionCompiler
         if (inDeadCode())
             return nullptr;
 
-        auto* load = MWasmLoadGlobalVar::New(alloc(), type, globalDataOffset, isConst);
+        auto* load = MWasmLoadGlobalVar::New(alloc(), type, globalDataOffset, isConst, tlsPointer_);
         curBlock_->add(load);
         return load;
     }
@@ -646,7 +650,7 @@ class FunctionCompiler
     {
         if (inDeadCode())
             return;
-        curBlock_->add(MWasmStoreGlobalVar::New(alloc(), globalDataOffset, v));
+        curBlock_->add(MWasmStoreGlobalVar::New(alloc(), globalDataOffset, v, tlsPointer_));
     }
 
     void addInterruptCheck()
@@ -812,12 +816,12 @@ class FunctionCompiler
             return true;
         }
 
-        const SigWithId& sig = mg_.sigs[sigIndex];
+        const SigWithId& sig = env_.sigs[sigIndex];
 
         CalleeDesc callee;
-        if (mg_.isAsmJS()) {
+        if (env_.isAsmJS()) {
             MOZ_ASSERT(sig.id.kind() == SigIdDesc::Kind::None);
-            const TableDesc& table = mg_.tables[mg_.asmJSSigToTableIndex[sigIndex]];
+            const TableDesc& table = env_.tables[env_.asmJSSigToTableIndex[sigIndex]];
             MOZ_ASSERT(IsPowerOfTwo(table.limits.initial));
             MOZ_ASSERT(!table.external);
             MOZ_ASSERT(call.tlsStackOffset_ == MWasmCall::DontSaveTls);
@@ -831,8 +835,8 @@ class FunctionCompiler
             callee = CalleeDesc::asmJSTable(table);
         } else {
             MOZ_ASSERT(sig.id.kind() != SigIdDesc::Kind::None);
-            MOZ_ASSERT(mg_.tables.length() == 1);
-            const TableDesc& table = mg_.tables[0];
+            MOZ_ASSERT(env_.tables.length() == 1);
+            const TableDesc& table = env_.tables[0];
             MOZ_ASSERT(table.external == (call.tlsStackOffset_ != MWasmCall::DontSaveTls));
 
             callee = CalleeDesc::wasmTable(table, sig.id);
@@ -972,45 +976,13 @@ class FunctionCompiler
             curBlock_->push(def);
     }
 
-    MDefinition* popDefIfPushed(bool shouldReturn = true)
+    MDefinition* popDefIfPushed()
     {
         if (!hasPushed(curBlock_))
             return nullptr;
         MDefinition* def = curBlock_->pop();
-        MOZ_ASSERT_IF(def->type() == MIRType::Value, !shouldReturn);
-        return shouldReturn ? def : nullptr;
-    }
-
-    template <typename GetBlock>
-    bool ensurePushInvariants(const GetBlock& getBlock, size_t numBlocks)
-    {
-        // Preserve the invariant that, for every iterated MBasicBlock, either:
-        // every MBasicBlock has a pushed expression with the same type (to
-        // prevent creating used phis with type Value) OR no MBasicBlock has any
-        // pushed expression. This is required by MBasicBlock::addPredecessor.
-        if (numBlocks < 2)
-            return true;
-
-        MBasicBlock* block = getBlock(0);
-
-        bool allPushed = hasPushed(block);
-        if (allPushed) {
-            MIRType type = peekPushedDef(block)->type();
-            for (size_t i = 1; allPushed && i < numBlocks; i++) {
-                block = getBlock(i);
-                allPushed = hasPushed(block) && peekPushedDef(block)->type() == type;
-            }
-        }
-
-        if (!allPushed) {
-            for (size_t i = 0; i < numBlocks; i++) {
-                block = getBlock(i);
-                if (!hasPushed(block))
-                    block->push(dummyIns_);
-            }
-        }
-
-        return allPushed;
+        MOZ_ASSERT(def->type() != MIRType::Value);
+        return def;
     }
 
   private:
@@ -1080,9 +1052,6 @@ class FunctionCompiler
             if (elseJoinPred)
                 blocks[numJoinPreds++] = elseJoinPred;
 
-            auto getBlock = [&](size_t i) -> MBasicBlock* { return blocks[i]; };
-            bool yieldsValue = ensurePushInvariants(getBlock, numJoinPreds);
-
             if (numJoinPreds == 0) {
                 *def = nullptr;
                 return true;
@@ -1097,7 +1066,7 @@ class FunctionCompiler
             }
 
             curBlock_ = join;
-            *def = popDefIfPushed(yieldsValue);
+            *def = popDefIfPushed();
         }
 
         return true;
@@ -1401,18 +1370,10 @@ class FunctionCompiler
         }
 
         ControlFlowPatchVector& patches = blockPatches_[absolute];
-
-        auto getBlock = [&](size_t i) -> MBasicBlock* {
-            if (i < patches.length())
-                return patches[i].ins->block();
-            return curBlock_;
-        };
-
-        bool yieldsValue = ensurePushInvariants(getBlock, patches.length() + !!curBlock_);
-
-        MBasicBlock* join = nullptr;
         MControlInstruction* ins = patches[0].ins;
         MBasicBlock* pred = ins->block();
+
+        MBasicBlock* join = nullptr;
         if (!newBlock(pred, &join))
             return false;
 
@@ -1441,7 +1402,7 @@ class FunctionCompiler
 
         curBlock_ = join;
 
-        *def = popDefIfPushed(yieldsValue);
+        *def = popDefIfPushed();
 
         patches.clear();
         return true;
@@ -1521,7 +1482,6 @@ EmitIf(FunctionCompiler& f)
 static bool
 EmitElse(FunctionCompiler& f)
 {
-    MBasicBlock* block = f.iter().controlItem();
 
     ExprType thenType;
     MDefinition* thenValue;
@@ -1531,7 +1491,7 @@ EmitElse(FunctionCompiler& f)
     if (!IsVoid(thenType))
         f.pushDef(thenValue);
 
-    if (!f.switchToElse(block, &f.iter().controlItem()))
+    if (!f.switchToElse(f.iter().controlItem(), &f.iter().controlItem()))
         return false;
 
     return true;
@@ -1540,13 +1500,16 @@ EmitElse(FunctionCompiler& f)
 static bool
 EmitEnd(FunctionCompiler& f)
 {
-    MBasicBlock* block = f.iter().controlItem();
 
     LabelKind kind;
     ExprType type;
     MDefinition* value;
     if (!f.iter().readEnd(&kind, &type, &value))
         return false;
+
+    MBasicBlock* block = f.iter().controlItem();
+
+    f.iter().popEnd();
 
     if (!IsVoid(type))
         f.pushDef(value);
@@ -1727,8 +1690,8 @@ EmitCall(FunctionCompiler& f)
     if (f.inDeadCode())
         return true;
 
-    const Sig& sig = *f.mg().funcSigs[funcIndex];
-    bool import = f.mg().funcIsImport(funcIndex);
+    const Sig& sig = *f.env().funcSigs[funcIndex];
+    bool import = f.env().funcIsImport(funcIndex);
 
     CallCompileState call(f, lineOrBytecode);
     if (!EmitCallArgs(f, sig, import ? TlsUsage::CallerSaved : TlsUsage::Need, &call))
@@ -1739,7 +1702,7 @@ EmitCall(FunctionCompiler& f)
 
     MDefinition* def;
     if (import) {
-        uint32_t globalDataOffset = f.mg().funcImportGlobalDataOffsets[funcIndex];
+        uint32_t globalDataOffset = f.env().funcImportGlobalDataOffsets[funcIndex];
         if (!f.callImport(globalDataOffset, call, sig.ret(), &def))
             return false;
     } else {
@@ -1772,9 +1735,9 @@ EmitCallIndirect(FunctionCompiler& f, bool oldStyle)
     if (f.inDeadCode())
         return true;
 
-    const Sig& sig = f.mg().sigs[sigIndex];
+    const Sig& sig = f.env().sigs[sigIndex];
 
-    TlsUsage tls = !f.mg().isAsmJS() && f.mg().tables[0].external
+    TlsUsage tls = !f.env().isAsmJS() && f.env().tables[0].external
                    ? TlsUsage::CallerSaved
                    : TlsUsage::Need;
 
@@ -1840,10 +1803,10 @@ static bool
 EmitGetGlobal(FunctionCompiler& f)
 {
     uint32_t id;
-    if (!f.iter().readGetGlobal(f.mg().globals, &id))
+    if (!f.iter().readGetGlobal(f.env().globals, &id))
         return false;
 
-    const GlobalDesc& global = f.mg().globals[id];
+    const GlobalDesc& global = f.env().globals[id];
     if (!global.isConstant()) {
         f.iter().setResult(f.loadGlobalVar(global.offset(), !global.isMutable(),
                                            ToMIRType(global.type())));
@@ -1880,10 +1843,10 @@ EmitSetGlobal(FunctionCompiler& f)
 {
     uint32_t id;
     MDefinition* value;
-    if (!f.iter().readSetGlobal(f.mg().globals, &id, &value))
+    if (!f.iter().readSetGlobal(f.env().globals, &id, &value))
         return false;
 
-    const GlobalDesc& global = f.mg().globals[id];
+    const GlobalDesc& global = f.env().globals[id];
     MOZ_ASSERT(global.isMutable());
 
     f.storeGlobalVar(global.offset(), value);
@@ -1895,10 +1858,10 @@ EmitTeeGlobal(FunctionCompiler& f)
 {
     uint32_t id;
     MDefinition* value;
-    if (!f.iter().readTeeGlobal(f.mg().globals, &id, &value))
+    if (!f.iter().readTeeGlobal(f.env().globals, &id, &value))
         return false;
 
-    const GlobalDesc& global = f.mg().globals[id];
+    const GlobalDesc& global = f.env().globals[id];
     MOZ_ASSERT(global.isMutable());
 
     f.storeGlobalVar(global.offset(), value);
@@ -1963,13 +1926,13 @@ EmitTruncate(FunctionCompiler& f, ValType operandType, ValType resultType,
         return false;
 
     if (resultType == ValType::I32) {
-        if (f.mg().isAsmJS())
+        if (f.env().isAsmJS())
             f.iter().setResult(f.unary<MTruncateToInt32>(input));
         else
             f.iter().setResult(f.truncate<MWasmTruncateToInt32>(input, isUnsigned));
     } else {
         MOZ_ASSERT(resultType == ValType::I64);
-        MOZ_ASSERT(!f.mg().isAsmJS());
+        MOZ_ASSERT(!f.env().isAsmJS());
         f.iter().setResult(f.truncate<MWasmTruncateToInt64>(input, isUnsigned));
     }
     return true;
@@ -2232,16 +2195,38 @@ EmitTeeStoreWithCoercion(FunctionCompiler& f, ValType resultType, Scalar::Type v
 }
 
 static bool
+TryInlineUnaryBuiltin(FunctionCompiler& f, SymbolicAddress callee, MDefinition* input)
+{
+    if (!input)
+        return false;
+
+    MOZ_ASSERT(IsFloatingPointType(input->type()));
+
+    RoundingMode mode;
+    if (!IsRoundingFunction(callee, &mode))
+        return false;
+
+    if (!MNearbyInt::HasAssemblerSupport(mode))
+        return false;
+
+    f.iter().setResult(f.nearbyInt(input, mode));
+    return true;
+}
+
+static bool
 EmitUnaryMathBuiltinCall(FunctionCompiler& f, SymbolicAddress callee, ValType operandType)
 {
     uint32_t lineOrBytecode = f.readCallSiteLineOrBytecode();
 
-    CallCompileState call(f, lineOrBytecode);
-    if (!f.startCall(&call))
-        return false;
-
     MDefinition* input;
     if (!f.iter().readUnary(operandType, &input))
+        return false;
+
+    if (TryInlineUnaryBuiltin(f, callee, input))
+        return true;
+
+    CallCompileState call(f, lineOrBytecode);
+    if (!f.startCall(&call))
         return false;
 
     if (!f.passArg(input, operandType, &call))
@@ -2666,7 +2651,7 @@ EmitExpr(FunctionCompiler& f)
 
       // F32
       case Op::F32Const: {
-        RawF32 f32;
+        float f32;
         if (!f.iter().readF32Const(&f32))
             return false;
 
@@ -2724,7 +2709,7 @@ EmitExpr(FunctionCompiler& f)
 
       // F64
       case Op::F64Const: {
-        RawF64 f64;
+        double f64;
         if (!f.iter().readF64Const(&f64))
             return false;
 
@@ -2902,21 +2887,30 @@ EmitExpr(FunctionCompiler& f)
 }
 
 bool
-wasm::IonCompileFunction(CompileTask* task, FuncCompileUnit* unit)
+wasm::IonCompileFunction(CompileTask* task, FuncCompileUnit* unit, UniqueChars* error)
 {
     MOZ_ASSERT(unit->mode() == CompileMode::Ion);
 
     const FuncBytes& func = unit->func();
-    const ModuleGeneratorData& mg = task->mg();
+    const ModuleEnvironment& env = task->env();
+    uint32_t bodySize = func.bytes().length();
 
-    Decoder d(func.bytes());
+    Decoder d(func.bytes(), error);
+
+    if (!env.isAsmJS()) {
+        if (!ValidateFunctionBody(task->env(), func.index(), bodySize, d))
+          return false;
+
+        d.rollbackPosition(d.begin());
+    }
+
 
     // Build the local types vector.
 
     ValTypeVector locals;
     if (!locals.appendAll(func.sig().args()))
         return false;
-	if (!DecodeLocalEntries(d, mg.kind, &locals))
+	if (!DecodeLocalEntries(d, env.kind, &locals))
         return false;
 
     // Set up for Ion compilation.
@@ -2927,7 +2921,7 @@ wasm::IonCompileFunction(CompileTask* task, FuncCompileUnit* unit)
     CompileInfo compileInfo(locals.length());
     MIRGenerator mir(nullptr, options, &task->alloc(), &graph, &compileInfo,
                      IonOptimizations.get(OptimizationLevel::Wasm));
-	mir.initMinWasmHeapLength(mg.minMemoryLength);
+	mir.initMinWasmHeapLength(env.minMemoryLength);
 
     // Capture the prologue's trap site before decoding the function.
 
@@ -2935,7 +2929,7 @@ wasm::IonCompileFunction(CompileTask* task, FuncCompileUnit* unit)
 
     // Build MIR graph
     {
-		FunctionCompiler f(mg, d, func, locals, mir);
+		FunctionCompiler f(env, d, func, locals, mir);
         if (!f.init())
             return false;
 
@@ -2975,7 +2969,7 @@ wasm::IonCompileFunction(CompileTask* task, FuncCompileUnit* unit)
         if (!lir)
             return false;
 
-        SigIdDesc sigId = mg.funcSigs[func.index()]->id;
+        SigIdDesc sigId = env.funcSigs[func.index()]->id;
 
         CodeGenerator codegen(&mir, lir, &task->masm());
 

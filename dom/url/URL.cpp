@@ -63,10 +63,6 @@ class URLMainThread final : public URL
 public:
   static already_AddRefed<URLMainThread>
   Constructor(const GlobalObject& aGlobal, const nsAString& aURL,
-              URL& aBase, ErrorResult& aRv);
-
-  static already_AddRefed<URLMainThread>
-  Constructor(const GlobalObject& aGlobal, const nsAString& aURL,
               const Optional<nsAString>& aBase, ErrorResult& aRv);
 
   static already_AddRefed<URLMainThread>
@@ -195,15 +191,6 @@ private:
 
   nsCOMPtr<nsIURI> mURI;
 };
-
-/* static */ already_AddRefed<URLMainThread>
-URLMainThread::Constructor(const GlobalObject& aGlobal, const nsAString& aURL,
-                           URL& aBase, ErrorResult& aRv)
-{
-  MOZ_ASSERT(NS_IsMainThread());
-  URLMainThread& base = static_cast<URLMainThread&>(aBase);
-  return Constructor(aGlobal.GetAsSupports(), aURL, base.GetURI(), aRv);
-}
 
 /* static */ already_AddRefed<URLMainThread>
 URLMainThread::Constructor(const GlobalObject& aGlobal, const nsAString& aURL,
@@ -641,10 +628,6 @@ class URLWorker final : public URL
 public:
   static already_AddRefed<URLWorker>
   Constructor(const GlobalObject& aGlobal, const nsAString& aURL,
-              URL& aBase, ErrorResult& aRv);
-
-  static already_AddRefed<URLWorker>
-  Constructor(const GlobalObject& aGlobal, const nsAString& aURL,
               const Optional<nsAString>& aBase, ErrorResult& aRv);
 
   static already_AddRefed<URLWorker>
@@ -934,7 +917,6 @@ private:
   const nsString mURL;
 
   nsString mBase; // IsVoid() if we have no base URI string.
-  RefPtr<URLProxy> mBaseProxy;
 
   RefPtr<URLProxy> mRetval;
 
@@ -953,17 +935,6 @@ public:
     mWorkerPrivate->AssertIsOnWorkerThread();
   }
 
-  ConstructorRunnable(WorkerPrivate* aWorkerPrivate,
-                      const nsAString& aURL, URLProxy* aBaseProxy)
-  : WorkerMainThreadRunnable(aWorkerPrivate,
-                             NS_LITERAL_CSTRING("URL :: Constructor with BaseURL"))
-  , mURL(aURL)
-  , mBaseProxy(aBaseProxy)
-  {
-    mBase.SetIsVoid(true);
-    mWorkerPrivate->AssertIsOnWorkerThread();
-  }
-
   bool
   MainThreadRun()
   {
@@ -971,9 +942,7 @@ public:
 
     ErrorResult rv;
     RefPtr<URLMainThread> url;
-    if (mBaseProxy) {
-      url = URLMainThread::Constructor(nullptr, mURL, mBaseProxy->URI(), rv);
-    } else if (!mBase.IsVoid()) {
+    if (!mBase.IsVoid()) {
       url = URLMainThread::Constructor(nullptr, mURL, mBase, rv);
     } else {
       url = URLMainThread::Constructor(nullptr, mURL, nullptr, rv);
@@ -1247,22 +1216,6 @@ FinishConstructor(JSContext* aCx, WorkerPrivate* aPrivate,
 
   RefPtr<URLWorker> url = new URLWorker(aPrivate, proxy);
   return url.forget();
-}
-
-/* static */ already_AddRefed<URLWorker>
-URLWorker::Constructor(const GlobalObject& aGlobal, const nsAString& aURL,
-                       URL& aBase, ErrorResult& aRv)
-{
-  MOZ_ASSERT(!NS_IsMainThread());
-
-  JSContext* cx = aGlobal.Context();
-  WorkerPrivate* workerPrivate = GetWorkerPrivateFromContext(cx);
-
-  URLWorker& base = static_cast<URLWorker&>(aBase);
-  RefPtr<ConstructorRunnable> runnable =
-    new ConstructorRunnable(workerPrivate, aURL, base.GetURLProxy());
-
-  return FinishConstructor(cx, workerPrivate, runnable, aRv);
 }
 
 /* static */ already_AddRefed<URLWorker>
@@ -1690,17 +1643,6 @@ URL::WrapObject(JSContext* aCx, JS::Handle<JSObject*> aGivenProto)
 
 /* static */ already_AddRefed<URL>
 URL::Constructor(const GlobalObject& aGlobal, const nsAString& aURL,
-                 URL& aBase, ErrorResult& aRv)
-{
-  if (NS_IsMainThread()) {
-    return URLMainThread::Constructor(aGlobal, aURL, aBase, aRv);
-  }
-
-  return URLWorker::Constructor(aGlobal, aURL, aBase, aRv);
-}
-
-/* static */ already_AddRefed<URL>
-URL::Constructor(const GlobalObject& aGlobal, const nsAString& aURL,
                  const Optional<nsAString>& aBase, ErrorResult& aRv)
 {
   if (NS_IsMainThread()) {
@@ -1767,6 +1709,35 @@ URL::IsValidURL(const GlobalObject& aGlobal, const nsAString& aURL,
     return URLMainThread::IsValidURL(aGlobal, aURL, aRv);
   }
   return URLWorker::IsValidURL(aGlobal, aURL, aRv);
+}
+
+bool
+URL::CanParse(const GlobalObject& aGlobal, const nsAString& aURL,
+              const Optional<nsAString>& aBase) {
+  nsCOMPtr<nsIURI> baseUri;
+  if (aBase.WasPassed()) {
+    // Don't use NS_ConvertUTF16toUTF8 because that doesn't let us handle OOM.
+    nsAutoCString base;
+    if (!AppendUTF16toUTF8(aBase.Value(), base, fallible)) {
+      // Just return false with OOM errors as no ErrorResult.
+      return false;
+    }
+
+    nsresult rv = NS_NewURI(getter_AddRefs(baseUri), base);
+    if (NS_FAILED(rv)) {
+      // Invalid base URL, return false.
+      return false;
+    }
+  }
+
+  nsAutoCString urlStr;
+  if (!AppendUTF16toUTF8(aURL, urlStr, fallible)) {
+    // Just return false with OOM errors as no ErrorResult.
+    return false;
+  }
+
+  nsCOMPtr<nsIURI> uri;
+  return NS_SUCCEEDED(NS_NewURI(getter_AddRefs(uri), urlStr, nullptr, baseUri));
 }
 
 URLSearchParams*

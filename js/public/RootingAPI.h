@@ -18,7 +18,6 @@
 #include "jspubtd.h"
 
 #include "js/GCAnnotations.h"
-#include "js/GCAPI.h"
 #include "js/GCPolicyAPI.h"
 #include "js/HeapAPI.h"
 #include "js/TypeDecls.h"
@@ -143,6 +142,12 @@ class PersistentRootedBase : public MutableWrappedPtrOperations<T, Wrapper> {};
 
 static void* const ConstNullValue = nullptr;
 
+template <typename T>
+class FakeRooted;
+
+template <typename T>
+class FakeMutableHandle;
+
 namespace gc {
 struct Cell;
 template<typename T>
@@ -195,6 +200,7 @@ template <typename T> class PersistentRooted;
 JS_FRIEND_API(bool) isGCEnabled();
 
 JS_FRIEND_API(void) HeapObjectPostBarrier(JSObject** objp, JSObject* prev, JSObject* next);
+JS_FRIEND_API(void) HeapStringPostBarrier(JSString** objp, JSString* prev, JSString* next);
 
 #ifdef JS_DEBUG
 /**
@@ -204,12 +210,12 @@ JS_FRIEND_API(void) HeapObjectPostBarrier(JSObject** objp, JSObject* prev, JSObj
 extern JS_FRIEND_API(void)
 AssertGCThingMustBeTenured(JSObject* obj);
 extern JS_FRIEND_API(void)
-AssertGCThingIsNotAnObjectSubclass(js::gc::Cell* cell);
+AssertGCThingIsNotNurseryAllocable(js::gc::Cell* cell);
 #else
 inline void
 AssertGCThingMustBeTenured(JSObject* obj) {}
 inline void
-AssertGCThingIsNotAnObjectSubclass(js::gc::Cell* cell) {}
+AssertGCThingIsNotNurseryAllocable(js::gc::Cell* cell) {}
 #endif
 
 /**
@@ -621,7 +627,7 @@ struct BarrierMethods<T*>
     }
     static void postBarrier(T** vp, T* prev, T* next) {
         if (next)
-            JS::AssertGCThingIsNotAnObjectSubclass(reinterpret_cast<js::gc::Cell*>(next));
+            JS::AssertGCThingIsNotNurseryAllocable(reinterpret_cast<js::gc::Cell*>(next));
     }
     static void exposeToJS(T* t) {
         if (t)
@@ -666,6 +672,25 @@ struct BarrierMethods<JSFunction*>
     static void exposeToJS(JSFunction* fun) {
         if (fun)
             JS::ExposeObjectToActiveJS(reinterpret_cast<JSObject*>(fun));
+    }
+};
+
+template <>
+struct BarrierMethods<JSString*>
+{
+    static JSString* initial() { return nullptr; }
+    static gc::Cell* asGCThingOrNull(JSString* v) {
+        if (!v)
+            return nullptr;
+        MOZ_ASSERT(uintptr_t(v) > 32);
+        return reinterpret_cast<gc::Cell*>(v);
+    }
+    static void postBarrier(JSString** vp, JSString* prev, JSString* next) {
+        JS::HeapStringPostBarrier(vp, prev, next);
+    }
+    static void exposeToJS(JSString* v) {
+        if (v)
+            js::gc::ExposeGCThingToActiveJS(JS::GCCellPtr(v));
     }
 };
 
@@ -900,64 +925,6 @@ class HandleBase<JSObject*, Container> : public WrappedPtrOperations<JSObject*, 
     JS::Handle<U*> as() const;
 };
 
-/** Interface substitute for Rooted<T> which does not root the variable's memory. */
-template <typename T>
-class MOZ_RAII FakeRooted : public RootedBase<T, FakeRooted<T>>
-{
-  public:
-    using ElementType = T;
-
-    template <typename CX>
-    explicit FakeRooted(CX* cx) : ptr(JS::GCPolicy<T>::initial()) {}
-
-    template <typename CX>
-    FakeRooted(CX* cx, T initial) : ptr(initial) {}
-
-    DECLARE_POINTER_CONSTREF_OPS(T);
-    DECLARE_POINTER_ASSIGN_OPS(FakeRooted, T);
-    DECLARE_NONPOINTER_ACCESSOR_METHODS(ptr);
-    DECLARE_NONPOINTER_MUTABLE_ACCESSOR_METHODS(ptr);
-
-  private:
-    T ptr;
-
-    void set(const T& value) {
-        ptr = value;
-    }
-
-    FakeRooted(const FakeRooted&) = delete;
-};
-
-/** Interface substitute for MutableHandle<T> which is not required to point to rooted memory. */
-template <typename T>
-class FakeMutableHandle : public js::MutableHandleBase<T, FakeMutableHandle<T>>
-{
-  public:
-    using ElementType = T;
-
-    MOZ_IMPLICIT FakeMutableHandle(T* t) {
-        ptr = t;
-    }
-
-    MOZ_IMPLICIT FakeMutableHandle(FakeRooted<T>* root) {
-        ptr = root->address();
-    }
-
-    void set(const T& v) {
-        *ptr = v;
-    }
-
-    DECLARE_POINTER_CONSTREF_OPS(T);
-    DECLARE_NONPOINTER_ACCESSOR_METHODS(*ptr);
-    DECLARE_NONPOINTER_MUTABLE_ACCESSOR_METHODS(*ptr);
-
-  private:
-    FakeMutableHandle() {}
-    DELETE_ASSIGNMENT_OPS(FakeMutableHandle, T);
-
-    T* ptr;
-};
-
 /**
  * Types for a variable that either should or shouldn't be rooted, depending on
  * the template parameter allowGC. Used for implementing functions that can
@@ -994,27 +961,6 @@ template <typename T> class MaybeRooted<T, CanGC>
     template <typename T2>
     static inline JS::Handle<T2*> downcastHandle(HandleType v) {
         return v.template as<T2>();
-    }
-};
-
-template <typename T> class MaybeRooted<T, NoGC>
-{
-  public:
-    typedef const T& HandleType;
-    typedef FakeRooted<T> RootType;
-    typedef FakeMutableHandle<T> MutableHandleType;
-
-    static JS::Handle<T> toHandle(HandleType v) {
-        MOZ_CRASH("Bad conversion");
-    }
-
-    static JS::MutableHandle<T> toMutableHandle(MutableHandleType v) {
-        MOZ_CRASH("Bad conversion");
-    }
-
-    template <typename T2>
-    static inline T2* downcastHandle(HandleType v) {
-        return &v->template as<T2>();
     }
 };
 
@@ -1505,7 +1451,5 @@ typename mozilla::EnableIf<js::detail::DefineComparisonOps<T>::value &&
 operator!=(const T& a, std::nullptr_t b) {
     return !(a == b);
 }
-
-#undef DELETE_ASSIGNMENT_OPS
 
 #endif  /* js_RootingAPI_h */

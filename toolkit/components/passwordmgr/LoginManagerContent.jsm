@@ -760,11 +760,10 @@ var LoginManagerContent = {
     }
 
     if (!usernameField) {
-      // Locate the username field in the form by searching backwards
-      // from the first password field, assume the first text field is the
-      // username. We might not find a username field if the user is
+      // Locate the username field in the form by searching.
+      // We might not find a username field if the user is
       // already logged in to the site.
-      for (var i = pwFields[0].index - 1; i >= 0; i--) {
+      for (var i = 0; i < form.elements.length; i++) {
         var element = form.elements[i];
         if (!LoginHelper.isUsernameFieldType(element)) {
           continue;
@@ -1190,7 +1189,7 @@ var LoginManagerContent = {
       // Fill the form
 
       if (usernameField) {
-      // Don't modify the username field if it's disabled or readOnly so we preserve its case.
+        // Don't modify the username field if it's disabled or readOnly so we preserve its case.
         let disabledOrReadOnly = usernameField.disabled || usernameField.readOnly;
 
         let userNameDiffers = selectedLogin.username != usernameField.value;
@@ -1202,6 +1201,10 @@ var LoginManagerContent = {
 
         if (!disabledOrReadOnly && !userEnteredDifferentCase && userNameDiffers) {
           usernameField.setUserInput(selectedLogin.username);
+        }
+        //Set autofilled state if value is present
+        if (typeof usernameField.setAutofilled === "function" && usernameField.value) {
+          usernameField.setAutofilled(true);
         }
       }
 
@@ -1217,6 +1220,10 @@ var LoginManagerContent = {
         };
         log("Saving autoFilledLogin", autoFilledLogin.guid, "for", form.rootElement);
         this.stateForDocument(doc).fillsByRootElement.set(form.rootElement, autoFilledLogin);
+        // Set autofilled state if value is present
+        if (typeof passwordField.setAutofilled === "function" && passwordField.value) {
+          passwordField.setAutofilled(true);
+        }
       }
 
       log("_fillForm succeeded");

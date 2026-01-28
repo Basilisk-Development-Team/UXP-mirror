@@ -36,6 +36,8 @@
 #include "mozilla/dom/CSSNamespaceRuleBinding.h"
 #include "mozilla/dom/CSSImportRuleBinding.h"
 #include "mozilla/dom/CSSMediaRuleBinding.h"
+#include "mozilla/dom/CSSLayerBlockRuleBinding.h"
+#include "mozilla/dom/CSSLayerStatementRuleBinding.h"
 #include "mozilla/dom/CSSSupportsRuleBinding.h"
 #include "mozilla/dom/CSSMozDocumentRuleBinding.h"
 #include "mozilla/dom/CSSPageRuleBinding.h"
@@ -247,10 +249,12 @@ GroupRuleRuleList::IndexedGetter(uint32_t aIndex, bool& aFound)
 //
 
 ImportRule::ImportRule(nsMediaList* aMedia, const nsString& aURLSpec,
+                       const nsString& aLayerName,
                        uint32_t aLineNumber, uint32_t aColumnNumber)
   : Rule(aLineNumber, aColumnNumber)
   , mURLSpec(aURLSpec)
   , mMedia(aMedia)
+  , mLayerName(aLayerName)
 {
   MOZ_ASSERT(aMedia);
   // XXXbz This is really silly.... the mMedia here will be replaced
@@ -259,8 +263,9 @@ ImportRule::ImportRule(nsMediaList* aMedia, const nsString& aURLSpec,
 }
 
 ImportRule::ImportRule(const ImportRule& aCopy)
-  : Rule(aCopy),
-    mURLSpec(aCopy.mURLSpec)
+  : Rule(aCopy)
+  , mURLSpec(aCopy.mURLSpec)
+  , mLayerName(aCopy.mLayerName)
 {
   // Whether or not an @import rule has a null sheet is a permanent
   // property of that @import rule, since it is null only if the target
@@ -291,7 +296,7 @@ ImportRule::IsCCLeaf() const
 }
 
 // QueryInterface implementation for ImportRule
-NS_INTERFACE_MAP_BEGIN_CYCLE_COLLECTION_INHERITED(ImportRule)
+NS_INTERFACE_MAP_BEGIN_CYCLE_COLLECTION(ImportRule)
   NS_INTERFACE_MAP_ENTRY(nsIDOMCSSImportRule)
 NS_INTERFACE_MAP_END_INHERITING(Rule)
 
@@ -412,6 +417,13 @@ ImportRule::GetStyleSheet(nsIDOMCSSStyleSheet * *aStyleSheet)
   return NS_OK;
 }
 
+NS_IMETHODIMP
+ImportRule::GetLayerName(nsAString & aLayerName)
+{
+  aLayerName = mLayerName;
+  return NS_OK;
+}
+
 /* virtual */ size_t
 ImportRule::SizeOfIncludingThis(MallocSizeOf aMallocSizeOf) const
 {
@@ -465,7 +477,7 @@ GroupRule::~GroupRule()
 NS_IMPL_ADDREF_INHERITED(GroupRule, Rule)
 NS_IMPL_RELEASE_INHERITED(GroupRule, Rule)
 
-NS_INTERFACE_MAP_BEGIN_CYCLE_COLLECTION_INHERITED(GroupRule)
+NS_INTERFACE_MAP_BEGIN_CYCLE_COLLECTION(GroupRule)
 NS_INTERFACE_MAP_END_INHERITING(Rule)
 
 bool
@@ -749,7 +761,7 @@ NS_IMPL_ADDREF_INHERITED(MediaRule, ConditionRule)
 NS_IMPL_RELEASE_INHERITED(MediaRule, ConditionRule)
 
 // QueryInterface implementation for MediaRule
-NS_INTERFACE_MAP_BEGIN_CYCLE_COLLECTION_INHERITED(MediaRule)
+NS_INTERFACE_MAP_BEGIN_CYCLE_COLLECTION(MediaRule)
   NS_INTERFACE_MAP_ENTRY(nsIDOMCSSGroupingRule)
   NS_INTERFACE_MAP_ENTRY(nsIDOMCSSConditionRule)
   NS_INTERFACE_MAP_ENTRY(nsIDOMCSSMediaRule)
@@ -1671,7 +1683,7 @@ nsCSSFontFaceRule::IsCCLeaf() const
 }
 
 // QueryInterface implementation for nsCSSFontFaceRule
-NS_INTERFACE_MAP_BEGIN_CYCLE_COLLECTION_INHERITED(nsCSSFontFaceRule)
+NS_INTERFACE_MAP_BEGIN_CYCLE_COLLECTION(nsCSSFontFaceRule)
   NS_INTERFACE_MAP_ENTRY(nsIDOMCSSFontFaceRule)
 NS_INTERFACE_MAP_END_INHERITING(Rule)
 
@@ -2148,7 +2160,7 @@ nsCSSKeyframeRule::IsCCLeaf() const
 }
 
 // QueryInterface implementation for nsCSSKeyframeRule
-NS_INTERFACE_MAP_BEGIN_CYCLE_COLLECTION_INHERITED(nsCSSKeyframeRule)
+NS_INTERFACE_MAP_BEGIN_CYCLE_COLLECTION(nsCSSKeyframeRule)
   NS_INTERFACE_MAP_ENTRY(nsIDOMCSSKeyframeRule)
 NS_INTERFACE_MAP_END_INHERITING(mozilla::css::Rule)
 
@@ -2675,7 +2687,7 @@ nsCSSPageRule::IsCCLeaf() const
 }
 
 // QueryInterface implementation for nsCSSPageRule
-NS_INTERFACE_MAP_BEGIN_CYCLE_COLLECTION_INHERITED(nsCSSPageRule)
+NS_INTERFACE_MAP_BEGIN_CYCLE_COLLECTION(nsCSSPageRule)
   NS_INTERFACE_MAP_ENTRY(nsIDOMCSSPageRule)
 NS_INTERFACE_MAP_END_INHERITING(mozilla::css::Rule)
 
@@ -3351,3 +3363,275 @@ nsCSSCounterStyleRule::WrapObject(JSContext* aCx,
 {
   return CSSCounterStyleRuleBinding::Wrap(aCx, this, aGivenProto);
 }
+
+namespace mozilla {
+
+// -------------------------------------------
+// LayerStatementRule
+//
+
+CSSLayerStatementRule::CSSLayerStatementRule(
+                       const nsTArray<nsString>& aNameList,
+                       const nsTArray<nsTArray<nsString>>& aPathList,
+                       uint32_t aLineNumber, uint32_t aColumnNumber)
+  : Rule(aLineNumber, aColumnNumber)
+  , mNameList(aNameList)
+  , mPathList(aPathList)
+{
+}
+
+CSSLayerStatementRule::CSSLayerStatementRule(const CSSLayerStatementRule& aCopy)
+  : Rule(aCopy)
+  , mNameList(aCopy.mNameList)
+  , mPathList(aCopy.mPathList)
+{
+}
+
+CSSLayerStatementRule::~CSSLayerStatementRule()
+{
+}
+
+NS_IMPL_ADDREF_INHERITED(CSSLayerStatementRule, Rule)
+NS_IMPL_RELEASE_INHERITED(CSSLayerStatementRule, Rule)
+
+bool
+CSSLayerStatementRule::IsCCLeaf() const
+{
+  // We're not a leaf.
+  return false;
+}
+
+// QueryInterface implementation for CSSLayerStatementRule
+NS_INTERFACE_MAP_BEGIN_CYCLE_COLLECTION(CSSLayerStatementRule)
+  NS_INTERFACE_MAP_ENTRY(nsIDOMCSSLayerStatementRule)
+NS_INTERFACE_MAP_END_INHERITING(Rule)
+
+NS_IMPL_CYCLE_COLLECTION_CLASS(CSSLayerStatementRule)
+
+NS_IMPL_CYCLE_COLLECTION_UNLINK_BEGIN(CSSLayerStatementRule)
+  tmp->mNameList.Clear();
+  tmp->mPathList.Clear();
+NS_IMPL_CYCLE_COLLECTION_UNLINK_END
+
+NS_IMPL_CYCLE_COLLECTION_TRAVERSE_BEGIN_INHERITED(CSSLayerStatementRule, mozilla::css::Rule)
+NS_IMPL_CYCLE_COLLECTION_TRAVERSE_END
+
+#ifdef DEBUG
+/* virtual */ void
+CSSLayerStatementRule::List(FILE* out, int32_t aIndent) const
+{
+    // TODO
+}
+#endif
+
+/* virtual */ int32_t
+CSSLayerStatementRule::GetType() const
+{
+  return Rule::LAYER_STATEMENT_RULE;
+}
+
+/* virtual */ already_AddRefed<Rule>
+CSSLayerStatementRule::Clone() const
+{
+  RefPtr<Rule> clone = new CSSLayerStatementRule(*this);
+  return clone.forget();
+}
+
+uint16_t
+CSSLayerStatementRule::Type() const
+{
+  return nsIDOMCSSRule::LAYER_STATEMENT_RULE;
+}
+
+void
+CSSLayerStatementRule::GetCssTextImpl(nsAString& aCssText) const
+{
+  aCssText.AssignLiteral("@layer ");
+  for (uint32_t i = 0, i_end = mNameList.Length(); i != i_end; ++i) {
+    aCssText.Append(mNameList[i]);
+    if (i != i_end - 1) {
+      aCssText.AppendLiteral(", ");
+    }
+  }
+  aCssText.Append(';');
+}
+
+void
+CSSLayerStatementRule::GetNameList(nsTArray<nsString>& aResult)
+{
+  aResult = mNameList;
+}
+
+void
+CSSLayerStatementRule::GetPathList(nsTArray<nsTArray<nsString>>& aResult)
+{
+  aResult = mPathList;
+}
+
+/* virtual */ size_t
+CSSLayerStatementRule::SizeOfIncludingThis(MallocSizeOf aMallocSizeOf) const
+{
+  size_t n = aMallocSizeOf(this);
+  n += mNameList.ShallowSizeOfExcludingThis(aMallocSizeOf);
+  for (const nsString& s : mNameList) {
+    n += s.SizeOfExcludingThisIfUnshared(aMallocSizeOf);
+  }
+  n += mPathList.ShallowSizeOfExcludingThis(aMallocSizeOf);
+  for (const nsTArray<nsString>& inner : mPathList) {
+    n += inner.ShallowSizeOfExcludingThis(aMallocSizeOf);
+    for (const nsString& str : inner) {
+      n += str.SizeOfExcludingThisIfUnshared(aMallocSizeOf);
+    }
+  }
+  return n;
+}
+
+/* virtual */ JSObject*
+CSSLayerStatementRule::WrapObject(JSContext* aCx,
+                       JS::Handle<JSObject*> aGivenProto)
+{
+  return CSSLayerStatementRuleBinding::Wrap(aCx, this, aGivenProto);
+}
+
+
+// -------------------------------------------
+// LayerBlockRule
+//
+
+CSSLayerBlockRule::CSSLayerBlockRule(const nsString& aName,
+                                     const nsTArray<nsString>& aPath,
+                                     uint32_t aLineNumber, uint32_t aColumnNumber)
+  : css::GroupRule(aLineNumber, aColumnNumber)
+  , mName(aName)
+  , mPath(aPath)
+{
+}
+
+CSSLayerBlockRule::~CSSLayerBlockRule()
+{
+}
+
+CSSLayerBlockRule::CSSLayerBlockRule(const CSSLayerBlockRule& aCopy)
+  : css::GroupRule(aCopy)
+  , mName(aCopy.mName)
+  , mPath(aCopy.mPath)
+{
+}
+
+#ifdef DEBUG
+/* virtual */ void
+CSSLayerBlockRule::List(FILE* out, int32_t aIndent) const
+{
+    // TODO
+}
+#endif
+
+/* virtual */ int32_t
+CSSLayerBlockRule::GetType() const
+{
+  return Rule::LAYER_BLOCK_RULE;
+}
+
+/* virtual */ already_AddRefed<mozilla::css::Rule>
+CSSLayerBlockRule::Clone() const
+{
+  RefPtr<css::Rule> clone = new CSSLayerBlockRule(*this);
+  return clone.forget();
+}
+
+/* virtual */ bool
+CSSLayerBlockRule::UseForPresentation(nsPresContext* aPresContext,
+                                      nsMediaQueryResultCacheKey& aKey)
+{
+  // This will never be reached.
+  return true;
+}
+
+void
+CSSLayerBlockRule::GetPath(nsTArray<nsString>& aResult)
+{
+  aResult = mPath;
+}
+
+NS_IMPL_ADDREF_INHERITED(CSSLayerBlockRule, GroupRule)
+NS_IMPL_RELEASE_INHERITED(CSSLayerBlockRule, GroupRule)
+
+// QueryInterface implementation for CSSLayerBlockRule
+NS_INTERFACE_MAP_BEGIN_CYCLE_COLLECTION(CSSLayerBlockRule)
+  NS_INTERFACE_MAP_ENTRY(nsIDOMCSSGroupingRule)
+  NS_INTERFACE_MAP_ENTRY(nsIDOMCSSLayerBlockRule)
+NS_INTERFACE_MAP_END_INHERITING(GroupRule)
+
+NS_IMPL_CYCLE_COLLECTION_CLASS(CSSLayerBlockRule)
+
+NS_IMPL_CYCLE_COLLECTION_UNLINK_BEGIN_INHERITED(CSSLayerBlockRule,
+                                                GroupRule)
+  tmp->mPath.Clear();
+NS_IMPL_CYCLE_COLLECTION_UNLINK_END
+
+NS_IMPL_CYCLE_COLLECTION_TRAVERSE_BEGIN_INHERITED(CSSLayerBlockRule,
+                                                  GroupRule)
+NS_IMPL_CYCLE_COLLECTION_TRAVERSE_END
+
+uint16_t
+CSSLayerBlockRule::Type() const
+{
+  return nsIDOMCSSRule::LAYER_BLOCK_RULE;
+}
+
+void
+CSSLayerBlockRule::GetCssTextImpl(nsAString& aCssText) const
+{
+  aCssText.AssignLiteral("@layer ");
+  aCssText.Append(mName);
+  css::GroupRule::AppendRulesToCssText(aCssText);
+}
+
+// nsIDOMCSSGroupingRule methods
+NS_IMETHODIMP
+CSSLayerBlockRule::GetCssRules(nsIDOMCSSRuleList* *aRuleList)
+{
+  return css::GroupRule::GetCssRules(aRuleList);
+}
+
+NS_IMETHODIMP
+CSSLayerBlockRule::InsertRule(const nsAString & aRule, uint32_t aIndex, uint32_t* _retval)
+{
+  return css::GroupRule::InsertRule(aRule, aIndex, _retval);
+}
+
+NS_IMETHODIMP
+CSSLayerBlockRule::DeleteRule(uint32_t aIndex)
+{
+  return css::GroupRule::DeleteRule(aIndex);
+}
+
+// nsIDOMCSSLayerBlockRule methods
+NS_IMETHODIMP
+CSSLayerBlockRule::GetName(nsAString& aLayerName)
+{
+  aLayerName.Assign(mName);
+  return NS_OK;
+}
+
+/* virtual */ size_t
+CSSLayerBlockRule::SizeOfIncludingThis(MallocSizeOf aMallocSizeOf) const
+{
+  size_t n = aMallocSizeOf(this);
+  n += css::GroupRule::SizeOfExcludingThis(aMallocSizeOf);
+  n += mName.SizeOfExcludingThisIfUnshared(aMallocSizeOf);
+  n += mPath.ShallowSizeOfExcludingThis(aMallocSizeOf);
+  for (const nsString& s : mPath) {
+    n += s.SizeOfExcludingThisIfUnshared(aMallocSizeOf);
+  }
+  return n;
+}
+
+/* virtual */ JSObject*
+CSSLayerBlockRule::WrapObject(JSContext* aCx,
+                              JS::Handle<JSObject*> aGivenProto)
+{
+  return CSSLayerBlockRuleBinding::Wrap(aCx, this, aGivenProto);
+}
+
+} // namespace mozilla

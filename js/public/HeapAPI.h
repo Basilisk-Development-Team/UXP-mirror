@@ -23,6 +23,12 @@ namespace gc {
 
 struct Cell;
 
+/*
+ * The low bit is set so this should never equal a normal pointer, and the high
+ * bit is set so this should never equal the upper 32 bits of a 64-bit pointer.
+ */
+const uint32_t Relocated = uintptr_t(0xbad0bad1);
+
 const size_t ArenaShift = 12;
 const size_t ArenaSize = size_t(1) << ArenaShift;
 const size_t ArenaMask = ArenaSize - 1;
@@ -41,6 +47,14 @@ const size_t CellAlignMask = CellAlignBytes - 1;
 
 const size_t CellBytesPerMarkBit = CellAlignBytes;
 
+/*
+ * We sometimes use an index to refer to a cell in an arena. The index for a
+ * cell is found by dividing by the cell alignment so not all indicies refer to
+ * valid cells.
+ */
+const size_t ArenaCellIndexBytes = CellAlignBytes;
+const size_t MaxArenaCellIndex = ArenaSize / CellAlignBytes;
+
 /* These are magic constants derived from actual offsets in gc/Heap.h. */
 #ifdef JS_GC_SMALL_CHUNK_SIZE
 const size_t ChunkMarkBitmapOffset = 258104;
@@ -52,7 +66,7 @@ const size_t ChunkMarkBitmapBits = 129024;
 const size_t ChunkRuntimeOffset = ChunkSize - sizeof(void*);
 const size_t ChunkTrailerSize = 2 * sizeof(uintptr_t) + sizeof(uint64_t);
 const size_t ChunkLocationOffset = ChunkSize - ChunkTrailerSize;
-const size_t ChunkStoreBufferOffset = ChunkLocationOffset + sizeof(uint64_t);
+const size_t ChunkStoreBufferOffset = ChunkSize - ChunkTrailerSize + sizeof(uint64_t);
 const size_t ArenaZoneOffset = sizeof(size_t);
 const size_t ArenaHeaderSize = sizeof(size_t) + 2 * sizeof(uintptr_t) +
                                sizeof(size_t) + sizeof(uintptr_t);
@@ -62,12 +76,10 @@ const size_t ArenaHeaderSize = sizeof(size_t) + 2 * sizeof(uintptr_t) +
  * depends on the size of the GCThing. Objects marked gray are eligible for
  * cycle collection.
  */
-static const uint32_t BLACK = 0;
-static const uint32_t GRAY = 1;
-
+ 
 /*
  * Two bits determine the mark color as follows:
- *   BLACK_BIT   GRAY_OR_BLACK_BIT   color
+ *    BlackBit      GrayOrBlackBit   color
  *       0               0           white
  *       0               1           gray
  *       1               0           black
@@ -439,10 +451,15 @@ GetTenuredGCThingZone(GCCellPtr thing)
     return js::gc::detail::GetGCThingZone(thing.unsafeAsUIntPtr());
 }
 
+extern JS_PUBLIC_API(Zone*)
+GetNurseryStringZone(JSString* str);
+
 static MOZ_ALWAYS_INLINE Zone*
 GetStringZone(JSString* str)
 {
-    return js::gc::detail::GetGCThingZone(uintptr_t(str));
+    if (!js::gc::IsInsideNursery(reinterpret_cast<js::gc::Cell*>(str)))
+        return js::gc::detail::GetGCThingZone(reinterpret_cast<uintptr_t>(str));
+    return GetNurseryStringZone(str);
 }
 
 extern JS_PUBLIC_API(Zone*)
@@ -462,7 +479,44 @@ GCThingIsMarkedGray(GCCellPtr thing)
 extern JS_PUBLIC_API(JS::TraceKind)
 GCThingTraceKind(void* thing);
 
-} /* namespace JS */
+extern JS_PUBLIC_API(void)
+EnableNurseryStrings(JSContext* cx);
+
+extern JS_PUBLIC_API(void)
+DisableNurseryStrings(JSContext* cx);
+
+/*
+ * Returns true when writes to GC thing pointers (and reads from weak pointers)
+ * must call an incremental barrier. This is generally only true when running
+ * mutator code in-between GC slices. At other times, the barrier may be elided
+ * for performance.
+ */
+extern JS_PUBLIC_API(bool)
+IsIncrementalBarrierNeeded(JSContext* cx);
+
+/*
+ * Notify the GC that a reference to a JSObject is about to be overwritten.
+ * This method must be called if IsIncrementalBarrierNeeded.
+ */
+extern JS_PUBLIC_API(void)
+IncrementalPreWriteBarrier(JSObject* obj);
+
+/*
+ * Notify the GC that a weak reference to a GC thing has been read.
+ * This method must be called if IsIncrementalBarrierNeeded.
+ */
+extern JS_PUBLIC_API(void)
+IncrementalReadBarrier(GCCellPtr thing);
+
+/**
+ * Unsets the gray bit for anything reachable from |thing|. |kind| should not be
+ * JS::TraceKind::Shape. |thing| should be non-null. The return value indicates
+ * if anything was unmarked.
+ */
+extern JS_FRIEND_API(bool)
+UnmarkGrayGCThingRecursively(GCCellPtr thing);
+
+} // namespace JS
 
 namespace js {
 namespace gc {
@@ -483,16 +537,76 @@ IsIncrementalBarrierNeededOnTenuredGCThing(const JS::GCCellPtr thing)
 }
 
 #ifdef MOZ_DEVTOOLS_SERVER
-/**
- * Create an object providing access to the garbage collector's internal notion
- * of the current state of memory (both GC heap memory and GCthing-controlled
- * malloc memory.
+static MOZ_ALWAYS_INLINE void
+ExposeGCThingToActiveJS(JS::GCCellPtr thing)
+{
+    // GC things residing in the nursery cannot be gray: they have no mark bits.
+    // All live objects in the nursery are moved to tenured at the beginning of
+    // each GC slice, so the gray marker never sees nursery things.
+    if (IsInsideNursery(thing.asCell()))
+        return;
+
+    // There's nothing to do for permanent GC things that might be owned by
+    // another runtime.
+    if (thing.mayBeOwnedByOtherRuntime())
+        return;
+
+    if (IsIncrementalBarrierNeededOnTenuredGCThing(thing))
+        JS::IncrementalReadBarrier(thing);
+    else if (js::gc::detail::TenuredCellIsMarkedGray(thing.asCell()))
+        JS::UnmarkGrayGCThingRecursively(thing);
+
+    MOZ_ASSERT(!js::gc::detail::TenuredCellIsMarkedGray(thing.asCell()));
+}
+
+template <typename T>
+extern JS_PUBLIC_API(bool)
+EdgeNeedsSweepUnbarrieredSlow(T* thingp);
+
+static MOZ_ALWAYS_INLINE bool
+EdgeNeedsSweepUnbarriered(JSObject** objp)
+{
+    // This function does not handle updating nursery pointers. Raw JSObject
+    // pointers should be updated separately or replaced with
+    // JS::Heap<JSObject*> which handles this automatically.
+    MOZ_ASSERT(!JS::CurrentThreadIsHeapMinorCollecting());
+    if (IsInsideNursery(reinterpret_cast<Cell*>(*objp)))
+        return false;
+
+    auto zone = JS::shadow::Zone::asShadowZone(detail::GetGCThingZone(uintptr_t(*objp)));
+    if (!zone->isGCSweepingOrCompacting())
+        return false;
+
+    return EdgeNeedsSweepUnbarrieredSlow(objp);
+}
+
+} // namespace gc
+} // namesapce js
+
+namespace JS {
+
+/*
+ * This should be called when an object that is marked gray is exposed to the JS
+ * engine (by handing it to running JS code or writing it into live JS
+ * data). During incremental GC, since the gray bits haven't been computed yet,
+ * we conservatively mark the object black.
  */
-extern JS_PUBLIC_API(JSObject*)
-NewMemoryInfoObject(JSContext* cx);
+static MOZ_ALWAYS_INLINE void
+ExposeObjectToActiveJS(JSObject* obj)
+{
+    MOZ_ASSERT(obj);
+    MOZ_ASSERT(!js::gc::EdgeNeedsSweepUnbarrieredSlow(&obj));
+    js::gc::ExposeGCThingToActiveJS(GCCellPtr(obj));
+}
 #endif
 
-} /* namespace gc */
-} /* namespace js */
+static MOZ_ALWAYS_INLINE void
+ExposeScriptToActiveJS(JSScript* script)
+{
+    MOZ_ASSERT(!js::gc::EdgeNeedsSweepUnbarrieredSlow(&script));
+    js::gc::ExposeGCThingToActiveJS(GCCellPtr(script));
+}
+
+} /* namespace JS */
 
 #endif /* js_HeapAPI_h */

@@ -55,6 +55,7 @@
 #include "jsobjinlines.h"
 #include "jsscriptinlines.h"
 
+#include "gc/Iteration-inl.h"
 #include "jit/JitFrames-inl.h"
 #include "jit/shared/Lowering-shared-inl.h"
 #include "vm/Debugger-inl.h"
@@ -433,7 +434,7 @@ JitCompartment::~JitCompartment()
 }
 
 bool
-JitCompartment::initialize(JSContext* cx)
+JitCompartment::initialize(JSContext* cx, bool zoneHasNurseryStrings)
 {
     stubCodes_ = cx->new_<ICStubCodeMap>(cx->zone());
     if (!stubCodes_)
@@ -443,6 +444,8 @@ JitCompartment::initialize(JSContext* cx)
         ReportOutOfMemory(cx);
         return false;
     }
+
+    setStringsCanBeInNursery(zoneHasNurseryStrings);
 
     return true;
 }
@@ -1766,6 +1769,7 @@ OptimizeMIR(MIRGenerator* mir)
         if (mir->shouldCancel("Make loops contiguous"))
             return false;
     }
+    AssertExtendedGraphCoherency(graph, /* underValueNumberer = */ false, /* force = */ true);
 
     // Passes after this point must not move instructions; these analyses
     // depend on knowing the final order in which instructions will execute.
@@ -1808,6 +1812,8 @@ OptimizeMIR(MIRGenerator* mir)
         gs.spewPass("Redundant Bounds Check Elimination");
         AssertGraphCoherency(graph);
     }
+    
+    AssertGraphCoherency(graph, /* force = */ true);
 
     DumpMIRExpressions(graph);
 
@@ -1848,8 +1854,10 @@ GenerateLIR(MIRGenerator* mir)
           case RegisterAllocator_Backtracking:
           case RegisterAllocator_Testbed: {
 #ifdef DEBUG
-            if (!integrity.record())
-                return nullptr;
+            if (JitOptions.fullDebugChecks) {
+                if (!integrity.record())
+                    return nullptr;
+            }
 #endif
 
             BacktrackingAllocator regalloc(mir, &lirgen, *lir,
@@ -1858,8 +1866,10 @@ GenerateLIR(MIRGenerator* mir)
                 return nullptr;
 
 #ifdef DEBUG
-            if (!integrity.check(false))
-                return nullptr;
+            if (JitOptions.fullDebugChecks) {
+                if (!integrity.check(false))
+                    return nullptr;
+            }
 #endif
 
             gs.spewPass("Allocate Registers [Backtracking]");
@@ -3078,10 +3088,12 @@ jit::InvalidateAll(FreeOp* fop, Zone* zone)
     if (zone->isAtomsZone())
         return;
     JSContext* cx = TlsContext.get();
-    for (JitActivationIterator iter(cx, zone->group()->ownerContext()); !iter.done(); ++iter) {
-        if (iter->compartment()->zone() == zone) {
-            JitSpew(JitSpew_IonInvalidate, "Invalidating all frames for GC");
-            InvalidateActivation(fop, iter, true);
+    for (const CooperatingContext& target : cx->runtime()->cooperatingContexts()) {
+        for (JitActivationIterator iter(cx, target); !iter.done(); ++iter) {
+            if (iter->compartment()->zone() == zone) {
+                JitSpew(JitSpew_IonInvalidate, "Invalidating all frames for GC");
+                InvalidateActivation(fop, iter, true);
+            }
         }
     }
 }
@@ -3132,8 +3144,10 @@ jit::Invalidate(TypeZone& types, FreeOp* fop,
     JSRuntime::AutoProhibitActiveContextChange apacc(fop->runtime());
 
     JSContext* cx = TlsContext.get();
-    for (JitActivationIterator iter(cx, types.zone()->group()->ownerContext()); !iter.done(); ++iter)
-        InvalidateActivation(fop, iter, false);
+    for (const CooperatingContext& target : cx->runtime()->cooperatingContexts()) {
+        for (JitActivationIterator iter(cx, target); !iter.done(); ++iter)
+            InvalidateActivation(fop, iter, false);
+    }
 
     // Drop the references added above. If a script was never active, its
     // IonScript will be immediately destroyed. Otherwise, it will be held live

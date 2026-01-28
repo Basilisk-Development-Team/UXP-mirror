@@ -37,6 +37,7 @@
 #include "mozilla/dom/EventTargetBinding.h"
 #include "mozilla/dom/MessageChannel.h"
 #include "mozilla/dom/MessageEventBinding.h"
+#include "mozilla/dom/nsCSPService.h"
 #include "mozilla/dom/WorkerBinding.h"
 #include "mozilla/dom/ScriptSettings.h"
 #include "mozilla/dom/IndexedDatabaseManager.h"
@@ -300,6 +301,7 @@ LoadContextOptions(const char* aPrefName, void* /* aClosure */)
                 .setAsyncStack(GetWorkerPref<bool>(NS_LITERAL_CSTRING("asyncstack")))
                 .setWerror(GetWorkerPref<bool>(NS_LITERAL_CSTRING("werror")))
                 .setStreams(GetWorkerPref<bool>(NS_LITERAL_CSTRING("streams")))
+                .setWeakRefs(GetWorkerPref<bool>(NS_LITERAL_CSTRING("weakrefs")))
                 .setExtraWarnings(GetWorkerPref<bool>(NS_LITERAL_CSTRING("strict")))
                 .setArrayProtoValues(GetWorkerPref<bool>(
                       NS_LITERAL_CSTRING("array_prototype_values")));
@@ -578,7 +580,7 @@ ContentSecurityPolicyAllows(JSContext* aCx, JS::HandleValue aValue)
   WorkerPrivate* worker = GetWorkerPrivateFromContext(aCx);
   worker->AssertIsOnWorkerThread();
 
-  if (worker->GetReportCSPViolations()) {
+  if (worker->CSPEnabled() && worker->GetReportCSPViolations()) {
     JS::Rooted<JSString*> jsString(aCx, JS::ToString(aCx, aValue));
     if (NS_WARN_IF(!jsString)) {
       JS_ClearPendingException(aCx);
@@ -677,7 +679,6 @@ AsmJSCacheOpenEntryForRead(JS::Handle<JSObject*> aGlobal,
 
 static JS::AsmJSCacheResult
 AsmJSCacheOpenEntryForWrite(JS::Handle<JSObject*> aGlobal,
-                            bool aInstalled,
                             const char16_t* aBegin,
                             const char16_t* aEnd,
                             size_t aSize,
@@ -689,8 +690,7 @@ AsmJSCacheOpenEntryForWrite(JS::Handle<JSObject*> aGlobal,
     return JS::AsmJSCache_InternalError;
   }
 
-  return asmjscache::OpenEntryForWrite(principal, aInstalled, aBegin, aEnd,
-                                       aSize, aMemory, aHandle);
+  return asmjscache::OpenEntryForWrite(principal, aBegin, aEnd, aSize, aMemory, aHandle);
 }
 
 class AsyncTaskWorkerHolder final : public WorkerHolder
@@ -2719,12 +2719,14 @@ LogViolationDetailsRunnable::MainThreadRun()
 {
   AssertIsOnMainThread();
 
-  nsIContentSecurityPolicy* csp = mWorkerPrivate->GetCSP();
-  if (csp) {
-    if (mWorkerPrivate->GetReportCSPViolations()) {
-      csp->LogViolationDetails(nsIContentSecurityPolicy::VIOLATION_TYPE_EVAL,
-                               mFileName, mScriptSample, mLineNum, mColumnNum,
-                               EmptyString(), EmptyString());
+  if (CSPService::sCSPEnabled) {
+    nsIContentSecurityPolicy* csp = mWorkerPrivate->GetCSP();
+    if (csp) {
+      if (mWorkerPrivate->GetReportCSPViolations()) {
+        csp->LogViolationDetails(nsIContentSecurityPolicy::VIOLATION_TYPE_EVAL,
+                                 mFileName, mScriptSample, mLineNum, mColumnNum,
+                                 EmptyString(), EmptyString());
+      }
     }
   }
 

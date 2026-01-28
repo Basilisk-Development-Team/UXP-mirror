@@ -401,8 +401,10 @@ nsLineLayout::NewPerSpanData()
   psd->mFrame = nullptr;
   psd->mFirstFrame = nullptr;
   psd->mLastFrame = nullptr;
+  psd->mReflowInput = nullptr;
   psd->mContainsFloat = false;
   psd->mHasNonemptyContent = false;
+  psd->mBaseline = nullptr;
 
 #ifdef DEBUG
   outerLineLayout->mSpansAllocated++;
@@ -758,8 +760,8 @@ IsPercentageAware(const nsIFrame* aFrame)
        pos->mWidth.GetUnit() != eStyleUnit_Auto) ||
       pos->MaxWidthDependsOnContainer() ||
       pos->MinWidthDependsOnContainer() ||
-      pos->OffsetHasPercent(NS_SIDE_RIGHT) ||
-      pos->OffsetHasPercent(NS_SIDE_LEFT)) {
+      pos->OffsetHasPercent(eSideRight) ||
+      pos->OffsetHasPercent(eSideLeft)) {
     return true;
   }
 

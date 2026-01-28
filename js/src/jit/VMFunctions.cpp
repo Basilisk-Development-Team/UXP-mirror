@@ -598,7 +598,8 @@ CreateThis(JSContext* cx, HandleObject callee, HandleObject newTarget, MutableHa
         RootedFunction fun(cx, &callee->as<JSFunction>());
         if (fun->isInterpreted() && fun->isConstructor()) {
             JSScript* script = JSFunction::getOrCreateScript(cx, fun);
-            if (!script || !script->ensureHasTypes(cx))
+            AutoKeepTypeScripts keepTypes(cx);
+            if (!script || !script->ensureHasTypes(cx, keepTypes))
                 return false;
             if (fun->isBoundFunction() || script->isDerivedClassConstructor()) {
                 rval.set(MagicValue(JS_UNINITIALIZED_LEXICAL));
@@ -649,11 +650,11 @@ GetDynamicName(JSContext* cx, JSObject* envChain, JSString* str, Value* vp)
 }
 
 void
-PostWriteBarrier(JSRuntime* rt, JSObject* obj)
+PostWriteBarrier(JSRuntime* rt, js::gc::Cell* cell)
 {
     JS::AutoCheckCannotGC nogc;
-    MOZ_ASSERT(!IsInsideNursery(obj));
-    rt->gc.storeBuffer().putWholeCell(obj);
+    MOZ_ASSERT(!IsInsideNursery(cell));
+    rt->gc.storeBuffer().putWholeCell(cell);
 }
 
 static const size_t MAX_WHOLE_CELL_BUFFER_SIZE = 4096;
@@ -1284,6 +1285,7 @@ AssertValidObjectPtr(JSContext* cx, JSObject* obj)
     // Check what we can, so that we'll hopefully assert/crash if we get a
     // bogus object (pointer).
     MOZ_ASSERT(obj->compartment() == cx->compartment());
+	MOZ_ASSERT(obj->zoneFromAnyThread() == cx->zone());
     MOZ_ASSERT(obj->runtimeFromActiveCooperatingThread() == cx->runtime());
 
     MOZ_ASSERT_IF(!obj->hasLazyGroup() && obj->maybeShape(),
@@ -1293,7 +1295,6 @@ AssertValidObjectPtr(JSContext* cx, JSObject* obj)
         MOZ_ASSERT(obj->isAligned());
         gc::AllocKind kind = obj->asTenured().getAllocKind();
         MOZ_ASSERT(gc::IsObjectAllocKind(kind));
-        MOZ_ASSERT(obj->asTenured().zone() == cx->zone());
     }
 #endif
 }

@@ -265,7 +265,6 @@ class TypeSet
         bool unknownProperties();
         bool hasFlags(CompilerConstraintList* constraints, ObjectGroupFlags flags);
         bool hasStableClassAndProto(CompilerConstraintList* constraints);
-        void watchStateChangeForInlinedCall(CompilerConstraintList* constraints);
         void watchStateChangeForTypedArrayData(CompilerConstraintList* constraints);
         void watchStateChangeForUnboxedConvertedToNative(CompilerConstraintList* constraints);
         HeapTypeSetKey property(jsid id);
@@ -1071,150 +1070,6 @@ inline bool isInlinableCall(jsbytecode* pc);
 bool
 ClassCanHaveExtraProperties(const Class* clasp);
 
-/* Persistent type information for a script, retained across GCs. */
-class TypeScript
-{
-    friend class ::JSScript;
-
-    // Variable-size array
-    StackTypeSet typeArray_[1];
-
-  public:
-    /* Array of type sets for variables and JOF_TYPESET ops. */
-    StackTypeSet* typeArray() const {
-        // Ensure typeArray_ is the last data member of TypeScript.
-        JS_STATIC_ASSERT(sizeof(TypeScript) ==
-                         sizeof(typeArray_) + offsetof(TypeScript, typeArray_));
-        return const_cast<StackTypeSet*>(typeArray_);
-    }
-
-    static inline size_t SizeIncludingTypeArray(size_t arraySize) {
-        // Ensure typeArray_ is the last data member of TypeScript.
-        JS_STATIC_ASSERT(sizeof(TypeScript) ==
-            sizeof(StackTypeSet) + offsetof(TypeScript, typeArray_));
-        return offsetof(TypeScript, typeArray_) + arraySize * sizeof(StackTypeSet);
-    }
-
-    static inline unsigned NumTypeSets(JSScript* script);
-
-    static inline StackTypeSet* ThisTypes(JSScript* script);
-    static inline StackTypeSet* ArgTypes(JSScript* script, unsigned i);
-
-    /* Get the type set for values observed at an opcode. */
-    static inline StackTypeSet* BytecodeTypes(JSScript* script, jsbytecode* pc);
-
-    template <typename TYPESET>
-    static inline TYPESET* BytecodeTypes(JSScript* script, jsbytecode* pc, uint32_t* bytecodeMap,
-                                         uint32_t* hint, TYPESET* typeArray);
-
-    /*
-     * Monitor a bytecode pushing any value. This must be called for any opcode
-     * which is JOF_TYPESET, and where either the script has not been analyzed
-     * by type inference or where the pc has type barriers. For simplicity, we
-     * always monitor JOF_TYPESET opcodes in the interpreter and stub calls,
-     * and only look at barriers when generating JIT code for the script.
-     */
-    static inline void Monitor(JSContext* cx, JSScript* script, jsbytecode* pc,
-                               const js::Value& val);
-    static inline void Monitor(JSContext* cx, JSScript* script, jsbytecode* pc,
-                               TypeSet::Type type);
-    static inline void Monitor(JSContext* cx, const js::Value& rval);
-
-    static inline void Monitor(JSContext* cx, JSScript* script, jsbytecode* pc,
-                               StackTypeSet* types, const js::Value& val);
-
-    /* Monitor an assignment at a SETELEM on a non-integer identifier. */
-    static inline void MonitorAssign(JSContext* cx, HandleObject obj, jsid id);
-
-    /* Add a type for a variable in a script. */
-    static inline void SetThis(JSContext* cx, JSScript* script, TypeSet::Type type);
-    static inline void SetThis(JSContext* cx, JSScript* script, const js::Value& value);
-    static inline void SetArgument(JSContext* cx, JSScript* script, unsigned arg,
-                                   TypeSet::Type type);
-    static inline void SetArgument(JSContext* cx, JSScript* script, unsigned arg,
-                                   const js::Value& value);
-
-    /*
-     * Freeze all the stack type sets in a script, for a compilation. Returns
-     * copies of the type sets which will be checked against the actual ones
-     * under FinishCompilation, to detect any type changes.
-     */
-    static bool FreezeTypeSets(CompilerConstraintList* constraints, JSScript* script,
-                               TemporaryTypeSet** pThisTypes,
-                               TemporaryTypeSet** pArgTypes,
-                               TemporaryTypeSet** pBytecodeTypes);
-
-    static void Purge(JSContext* cx, HandleScript script);
-
-    void destroy();
-
-    size_t sizeOfIncludingThis(mozilla::MallocSizeOf mallocSizeOf) const {
-        return mallocSizeOf(this);
-    }
-
-#ifdef DEBUG
-    void printTypes(JSContext* cx, HandleScript script) const;
-#endif
-};
-
-void
-FillBytecodeTypeMap(JSScript* script, uint32_t* bytecodeMap);
-
-class RecompileInfo;
-
-// Allocate a CompilerOutput for a finished compilation and generate the type
-// constraints for the compilation. Sets |isValidOut| based on whether the type
-// constraints still hold.
-bool
-FinishCompilation(JSContext* cx, HandleScript script, CompilerConstraintList* constraints,
-                  RecompileInfo* precompileInfo, bool* isValidOut);
-
-// Update the actual types in any scripts queried by constraints with any
-// speculative types added during the definite properties analysis.
-void
-FinishDefinitePropertiesAnalysis(JSContext* cx, CompilerConstraintList* constraints);
-
-// Representation of a heap type property which may or may not be instantiated.
-// Heap properties for singleton types are instantiated lazily as they are used
-// by the compiler, but this is only done on the active thread. If we are
-// compiling off thread and use a property which has not yet been instantiated,
-// it will be treated as empty and non-configured and will be instantiated when
-// rejoining to the active thread. If it is in fact not empty, the compilation
-// will fail; to avoid this, we try to instantiate singleton property types
-// during generation of baseline caches.
-class HeapTypeSetKey
-{
-    friend class TypeSet::ObjectKey;
-
-    // Object and property being accessed.
-    TypeSet::ObjectKey* object_;
-    jsid id_;
-
-    // If instantiated, the underlying heap type set.
-    HeapTypeSet* maybeTypes_;
-
-  public:
-    HeapTypeSetKey()
-      : object_(nullptr), id_(JSID_EMPTY), maybeTypes_(nullptr)
-    {}
-
-    TypeSet::ObjectKey* object() const { return object_; }
-    jsid id() const { return id_; }
-    HeapTypeSet* maybeTypes() const { return maybeTypes_; }
-
-    bool instantiate(JSContext* cx);
-
-    void freeze(CompilerConstraintList* constraints);
-    jit::MIRType knownMIRType(CompilerConstraintList* constraints);
-    bool nonData(CompilerConstraintList* constraints);
-    bool nonWritable(CompilerConstraintList* constraints);
-    bool isOwnProperty(CompilerConstraintList* constraints, bool allowEmptyTypesForGlobal = false);
-    bool knownSubset(CompilerConstraintList* constraints, const HeapTypeSetKey& other);
-    JSObject* singleton(CompilerConstraintList* constraints);
-    bool needsBarrier(CompilerConstraintList* constraints);
-    bool constant(CompilerConstraintList* constraints, Value* valOut);
-    bool couldBeConstant(CompilerConstraintList* constraints);
-};
 
 /*
  * Information about the result of the compilation of a script.  This structure
@@ -1296,6 +1151,10 @@ class RecompileInfo
       : outputIndex(JS_BITMASK(31)), generation(0)
     {}
 
+    bool operator==(const RecompileInfo& other) const {
+        return outputIndex == other.outputIndex && generation == other.generation;
+    }
+
     CompilerOutput* compilerOutput(TypeZone& types) const;
     CompilerOutput* compilerOutput(JSContext* cx) const;
     bool shouldSweep(TypeZone& types);
@@ -1304,6 +1163,178 @@ class RecompileInfo
 // The RecompileInfoVector has a MinInlineCapacity of one so that invalidating a
 // single IonScript doesn't require an allocation.
 typedef Vector<RecompileInfo, 1, SystemAllocPolicy> RecompileInfoVector;
+/* Persistent type information for a script, retained across GCs. */
+class TypeScript
+{
+    friend class ::JSScript;
+
+    // The freeze constraints added to stack type sets will only directly
+    // invalidate the script containing those stack type sets. This Vector
+    // contains compilations that inlined this script, so we can invalidate
+    // them as well.
+    RecompileInfoVector inlinedCompilations_;
+    // Variable-size array
+    StackTypeSet typeArray_[1];
+
+  public:
+    RecompileInfoVector& inlinedCompilations() {
+        return inlinedCompilations_;
+    }
+    [[nodiscard]] bool addInlinedCompilation(RecompileInfo info) {
+        if (!inlinedCompilations_.empty() && inlinedCompilations_.back() == info)
+            return true;
+        return inlinedCompilations_.append(info);
+    }
+
+    /* Array of type sets for variables and JOF_TYPESET ops. */
+    StackTypeSet* typeArray() const {
+        // Ensure typeArray_ is the last data member of TypeScript.
+        JS_STATIC_ASSERT(sizeof(TypeScript) ==
+                         sizeof(typeArray_) + offsetof(TypeScript, typeArray_));
+        return const_cast<StackTypeSet*>(typeArray_);
+    }
+
+    static inline size_t SizeIncludingTypeArray(size_t arraySize) {
+        // Ensure typeArray_ is the last data member of TypeScript.
+        JS_STATIC_ASSERT(sizeof(TypeScript) ==
+            sizeof(StackTypeSet) + offsetof(TypeScript, typeArray_));
+        return offsetof(TypeScript, typeArray_) + arraySize * sizeof(StackTypeSet);
+    }
+
+    static inline unsigned NumTypeSets(JSScript* script);
+
+    static inline StackTypeSet* ThisTypes(JSScript* script);
+    static inline StackTypeSet* ArgTypes(JSScript* script, unsigned i);
+
+    /* Get the type set for values observed at an opcode. */
+    static inline StackTypeSet* BytecodeTypes(JSScript* script, jsbytecode* pc);
+
+    template <typename TYPESET>
+    static inline TYPESET* BytecodeTypes(JSScript* script, jsbytecode* pc, uint32_t* bytecodeMap,
+                                         uint32_t* hint, TYPESET* typeArray);
+
+    /*
+     * Monitor a bytecode pushing any value. This must be called for any opcode
+     * which is JOF_TYPESET, and where either the script has not been analyzed
+     * by type inference or where the pc has type barriers. For simplicity, we
+     * always monitor JOF_TYPESET opcodes in the interpreter and stub calls,
+     * and only look at barriers when generating JIT code for the script.
+     */
+    static inline void Monitor(JSContext* cx, JSScript* script, jsbytecode* pc,
+                               const js::Value& val);
+    static inline void Monitor(JSContext* cx, JSScript* script, jsbytecode* pc,
+                               TypeSet::Type type);
+    static inline void Monitor(JSContext* cx, const js::Value& rval);
+
+    static inline void Monitor(JSContext* cx, JSScript* script, jsbytecode* pc,
+                               StackTypeSet* types, const js::Value& val);
+
+    /* Monitor an assignment at a SETELEM on a non-integer identifier. */
+    static inline void MonitorAssign(JSContext* cx, HandleObject obj, jsid id);
+
+    /* Add a type for a variable in a script. */
+    static inline void SetThis(JSContext* cx, JSScript* script, TypeSet::Type type);
+    static inline void SetThis(JSContext* cx, JSScript* script, const js::Value& value);
+    static inline void SetArgument(JSContext* cx, JSScript* script, unsigned arg,
+                                   TypeSet::Type type);
+    static inline void SetArgument(JSContext* cx, JSScript* script, unsigned arg,
+                                   const js::Value& value);
+
+    /*
+     * Freeze all the stack type sets in a script, for a compilation. Returns
+     * copies of the type sets which will be checked against the actual ones
+     * under FinishCompilation, to detect any type changes.
+     */
+    static bool FreezeTypeSets(CompilerConstraintList* constraints, JSScript* script,
+                               TemporaryTypeSet** pThisTypes,
+                               TemporaryTypeSet** pArgTypes,
+                               TemporaryTypeSet** pBytecodeTypes);
+
+    static void Purge(JSContext* cx, HandleScript script);
+
+    void destroy();
+
+    size_t sizeOfIncludingThis(mozilla::MallocSizeOf mallocSizeOf) const {
+        return mallocSizeOf(this);
+    }
+
+#ifdef DEBUG
+    void printTypes(JSContext* cx, HandleScript script) const;
+#endif
+};
+
+// Ensures no TypeScripts are purged in the current zone.
+class MOZ_RAII AutoKeepTypeScripts
+{
+    TypeZone& zone_;
+    bool prev_;
+
+    AutoKeepTypeScripts(const AutoKeepTypeScripts&) = delete;
+    void operator=(const AutoKeepTypeScripts&) = delete;
+
+  public:
+    explicit inline AutoKeepTypeScripts(JSContext* cx);
+    inline ~AutoKeepTypeScripts();
+};
+void
+FillBytecodeTypeMap(JSScript* script, uint32_t* bytecodeMap);
+
+class RecompileInfo;
+
+// Allocate a CompilerOutput for a finished compilation and generate the type
+// constraints for the compilation. Sets |isValidOut| based on whether the type
+// constraints still hold.
+bool
+FinishCompilation(JSContext* cx, HandleScript script, CompilerConstraintList* constraints,
+                  RecompileInfo* precompileInfo, bool* isValidOut);
+
+// Update the actual types in any scripts queried by constraints with any
+// speculative types added during the definite properties analysis.
+void
+FinishDefinitePropertiesAnalysis(JSContext* cx, CompilerConstraintList* constraints);
+
+// Representation of a heap type property which may or may not be instantiated.
+// Heap properties for singleton types are instantiated lazily as they are used
+// by the compiler, but this is only done on the active thread. If we are
+// compiling off thread and use a property which has not yet been instantiated,
+// it will be treated as empty and non-configured and will be instantiated when
+// rejoining to the active thread. If it is in fact not empty, the compilation
+// will fail; to avoid this, we try to instantiate singleton property types
+// during generation of baseline caches.
+class HeapTypeSetKey
+{
+    friend class TypeSet::ObjectKey;
+
+    // Object and property being accessed.
+    TypeSet::ObjectKey* object_;
+    jsid id_;
+
+    // If instantiated, the underlying heap type set.
+    HeapTypeSet* maybeTypes_;
+
+  public:
+    HeapTypeSetKey()
+      : object_(nullptr), id_(JSID_EMPTY), maybeTypes_(nullptr)
+    {}
+
+    TypeSet::ObjectKey* object() const { return object_; }
+    jsid id() const { return id_; }
+    HeapTypeSet* maybeTypes() const { return maybeTypes_; }
+
+    bool instantiate(JSContext* cx);
+
+    void freeze(CompilerConstraintList* constraints);
+    jit::MIRType knownMIRType(CompilerConstraintList* constraints);
+    bool nonData(CompilerConstraintList* constraints);
+    bool nonWritable(CompilerConstraintList* constraints);
+    bool isOwnProperty(CompilerConstraintList* constraints, bool allowEmptyTypesForGlobal = false);
+    bool knownSubset(CompilerConstraintList* constraints, const HeapTypeSetKey& other);
+    JSObject* singleton(CompilerConstraintList* constraints);
+    bool needsBarrier(CompilerConstraintList* constraints);
+    bool constant(CompilerConstraintList* constraints, Value* valOut);
+    bool couldBeConstant(CompilerConstraintList* constraints);
+};
+
 
 struct AutoEnterAnalysis;
 
@@ -1314,6 +1345,9 @@ struct TypeZone
     /* Pool for type information in this zone. */
     static const size_t TYPE_LIFO_ALLOC_PRIMARY_CHUNK_SIZE = 8 * 1024;
     ZoneGroupData<LifoAlloc> typeLifoAlloc;
+
+    TypeZone(const TypeZone&) = delete;
+    void operator=(const TypeZone&) = delete;
 
     // Current generation for sweeping.
     ZoneGroupOrGCTaskOrIonCompileData<uint32_t> generation;
@@ -1340,6 +1374,7 @@ struct TypeZone
 
     ZoneGroupData<bool> sweepingTypes;
 
+    ZoneGroupData<bool> keepTypeScripts;
     // The topmost AutoEnterAnalysis on the stack, if there is one.
     ZoneGroupData<AutoEnterAnalysis*> activeAnalysis;
 

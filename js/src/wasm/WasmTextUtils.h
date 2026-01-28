@@ -32,11 +32,8 @@ template<size_t base>
 RenderInBase(StringBuffer& sb, uint64_t num);
 
 template<class T>
-class Raw;
-
-template<class T>
 [[nodiscard]] bool
-RenderNaN(StringBuffer& sb, Raw<T> num);
+RenderNaN(StringBuffer& sb, T num);
 
 }  // namespace wasm
 

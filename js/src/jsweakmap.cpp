@@ -13,7 +13,6 @@
 #include "jsobj.h"
 #include "jswrapper.h"
 
-#include "js/GCAPI.h"
 #include "vm/GlobalObject.h"
 
 #include "jsobjinlines.h"
@@ -138,7 +137,7 @@ ObjectValueMap::findZoneEdges()
     JS::AutoSuppressGCAnalysis nogc;
     for (Range r = all(); !r.empty(); r.popFront()) {
         JSObject* key = r.front().key();
-        if (key->asTenured().isMarked(BLACK) && !key->asTenured().isMarked(GRAY))
+        if (key->asTenured().isMarkedBlack())
             continue;
         JSObject* delegate = getDelegate(key);
         if (!delegate)
@@ -146,7 +145,7 @@ ObjectValueMap::findZoneEdges()
         Zone* delegateZone = delegate->zone();
         if (delegateZone == zone() || !delegateZone->shouldMarkInZone())
             continue;
-        if (!delegateZone->gcZoneGroupEdges().put(key->zone()))
+        if (!delegateZone->gcSweepGroupEdges().put(key->zone()))
             return false;
     }
     return true;

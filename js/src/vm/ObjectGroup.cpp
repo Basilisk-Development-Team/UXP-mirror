@@ -9,7 +9,6 @@
 #include "jshashutil.h"
 #include "jsobj.h"
 
-#include "gc/Marking.h"
 #include "gc/Policy.h"
 #include "gc/StoreBuffer.h"
 #include "gc/Zone.h"
@@ -17,10 +16,8 @@
 #include "vm/ArrayObject.h"
 #include "vm/Shape.h"
 #include "vm/TaggedProto.h"
-#include "vm/UnboxedObject.h"
 
-#include "jsobjinlines.h"
-
+#include "gc/Marking-inl.h"
 #include "vm/UnboxedObject-inl.h"
 
 using namespace js;
@@ -409,10 +406,9 @@ struct ObjectGroupCompartment::NewEntry
     }
 
     static inline HashNumber hash(const Lookup& lookup) {
-        HashNumber hash = uintptr_t(lookup.clasp);
-        hash = mozilla::RotateLeft(hash, 4) ^ MovableCellHasher<TaggedProto>::hash(lookup.proto);
-        hash = mozilla::RotateLeft(hash, 4) ^ MovableCellHasher<JSObject*>::hash(lookup.associated);
-        return hash;
+        HashNumber hash = MovableCellHasher<TaggedProto>::hash(lookup.proto);
+        hash = mozilla::AddToHash(hash, MovableCellHasher<JSObject*>::hash(lookup.associated));
+        return mozilla::AddToHash(hash, mozilla::HashGeneric(lookup.clasp));
     }
 
     static inline bool match(const ObjectGroupCompartment::NewEntry& key, const Lookup& lookup) {
@@ -1132,8 +1128,8 @@ struct ObjectGroupCompartment::PlainObjectKey
     };
 
     static inline HashNumber hash(const Lookup& lookup) {
-        return (HashNumber) (HashId(lookup.properties[lookup.nproperties - 1].id) ^
-                             lookup.nproperties);
+        HashNumber hash = HashId(lookup.properties[lookup.nproperties - 1].id);
+           return mozilla::AddToHash(hash, lookup.nproperties);
     }
 
     static inline bool match(const PlainObjectKey& v, const Lookup& lookup) {

@@ -69,32 +69,6 @@ struct SetDOMProxyInformation
 
 SetDOMProxyInformation gSetDOMProxyInformation;
 
-// static
-void
-DOMProxyHandler::ClearExternalRefsForWrapperRelease(JSObject* obj)
-{
-  MOZ_ASSERT(IsDOMProxy(obj), "expected a DOM proxy object");
-  JS::Value v = js::GetProxyPrivate(obj);
-  if (v.isUndefined()) {
-    // No expando.
-    return;
-  }
-
-  // See EnsureExpandoObject for the work we're trying to undo here.
-
-  if (v.isObject()) {
-    // Drop us from the DOM expando hashtable.  Don't worry about clearing our
-    // slot reference to the expando; we're about to die anyway.
-    xpc::ObjectScope(obj)->RemoveDOMExpandoObject(obj);
-    return;
-  }
-
-  // Prevent having a dangling pointer to our expando from the
-  // ExpandoAndGeneration.
-  js::ExpandoAndGeneration* expandoAndGeneration =
-    static_cast<js::ExpandoAndGeneration*>(v.toPrivate());
-  expandoAndGeneration->expando = UndefinedValue();
-}
 
 // static
 JSObject*
@@ -108,7 +82,7 @@ DOMProxyHandler::GetAndClearExpandoObject(JSObject* obj)
 
   if (v.isObject()) {
     js::SetProxyPrivate(obj, UndefinedValue());
-    xpc::ObjectScope(obj)->RemoveDOMExpandoObject(obj);
+
   } else {
     js::ExpandoAndGeneration* expandoAndGeneration =
       static_cast<js::ExpandoAndGeneration*>(v.toPrivate());
@@ -168,19 +142,14 @@ DOMProxyHandler::EnsureExpandoObject(JSContext* cx, JS::Handle<JSObject*> obj)
   if (!cache) {
     return expando;
   }
+  cache->PreserveWrapper(native);
   
   if (expandoAndGeneration) {
-    cache->PreserveWrapper(native);
     expandoAndGeneration->expando.setObject(*expando);
 
     return expando;
   }
 
-  if (!xpc::ObjectScope(obj)->RegisterDOMExpandoObject(obj)) {
-    return nullptr;
-  }
-
-  cache->SetPreservingWrapper(true);
   js::SetProxyPrivate(obj, ObjectValue(*expando));
 
   return expando;

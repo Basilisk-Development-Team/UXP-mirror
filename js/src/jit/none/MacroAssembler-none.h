@@ -39,7 +39,6 @@ static constexpr Register IntArgReg0 = { Registers::invalid_reg };
 static constexpr Register IntArgReg1 = { Registers::invalid_reg };
 static constexpr Register IntArgReg2 = { Registers::invalid_reg };
 static constexpr Register IntArgReg3 = { Registers::invalid_reg };
-static constexpr Register GlobalReg = { Registers::invalid_reg };
 static constexpr Register HeapReg = { Registers::invalid_reg };
 
 static constexpr Register WasmIonExitRegCallee = { Registers::invalid_reg };
@@ -194,6 +193,8 @@ class MacroAssemblerNone : public Assembler
     static bool SupportsFloatingPoint() { return false; }
     static bool SupportsSimd() { return false; }
     static bool SupportsUnalignedAccesses() { return false; }
+
+    static bool HasRoundInstruction(RoundingMode) { return false; }
 
     void executableCopy(void*) { MOZ_CRASH(); }
     void copyJumpRelocationTable(uint8_t*) { MOZ_CRASH(); }
@@ -374,8 +375,6 @@ class MacroAssemblerNone : public Assembler
 
     void loadConstantDouble(double, FloatRegister) { MOZ_CRASH(); }
     void loadConstantFloat32(float, FloatRegister) { MOZ_CRASH(); }
-    void loadConstantDouble(wasm::RawF64, FloatRegister) { MOZ_CRASH(); }
-    void loadConstantFloat32(wasm::RawF32, FloatRegister) { MOZ_CRASH(); }
     Condition testInt32Truthy(bool, ValueOperand) { MOZ_CRASH(); }
     Condition testStringTruthy(bool, ValueOperand) { MOZ_CRASH(); }
     Condition testBigIntTruthy(bool, ValueOperand) { MOZ_CRASH(); }

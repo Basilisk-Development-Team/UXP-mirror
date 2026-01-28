@@ -70,10 +70,11 @@
 #include "jit/Ion.h"
 #include "jit/JitcodeMap.h"
 #include "jit/OptimizationTracking.h"
+#include "js/CompileOptions.h"
 #include "js/Debug.h"
 #include "js/Equality.h"  // JS::SameValue
-#include "js/GCAPI.h"
 #include "js/Initialization.h"
+#include "js/SourceBufferHolder.h"
 #include "js/StructuredClone.h"
 #include "js/TrackedOptimizationInfo.h"
 #include "perf/jsperf.h"
@@ -109,6 +110,8 @@
 using namespace js;
 using namespace js::cli;
 using namespace js::shell;
+
+using JS::CompileOptions;
 
 using mozilla::ArrayLength;
 using mozilla::Atomic;
@@ -1630,8 +1633,7 @@ Evaluate(JSContext* cx, unsigned argc, Value* vp)
            .setFileAndLine("@evaluate", 1);
 
     global = JS_GetGlobalForObject(cx, &args.callee());
-    if (!global)
-        return false;
+    MOZ_ASSERT(global);
 
     if (args.length() == 2) {
         RootedObject opts(cx, &args[1].toObject());
@@ -1669,6 +1671,41 @@ Evaluate(JSContext* cx, unsigned argc, Value* vp)
                                           "\"global\" passed to evaluate()", "not a global object");
                 return false;
             }
+        }
+		
+		if (!JS_GetProperty(cx, opts, "zoneGroup", &v))
+            return false;
+        if (!v.isUndefined()) {
+            if (global != JS_GetGlobalForObject(cx, &args.callee())) {
+                JS_ReportErrorASCII(cx, "zoneGroup and global cannot both be specified.");
+                return false;
+            }
+
+            // Find all eligible globals to execute in: any global in another
+            // zone group which has not been entered by a cooperative thread.
+            JS::AutoObjectVector eligibleGlobals(cx);
+            for (CompartmentsIter c(cx->runtime(), SkipAtoms); !c.done(); c.next()) {
+                if (!c->zone()->group()->ownerContext().context() &&
+                    c->maybeGlobal() &&
+                    !cx->runtime()->isSelfHostingGlobal(c->maybeGlobal()))
+                {
+                    if (!eligibleGlobals.append(c->maybeGlobal()))
+                        return false;
+                }
+            }
+
+            if (eligibleGlobals.empty()) {
+                JS_ReportErrorASCII(cx, "zoneGroup can only be used if another"
+                                    " cooperative thread has called cooperativeYield(true).");
+                return false;
+            }
+
+            // Pick an eligible global to use based on the value of the zoneGroup property.
+            int32_t which;
+            if (!ToInt32(cx, v, &which))
+                return false;
+            which = Min<int32_t>(Max(which, 0), eligibleGlobals.length() - 1);
+            global = eligibleGlobals[which];
         }
 
         if (!JS_GetProperty(cx, opts, "catchTermination", &v))
@@ -3270,11 +3307,10 @@ NewSandbox(JSContext* cx, bool lazy)
             return nullptr;
 
         RootedValue value(cx, BooleanValue(lazy));
-        if (!JS_SetProperty(cx, obj, "lazy", value))
+        if (!JS_DefineProperty(cx, obj, "lazy", value, JSPROP_PERMANENT | JSPROP_READONLY))
             return nullptr;
+        JS_FireOnNewGlobalObject(cx, obj);
     }
-
-    JS_FireOnNewGlobalObject(cx, obj);
 
     if (!cx->compartment()->wrap(cx, &obj))
         return nullptr;
@@ -3433,9 +3469,29 @@ CooperativeYieldThread(JSContext* cx, unsigned argc, Value* vp)
         JS_ReportErrorASCII(cx, "Yielding is not allowed while single threaded");
         return false;
     }
-    CooperativeBeginWait(cx);
-    CooperativeYield();
-    CooperativeEndWait(cx);
+    // To avoid contention issues between threads, yields are not allowed while
+    // a thread has access to zone groups other than its original one, i.e. if
+    // the thread is inside an evaluate() call with a different zone group.
+    // This is not a limit which the browser has, but is necessary in the
+    // shell: the shell can have arbitrary interleavings between cooperative
+    // threads, whereas the browser has more control over which threads are
+    // running at different times.
+    for (ZoneGroupsIter group(cx->runtime()); !group.done(); group.next()) {
+        if (group->ownerContext().context() == cx && group != cx->zone()->group()) {
+            JS_ReportErrorASCII(cx, "Yielding is not allowed while owning multiple zone groups");
+            return false;
+        }
+    }
+
+    {
+        Maybe<JS::AutoRelinquishZoneGroups> artzg;
+        if ((args.length() > 0) && ToBoolean(args[0]))
+            artzg.emplace(cx);
+
+        CooperativeBeginWait(cx);
+        CooperativeYield();
+        CooperativeEndWait(cx);
+    }
 
     args.rval().setUndefined();
     return true;
@@ -4258,8 +4314,8 @@ ParseModule(JSContext* cx, unsigned argc, Value* vp)
         return false;
 
     const char16_t* chars = stableChars.twoByteRange().begin().get();
-    SourceBufferHolder srcBuf(chars, scriptContents->length(),
-                              SourceBufferHolder::NoOwnership);
+    JS::SourceBufferHolder srcBuf(chars, scriptContents->length(),
+                                  SourceBufferHolder::NoOwnership);
 
     RootedObject module(cx, frontend::CompileModule(cx, options, srcBuf));
     if (!module)
@@ -5642,25 +5698,31 @@ GetSharedArrayBuffer(JSContext* cx, unsigned argc, Value* vp)
 {
     CallArgs args = CallArgsFromVp(argc, vp);
     JSObject* newObj = nullptr;
-    bool rval = true;
 
-    sharedArrayBufferMailboxLock->lock();
-    SharedArrayRawBuffer* buf = sharedArrayBufferMailbox;
-    if (buf) {
-        buf->addReference();
-        // Shared memory is enabled globally in the shell: there can't be a worker
-        // that does not enable it if the main thread has it.
-        MOZ_ASSERT(cx->compartment()->creationOptions().getSharedMemoryAndAtomicsEnabled());
-        newObj = SharedArrayBufferObject::New(cx, buf);
-        if (!newObj) {
-            buf->dropReference();
-            rval = false;
+    {
+        sharedArrayBufferMailboxLock->lock();
+        auto unlockMailbox = MakeScopeExit([]() { sharedArrayBufferMailboxLock->unlock(); });
+
+        SharedArrayRawBuffer* buf = sharedArrayBufferMailbox;
+        if (buf) {
+            if (!buf->addReference()) {
+                JS_ReportErrorNumberASCII(cx, GetErrorMessage, nullptr, JSMSG_SC_SAB_TOO_MANY_REFS);
+                return false;
+            }
+
+            // Shared memory is enabled globally in the shell: there can't be a worker
+            // that does not enable it if the main thread has it.
+            MOZ_ASSERT(cx->compartment()->creationOptions().getSharedMemoryAndAtomicsEnabled());
+            newObj = SharedArrayBufferObject::New(cx, buf);
+            if (!newObj) {
+                buf->dropReference();
+                return false;
+            }
         }
     }
-    sharedArrayBufferMailboxLock->unlock();
 
     args.rval().setObjectOrNull(newObj);
-    return rval;
+    return true;
 }
 
 static bool
@@ -5674,18 +5736,24 @@ SetSharedArrayBuffer(JSContext* cx, unsigned argc, Value* vp)
     }
     else if (args.get(0).isObject() && args[0].toObject().is<SharedArrayBufferObject>()) {
         newBuffer = args[0].toObject().as<SharedArrayBufferObject>().rawBufferObject();
-        newBuffer->addReference();
+        if (!newBuffer->addReference()) {
+            JS_ReportErrorASCII(cx, "Reference count overflow on SharedArrayBuffer");
+            return false;
+        }
     } else {
         JS_ReportErrorASCII(cx, "Only a SharedArrayBuffer can be installed in the global mailbox");
         return false;
     }
 
-    sharedArrayBufferMailboxLock->lock();
-    SharedArrayRawBuffer* oldBuffer = sharedArrayBufferMailbox;
-    if (oldBuffer)
-        oldBuffer->dropReference();
-    sharedArrayBufferMailbox = newBuffer;
-    sharedArrayBufferMailboxLock->unlock();
+    {
+        sharedArrayBufferMailboxLock->lock();
+        auto unlockMailbox = MakeScopeExit([]() { sharedArrayBufferMailboxLock->unlock(); });
+
+        SharedArrayRawBuffer* oldBuffer = sharedArrayBufferMailbox;
+        if (oldBuffer)
+            oldBuffer->dropReference();
+        sharedArrayBufferMailbox = newBuffer;
+    }
 
     args.rval().setUndefined();
     return true;
@@ -6428,9 +6496,11 @@ static const JSFunctionSpecWithHelp shell_functions[] = {
 "evalInCooperativeThread(str)",
 "  Evaluate 'str' in a separate cooperatively scheduled thread using the same runtime.\n"),
 
-    JS_FN_HELP("cooperativeYield", CooperativeYieldThread, 0, 0,
-"evalInCooperativeThread()",
-"  Yield execution to another cooperatively scheduled thread using the same runtime.\n"),
+    JS_FN_HELP("cooperativeYield", CooperativeYieldThread, 1, 0,
+"cooperativeYield(leaveZoneGroup)",
+"  Yield execution to another cooperatively scheduled thread using the same runtime.\n"
+"  If leaveZoneGroup is specified then other threads may execute code in the\n"
+"  current thread's zone group via evaluate(..., {zoneGroup:N}).\n"),
 
     JS_FN_HELP("getSharedArrayBuffer", GetSharedArrayBuffer, 0, 0,
 "getSharedArrayBuffer()",
@@ -7534,9 +7604,12 @@ ShellCloseAsmJSCacheEntryForRead(size_t serializedSize, const uint8_t* memory, i
 }
 
 static JS::AsmJSCacheResult
-ShellOpenAsmJSCacheEntryForWrite(HandleObject global, bool installed,
-                                 const char16_t* begin, const char16_t* end,
-                                 size_t serializedSize, uint8_t** memoryOut, intptr_t* handleOut)
+ShellOpenAsmJSCacheEntryForWrite(HandleObject global,
+                                 const char16_t* begin,
+                                 const char16_t* end,
+                                 size_t serializedSize,
+                                 uint8_t** memoryOut,
+                                 intptr_t* handleOut)
 {
     if (!jsCachingEnabled || !jsCacheAsmJSPath)
         return JS::AsmJSCache_Disabled_ShellFlags;
@@ -7741,9 +7814,8 @@ NewGlobalObject(JSContext* cx, JS::CompartmentOptions& options,
 
         /* Initialize FakeDOMObject.prototype */
         InitDOMObject(domProto);
+        JS_FireOnNewGlobalObject(cx, glob);
     }
-
-    JS_FireOnNewGlobalObject(cx, glob);
 
     return glob;
 }
@@ -8436,6 +8508,7 @@ main(int argc, char** argv, char** envp)
         || !op.addBoolOption('\0', "no-ggc", "Disable Generational GC")
         || !op.addBoolOption('\0', "no-cgc", "Disable Compacting GC")
         || !op.addBoolOption('\0', "no-incremental-gc", "Disable Incremental GC")
+		|| !op.addBoolOption('\0', "no-nursery-strings", "Do not allocate strings in the nursery")
         || !op.addIntOption('\0', "available-memory", "SIZE",
                             "Select GC settings based on available memory (MB)", 0)
 #if defined(JS_CODEGEN_ARM)
@@ -8570,6 +8643,9 @@ main(int argc, char** argv, char** envp)
     JS::SetEnqueuePromiseJobCallback(cx, ShellEnqueuePromiseJobCallback);
     JS::SetGetIncumbentGlobalCallback(cx, ShellGetIncumbentGlobalCallback);
     JS::SetAsyncTaskCallbacks(cx, ShellStartAsyncTaskCallback, ShellFinishAsyncTaskCallback);
+
+    if (op.getBoolOption("no-nursery-strings"))
+        cx->runtime()->gc.nursery().disableStrings();
 
     EnvironmentPreparer environmentPreparer(cx);
 

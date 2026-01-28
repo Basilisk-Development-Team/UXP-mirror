@@ -1,4 +1,5 @@
 /* -*- Mode: C++; tab-width: 8; indent-tabs-mode: nil; c-basic-offset: 4 -*-
+ * vim: set ts=4 sw=4 et tw=79 ft=cpp:
  *
  * This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
@@ -12,19 +13,28 @@
 #include "jscntxt.h"
 
 #include "gc/Heap.h"
+#include "gc/RelocationOverlay.h"
 #include "gc/Zone.h"
 #include "js/TracingAPI.h"
 #include "vm/Runtime.h"
+#include "vm/SharedMem.h"
+
+template<typename T>
+bool
+js::Nursery::isInside(const SharedMem<T>& p) const
+{
+    return isInside(p.unwrap(/*safe - used for value in comparison above*/));
+}
 
 MOZ_ALWAYS_INLINE /* static */ bool
-js::Nursery::getForwardedPointer(JSObject** ref)
+js::Nursery::getForwardedPointer(js::gc::Cell** ref)
 {
     MOZ_ASSERT(ref);
     MOZ_ASSERT(IsInsideNursery(*ref));
     const gc::RelocationOverlay* overlay = reinterpret_cast<const gc::RelocationOverlay*>(*ref);
     if (!overlay->isForwarded())
         return false;
-    *ref = static_cast<JSObject*>(overlay->forwardingAddress());
+    *ref = overlay->forwardingAddress();
     return true;
 }
 
@@ -32,6 +42,13 @@ inline void
 js::Nursery::maybeSetForwardingPointer(JSTracer* trc, void* oldData, void* newData, bool direct)
 {
     if (trc->isTenuringTracer())
+        setForwardingPointerWhileTenuring(oldData, newData, direct);
+}
+
+inline void
+js::Nursery::setForwardingPointerWhileTenuring(void* oldData, void* newData, bool direct)
+{
+    if (isInside(oldData))
         setForwardingPointer(oldData, newData, direct);
 }
 

@@ -40,7 +40,6 @@
 #include "mozilla/dom/ScrollAreaEvent.h"
 #include "mozilla/dom/SimpleGestureEvent.h"
 #include "mozilla/dom/StorageEvent.h"
-#include "mozilla/dom/SVGZoomEvent.h"
 #include "mozilla/dom/TimeEvent.h"
 #include "mozilla/dom/TouchEvent.h"
 #include "mozilla/dom/TransitionEvent.h"
@@ -214,16 +213,6 @@ public:
     mRetargetedRelatedTarget = aTarget;
   }
 
-  void SetForceContentDispatch(bool aForce)
-  {
-    mFlags.mForceContentDispatch = aForce;
-  }
-
-  bool ForceContentDispatch()
-  {
-    return mFlags.mForceContentDispatch;
-  }
-
   void SetWantsWillHandleEvent(bool aWants)
   {
     mFlags.mWantsWillHandleEvent = aWants;
@@ -387,7 +376,6 @@ private:
     // Cached flags for each EventTargetChainItem which are set when calling
     // GetEventTargetParent to create event target chain. They are used to
     // manage or speedup event dispatching.
-    bool mForceContentDispatch : 1;
     bool mWantsWillHandleEvent : 1;
     bool mMayHaveManager : 1;
     bool mChechedIfChrome : 1;
@@ -439,7 +427,6 @@ EventTargetChainItem::GetEventTargetParent(EventChainPreVisitor& aVisitor)
 {
   aVisitor.Reset();
   Unused << mTarget->GetEventTargetParent(aVisitor);
-  SetForceContentDispatch(aVisitor.mForceContentDispatch);
   SetWantsWillHandleEvent(aVisitor.mWantsWillHandleEvent);
   SetMayHaveListenerManager(aVisitor.mMayHaveListenerManager);
   SetWantsPreHandleEvent(aVisitor.mWantsPreHandleEvent);
@@ -492,9 +479,7 @@ EventTargetChainItem::HandleEventTargetChain(
     if (item.PreHandleEventOnly()) {
       continue;
     }
-    if ((!aVisitor.mEvent->mFlags.mNoContentDispatch ||
-         item.ForceContentDispatch()) &&
-        !aVisitor.mEvent->PropagationStopped()) {
+    if (!aVisitor.mEvent->PropagationStopped()) {
       item.HandleEvent(aVisitor, aCd);
     }
 
@@ -538,9 +523,7 @@ EventTargetChainItem::HandleEventTargetChain(
   // Target
   aVisitor.mEvent->mFlags.mInBubblingPhase = true;
   EventTargetChainItem& targetItem = aChain[firstCanHandleEventTargetIdx];
-  if (!aVisitor.mEvent->PropagationStopped() &&
-      (!aVisitor.mEvent->mFlags.mNoContentDispatch ||
-       targetItem.ForceContentDispatch())) {
+  if (!aVisitor.mEvent->PropagationStopped()) {
     targetItem.HandleEvent(aVisitor, aCd);
   }
   if (aVisitor.mEvent->mFlags.mInSystemGroup) {
@@ -570,9 +553,7 @@ EventTargetChainItem::HandleEventTargetChain(
     }
 
     if (aVisitor.mEvent->mFlags.mBubbles || newTarget) {
-      if ((!aVisitor.mEvent->mFlags.mNoContentDispatch ||
-           item.ForceContentDispatch()) &&
-          !aVisitor.mEvent->PropagationStopped()) {
+      if (!aVisitor.mEvent->PropagationStopped()) {
         item.HandleEvent(aVisitor, aCd);
       }
       if (aVisitor.mEvent->mFlags.mInSystemGroup) {
@@ -1065,9 +1046,6 @@ EventDispatcher::CreateEvent(EventTarget* aOwner,
     case eClipboardEventClass:
       return NS_NewDOMClipboardEvent(aOwner, aPresContext,
                                      aEvent->AsClipboardEvent());
-    case eSVGZoomEventClass:
-      return NS_NewDOMSVGZoomEvent(aOwner, aPresContext,
-                                   aEvent->AsSVGZoomEvent());
     case eSMILTimeEventClass:
       return NS_NewDOMTimeEvent(aOwner, aPresContext,
                                 aEvent->AsSMILTimeEvent());
@@ -1165,12 +1143,6 @@ EventDispatcher::CreateEvent(EventTarget* aOwner,
   }
   if (aEventType.LowerCaseEqualsLiteral("svgevents")) {
     return NS_NewDOMEvent(aOwner, aPresContext, nullptr);
-  }
-  if (aEventType.LowerCaseEqualsLiteral("svgzoomevent")) {
-    return NS_NewDOMSVGZoomEvent(aOwner, aPresContext, nullptr);
-  }
-  if (aEventType.LowerCaseEqualsLiteral("svgzoomevents")) {
-    return NS_NewDOMSVGZoomEvent(aOwner, aPresContext, nullptr);
   }
   if (aEventType.LowerCaseEqualsLiteral("timeevent")) {
     return NS_NewDOMTimeEvent(aOwner, aPresContext, nullptr);

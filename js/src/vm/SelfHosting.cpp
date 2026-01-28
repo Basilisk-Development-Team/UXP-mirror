@@ -61,6 +61,7 @@
 #include "jsobjinlines.h"
 #include "jsscriptinlines.h"
 
+#include "gc/Iteration-inl.h"
 #include "vm/BooleanObject-inl.h"
 #include "vm/NativeObject-inl.h"
 #include "vm/NumberObject-inl.h"
@@ -70,6 +71,7 @@ using namespace js;
 using namespace js::selfhosted;
 
 using JS::AutoCheckCannotGC;
+using JS::CompileOptions;
 using mozilla::IsInRange;
 using mozilla::Maybe;
 using mozilla::PodMove;

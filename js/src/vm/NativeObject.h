@@ -548,7 +548,7 @@ class NativeObject : public ShapedObject
     create(JSContext* cx, js::gc::AllocKind kind, js::gc::InitialHeap heap,
            js::HandleShape shape, js::HandleObjectGroup group);
 
-    static inline NativeObject*
+    static inline JS::Result<NativeObject*, JS::OOM&>
     createWithTemplate(JSContext* cx, js::gc::InitialHeap heap, HandleObject templateObject);
 
   protected:
@@ -1018,13 +1018,13 @@ class NativeObject : public ShapedObject
 
     void setFixedSlot(uint32_t slot, const Value& value) {
         MOZ_ASSERT(slot < numFixedSlots());
-        MOZ_ASSERT(IsObjectValueInCompartment(value, compartment()));
+        checkStoredValue(value);
         fixedSlots()[slot].set(this, HeapSlot::Slot, slot, value);
     }
 
     void initFixedSlot(uint32_t slot, const Value& value) {
         MOZ_ASSERT(slot < numFixedSlots());
-        MOZ_ASSERT(IsObjectValueInCompartment(value, compartment()));
+        checkStoredValue(value);
         fixedSlots()[slot].init(this, HeapSlot::Slot, slot, value);
     }
 
@@ -1355,7 +1355,7 @@ class NativeObject : public ShapedObject
         return privateRef(nfixed);
     }
 
-    static inline NativeObject*
+    static inline JS::Result<NativeObject*, JS::OOM&>
     copy(JSContext* cx, gc::AllocKind kind, gc::InitialHeap heap,
          HandleNativeObject templateObject);
 
@@ -1547,6 +1547,9 @@ MaybeNativeObject(JSObject* obj)
 
 // Defined in NativeObject-inl.h.
 bool IsPackedArray(JSObject* obj);
+
+extern void
+AddPropertyTypesAfterProtoChange(JSContext* cx, NativeObject* obj, ObjectGroup* oldGroup);
 
 } // namespace js
 
