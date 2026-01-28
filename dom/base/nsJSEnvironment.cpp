@@ -1981,6 +1981,7 @@ nsJSContext::KillGCTimer()
                                   CollectorSchedule::eGC);
   sScheduler->CancelScheduledTask(sMainThreadCollectorScheduling,
                                   CollectorSchedule::eVariableScheduledGC);
+  }
 }
 
 void
@@ -2187,7 +2188,7 @@ nsJSContext::LikelyShortLivingObjectCreated()
 void
 mozilla::dom::StartupJSEnvironment()
 {
-  sScheduler = CycleCollectedJSContext::GetScheduler();
+  sScheduler = CycleCollectedJSRuntime::GetScheduler();
   MOZ_ASSERT(sScheduler);
   MOZ_ASSERT(sMainThreadCollectorScheduling[CollectorSchedule::eGC].mDelayMillis ==
              NS_GC_DELAY);
@@ -2527,7 +2528,7 @@ nsJSContext::EnsureStatics()
                                "javascript.options.compact_on_user_inactive",
                                true);
 
-  sMainThreadCollectorScheduling[CollectorSchedule::eShrinkingGC].mDelayMillis =
+  sMainThreadCollectorScheduling[CollectorSchedule::eShrinkGCBuffers].mDelayMillis =
                                Preferences::GetUint("javascript.options.compact_on_user_inactive_delay",
                                NS_DEFAULT_INACTIVE_GC_DELAY);
 
@@ -2550,7 +2551,7 @@ void
 nsJSContext::NotifyDidPaint()
 {
   sDidPaintAfterPreviousICCSlice = true;
-  if (IsCCSliceScheduled()) {
+  if (sICCTimer) {
     static uint32_t sCount = 0;
     // 16 here is the common value for refresh driver tick frequency.
     static const uint32_t kTicksPerSliceDelay = kICCIntersliceDelay / 16;
@@ -2561,14 +2562,15 @@ nsJSContext::NotifyDidPaint()
       return;
     }
 
-    sScheduler->CancelScheduledTask(sMainThreadCollectorScheduling,
-                                  CollectorSchedule::eCCSlice);
-    TriggerICCSlice(CollectorSchedule::eNone, nullptr);
-    if (IsCCSliceScheduled()) {
-      sScheduler->Schedule(sMainThreadCollectorScheduling,
-                       CollectorSchedule::eCCSlice);
+    sICCTimer->Cancel();
+    ICCTimerFired(nullptr, nullptr);
+    if (sICCTimer) {
+      sICCTimer->InitWithNamedFuncCallback(ICCTimerFired, nullptr,
+                                           kICCIntersliceDelay,
+                                           nsITimer::TYPE_REPEATING_SLACK,
+                                           "ICCTimerFired");
     }
-  } else if (IsForgetSkippableScheduled()) {
+  } else if (sCCTimer) {
     static uint32_t sCount = 0;
     static const uint32_t kTicksPerForgetSkippableDelay =
       NS_CC_SKIPPABLE_DELAY / 16;
@@ -2578,12 +2580,13 @@ nsJSContext::NotifyDidPaint()
       return;
     }
 
-    sScheduler->CancelScheduledTask(sMainThreadCollectorScheduling,
-                                  CollectorSchedule::eForgetSkippable);
-    TriggerForgetSkippable(CollectorSchedule::eNone, nullptr);
-    if (IsForgetSkippableScheduled()) {
-      sScheduler->Schedule(sMainThreadCollectorScheduling,
-                         CollectorSchedule::eForgetSkippable);
+    sCCTimer->Cancel();
+    CCTimerFired(nullptr, nullptr);
+    if (sCCTimer) {
+      sCCTimer->InitWithNamedFuncCallback(CCTimerFired, nullptr,
+                                          NS_CC_SKIPPABLE_DELAY,
+                                          nsITimer::TYPE_REPEATING_SLACK,
+                                          "CCTimerFired");
     }
   }
 }
