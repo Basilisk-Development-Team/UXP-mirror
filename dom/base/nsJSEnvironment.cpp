@@ -89,8 +89,6 @@ const size_t gStackSize = 8192;
 #undef CompareString
 #endif
 
-#define NS_SHRINK_GC_BUFFERS_DELAY  4000 // ms
-
 // The default amount of time to wait from the user being idle to starting a
 // shrinking GC.
 #define NS_DEFAULT_INACTIVE_GC_DELAY 300000 // ms
