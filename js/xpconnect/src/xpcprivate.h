@@ -527,7 +527,7 @@ public:
     void EndCycleCollectionCallback(mozilla::CycleCollectorResults& aResults) override;
     void DispatchDeferredDeletion(bool aContinuation, bool aPurge = false) override;
     nsresult ScheduleTimerForThread(nsITimer* aTimer,
-                                    nsIRunnable* aRunnable,
+                                    nsICancelableRunnable* aRunnable,
                                     uint32_t aDelay) override;
 
     void CustomGCCallback(JSGCStatus status) override;
