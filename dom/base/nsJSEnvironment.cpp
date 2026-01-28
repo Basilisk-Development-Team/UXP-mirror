@@ -1142,7 +1142,7 @@ TriggerFullGC(uint32_t aCurrentID, void* aData)
   nsJSContext::KillFullGCTimer();
   nsJSContext::GarbageCollectNow(JS::gcreason::FULL_GC_TIMER,
                                  nsJSContext::IncrementalGC);
-  return CollectorSchedule::eFullGC;
+  return CollectorSchedule::eNone;
 }
 
 //static
@@ -1433,7 +1433,7 @@ uint32_t
 nsJSContext::RunCycleCollectorSlice()
 {
   if (!NS_IsMainThread()) {
-    return CollectorSchedule::eCCSlice;
+    return CollectorSchedule::eNone;
   }
 
   PROFILER_LABEL("nsJSContext", "RunCycleCollectorSlice",
@@ -1513,7 +1513,7 @@ static SATSState
 TriggerICCSlice(uint32_t aCurrentID, void* aData)
 {
   if (sDidShutdown) {
-    return CollectorSchedule::eCCSlice;
+    return CollectorSchedule::eNone;
   }
 
   // Ignore ICC timer fires during IGC. Running ICC during an IGC will cause us
@@ -1705,7 +1705,7 @@ TriggerGCSlice(uint32_t aCurrentID, void* aData)
                                  nsJSContext::IncrementalGC,
                                  nsJSContext::NonShrinkingGC,
                                  NS_INTERSLICE_GC_BUDGET);
-  return CollectorSchedule::eGCSlice;
+  return CollectorSchedule::eNone;
 }
 
 static SATSState
@@ -1714,7 +1714,7 @@ TriggerGCOrGCSlice(uint32_t aCurrentID, void* aData)
   uintptr_t reason = reinterpret_cast<uintptr_t>(aData);
   nsJSContext::GarbageCollectNow(static_cast<JS::gcreason::Reason>(reason),
                                  nsJSContext::IncrementalGC);
-  return CollectorSchedule::eInitialGC || CollectorSchedule::eGC || CollectorSchedule::eVariableScheduledGC; 
+  return CollectorSchedule::eNone;
 }
 
 static SATSState
@@ -1725,7 +1725,7 @@ TriggerShrinkingGC(uint32_t aCurrentID, void* aData)
   nsJSContext::GarbageCollectNow(JS::gcreason::USER_INACTIVE,
                                  nsJSContext::IncrementalGC,
                                  nsJSContext::ShrinkingGC);
-  return CollectorSchedule::eShrinkingGC;
+  return CollectorSchedule::eNone;
 }
 
 static bool
@@ -1800,7 +1800,7 @@ TriggerForgetSkippable(uint32_t aCurrentID, void* aData)
     // We have either just run the CC or decided we don't want to run the CC
     // next time, so kill the timer.
     sPreviousSuspectedCount = 0;
-    return CollectorSchedule::eForgetSkippable;
+    return CollectorSchedule::eNone;
   }
   return aCurrentID;
 }
@@ -1868,14 +1868,14 @@ nsJSContext::RunNextCollectorTimer()
 
   if (IsGCScheduled()) {
     if (ReadyToTriggerExpensiveCollectorTimer()) {
-      TriggerGCOrGCSlice(CollectorSchedule::eInitialGC || CollectorSchedule::eGC || CollectorSchedule::eVariableScheduledGC,
+      TriggerGCOrGCSlice(CollectorSchedule::eNone,
       reinterpret_cast<void *>(JS::gcreason::DOM_WINDOW_UTILS));
     }
     return;
   }
 
   if (IsGCSliceScheduled()) {
-    TriggerGCSlice(CollectorSchedule::eGCSlice, nullptr);
+    TriggerGCSlice(CollectorSchedule::eNone, nullptr);
     return;
   }
 
@@ -1885,13 +1885,13 @@ nsJSContext::RunNextCollectorTimer()
 
   if (IsForgetSkippableScheduled()) {
     if (ReadyToTriggerExpensiveCollectorTimer()) {
-      TriggerForgetSkippable(CollectorSchedule::eForgetSkippable, nullptr);
+      TriggerForgetSkippable(CollectorSchedule::eNone, nullptr);
     }
     return;
   }
 
   if (IsCCSliceScheduled()) {
-    TriggerICCSlice(CollectorSchedule::eCCSlice, nullptr);
+    TriggerICCSlice(CollectorSchedule::eNone, nullptr);
     return;
   }
 }
