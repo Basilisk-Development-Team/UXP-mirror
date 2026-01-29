@@ -273,15 +273,17 @@ NS_IdleDispatchToCurrentThread(already_AddRefed<nsIRunnable>&& aEvent)
 }
 
 #ifndef XPCOM_GLUE_AVOID_NSPR
-class IdleRunnableWrapper : public IdleRunnable
+class IdleRunnableWrapper final : public IdleRunnable
 {
 public:
   explicit IdleRunnableWrapper(already_AddRefed<nsIRunnable>&& aEvent)
     : mRunnable(Move(aEvent))
   {
   }
+  
+  NS_DECL_ISUPPORTS_INHERITED  // IMPORTANT
 
-  NS_IMETHOD Run()
+  NS_IMETHOD Run() override
   {
     if (!mRunnable) {
       return NS_OK;
@@ -290,30 +292,33 @@ public:
     nsCOMPtr<nsIRunnable> runnable = mRunnable.forget();
     return runnable->Run();
   }
-
-  static void
-  TimedOut(nsITimer* aTimer, void* aClosure)
+  
+  static void TimedOut(nsITimer*, void* aClosure)
   {
     RefPtr<IdleRunnableWrapper> runnable =
-      static_cast<IdleRunnableWrapper*>(aClosure);
+      dont_AddRef(static_cast<IdleRunnableWrapper*>(aClosure));
     runnable->Run();
   }
 
     void SetTimer(uint32_t aDelay, nsIThread* aTarget)
-  {
-    MOZ_ASSERT(aTarget);
-    MOZ_ASSERT(!mTimer);
+{
+  MOZ_ASSERT(aTarget);
+  MOZ_ASSERT(!mTimer);
 
-    mTimer = do_CreateInstance(NS_TIMER_CONTRACTID);
-    if (mTimer) {
-      mTimer->SetTarget(aTarget);
-      mTimer->InitWithFuncCallback(TimedOut, this, aDelay,
-                                   nsITimer::TYPE_ONE_SHOT);
-    }
+  mTimer = do_CreateInstance(NS_TIMER_CONTRACTID);
+  if (mTimer) {
+    mTimer->SetTarget(aTarget);
+
+    RefPtr<IdleRunnableWrapper> self = this;
+    mTimer->InitWithFuncCallback(TimedOut,
+                                 self.forget().take(), // <-- key change
+                                 aDelay,
+                                 nsITimer::TYPE_ONE_SHOT);
   }
+}
 
 private:
-  ~IdleRunnableWrapper()
+  ~IdleRunnableWrapper() override
   {
     CancelTimer();
   }
@@ -322,12 +327,15 @@ private:
   {
     if (mTimer) {
       mTimer->Cancel();
+      mTimer = nullptr;
     }
   }
 
   nsCOMPtr<nsITimer> mTimer;
   nsCOMPtr<nsIRunnable> mRunnable;
 };
+
+NS_IMPL_ISUPPORTS_INHERITED0(IdleRunnableWrapper, IdleRunnable)
 #endif
 
 #ifndef XPCOM_GLUE_AVOID_NSPR
