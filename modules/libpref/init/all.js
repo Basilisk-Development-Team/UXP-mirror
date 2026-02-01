@@ -200,7 +200,7 @@ pref("dom.permissions.revoke.enable", false);
 pref("dom.performance.time_to_non_blank_paint.enabled", false);
 
 // Enable Performance Observer API
-pref("dom.enable_performance_observer", false);
+pref("dom.enable_performance_observer", true);
 
 // Enable requestIdleCallback API
 pref("dom.requestIdleCallback.enabled", true);
