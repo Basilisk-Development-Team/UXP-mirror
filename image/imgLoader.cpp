@@ -2730,6 +2730,12 @@ imgCacheValidator::AddProxy(imgRequestProxy* aProxy)
   mProxies.AppendObject(aProxy);
 }
 
+void
+imgCacheValidator::RemoveProxy(imgRequestProxy* aProxy)
+{
+  mProxies.RemoveObject(aProxy);
+}
+
 /** nsIRequestObserver methods **/
 
 NS_IMETHODIMP

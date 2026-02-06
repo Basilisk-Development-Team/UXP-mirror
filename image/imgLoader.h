@@ -541,6 +541,7 @@ public:
                     bool forcePrincipalCheckForCacheEntry);
 
   void AddProxy(imgRequestProxy* aProxy);
+  void RemoveProxy(imgRequestProxy* aProxy);
 
   NS_DECL_ISUPPORTS
   NS_DECL_NSITHREADRETARGETABLESTREAMLISTENER
