@@ -21,6 +21,8 @@ namespace js {
 
 class ModuleEnvironmentObject;
 class ModuleObject;
+class PromiseObject;
+class ArrayObject;
 
 namespace frontend {
 class BinaryNode;
@@ -233,6 +235,10 @@ class ModuleObject : public NativeObject
         FunctionDeclarationsSlot,
         DFSIndexSlot,
         DFSAncestorIndexSlot,
+        AsyncEvaluationPromiseSlot,
+        AsyncEvaluationEnvironmentSlot,
+        AsyncEvaluationStackSlot,
+        AsyncEvaluationYieldIndexSlot,
         SlotCount
     };
 
@@ -274,6 +280,7 @@ class ModuleObject : public NativeObject
     ModuleStatus status() const;
     bool hadEvaluationError() const;
     Value evaluationError() const;
+    PromiseObject* evaluationPromise() const;
     ScriptSourceObject* scriptSourceObject() const;
     JSObject* metaObject() const;
     ArrayObject& requestedModules() const;
@@ -293,6 +300,13 @@ class ModuleObject : public NativeObject
 
     void setMetaObject(JSObject* obj);
 
+    bool isAsyncEvaluating() const;
+    uint32_t asyncEvaluationYieldIndex() const;
+    JSObject* asyncEvaluationEnvironment() const;
+    ArrayObject* asyncEvaluationStack() const;
+    void clearAsyncEvaluationState();
+    void setEvaluationPromise(PromiseObject* promise);
+
     // For BytecodeEmitter.
     bool noteFunctionDeclaration(JSContext* cx, HandleAtom name, HandleFunction fun);
 
@@ -301,6 +315,12 @@ class ModuleObject : public NativeObject
 
     // For intrinsic_ExecuteModule.
     static bool execute(JSContext* cx, HandleModuleObject self, MutableHandleValue rval);
+
+    // For module resume from async top-level await.
+    static bool suspend(JSContext* cx, HandleModuleObject self, HandleObject envChain,
+                        uint32_t yieldAndAwaitIndex, Value* vp, uint32_t nvalues);
+    static bool resume(JSContext* cx, HandleModuleObject self, bool throwOnResume,
+                       HandleValue value);
 
     // For intrinsic_NewModuleNamespace.
     static ModuleNamespaceObject* createNamespace(JSContext* cx, HandleModuleObject self,
@@ -385,6 +405,12 @@ StartDynamicModuleImport(JSContext* cx, HandleValue referencingPrivate, HandleVa
 bool
 FinishDynamicModuleImport(JSContext* cx, HandleValue referencingPrivate, HandleString specifier,
                           HandleObject promise);
+
+[[nodiscard]] bool
+AsyncModuleAwaitedFulfilled(JSContext* cx, HandleModuleObject module, HandleValue value);
+
+[[nodiscard]] bool
+AsyncModuleAwaitedRejected(JSContext* cx, HandleModuleObject module, HandleValue reason);
 
 } // namespace js
 
