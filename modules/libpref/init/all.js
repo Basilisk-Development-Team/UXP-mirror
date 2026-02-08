@@ -200,7 +200,7 @@ pref("dom.permissions.revoke.enable", false);
 pref("dom.performance.time_to_non_blank_paint.enabled", false);
 
 // Enable Performance Observer API
-pref("dom.enable_performance_observer", false);
+pref("dom.enable_performance_observer", true);
 
 // Enable requestIdleCallback API
 pref("dom.requestIdleCallback.enabled", true);
@@ -1215,6 +1215,9 @@ pref("privacy.popups.disable_from_plugins", 2);
 
 // Send "Sec-GPC" HTTP header, disabled by default
 pref("privacy.GPCheader.enabled",    false);
+
+// By default, do not clear domain passwords for "Forget about site"
+pref("privacy.forgetaboutsite.clearPasswords", false);
 
 pref("dom.event.contextmenu.enabled",       true);
 pref("dom.event.clipboardevents.enabled",   true);
@@ -2559,6 +2562,7 @@ pref("layout.css.prefixes.animations", true);
 pref("layout.css.prefixes.box-sizing", true);
 pref("layout.css.prefixes.font-features", true);
 pref("layout.css.prefixes.gradients", true);
+pref("layout.css.prefixes.appearance", true);
 
 // Are webkit-prefixed properties & property-values supported?
 pref("layout.css.prefixes.webkit", true);

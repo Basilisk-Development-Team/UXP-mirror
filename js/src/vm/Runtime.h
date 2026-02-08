@@ -684,12 +684,12 @@ struct JSRuntime : public js::MallocProvider<JSRuntime>
 
   private:
     // Used to generate random keys for hash tables.
-    mozilla::Maybe<mozilla::non_crypto::XorShift128PlusRNG> randomKeyGenerator_;
-    mozilla::non_crypto::XorShift128PlusRNG& randomKeyGenerator();
+    mozilla::Maybe<mozilla::non_crypto::Xoroshiro128PlusPlusRNG> randomKeyGenerator_;
+    mozilla::non_crypto::Xoroshiro128PlusPlusRNG& randomKeyGenerator();
 
   public:
     mozilla::HashCodeScrambler randomHashCodeScrambler();
-    mozilla::non_crypto::XorShift128PlusRNG forkRandomKeyGenerator();
+    mozilla::non_crypto::Xoroshiro128PlusPlusRNG forkRandomKeyGenerator();
 
     //-------------------------------------------------------------------------
     // Self-hosting support
