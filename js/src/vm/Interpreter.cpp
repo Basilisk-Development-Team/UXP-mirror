@@ -776,8 +776,11 @@ class ModuleResumeState final : public RunState
 
     InterpreterFrame* pushInterpreterFrame(JSContext* cx) override {
         InterpreterFrame* fp =
-            cx->runtime()->interpreterStack().pushExecuteFrame(cx, script_, UndefinedValue(),
-                                                              envChain_, NullFramePtr());
+            cx->interpreterStack().pushExecuteFrame(cx,
+                                                    script_,
+                                                    UndefinedValue(),
+                                                    envChain_,
+                                                    NullFramePtr());
         if (!fp)
             return nullptr;
 
