@@ -284,6 +284,12 @@ BytecodeEmitter::updateDepth(ptrdiff_t target)
 
     int nuses = StackUses(pc);
     int ndefs = StackDefs(pc);
+    if (MOZ_UNLIKELY(JSOp(*pc) == JSOP_AWAIT) && sc->isModuleContext()) {
+        // Module top-level await doesn't push a generator object onto the stack.
+        // Adjust the stack model to match module frame semantics.
+        MOZ_ASSERT(nuses == 2);
+        nuses = 1;
+    }
 
     stackDepth -= nuses;
     MOZ_ASSERT(stackDepth >= 0);
