@@ -37,6 +37,10 @@
 #define kCFCoreFoundationVersionNumber10_7 635.00
 #endif
 
+#if !defined(DISPATCH_QUEUE_SERIAL)
+#define DISPATCH_QUEUE_SERIAL NULL
+#endif
+
 #if !TARGET_OS_IPHONE && MAC_OS_X_VERSION_MIN_REQUIRED < 1060
 #define AudioComponent Component
 #define AudioComponentDescription ComponentDescription

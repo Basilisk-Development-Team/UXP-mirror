@@ -3169,6 +3169,11 @@ pref("ui.mouse.radius.visitedWeight", 120);
 // When false, the prefs will be used for all mouse events.
 pref("ui.mouse.radius.inputSource.touchOnly", true);
 
+#ifdef XP_MACOSX
+// When true, if available, the system resize grip will be visible
+pref("ui.mouse.resize_grip", false);
+#endif
+
 #ifdef XP_WIN
 
 // Be as uniform as possible, use Twemoji everywhere. 
