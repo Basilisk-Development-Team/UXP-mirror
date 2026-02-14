@@ -1137,6 +1137,14 @@ dnl default mode that relies on relative symlinks being handled a certain way.
     fi
     ;;
 
+*-freebsd*)
+    if test -z "$NSDISTMODE"; then
+       NSDISTMODE=copy
+    fi
+
+    MOZ_FIX_LINK_PATHS="-Wl,-rpath,'\$\$ORIGIN' -Wl,-z,origin"
+    ;;
+
 esac
 
 AC_SUBST_LIST(MMX_FLAGS)
