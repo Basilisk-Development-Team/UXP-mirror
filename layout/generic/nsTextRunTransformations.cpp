@@ -369,7 +369,6 @@ nsCaseTransformTextRunFactory::TransformString(
       }
 
       if (languageSpecificCasing == eLSCB_Lithuanian) {
-        // clang-format off
         /* From SpecialCasing.txt:
          * # Introduce an explicit dot above when lowercasing capital I's and J's
          * # whenever there are more accents above.
@@ -382,7 +381,6 @@ nsCaseTransformTextRunFactory::TransformString(
          * 00CD; 0069 0307 0301; 00CD; 00CD; lt; # LATIN CAPITAL LETTER I WITH ACUTE
          * 0128; 0069 0307 0303; 0128; 0128; lt; # LATIN CAPITAL LETTER I WITH TILDE
          */
-        // clang-format on
         if (ch == 'I' || ch == 'J' || ch == 0x012E) {
           ch = ToLowerCase(ch);
           prevIsLetter = true;
