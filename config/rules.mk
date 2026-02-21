@@ -349,8 +349,8 @@ ifdef IS_COMPONENT
 EXTRA_DSO_LDOPTS	+= -bundle
 else
 _LOADER_PATH := @executable_path
-endif
 EXTRA_DSO_LDOPTS	+= -dynamiclib -install_name $(_LOADER_PATH)/$(SHARED_LIBRARY) -compatibility_version 1 -current_version 1 -single_module
+endif
 endif
 endif
 
