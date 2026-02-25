@@ -305,7 +305,8 @@ sctp_is_vmware_interface(struct ifnet *ifn)
 #endif
 #ifdef FREE
 #undef FREE
-#define FREE(x) HeapFree(GetProcessHeap(), 0, (x))
+/* Buffers below come from GlobalAlloc(), so release them with GlobalFree(). */
+#define FREE(x) GlobalFree((HGLOBAL)(x))
 #endif
 static void
 sctp_init_ifns_for_vrf(int vrfid)
