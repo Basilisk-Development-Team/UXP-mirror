@@ -717,7 +717,7 @@ def findTestMediaDevices(log):
     def sine_source_loaded():
         o = subprocess.check_output(
             ['/usr/bin/pactl', 'list', 'short', 'modules'])
-        return filter(lambda x: 'module-sine-source' in x, o.splitlines())
+        return [x for x in o.splitlines() if 'module-sine-source' in x]
 
     if not sine_source_loaded():
         # Load module-sine-source

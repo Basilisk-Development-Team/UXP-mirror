@@ -350,7 +350,7 @@ class NinjaWriter(object):
 
     Uses a stamp file if necessary."""
 
-    assert targets == filter(None, targets), targets
+    assert targets == [_f for _f in targets if _f], targets
     if len(targets) == 0:
       assert not order_only
       return None
@@ -427,8 +427,8 @@ class NinjaWriter(object):
           compile_depends.append(target.PreCompileInput())
           if target.uses_cpp:
             self.target.uses_cpp = True
-      actions_depends = filter(None, actions_depends)
-      compile_depends = filter(None, compile_depends)
+      actions_depends = [_f for _f in actions_depends if _f]
+      compile_depends = [_f for _f in compile_depends if _f]
       actions_depends = self.WriteCollapsedDependencies('actions_depends',
                                                         actions_depends)
       compile_depends = self.WriteCollapsedDependencies('compile_depends',
@@ -544,7 +544,7 @@ class NinjaWriter(object):
     if self.msvs_settings.HasExplicitIdlRulesOrActions(spec):
       return []
     outputs = []
-    for source in filter(lambda x: x.endswith('.idl'), spec['sources']):
+    for source in [x for x in spec['sources'] if x.endswith('.idl')]:
       self._WinIdlRule(source, prebuild, outputs)
     return outputs
 
@@ -792,7 +792,7 @@ class NinjaWriter(object):
     output = self.GypPathToUniqueOutput('headers.hmap')
     self.xcode_settings.header_map_path = output
     all_headers = map(self.GypPathToNinja,
-                      filter(lambda x:x.endswith(('.h')), all_sources))
+                      [x for x in all_sources if x.endswith(('.h'))])
     variables = [('framework', framework),
                  ('copy_headers', map(self.GypPathToNinja, copy_headers))]
     outputs.extend(self.ninja.build(

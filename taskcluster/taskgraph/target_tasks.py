@@ -80,7 +80,7 @@ def target_tasks_default(full_task_graph, parameters):
             if project in RELEASE_PROJECTS:
                 return True
         return project in run_on_projects
-    return [l for l, t in full_task_graph.tasks.iteritems() if filter(t)]
+    return [l for l, t in full_task_graph.tasks.iteritems() if list(filter(t))]
 
 
 @_target_task('ash_tasks')
@@ -102,7 +102,7 @@ def target_tasks_ash(full_task_graph, parameters):
         if task.attributes['kind'] == 'upload-symbols':
             return False
         return True
-    return [l for l, t in full_task_graph.tasks.iteritems() if filter(t)]
+    return [l for l, t in full_task_graph.tasks.iteritems() if list(filter(t))]
 
 
 @_target_task('cedar_tasks')
@@ -118,4 +118,4 @@ def target_tasks_cedar(full_task_graph, parameters):
                     or 'xpcshell' in task.attributes['unittest_suite']):
                 return False
         return True
-    return [l for l, t in full_task_graph.tasks.iteritems() if filter(t)]
+    return [l for l, t in full_task_graph.tasks.iteritems() if list(filter(t))]

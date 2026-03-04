@@ -46,7 +46,7 @@ class Test(object):
 
         if not isinstance(pattern, basestring):
             output = subprocess.check_output([self.binpath("xdbkeys"), dbname + ".xdb"])
-            matches = filter(lambda _: re.search(pattern, _), output.splitlines())
+            matches = [_ for _ in output.splitlines() if re.search(pattern, _)]
             if len(matches) == 0:
                 raise Exception("entry not found")
             if len(matches) > 1:
@@ -81,7 +81,7 @@ sixgill_bin = '{bindir}'
     def load_text_file(self, filename, extract=lambda l: l):
         fullpath = os.path.join(self.outdir, filename)
         values = (extract(line.strip()) for line in file(fullpath))
-        return filter(lambda _: _ is not None, values)
+        return [_ for _ in values if _ is not None]
 
     def load_suppressed_functions(self):
         return set(self.load_text_file("suppressedFunctions.lst"))

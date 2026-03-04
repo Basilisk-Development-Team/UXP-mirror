@@ -200,7 +200,7 @@ def strip_html_comments(text):
     lines = text.splitlines(True)  # preserve line endings.
 
     # Remove HTML comments (which we only allow to take a special form).
-    new_lines = filter(lambda line: not line.startswith("<!--"), lines)
+    new_lines = [line for line in lines if not line.startswith("<!--")]
 
     return "".join(new_lines)
 

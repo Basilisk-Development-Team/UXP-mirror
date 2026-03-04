@@ -94,7 +94,7 @@ def _DoRemapping(element, map):
     if not callable(map):
       map = map.get # Assume it's a dict, otherwise a callable to do the remap.
     if isinstance(element, list) or isinstance(element, tuple):
-      element = filter(None, [map(elem) for elem in element])
+      element = [_f for _f in [map(elem) for elem in element] if _f]
     else:
       element = map(element)
   return element
@@ -472,7 +472,7 @@ class MsvsSettings(object):
       # New flag required in 2013 to maintain previous PDB behavior.
       cflags.append('/FS')
     # ninja handles parallelism by itself, don't have the compiler do it too.
-    cflags = filter(lambda x: not x.startswith('/MP'), cflags)
+    cflags = [x for x in cflags if not x.startswith('/MP')]
     return cflags
 
   def _GetPchFlags(self, config, extension):
@@ -638,8 +638,7 @@ class MsvsSettings(object):
 
     # If the base address is not specifically controlled, DYNAMICBASE should
     # be on by default.
-    base_flags = filter(lambda x: 'DYNAMICBASE' in x or x == '/FIXED',
-                        ldflags)
+    base_flags = [x for x in ldflags if 'DYNAMICBASE' in x or x == '/FIXED']
     if not base_flags:
       ldflags.append('/DYNAMICBASE')
 
@@ -647,10 +646,10 @@ class MsvsSettings(object):
     # documentation that says this only defaults to on when the subsystem is
     # Vista or greater (which applies to the linker), the IDE defaults it on
     # unless it's explicitly off.
-    if not filter(lambda x: 'NXCOMPAT' in x, ldflags):
+    if not [x for x in ldflags if 'NXCOMPAT' in x]:
       ldflags.append('/NXCOMPAT')
 
-    have_def_file = filter(lambda x: x.startswith('/DEF:'), ldflags)
+    have_def_file = [x for x in ldflags if x.startswith('/DEF:')]
     manifest_flags, intermediate_manifest, manifest_files = \
         self._GetLdManifestFlags(config, manifest_base_name, gyp_to_build_path,
                                  is_executable and not have_def_file, build_dir)
@@ -1065,9 +1064,9 @@ def VerifyMissingSources(sources, build_dir, generator_flags, gyp_to_ninja):
   VS, and we want this check to match for people/bots that build using ninja,
   so they're not surprised when the VS build fails."""
   if int(generator_flags.get('msvs_error_on_missing_sources', 0)):
-    no_specials = filter(lambda x: '$' not in x, sources)
+    no_specials = [x for x in sources if '$' not in x]
     relative = [os.path.join(build_dir, gyp_to_ninja(s)) for s in no_specials]
-    missing = filter(lambda x: not os.path.exists(x), relative)
+    missing = [x for x in relative if not os.path.exists(x)]
     if missing:
       # They'll look like out\Release\..\..\stuff\things.cc, so normalize the
       # path for a slightly less crazy looking output.

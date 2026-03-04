@@ -220,10 +220,8 @@ class TestSharder(BaseTestSharder):
       if not rebaseline:
         disabled_list = test.GetDisabledTests()
         # Only includes tests that do not have any match in the disabled list.
-        all_tests = filter(lambda t:
-                           not any([fnmatch.fnmatch(t, disabled_pattern)
-                                    for disabled_pattern in disabled_list]),
-                           all_tests)
+        all_tests = [t for t in all_tests if not any([fnmatch.fnmatch(t, disabled_pattern)
+                                    for disabled_pattern in disabled_list])]
       self.tests = all_tests
 
   def CreateShardedTestRunner(self, device, index):

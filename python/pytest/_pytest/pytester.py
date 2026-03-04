@@ -870,8 +870,8 @@ class Testdir:
 
         """
         env = os.environ.copy()
-        env['PYTHONPATH'] = os.pathsep.join(filter(None, [
-            str(os.getcwd()), env.get('PYTHONPATH', '')]))
+        env['PYTHONPATH'] = os.pathsep.join([_f for _f in [
+            str(os.getcwd()), env.get('PYTHONPATH', '')] if _f])
         kw['env'] = env
         return subprocess.Popen(cmdargs,
                                 stdout=stdout, stderr=stderr, **kw)

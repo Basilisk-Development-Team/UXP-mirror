@@ -153,7 +153,7 @@ def get_component_type(format_id):
 
 def get_channel_tokens(format_id):
     r = re.compile(r'([ABDGLRS][\d]+)')
-    return filter(r.match, r.split(format_id))
+    return list(filter(r.match, r.split(format_id)))
 
 def get_channels(format_id):
     channels = ''

@@ -1345,7 +1345,7 @@ def make_irregexp_tables(version,
         character_range = partial(write_character_range, println)
 
         # Characters in \s, 21.2.2.12 CharacterClassEscape.
-        space_chars = filter(is_space, range(0, MAX_BMP + 1))
+        space_chars = list(filter(is_space, range(0, MAX_BMP + 1)))
 
         # Characters in \d, 21.2.2.12 CharacterClassEscape.
         digit_chars = map(ord, string.digits)
@@ -1357,7 +1357,7 @@ def make_irregexp_tables(version,
 
         # Characters which case-fold to characters in \w.
         ignorecase_word_chars = (word_chars +
-                                filter(casefolds_to_ascii, range(MAX_ASCII + 1, MAX_BMP + 1)))
+                                list(filter(casefolds_to_ascii, range(MAX_ASCII + 1, MAX_BMP + 1))))
 
         # Surrogate characters.
         surrogate_chars = list(range(LEAD_SURROGATE_MIN, TRAIL_SURROGATE_MAX + 1))

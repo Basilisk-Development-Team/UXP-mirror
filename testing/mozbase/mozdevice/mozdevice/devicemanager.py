@@ -434,7 +434,7 @@ class DeviceManager(object):
         processInfo = None
 
         # filter out extra spaces
-        parts = filter(lambda x: x != '', processName.split(' '))
+        parts = [x for x in processName.split(' ') if x != '']
         processName = ' '.join(parts)
 
         # filter out the quoted env string if it exists

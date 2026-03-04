@@ -542,7 +542,7 @@ To see more help for a specific command, run:
                     return path
 
         files = map(find_in_dir, self.settings_paths)
-        files = filter(bool, files)
+        files = list(filter(bool, files))
 
         self.settings.load_files(files)
 

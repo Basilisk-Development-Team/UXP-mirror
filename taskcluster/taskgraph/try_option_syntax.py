@@ -259,8 +259,8 @@ class TryOptionSyntax(object):
     def parse_build_types(self, build_types_arg):
         if build_types_arg is None:
             build_types_arg = []
-        build_types = filter(None, [BUILD_TYPE_ALIASES.get(build_type) for
-                             build_type in build_types_arg])
+        build_types = [_f for _f in [BUILD_TYPE_ALIASES.get(build_type) for
+                             build_type in build_types_arg] if _f]
         return build_types
 
     def parse_platforms(self, platform_arg):

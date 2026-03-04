@@ -79,7 +79,7 @@ class GaiaUnitTest(GaiaTest):
                     unit_tests  += map(lambda x: os.path.relpath(x, test_root), full_paths)
 
                 # Remove the tests that are disabled
-                active_unit_tests = filter(lambda x: x not in disabled_tests, unit_tests)
+                active_unit_tests = [x for x in unit_tests if x not in disabled_tests]
 
                 # Chunk the list as requested
                 tests_to_run = subprocess.check_output(chunker + active_unit_tests).strip().split(' ')

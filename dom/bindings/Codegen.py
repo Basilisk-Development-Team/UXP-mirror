@@ -4999,7 +4999,7 @@ def getJSToNativeConversionInfo(type, descriptorProvider, failureCode=None,
         memberTypes = type.flatMemberTypes
         names = []
 
-        interfaceMemberTypes = filter(lambda t: t.isNonCallbackInterface(), memberTypes)
+        interfaceMemberTypes = [t for t in memberTypes if t.isNonCallbackInterface()]
         if len(interfaceMemberTypes) > 0:
             interfaceObject = []
             for memberType in interfaceMemberTypes:
@@ -5013,7 +5013,7 @@ def getJSToNativeConversionInfo(type, descriptorProvider, failureCode=None,
         else:
             interfaceObject = None
 
-        sequenceObjectMemberTypes = filter(lambda t: t.isSequence(), memberTypes)
+        sequenceObjectMemberTypes = [t for t in memberTypes if t.isSequence()]
         if len(sequenceObjectMemberTypes) > 0:
             assert len(sequenceObjectMemberTypes) == 1
             name = getUnionMemberName(sequenceObjectMemberTypes[0])
@@ -5024,7 +5024,7 @@ def getJSToNativeConversionInfo(type, descriptorProvider, failureCode=None,
         else:
             sequenceObject = None
 
-        dateObjectMemberTypes = filter(lambda t: t.isDate(), memberTypes)
+        dateObjectMemberTypes = [t for t in memberTypes if t.isDate()]
         if len(dateObjectMemberTypes) > 0:
             assert len(dateObjectMemberTypes) == 1
             memberType = dateObjectMemberTypes[0]
@@ -5036,7 +5036,7 @@ def getJSToNativeConversionInfo(type, descriptorProvider, failureCode=None,
         else:
             dateObject = None
 
-        callbackMemberTypes = filter(lambda t: t.isCallback() or t.isCallbackInterface(), memberTypes)
+        callbackMemberTypes = [t for t in memberTypes if t.isCallback() or t.isCallbackInterface()]
         if len(callbackMemberTypes) > 0:
             assert len(callbackMemberTypes) == 1
             memberType = callbackMemberTypes[0]
@@ -5048,7 +5048,7 @@ def getJSToNativeConversionInfo(type, descriptorProvider, failureCode=None,
         else:
             callbackObject = None
 
-        dictionaryMemberTypes = filter(lambda t: t.isDictionary(), memberTypes)
+        dictionaryMemberTypes = [t for t in memberTypes if t.isDictionary()]
         if len(dictionaryMemberTypes) > 0:
             assert len(dictionaryMemberTypes) == 1
             name = getUnionMemberName(dictionaryMemberTypes[0])
@@ -5059,7 +5059,7 @@ def getJSToNativeConversionInfo(type, descriptorProvider, failureCode=None,
         else:
             setDictionary = None
 
-        recordMemberTypes = filter(lambda t: t.isRecord(), memberTypes)
+        recordMemberTypes = [t for t in memberTypes if t.isRecord()]
         if len(recordMemberTypes) > 0:
             assert len(recordMemberTypes) == 1
             name = getUnionMemberName(recordMemberTypes[0])
@@ -5070,7 +5070,7 @@ def getJSToNativeConversionInfo(type, descriptorProvider, failureCode=None,
         else:
             recordObject = None
 
-        objectMemberTypes = filter(lambda t: t.isObject(), memberTypes)
+        objectMemberTypes = [t for t in memberTypes if t.isObject()]
         if len(objectMemberTypes) > 0:
             assert len(objectMemberTypes) == 1
             # Very important to NOT construct a temporary Rooted here, since the
@@ -8255,7 +8255,7 @@ class CGMethodCall(CGThing):
             # a string overload, then boolean and numeric are conditional, and
             # if not then boolean is conditional if we have a numeric overload.
             def findUniqueSignature(filterLambda):
-                sigs = filter(filterLambda, possibleSignatures)
+                sigs = list(filter(filterLambda, possibleSignatures))
                 assert len(sigs) < 2
                 if len(sigs) > 0:
                     return sigs[0]
@@ -17087,7 +17087,7 @@ class CGEventMethod(CGNativeMember):
                 # -3 on the left to ignore the type, bubbles, and cancelable parameters
                 # -1 on the right to ignore the .trusted property which bleeds through
                 # here because it is [Unforgeable].
-                len(signature[1]) - 3 == len(filter(lambda x: x.isAttr(), iface.members)) - 1):
+                len(signature[1]) - 3 == len([x for x in iface.members if x.isAttr()]) - 1):
                 allowed = True
                 self.isInit = True
 

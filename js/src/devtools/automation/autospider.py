@@ -363,7 +363,7 @@ if variant.get('ignore-test-failures'):
     results = [0]
 
 if args.variant in ('tsan', 'msan'):
-    files = filter(lambda f: f.startswith("sanitize_log."), os.listdir(OUTDIR))
+    files = [f for f in os.listdir(OUTDIR) if f.startswith("sanitize_log.")]
     fullfiles = [os.path.join(OUTDIR, f) for f in files]
 
     # Summarize results

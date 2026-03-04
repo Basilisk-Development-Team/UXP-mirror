@@ -182,8 +182,7 @@ class Handshaker(object):
 
             # Extra handshake handler may modify/remove processors.
             self._dispatcher.do_extra_handshake(self._request)
-            processors = filter(lambda processor: processor is not None,
-                                self._request.ws_extension_processors)
+            processors = [processor for processor in self._request.ws_extension_processors if processor is not None]
 
             # Ask each processor if there are extensions on the request which
             # cannot co-exist. When processor decided other processors cannot
@@ -194,8 +193,7 @@ class Handshaker(object):
                 if processor.is_active():
                     processor.check_consistency_with_other_processors(
                         processors)
-            processors = filter(lambda processor: processor.is_active(),
-                                processors)
+            processors = [processor for processor in processors if processor.is_active()]
 
             accepted_extensions = []
 
@@ -220,8 +218,7 @@ class Handshaker(object):
                 self._request.mux_processor = processors[mux_index]
                 self._request.mux_processor.set_extensions(
                     logical_channel_extensions)
-                processors = filter(lambda processor: processor.is_active(),
-                                    processors)
+                processors = [processor for processor in processors if processor.is_active()]
 
             stream_options = StreamOptions()
 

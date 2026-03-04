@@ -314,11 +314,10 @@ def etlparser(xperf_path, etl_filename, processID, approot=None,
 
     # Filter out stages, threads, and whitelisted files that we're not
     # interested in
-    filekeys = filter(lambda x: (all_stages or x[2] == stages[0]) and
+    filekeys = [x for x in files.iterkeys() if (all_stages or x[2] == stages[0]) and
                                 (all_threads or x[1].endswith("(main)")) and
                                 (all_stages and x[2] != stages[0] or
-                                 not checkWhitelist(x[0], whitelist)),
-                      files.iterkeys())
+                                 not checkWhitelist(x[0], whitelist))]
 
     # output data
     for row in filekeys:

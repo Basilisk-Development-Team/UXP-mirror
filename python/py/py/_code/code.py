@@ -296,7 +296,7 @@ class Traceback(list):
             by default this removes all the TracebackItems which are hidden
             (see ishidden() above)
         """
-        return Traceback(filter(fn, self))
+        return Traceback(list(filter(fn, self)))
 
     def getcrashentry(self):
         """ return last non-hidden traceback entry that lead

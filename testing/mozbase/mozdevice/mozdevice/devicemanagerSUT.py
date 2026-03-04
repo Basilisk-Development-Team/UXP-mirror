@@ -430,7 +430,7 @@ class DeviceManagerSUT(DeviceManager):
             return []
         data = self._runCmds([{'cmd': 'cd ' + rootdir}, {'cmd': 'ls'}])
 
-        files = filter(lambda x: x, data.splitlines())
+        files = [x for x in data.splitlines() if x]
         if len(files) == 1 and files[0] == '<empty>':
             # special case on the agent: empty directories return just the
             # string "<empty>"
@@ -833,7 +833,7 @@ class DeviceManagerSUT(DeviceManager):
 
         # Get rid of any 0 length members of the arrays
         for k, v in result.iteritems():
-            result[k] = filter(lambda x: x != '', result[k])
+            result[k] = [x for x in result[k] if x != '']
 
         # Format the process output
         if 'process' in result:

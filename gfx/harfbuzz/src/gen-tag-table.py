@@ -872,7 +872,7 @@ bcp_47.remove_extra_macrolanguages ()
 ot.inherit_from_macrolanguages ()
 ot.names[DEFAULT_LANGUAGE_SYSTEM] = '*/'
 ot.ranks[DEFAULT_LANGUAGE_SYSTEM] = max (ot.ranks.values ()) + 1
-for tricky_ot_tag in filter (lambda tag: re.match ('[A-Z]{3}$', tag), ot.names):
+for tricky_ot_tag in [tag for tag in ot.names if re.match ('[A-Z]{3}$', tag)]:
 	possible_bcp_47_tag = tricky_ot_tag.lower ()
 	if possible_bcp_47_tag in bcp_47.names and not ot.from_bcp_47[possible_bcp_47_tag]:
 		ot.add_language (possible_bcp_47_tag, DEFAULT_LANGUAGE_SYSTEM)

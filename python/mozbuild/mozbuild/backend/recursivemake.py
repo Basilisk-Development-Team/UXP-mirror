@@ -269,8 +269,8 @@ class RecursiveMakeTraversal(object):
         Helper function to call a filter from compute_dependencies and
         traverse.
         """
-        return filter(current, self._traversal.get(current,
-            self.SubDirectories()))
+        return list(filter(current, self._traversal.get(current,
+            self.SubDirectories())))
 
     def compute_dependencies(self, filter=None):
         """

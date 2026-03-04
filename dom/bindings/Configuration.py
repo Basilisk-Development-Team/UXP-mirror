@@ -149,8 +149,7 @@ class Configuration(DescriptorProvider):
                                 # unions for the file where we previously found
                                 # them.
                                 unionsForFilename = self.unionsPerFilename[f]
-                                unionsForFilename = filter(lambda u: u.name != t.name,
-                                                           unionsForFilename)
+                                unionsForFilename = [u for u in unionsForFilename if u.name != t.name]
                                 if len(unionsForFilename) == 0:
                                     del self.unionsPerFilename[f]
                                 else:
@@ -210,17 +209,17 @@ class Configuration(DescriptorProvider):
                 getter = (lambda attrName: lambda x: getattr(x, attrName))(key)
             tofilter.append((getter, val))
         for f in tofilter:
-            curr = filter(lambda x: f[0](x) == f[1], curr)
+            curr = [x for x in curr if f[0](x) == f[1]]
         return curr
 
     def getEnums(self, webIDLFile):
-        return filter(lambda e: e.filename() == webIDLFile, self.enums)
+        return [e for e in self.enums if e.filename() == webIDLFile]
 
     def getDictionaries(self, webIDLFile):
-        return filter(lambda d: d.filename() == webIDLFile, self.dictionaries)
+        return [d for d in self.dictionaries if d.filename() == webIDLFile]
 
     def getCallbacks(self, webIDLFile):
-        return filter(lambda c: c.filename() == webIDLFile, self.callbacks)
+        return [c for c in self.callbacks if c.filename() == webIDLFile]
 
     def getDescriptor(self, interfaceName):
         """

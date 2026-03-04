@@ -312,7 +312,7 @@ def generate_separated_sources(platform_sources):
   else:
     f = open('skia/sources.json');
     separated['pdf'].add('skia/src/core/SkMD5.cpp');
-    separated['pdf'].update(filter(lambda x: 'pdf' in x, set(v.replace('../', 'skia/') for v in json.load(f))));
+    separated['pdf'].update([x for x in set(v.replace('../', 'skia/') for v in json.load(f)) if 'pdf' in x]);
     f.close()
 
   return separated

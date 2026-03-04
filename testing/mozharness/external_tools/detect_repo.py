@@ -7,7 +7,7 @@ from urlparse import urlsplit, urlunsplit
 from os.path import exists, join
 
 def first(seq):
-    return next(iter(filter(lambda x: x, seq)), '')
+    return next(iter([x for x in seq if x]), '')
 
 def all_first(*sequences):
     return map(lambda x: first(x), sequences)

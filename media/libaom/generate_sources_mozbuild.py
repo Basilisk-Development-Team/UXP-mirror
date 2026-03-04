@@ -123,19 +123,19 @@ if __name__ == '__main__':
         # have to generate sources for each combination.
         if generate_sources:
             # Remove spurious sources and perl files
-            sources = filter(lambda x: x.startswith(AOM_DIR), sources)
-            sources = filter(lambda x: not x.endswith('.pl'), sources)
+            sources = [x for x in sources if x.startswith(AOM_DIR)]
+            sources = [x for x in sources if not x.endswith('.pl')]
 
             # Filter out exports
-            exports = filter(lambda x: re.match(os.path.join(AOM_DIR, '(aom|aom_mem|aom_ports|aom_scale)/.*h$'), x), sources)
-            exports = filter(lambda x: not re.search('(internal|src)', x), exports)
-            exports = filter(lambda x: not re.search('(emmintrin_compat.h|mem_.*|msvc.h|aom_once.h)$', x), exports)
+            exports = [x for x in sources if re.match(os.path.join(AOM_DIR, '(aom|aom_mem|aom_ports|aom_scale)/.*h$'), x)]
+            exports = [x for x in exports if not re.search('(internal|src)', x)]
+            exports = [x for x in exports if not re.search('(emmintrin_compat.h|mem_.*|msvc.h|aom_once.h)$', x)]
 
             for export in exports:
                 sources.remove(export)
 
             # Remove header files
-            sources = sorted(filter(lambda x: not x.endswith('.h'), sources))
+            sources = sorted([x for x in sources if not x.endswith('.h')])
 
             # The build system is unhappy if two files have the same prefix
             # In libaom, sometimes .asm and .c files share the same prefix

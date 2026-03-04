@@ -66,7 +66,7 @@ def generate_assertions(properties):
 
 def generate_idl_name_positions(properties):
     # Skip aliases.
-    ps = filter(lambda p: p["proptype"] is not "alias", properties)
+    ps = [p for p in properties if p["proptype"] is not "alias"]
 
     # Sort alphabetically by IDL name.
     ps = sorted(ps, key=lambda p: p["idlname"])

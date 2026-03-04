@@ -793,7 +793,7 @@ $(obj).$(TOOLSET)/$(TARGET)/%%.o: $(obj)/%%%s FORCE_DO_CMD
           gyp.xcode_emulation.MacPrefixHeader(
               self.xcode_settings, lambda p: Sourceify(self.Absolutify(p)),
               self.Pchify))
-      sources = filter(Compilable, all_sources)
+      sources = list(filter(Compilable, all_sources))
       if sources:
         self.WriteLn(SHARED_HEADER_SUFFIX_RULES_COMMENT1)
         extensions = set([os.path.splitext(s)[1] for s in sources])
@@ -1213,7 +1213,7 @@ $(obj).$(TOOLSET)/$(TARGET)/%%.o: $(obj)/%%%s FORCE_DO_CMD
         includes = map(Sourceify, map(self.Absolutify, includes))
       self.WriteList(includes, 'INCS_%s' % configname, prefix='-I')
 
-    compilable = filter(Compilable, sources)
+    compilable = list(filter(Compilable, sources))
     objs = map(self.Objectify, map(self.Absolutify, map(Target, compilable)))
     self.WriteList(objs, 'OBJS')
 
@@ -1286,7 +1286,7 @@ $(obj).$(TOOLSET)/$(TARGET)/%%.o: $(obj)/%%%s FORCE_DO_CMD
 
     # If there are any object files in our input file list, link them into our
     # output.
-    extra_link_deps += filter(Linkable, sources)
+    extra_link_deps += list(filter(Linkable, sources))
 
     self.WriteLn()
 
@@ -1802,7 +1802,7 @@ $(obj).$(TOOLSET)/$(TARGET)/%%.o: $(obj)/%%%s FORCE_DO_CMD
           default_cpp_ext = ext
     self.WriteLn('LOCAL_CPP_EXTENSION := ' + default_cpp_ext)
 
-    self.WriteList(map(self.Absolutify, filter(Compilable, all_sources)),
+    self.WriteList(map(self.Absolutify, list(filter(Compilable, all_sources))),
                    'LOCAL_SRC_FILES')
 
     # Filter out those which do not match prefix and suffix and produce

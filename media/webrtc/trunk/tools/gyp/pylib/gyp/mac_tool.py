@@ -203,7 +203,7 @@ class MacTool(object):
       if lines[i].strip().startswith("<string>${"):
         lines[i] = None
         lines[i - 1] = None
-    lines = '\n'.join(filter(lambda x: x is not None, lines))
+    lines = '\n'.join([x for x in lines if x is not None])
 
     # Write out the file with variables replaced.
     fd = open(dest, 'w')

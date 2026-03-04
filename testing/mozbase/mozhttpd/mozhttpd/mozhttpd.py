@@ -100,9 +100,9 @@ class RequestHandler(SimpleHTTPServer.SimpleHTTPRequestHandler):
         """Find the on-disk path to serve this request from,
         using self.path_mappings and self.docroot.
         Return (url_path, disk_path)."""
-        path_components = filter(None, self.request.path.split('/'))
+        path_components = [_f for _f in self.request.path.split('/') if _f]
         for prefix, disk_path in self.path_mappings.iteritems():
-            prefix_components = filter(None, prefix.split('/'))
+            prefix_components = [_f for _f in prefix.split('/') if _f]
             if len(path_components) < len(prefix_components):
                 continue
             if path_components[:len(prefix_components)] == prefix_components:
@@ -158,7 +158,7 @@ class RequestHandler(SimpleHTTPServer.SimpleHTTPRequestHandler):
         # fragment and mangled the path for proxying, if required.
         path = posixpath.normpath(urllib.unquote(self.path))
         words = path.split('/')
-        words = filter(None, words)
+        words = [_f for _f in words if _f]
         path = self.disk_root
         for word in words:
             drive, word = os.path.splitdrive(word)

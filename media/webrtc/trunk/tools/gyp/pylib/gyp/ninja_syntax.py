@@ -31,7 +31,7 @@ class Writer(object):
         if value is None:
             return
         if isinstance(value, list):
-            value = ' '.join(filter(None, value))  # Filter out empty strings.
+            value = ' '.join([_f for _f in value if _f])  # Filter out empty strings.
         self._line('%s = %s' % (key, value), indent)
 
     def pool(self, name, depth):
