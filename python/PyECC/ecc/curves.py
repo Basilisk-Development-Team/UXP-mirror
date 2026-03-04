@@ -75,7 +75,7 @@ def get_curve(bits):
         p, n, b, x, y = DOMAINS[bits]
         return bits, p, n, CURVE_P, p - b, (x, y)
     else:
-        raise KeyError, "Key size not implemented: %s" % bits
+        raise KeyError("Key size not implemented: %s" % bits)
  
 def implemented_keys(must_sign = False):
     return [k for k in DOMAINS if not must_sign or DOMAINS[k][1]]

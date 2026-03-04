@@ -6,8 +6,8 @@ import copy, sys
 
 class Visitor:
     def defaultVisit(self, node):
-        raise Exception, "INTERNAL ERROR: no visitor for node type `%s'"% (
-            node.__class__.__name__)
+        raise Exception("INTERNAL ERROR: no visitor for node type `%s'"% (
+            node.__class__.__name__))
 
     def visitWhitespace(self, ws):
         pass

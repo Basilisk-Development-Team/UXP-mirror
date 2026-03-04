@@ -158,7 +158,7 @@ class Decoder:
             self._parent._res.append(self._res)
             return self._parent
         else:
-            raise RuntimeError, "Cannont exit top level Decoder"
+            raise RuntimeError("Cannont exit top level Decoder")
 
     def continues(self):
         return (not self._limit) or (self._io.tell() < self._limit)

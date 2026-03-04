@@ -163,7 +163,7 @@ def reraise_attribute_error(func):
             return func(*args, **kwargs)
         except KeyError:
             exc_class, exc, tb = sys.exc_info()
-            raise AttributeError().__class__, exc, tb
+            raise AttributeError().__class__(exc).with_traceback(tb)
     return _
 
 

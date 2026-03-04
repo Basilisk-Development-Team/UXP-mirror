@@ -352,7 +352,7 @@ class Future(object):
 
     def __get_result(self):
         if self._exception:
-            raise type(self._exception), self._exception, self._traceback
+            raise type(self._exception)(self._exception).with_traceback(self._traceback)
         else:
             return self._result
 

@@ -31,9 +31,9 @@ def encrypt(message, qk, encrypter = Rabbit):
     try:
         bits, cn, n, cp, cq, g = get_curve(bits)
         if not n:
-            raise ValueError, "Key size %s not suitable for encryption" % bits
+            raise ValueError("Key size %s not suitable for encryption" % bits)
     except KeyError:
-        raise ValueError, "Key size %s not implemented" % bits
+        raise ValueError("Key size %s not implemented" % bits)
     
     k = random.randint(1, n - 1)        # temporary private key k
     kg = mulp(cp, cq, cn, g, k)         # temporary public key k*G
@@ -57,7 +57,7 @@ def decrypt(message, kg, dk, decrypter = Rabbit):
     try:
         bits, cn, n, cp, cq, g = get_curve(bits)
     except KeyError:
-        raise ValueError, "Key size %s not implemented" % bits
+        raise ValueError("Key size %s not implemented" % bits)
 
     sg = mulp(cp, cq, cn, kg, d)        # shared secret d*(k*G) = k*d*G
     return decrypter(enc_long(sg[0])).decrypt(message)

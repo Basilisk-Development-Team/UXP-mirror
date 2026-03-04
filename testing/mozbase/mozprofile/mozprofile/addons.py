@@ -291,7 +291,7 @@ class AddonManager(object):
             else:
                 raise IOError('Add-on path is neither an XPI nor a directory: %s' % addon_path)
         except (IOError, KeyError) as e:
-            raise AddonFormatError(str(e)), None, sys.exc_info()[2]
+            raise AddonFormatError(str(e)).with_traceback(sys.exc_info()[2])
 
         try:
             doc = minidom.parseString(manifest)
@@ -312,7 +312,7 @@ class AddonManager(object):
                 if entry in list(details.keys()):
                     details.update({entry: get_text(node)})
         except Exception as e:
-            raise AddonFormatError(str(e)), None, sys.exc_info()[2]
+            raise AddonFormatError(str(e)).with_traceback(sys.exc_info()[2])
 
         # turn unpack into a true/false value
         if isinstance(details['unpack'], basestring):

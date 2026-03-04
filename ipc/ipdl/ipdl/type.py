@@ -36,8 +36,8 @@ class TypeVisitor:
         self.visited = set()
 
     def defaultVisit(self, node, *args):
-        raise Exception, "INTERNAL ERROR: no visitor for node type `%s'"% (
-            node.__class__.__name__)
+        raise Exception("INTERNAL ERROR: no visitor for node type `%s'"% (
+            node.__class__.__name__))
 
     def visitVoidType(self, v, *args):
         pass
@@ -125,8 +125,8 @@ class Type:
     def typename(self):
         return self.__class__.__name__
 
-    def name(self): raise Exception, 'NYI'
-    def fullname(self): raise Exception, 'NYI'
+    def name(self): raise Exception('NYI')
+    def fullname(self): raise Exception('NYI')
 
     def accept(self, visitor, *args):
         visit = getattr(visitor, 'visit'+ self.__class__.__name__, None)

@@ -23,13 +23,13 @@ def keypair(bits):
     try:
         bits, cn, n, cp, cq, g = get_curve(bits)
     except KeyError:
-        raise ValueError, "Key size %s not implemented" % bits
+        raise ValueError("Key size %s not implemented" % bits)
     if n > 0:
         d = randkey(bits, n)
         q = mulp(cp, cq, cn, g, d)
         return (bits, q), (bits, d)
     else:
-        raise ValueError, "Key size %s not suitable for signing" % bits
+        raise ValueError("Key size %s not suitable for signing" % bits)
 
 def supported_keys():
     '''Return a list of all key sizes implemented for signing'''

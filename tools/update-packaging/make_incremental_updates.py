@@ -343,7 +343,7 @@ def create_partial_patch(from_dir_path, to_dir_path, patch_filename, shas, patch
     elif "Contents\Resources\precomplete" in to_file_set:
         forced_list.append("Contents\Resources\precomplete")
     else:
-        raise Exception, "missing precomplete file in: "+to_dir_path
+        raise Exception("missing precomplete file in: "+to_dir_path)
 
     if "removed-files" in to_file_set:
         forced_list.append("removed-files")
@@ -353,7 +353,7 @@ def create_partial_patch(from_dir_path, to_dir_path, patch_filename, shas, patch
     elif "Contents\Resources\\removed-files" in to_file_set:
         forced_list.append("Contents\Resources\\removed-files")
     else:
-        raise Exception, "missing removed-files file in: "+to_dir_path
+        raise Exception("missing removed-files file in: "+to_dir_path)
 
     if "chrome.manifest" in to_file_set:
         forced_list.append("chrome.manifest")
@@ -363,7 +363,7 @@ def create_partial_patch(from_dir_path, to_dir_path, patch_filename, shas, patch
     elif "Contents\Resources\\chrome.manifest" in to_file_set:
         forced_list.append("Contents\Resources\\chrome.manifest")
     else:
-        raise Exception, "missing chrome.manifest file in: "+to_dir_path
+        raise Exception("missing chrome.manifest file in: "+to_dir_path)
 
     # Files which exist in both sets need to be patched
     patch_filenames = list(from_file_set.intersection(to_file_set))

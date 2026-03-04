@@ -134,9 +134,9 @@ def install(src, dest):
                     pass
         if issubclass(cls, Exception):
             error = InstallError('Failed to install "%s (%s)"' % (src, str(exc)))
-            raise InstallError, error, trbk
+            raise InstallError(error).with_traceback(trbk)
         # any other kind of exception like KeyboardInterrupt is just re-raised.
-        raise cls, exc, trbk
+        raise cls(exc).with_traceback(trbk)
 
     finally:
         # trbk won't get GC'ed due to circular reference
@@ -225,7 +225,7 @@ def uninstall(install_folder):
             except Exception, ex:
                 cls, exc, trbk = sys.exc_info()
                 error = UninstallError('Failed to uninstall %s (%s)' % (install_folder, str(ex)))
-                raise UninstallError, error, trbk
+                raise UninstallError(error).with_traceback(trbk)
 
             finally:
                 # trbk won't get GC'ed due to circular reference

@@ -307,7 +307,7 @@ class ExpressionParser(object):
             raise ParseError("could not parse: "
                              "%s\nexception: %svariables: %s" % (self.text,
                                                                  formatted,
-                                                                 self.valuemapping)), None, tb
+                                                                 self.valuemapping)).with_traceback(tb)
 
     __call__ = parse
 
