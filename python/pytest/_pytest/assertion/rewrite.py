@@ -408,7 +408,7 @@ def _format_boolop(explanations, is_or):
     return explanation.replace(t('%'), t('%%'))
 
 def _call_reprcompare(ops, results, expls, each_obj):
-    for i, res, expl in zip(range(len(ops)), results, expls):
+    for i, res, expl in zip(list(range(len(ops))), results, expls):
         try:
             done = not res
         except Exception:
@@ -858,7 +858,7 @@ class AssertionRewriter(ast.NodeVisitor):
         res_variables = [self.variable() for i in range(len(comp.ops))]
         load_names = [ast.Name(v, ast.Load()) for v in res_variables]
         store_names = [ast.Name(v, ast.Store()) for v in res_variables]
-        it = zip(range(len(comp.ops)), comp.ops, comp.comparators)
+        it = zip(list(range(len(comp.ops))), comp.ops, comp.comparators)
         expls = []
         syms = []
         results = [left_res]

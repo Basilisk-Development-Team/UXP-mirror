@@ -180,8 +180,8 @@ def _check_barcode(barcode):
   if len(barcode) != 12:
     return False
 
-  r1 = range(0, 11, 2)  # Odd digits
-  r2 = range(1, 10, 2)  # Even digits except last
+  r1 = list(range(0, 11, 2))  # Odd digits
+  r2 = list(range(1, 10, 2))  # Even digits except last
   dsum = 0
   # Sum all the even digits
   for i in r1:

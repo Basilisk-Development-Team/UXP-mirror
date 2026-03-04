@@ -440,12 +440,12 @@ def GenerateCreateFunctor(prebound, calltime):
 
 def main():
   print(HEADER)
-  for prebound in xrange(0, 6 + 1):
-    for args in xrange(0, 6 + 1):
+  for prebound in range(0, 6 + 1):
+    for args in range(0, 6 + 1):
       GenerateDispatch(prebound, args)
   print(MUTANT)
-  for prebound in xrange(0, 6 + 1):
-    for args in xrange(0, 6 + 1):
+  for prebound in range(0, 6 + 1):
+    for args in range(0, 6 + 1):
       GenerateCreateFunctor(prebound, args)
   print(FOOTER)
   return 0

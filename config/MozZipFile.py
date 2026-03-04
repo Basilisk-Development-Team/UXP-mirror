@@ -116,7 +116,7 @@ class ZipFile(zipfile.ZipFile):
     self._remove = []
 
     lengths = [all[i+1][0].header_offset - all[i][0].header_offset
-               for i in xrange(len(all)-1)]
+               for i in range(len(all)-1)]
     lengths.append(self.end - all[-1][0].header_offset)
     to_pos = 0
     for (zi, keep), length in zip(all, lengths):

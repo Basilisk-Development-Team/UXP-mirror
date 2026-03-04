@@ -1277,11 +1277,11 @@ def make_irregexp_tables(version,
         # Latin1 characters which, when case-mapped through
         # String.prototype.toUpperCase(), canonicalize to a non-Latin1 character.
         # ES2017, §21.2.2.8.2 Runtime Semantics: Canonicalize
-        casemapped_to_nonlatin1 = ifilter(casemaps_to_nonlatin1, xrange(0, MAX_LATIN1 + 1))
+        casemapped_to_nonlatin1 = ifilter(casemaps_to_nonlatin1, range(0, MAX_LATIN1 + 1))
 
         def casemap_closure(ch):
             upper = to_upper(ch)
-            return (ch, [c for c in xrange(MAX_LATIN1 + 1, MAX_BMP + 1) if upper == to_upper(c)])
+            return (ch, [c for c in range(MAX_LATIN1 + 1, MAX_BMP + 1) if upper == to_upper(c)])
 
         # Mapping from Latin1 characters to the list of case map equivalent
         # non-Latin1 characters.
@@ -1290,7 +1290,7 @@ def make_irregexp_tables(version,
         # Non-latin1 characters which, when Unicode case-folded, canonicalize to
         # a Latin1 character.
         # ES2017, §21.2.2.8.2 Runtime Semantics: Canonicalize
-        casefolded_to_latin1 = ifilter(casefolds_to_latin1, xrange(MAX_LATIN1 + 1, MAX_BMP + 1))
+        casefolded_to_latin1 = ifilter(casefolds_to_latin1, range(MAX_LATIN1 + 1, MAX_BMP + 1))
 
         println('    if (unicode) {')
         for ch in casefolded_to_latin1:
@@ -1345,7 +1345,7 @@ def make_irregexp_tables(version,
         character_range = partial(write_character_range, println)
 
         # Characters in \s, 21.2.2.12 CharacterClassEscape.
-        space_chars = filter(is_space, xrange(0, MAX_BMP + 1))
+        space_chars = filter(is_space, range(0, MAX_BMP + 1))
 
         # Characters in \d, 21.2.2.12 CharacterClassEscape.
         digit_chars = map(ord, string.digits)
@@ -1357,10 +1357,10 @@ def make_irregexp_tables(version,
 
         # Characters which case-fold to characters in \w.
         ignorecase_word_chars = (word_chars +
-                                filter(casefolds_to_ascii, xrange(MAX_ASCII + 1, MAX_BMP + 1)))
+                                filter(casefolds_to_ascii, range(MAX_ASCII + 1, MAX_BMP + 1)))
 
         # Surrogate characters.
-        surrogate_chars = range(LEAD_SURROGATE_MIN, TRAIL_SURROGATE_MAX + 1)
+        surrogate_chars = list(range(LEAD_SURROGATE_MIN, TRAIL_SURROGATE_MAX + 1))
 
         write(warning_message)
         write(unicode_version_message.format(version))
@@ -1383,7 +1383,7 @@ def make_irregexp_tables(version,
         character_range('IgnoreCaseWord', ignorecase_word_chars)
         character_range('WordAndSurrogate', word_chars + surrogate_chars)
         character_range('NegatedIgnoreCaseWordAndSurrogate',
-                        set(xrange(0, MAX_BMP + 1)) - set(ignorecase_word_chars + surrogate_chars))
+                        set(range(0, MAX_BMP + 1)) - set(ignorecase_word_chars + surrogate_chars))
 
         character_range('Digit', digit_chars)
         character_range('DigitAndSurrogate', digit_chars + surrogate_chars)

@@ -180,7 +180,7 @@ class Tile:
 def make_src_tiles():
   tiles = [Tile() for i in range(9)]
 
-  rows = [range(3*i, 3*(i+1)) for i in range(3)]
+  rows = [list(range(3*i, 3*(i+1))) for i in range(3)]
   cols = [[i, i+3, i+6] for i in range(3)]
 
   row_limits_slice = [0, props.slice[3], props.size.width - props.slice[1], props.size.width]

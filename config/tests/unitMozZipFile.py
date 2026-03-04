@@ -71,7 +71,7 @@ def getid(descs):
 def getContent(length):
   'Get pseudo random content of given length.'
   rv = [None] * length
-  for i in xrange(length):
+  for i in range(length):
     rv[i] = random.choice(letters)
   return ''.join(rv)
 
@@ -158,16 +158,16 @@ class TestExtensiveStored(unittest.TestCase):
     open(self.leaf('stage', leaf), 'w').write(content)
 
 # all leafs in all lengths
-atomics = list(prod(xrange(len(leafs)), xrange(lengths)))
+atomics = list(prod(range(len(leafs)), range(lengths)))
 
 # populate TestExtensiveStore with testcases
-for w in xrange(writes):
+for w in range(writes):
   # Don't iterate over all files for the the first n passes,
   # those are redundant as long as w < lengths.
   # There are symmetries in the trailing end, too, but I don't know
   # how to reduce those out right now.
-  nonatomics = [list(prod(range(min(i,len(leafs))), xrange(lengths)))
-                for i in xrange(1, w+1)] + [atomics]
+  nonatomics = [list(prod(list(range(min(i,len(leafs)))), range(lengths)))
+                for i in range(1, w+1)] + [atomics]
   for descs in prod(*nonatomics):
     suffix = getid(descs)
     dicts = [dict(leaf=leaf, length=length) for leaf, length in descs]
@@ -181,9 +181,9 @@ for w in xrange(writes):
 # and then write all atomics again.
 # This should catch more or less all artifacts generated
 # by the final ordering step when closing the jar.
-files = [list(prod([i], xrange(lengths))) for i in xrange(len(leafs))]
+files = [list(prod([i], range(lengths))) for i in range(len(leafs))]
 allfiles = reduce(lambda l,r:l+r,
-                  [list(prod(*files[:(i+1)])) for i in xrange(len(leafs))])
+                  [list(prod(*files[:(i+1)])) for i in range(len(leafs))])
 
 for first in allfiles:
   testbasename = 'test{0}_'.format(getid(first))

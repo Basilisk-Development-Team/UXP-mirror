@@ -188,7 +188,7 @@ class Parser:
 
     def createEntity(self, contents, m):
         return Entity(contents, self.postProcessValue,
-                      *[m.span(i) for i in xrange(7)])
+                      *[m.span(i) for i in range(7)])
 
 
 def getParser(path):
@@ -259,7 +259,7 @@ class DTDParser(Parser):
             if m:
                 inneroffset = m.end()
                 entity = Entity(contents, self.postProcessValue,
-                                *[m.span(i) for i in xrange(7)])
+                                *[m.span(i) for i in range(7)])
         return (entity, inneroffset)
 
     def createEntity(self, contents, m):
@@ -379,7 +379,7 @@ class IniParser(Parser):
         Parser.__init__(self)
 
 
-DECL, COMMENT, START, END, CONTENT = range(5)
+DECL, COMMENT, START, END, CONTENT = list(range(5))
 
 
 class BookmarksParserInner(HTMLParser):
@@ -495,7 +495,7 @@ class BookmarksParser(Parser):
         tks = p.parse(self.contents)
         i = 0
         k = []
-        for i in xrange(len(tks)):
+        for i in range(len(tks)):
             t = tks[i]
             if t._type == START:
                 k.append(t.tag)

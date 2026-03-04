@@ -76,7 +76,7 @@ class UUIDProvider(object):
         if format in [None, 'cpp', 'c++']:
             u = u.hex
             print(('{ 0x%s, 0x%s, 0x%s, \\' % (u[0:8], u[8:12], u[12:16])))
-            pairs = tuple(map(lambda n: u[n:n+2], range(16, 32, 2)))
+            pairs = tuple(map(lambda n: u[n:n+2], list(range(16, 32, 2))))
             print((('  { ' + '0x%s, ' * 7 + '0x%s } }') % pairs))
 
 

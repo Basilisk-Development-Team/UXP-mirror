@@ -87,7 +87,7 @@ def generate_letter_switch(opt, unprocessed_columns, reserved_word_list,
     assert(len(reserved_word_list) != 0);
 
     if not columns:
-        columns = range(0, unprocessed_columns)
+        columns = list(range(0, unprocessed_columns))
 
     if len(reserved_word_list) == 1:
         index, word = reserved_word_list[0]

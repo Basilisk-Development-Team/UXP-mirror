@@ -44,9 +44,9 @@ def generate(args, frames):
     for f in frames:
       y4m.write("FRAME\n")
       px = f.load()
-      for k in xrange(3):
-        for i in xrange(0, f.height, r_step[k]):
-          for j in xrange(0, f.width, c_step[k]):
+      for k in range(3):
+        for i in range(0, f.height, r_step[k]):
+          for j in range(0, f.width, c_step[k]):
             yuv = px[j, i]
             y4m.write(chr(yuv[k]))
 

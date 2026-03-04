@@ -608,16 +608,16 @@ final class Big5Data {
 
 bits = []
 for (low, high) in astral_ranges:
-  for i in xrange(low, high):
+  for i in range(low, high):
     bits.append(1 if index[i] > 0xFFFF else 0)
 # pad length to multiple of 16
-for j in xrange(16 - (len(bits) % 16)):
+for j in range(16 - (len(bits) % 16)):
   bits.append(0)
 
 i = 0
 while i < len(bits):
   accu = 0
-  for j in xrange(16):
+  for j in range(16):
     accu |= bits[i + j] << j
   if accu == 0x22:
     class_file.write('\\"')
@@ -632,7 +632,7 @@ class_file.write('''";
 j = 0
 for (low, high) in ranges:
   class_file.write('''    private static final String TABLE%d = "''' % j)
-  for i in xrange(low, high):
+  for i in range(low, high):
     class_file.write('\\u%04X' % (index[i] & 0xFFFF))
   class_file.write('''";
 
@@ -704,7 +704,7 @@ prefer_last = [
 
 for code_point in prefer_last:
   # Python lists don't have .rindex() :-(
-  for i in xrange(len(index) - 1, -1, -1):
+  for i in range(len(index) - 1, -1, -1):
     candidate = index[i]
     if candidate == code_point:
        class_file.write('''                case 0x%04X:

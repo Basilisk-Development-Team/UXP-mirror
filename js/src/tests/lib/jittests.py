@@ -623,7 +623,7 @@ def get_remote_results(tests, device, prefix, options):
     from mozdevice import devicemanager
 
     try:
-        for i in xrange(0, options.repeat):
+        for i in range(0, options.repeat):
             for test in tests:
                 yield run_test_remote(test, device, prefix, options)
     except devicemanager.DMError as e:

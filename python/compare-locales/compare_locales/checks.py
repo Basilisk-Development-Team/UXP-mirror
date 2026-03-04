@@ -112,20 +112,20 @@ class PropertiesChecker(Checker):
                         # trailing specs missing, that's just a warning
                         warn = ', '.join('trailing argument %d `%s` missing' %
                                          (i+1, refSpecs[i])
-                                         for i in xrange(i1, i2))
+                                         for i in range(i1, i2))
                     else:
-                        for i in xrange(i1, i2):
+                        for i in range(i1, i2):
                             msgs.append('argument %d `%s` missing' %
                                         (i+1, refSpecs[i]))
                     continue
                 if action == 'insert':
                     # obsolete argument in l10n
-                    for i in xrange(j1, j2):
+                    for i in range(j1, j2):
                         msgs.append('argument %d `%s` obsolete' %
                                     (i+1, l10nSpecs[i]))
                     continue
                 if action == 'replace':
-                    for i, j in zip(xrange(i1, i2), xrange(j1, j2)):
+                    for i, j in zip(range(i1, i2), range(j1, j2)):
                         msgs.append('argument %d `%s` should be `%s`' %
                                     (j+1, l10nSpecs[j], refSpecs[i]))
             if msgs:

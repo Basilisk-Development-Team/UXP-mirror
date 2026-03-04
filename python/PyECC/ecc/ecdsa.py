@@ -134,17 +134,17 @@ if __name__ == "__main__":
         d = get_curve(bits)
         
         t = time.time()
-        for i in xrange(rounds):
+        for i in range(rounds):
             qk, dk = keypair(bits)
         tgen = time.time() - t
         
         t = time.time()
-        for i in xrange(rounds):
+        for i in range(rounds):
             s = sign(0, dk)
         tsign = time.time() - t
 
         t = time.time()
-        for i in xrange(rounds):
+        for i in range(rounds):
             verify(0, s, qk)
         tver = time.time() - t
 

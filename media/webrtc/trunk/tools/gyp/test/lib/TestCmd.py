@@ -307,7 +307,7 @@ try:
 except NameError:
     def zip(*lists):
         result = []
-        for i in xrange(min(map(len, lists))):
+        for i in range(min(map(len, lists))):
             result.append(tuple(map(lambda l, i=i: l[i], lists)))
         return result
 

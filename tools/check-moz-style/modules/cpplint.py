@@ -851,7 +851,7 @@ def check_for_copyright(filename, lines, error):
 
     # We'll say it should occur by line 10. Don't forget there's a
     # dummy line at the front.
-    for line in xrange(1, min(len(lines), 11)):
+    for line in range(1, min(len(lines), 11)):
         if re.search(r'Copyright|License', lines[line], re.I):
             break
     else:                       # means no copyright line was found
@@ -1391,7 +1391,7 @@ def check_for_function_lengths(filename, clean_lines, line_number,
 
     if starting_func:
         body_found = False
-        for start_line_number in xrange(line_number, clean_lines.num_lines()):
+        for start_line_number in range(line_number, clean_lines.num_lines()):
             start_line = lines[start_line_number]
             joined_line += ' ' + start_line.lstrip()
             if search(r'(;|})', start_line):  # Declarations and trivial functions
@@ -2809,7 +2809,7 @@ def check_for_include_what_you_use(filename, clean_lines, include_state, error,
     required = {}  # A map of header name to line_number and the template entity.
         # Example of required: { '<functional>': (1219, 'less<>') }
 
-    for line_number in xrange(clean_lines.num_lines()):
+    for line_number in range(clean_lines.num_lines()):
         line = clean_lines.elided[line_number]
         if not line or line[0] == '#':
             continue
@@ -2938,7 +2938,7 @@ def process_file_data(filename, file_extension, lines, error):
 
     remove_multi_line_comments(filename, lines, error)
     clean_lines = CleansedLines(lines)
-    for line in xrange(clean_lines.num_lines()):
+    for line in range(clean_lines.num_lines()):
         process_line(filename, file_extension, clean_lines, line,
                      include_state, function_state, class_state, error)
     class_state.check_finished(filename, error)

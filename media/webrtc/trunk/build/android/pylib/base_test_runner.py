@@ -181,7 +181,7 @@ class BaseTestRunner(object):
     server_ready = False
     error_msgs = []
     # Try 3 times to launch test spawner server.
-    for i in xrange(0, 3):
+    for i in range(0, 3):
       # Do not allocate port for test server here. We will allocate
       # different port for individual test in TestServerThread.
       self.test_server_spawner_port = ports.AllocateTestServerPort()

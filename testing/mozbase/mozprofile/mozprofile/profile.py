@@ -246,7 +246,7 @@ class Profile(object):
             returns the last index of an item;
             this should actually be part of python code but it isn't
             """
-            for index in reversed(range(len(_list))):
+            for index in reversed(list(range(len(_list)))):
                 if _list[index] == value:
                     return index
         s = last_index(lines, self.delimeters[0])

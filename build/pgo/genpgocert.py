@@ -58,7 +58,7 @@ def runUtil(util, args, inputdata = None):
 
 
 def createRandomFile(randomFile):
-  for count in xrange(0, 2048):
+  for count in range(0, 2048):
     randomFile.write(chr(random.randint(0, 255)))
 
 

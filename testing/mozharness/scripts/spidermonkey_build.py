@@ -22,7 +22,7 @@ from mozharness.mozilla.purge import PurgeMixin
 from mozharness.mozilla.mock import MockMixin
 from mozharness.mozilla.tooltool import TooltoolMixin
 
-SUCCESS, WARNINGS, FAILURE, EXCEPTION, RETRY = xrange(5)
+SUCCESS, WARNINGS, FAILURE, EXCEPTION, RETRY = range(5)
 
 
 def requires(*queries):

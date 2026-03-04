@@ -164,18 +164,18 @@ class DirectoryCompare(SequenceMatcher):
         self.set_seq2([i for i in other])
         for tag, i1, i2, j1, j2 in self.get_opcodes():
             if tag == 'equal':
-                for i, j in zip(xrange(i1, i2), xrange(j1, j2)):
+                for i, j in zip(range(i1, i2), range(j1, j2)):
                     self.watcher.compare(self.a[i], self.b[j])
             elif tag == 'delete':
-                for i in xrange(i1, i2):
+                for i in range(i1, i2):
                     self.watcher.add(self.a[i], other.cloneFile(self.a[i]))
             elif tag == 'insert':
-                for j in xrange(j1, j2):
+                for j in range(j1, j2):
                     self.watcher.remove(self.b[j])
             else:
-                for j in xrange(j1, j2):
+                for j in range(j1, j2):
                     self.watcher.remove(self.b[j])
-                for i in xrange(i1, i2):
+                for i in range(i1, i2):
                     self.watcher.add(self.a[i], other.cloneFile(self.a[i]))
 
 
@@ -468,7 +468,7 @@ class ContentComparer:
                 lines.append(0)
                 for m in self.nl.finditer(p.contents):
                     lines.append(m.end())
-            for i in xrange(len(lines), 0, -1):
+            for i in range(len(lines), 0, -1):
                 if offset >= lines[i - 1]:
                     return (i, offset - lines[i - 1])
             return (1, offset)

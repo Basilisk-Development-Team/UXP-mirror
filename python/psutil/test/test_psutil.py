@@ -709,7 +709,7 @@ class TestSystemAPIs(unittest.TestCase):
                 time.sleep(.1)
                 if pid in psutil.pids():
                     self.fail(pid)
-        pids = range(max(pids) + 5000, max(pids) + 6000)
+        pids = list(range(max(pids) + 5000, max(pids) + 6000))
         for pid in pids:
             self.assertFalse(psutil.pid_exists(pid), msg=pid)
 
@@ -1779,7 +1779,7 @@ class TestProcess(unittest.TestCase):
         p.cpu_affinity(tuple(all_cpus))
         invalid_cpu = [len(psutil.cpu_times(percpu=True)) + 10]
         self.assertRaises(ValueError, p.cpu_affinity, invalid_cpu)
-        self.assertRaises(ValueError, p.cpu_affinity, range(10000, 11000))
+        self.assertRaises(ValueError, p.cpu_affinity, list(range(10000, 11000)))
         self.assertRaises(TypeError, p.cpu_affinity, [0, "1"])
 
     # TODO

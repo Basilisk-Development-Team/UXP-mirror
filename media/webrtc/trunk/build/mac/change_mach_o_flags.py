@@ -228,7 +228,7 @@ def HandleFatFile(file, options, fat_offset=0):
 
   nfat_arch = ReadUInt32(file, '>')
 
-  for index in xrange(0, nfat_arch):
+  for index in range(0, nfat_arch):
     cputype, cpusubtype, offset, size, align = ReadFatArch(file)
     assert size >= 28
 

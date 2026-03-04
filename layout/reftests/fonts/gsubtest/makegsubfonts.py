@@ -171,7 +171,7 @@ def makeLookup1():
     script = scriptRecord.Script = Script()
     defaultLangSys = script.DefaultLangSys = DefaultLangSys()
     defaultLangSys.FeatureCount = featureCount
-    defaultLangSys.FeatureIndex = range(defaultLangSys.FeatureCount)
+    defaultLangSys.FeatureIndex = list(range(defaultLangSys.FeatureCount))
     defaultLangSys.ReqFeatureIndex = 65535
     defaultLangSys.LookupOrder = None
     script.LangSysCount = 0
@@ -371,7 +371,7 @@ def makeLookup3():
     script = scriptRecord.Script = Script()
     defaultLangSys = script.DefaultLangSys = DefaultLangSys()
     defaultLangSys.FeatureCount = featureCount
-    defaultLangSys.FeatureIndex = range(defaultLangSys.FeatureCount)
+    defaultLangSys.FeatureIndex = list(range(defaultLangSys.FeatureCount))
     defaultLangSys.ReqFeatureIndex = 65535
     defaultLangSys.LookupOrder = None
     script.LangSysCount = 0

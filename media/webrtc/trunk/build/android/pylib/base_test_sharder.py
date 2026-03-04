@@ -78,7 +78,7 @@ class BaseTestSharder(object):
     logging.warning('Look for the "Final result" banner in the end.')
     logging.warning('*' * 80)
     final_results = TestResults()
-    for retry in xrange(self.retries):
+    for retry in range(self.retries):
       logging.warning('Try %d of %d', retry + 1, self.retries)
       self.SetupSharding(self.tests)
       test_runners = []

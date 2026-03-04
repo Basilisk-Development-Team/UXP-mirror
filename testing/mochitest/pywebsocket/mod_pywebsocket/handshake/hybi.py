@@ -242,7 +242,7 @@ class Handshaker(object):
                     continue
 
                 # Inactivate all of the following compression extensions.
-                for j in xrange(index + 1, len(processors)):
+                for j in range(index + 1, len(processors)):
                     if is_compression_extension(processors[j].name()):
                         processors[j].set_active(False)
 

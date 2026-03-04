@@ -267,7 +267,7 @@ class TestAndroid(unittest.TestCase):
                          (('warning', (0, 0),
                            'Referencing unknown entity `ref`', 'xmlparse'),))
         # no report on stray ampersand or quote, if not completely quoted
-        for i in xrange(3):
+        for i in range(3):
             # make sure we're catching unescaped apostrophes,
             # try 0..5 backticks
             l10n = self.getDTDEntity("\\"*(2*i) + "'")

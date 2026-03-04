@@ -12,7 +12,7 @@ import talos.filter
 
 class TestFilter(unittest.TestCase):
 
-    data = range(30)  # test data
+    data = list(range(30))  # test data
 
     def test_ignore(self):
         """test the ignore filter"""

@@ -118,7 +118,7 @@ class LighttpdServer(object):
   def _TestServerConnection(self):
     # Wait for server to start
     server_msg = ''
-    for timeout in xrange(1, 5):
+    for timeout in range(1, 5):
       client_error = None
       try:
         with contextlib.closing(httplib.HTTPConnection(

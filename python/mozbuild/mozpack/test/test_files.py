@@ -146,7 +146,7 @@ class TestDest(TestWithTmpDir):
         dest.write('qux')
         self.assertEqual(dest.read(), 'qux')
 
-rand = ''.join(random.choice(string.letters) for i in xrange(131597))
+rand = ''.join(random.choice(string.letters) for i in range(131597))
 samples = [
     '',
     'test',
@@ -566,7 +566,7 @@ class TestDeflatedFile(TestWithTmpDir):
         with JarWriter(src) as jar:
             for content in samples:
                 name = ''.join(random.choice(string.letters)
-                               for i in xrange(8))
+                               for i in range(8))
                 jar.add(name, content, compress=True)
                 contents[name] = content
 

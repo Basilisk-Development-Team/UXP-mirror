@@ -593,7 +593,7 @@ class PushheadCache(CacheManager):
                          'changeset={changeset}&version=2&tipsonly=1')
         req = requests.get(cset_url_tmpl.format(tree=tree, changeset=revision),
                            headers={'Accept': 'application/json'})
-        if req.status_code not in range(200, 300):
+        if req.status_code not in list(range(200, 300)):
             raise ValueError
         result = req.json()
         [found_pushid] = result['pushes'].keys()

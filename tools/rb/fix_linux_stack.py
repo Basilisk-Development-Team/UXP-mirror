@@ -177,7 +177,7 @@ def separate_debug_file_for(file):
         s = list(s)
         if endian == "big":
             s.reverse()
-        return sum(map(lambda idx: ord(s[idx]) * (256 ** idx), range(0, 4)))
+        return sum(map(lambda idx: ord(s[idx]) * (256 ** idx), list(range(0, 4))))
 
     buildid = elf_section(file, ".note.gnu.build-id");
     if buildid is not None:

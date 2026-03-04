@@ -1192,7 +1192,7 @@ def _escape_char(c):
 _INDENTED_REPR_TABLE = {
     c: e
     for c, e in map(lambda x: (x, _escape_char(x)),
-                    map(unichr, range(128)))
+                    map(unichr, list(range(128))))
     if c != e
 }
 # Regexp matching all characters to escape.

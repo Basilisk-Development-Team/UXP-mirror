@@ -22,7 +22,7 @@ def _otherside(side):
 def unique_pairs(s):
     n = len(s)
     for i, e1 in enumerate(s):
-        for j in xrange(i+1, n):
+        for j in range(i+1, n):
             yield (e1, s[j])
 
 def cartesian_product(s1, s2):

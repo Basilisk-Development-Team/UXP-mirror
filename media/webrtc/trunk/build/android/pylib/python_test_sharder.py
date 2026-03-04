@@ -123,7 +123,7 @@ class PythonTestSharder(object):
     all_passed = []
     test_results = TestResults()
     tests_to_run = self.tests
-    for retry in xrange(self.retries):
+    for retry in range(self.retries):
       logging.warning('Try %d of %d', retry + 1, self.retries)
       self._SetupSharding(self.tests)
       test_runners = self._MakeTestRunners(self.attached_devices)

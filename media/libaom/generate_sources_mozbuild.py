@@ -139,7 +139,7 @@ if __name__ == '__main__':
 
             # The build system is unhappy if two files have the same prefix
             # In libaom, sometimes .asm and .c files share the same prefix
-            for i in xrange(len(sources) - 1):
+            for i in range(len(sources) - 1):
                 if sources[i].endswith('.asm'):
                     if os.path.splitext(sources[i])[0] == os.path.splitext(sources[i + 1])[0]:
                         old = sources[i]
