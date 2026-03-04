@@ -2870,9 +2870,6 @@ pref("dom.ipc.plugins.asyncdrawing.enabled", true);
 
 #if defined(MOZ_ENABLE_NPAPI)
 pref("dom.ipc.plugins.flash.disable-protected-mode", false);
-
-pref("dom.ipc.plugins.flash.subprocess.crashreporter.enabled", true);
-pref("dom.ipc.plugins.reportCrashURL", true);
 #endif
 #endif
 
