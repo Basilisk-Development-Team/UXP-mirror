@@ -75,9 +75,9 @@ def generate_idl_name_positions(properties):
     ps = [(p, position) for position, p in enumerate(ps)]
 
     # Sort back to nsCSSPropertyID order.
-    ps = sorted(ps, key=lambda (p, position): p["index"])
+    ps = sorted(ps, key=lambda p_position1: p_position1[0]["index"])
 
-    return ",\n".join(map(lambda (p, position): "  %d" % position, ps))
+    return ",\n".join(map(lambda p_position: "  %d" % p_position[1], ps))
 
 def generate(output, cppTemplate, preprocessorHeader):
     cppFile = open(cppTemplate, "r")

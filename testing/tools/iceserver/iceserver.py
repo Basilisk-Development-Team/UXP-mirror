@@ -367,7 +367,8 @@ class Allocation(protocol.DatagramProtocol):
         self.expiry = time.time()
         self.port = reactor.listenUDP(0, self, interface=v4_address)
 
-    def datagramReceived(self, data, (host, port)):
+    def datagramReceived(self, data, host_port):
+        host, port = host_port
         if not host in self.permissions:
             print(("Dropping packet from {}:{}, no permission on allocation {}"
                   .format(host, port, self.transport.getHost())))

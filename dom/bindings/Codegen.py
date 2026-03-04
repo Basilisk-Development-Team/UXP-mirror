@@ -1117,13 +1117,12 @@ class CGHeaders(CGWrapper):
 
         declareIncludes = set(declareIncludes)
 
-        def addHeadersForType((t, dictionary)):
+        def addHeadersForType(t_dictionary):
             """
             Add the relevant headers for this type.  We use dictionary, if
             passed, to decide what to do with interface types.
             """
-            # Dictionaries have members that need to be actually
-            # declared, not just forward-declared.
+            t, dictionary = t_dictionary
             if dictionary:
                 headerSet = declareIncludes
             else:

@@ -1801,7 +1801,7 @@ def findIncorrectICUZones(ianaZones, ianaLinks, icuZones, icuLinks, ignoreBackzo
 
     # Remove unnecessary UTC mappings.
     utcnames = ["Etc/UTC", "Etc/UCT", "Etc/GMT"]
-    result = ifilterfalse(lambda (zone, target): zone.name in utcnames, result)
+    result = ifilterfalse(lambda zone_target1: zone_target1[0].name in utcnames, result)
 
     return sorted(result, key=itemgetter(0))
 
@@ -1834,7 +1834,7 @@ def findIncorrectICULinks(ianaZones, ianaLinks, icuZones, icuLinks):
 
     # Remove unnecessary UTC mappings.
     utcnames = ["Etc/UTC", "Etc/UCT", "Etc/GMT"]
-    result = ifilterfalse(lambda (zone, target, icuTarget): target in utcnames and icuTarget in utcnames, result)
+    result = ifilterfalse(lambda zone_target_icuTarget: zone_target_icuTarget[1] in utcnames and zone_target_icuTarget[2] in utcnames, result)
 
     return sorted(result, key=itemgetter(0))
 
@@ -1921,14 +1921,14 @@ def updateBackzoneLinks(tzdataDir, links):
     (stableZones, updatedLinks, updatedZones) = partition(
         iter(links.items()),
         # Link not changed in backzone.
-        lambda (zone, target): zone not in backzoneLinks and zone not in backzoneZones,
+        lambda zone_target2: zone_target2[0] not in backzoneLinks and zone_target2[0] not in backzoneZones,
         # Link has a new target.
-        lambda (zone, target): zone in backzoneLinks,
+        lambda zone_target3: zone_target3[0] in backzoneLinks,
     )
     # Keep stable zones and links with updated target.
     return dict(chain(
                 stableZones,
-                imap(lambda (zone, target): (zone, backzoneLinks[zone]), updatedLinks)
+                imap(lambda zone_target: (zone_target[0], backzoneLinks[zone_target[0]]), updatedLinks)
            ))
 
 def generateTzDataLinkTestContent(testDir, version, fileName, description, links):
