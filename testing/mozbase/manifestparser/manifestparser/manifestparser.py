@@ -373,8 +373,8 @@ class ManifestParser(object):
                 raise IOError("Strict mode enabled, test paths must exist. "
                               "The following test(s) are missing: %s" %
                               json.dumps(missing_paths, indent=2))
-            print >> sys.stderr, "Warning: The following test(s) are missing: %s" % \
-                json.dumps(missing_paths, indent=2)
+            print("Warning: The following test(s) are missing: %s" % \
+                json.dumps(missing_paths, indent=2), file=sys.stderr)
         return missing
 
     def verifyDirectory(self, directories, pattern=None, extensions=None):
@@ -449,12 +449,12 @@ class ManifestParser(object):
 
         # print the .ini manifest
         if global_tags or global_kwargs:
-            print >> fp, '[DEFAULT]'
+            print('[DEFAULT]', file=fp)
             for tag in global_tags:
-                print >> fp, '%s =' % tag
+                print('%s =' % tag, file=fp)
             for key, value in global_kwargs.items():
-                print >> fp, '%s = %s' % (key, value)
-            print >> fp
+                print('%s = %s' % (key, value), file=fp)
+            print(file=fp)
 
         for test in tests:
             test = test.copy()  # don't overwrite
@@ -465,7 +465,7 @@ class ManifestParser(object):
                 if self.rootdir:
                     path = relpath(test['path'], self.rootdir)
                 path = denormalize_path(path)
-            print >> fp, '[%s]' % path
+            print('[%s]' % path, file=fp)
 
             # reserved keywords:
             reserved = ['path', 'name', 'here', 'manifest', 'relpath', 'ancestor-manifest']
@@ -476,8 +476,8 @@ class ManifestParser(object):
                     continue
                 if key in global_tags and not test[key]:
                     continue
-                print >> fp, '%s = %s' % (key, test[key])
-            print >> fp
+                print('%s = %s' % (key, test[key]), file=fp)
+            print(file=fp)
 
         if close:
             # close the created file
@@ -565,7 +565,7 @@ class ManifestParser(object):
                     message = "Missing test: '%s' does not exist!"
                     if self.strict:
                         raise IOError(message)
-                    print >> sys.stderr, message + " Skipping."
+                    print(message + " Skipping.", file=sys.stderr)
                     continue
                 destination = os.path.join(rootdir, _relpath)
                 shutil.copy(source, destination)
@@ -670,9 +670,9 @@ class ManifestParser(object):
             if (dirnames or filenames) and not (os.path.exists(manifest_path) and overwrite):
                 with file(manifest_path, 'w') as manifest:
                     for dirname in dirnames:
-                        print >> manifest, '[include:%s]' % os.path.join(dirname, filename)
+                        print('[include:%s]' % os.path.join(dirname, filename), file=manifest)
                     for _filename in filenames:
-                        print >> manifest, '[%s]' % _filename
+                        print('[%s]' % _filename, file=manifest)
 
                 # add to list of manifests
                 manifest_dict.setdefault(directory, manifest_path)
@@ -722,8 +722,8 @@ class ManifestParser(object):
                              for filename in filenames]
 
             # write to manifest
-            print >> write, '\n'.join(['[%s]' % denormalize_path(filename)
-                                       for filename in filenames])
+            print('\n'.join(['[%s]' % denormalize_path(filename)
+                                       for filename in filenames]), file=write)
 
         cls._walk_directories(directories, callback, pattern=pattern, ignore=ignore)
 

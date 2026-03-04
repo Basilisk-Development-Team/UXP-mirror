@@ -105,10 +105,10 @@ def check_for_crashes(dump_directory,
                 stackwalk_output.append("minidump_stackwalk exited with return code %d" %
                                         info.stackwalk_retcode)
             signature = info.signature if info.signature else "unknown top frame"
-            print "PROCESS-CRASH | %s | application crashed [%s]" % (test_name,
-                                                                     signature)
-            print '\n'.join(stackwalk_output)
-            print '\n'.join(info.stackwalk_errors)
+            print("PROCESS-CRASH | %s | application crashed [%s]" % (test_name,
+                                                                     signature))
+            print('\n'.join(stackwalk_output))
+            print('\n'.join(info.stackwalk_errors))
 
     return crash_count
 
@@ -371,12 +371,12 @@ def check_for_java_exception(logcat, test_name=None, quiet=False):
                 if m and m.group(1):
                     exception_location = m.group(1)
                 if not quiet:
-                    print "PROCESS-CRASH | %s | java-exception %s %s" % (test_name,
+                    print("PROCESS-CRASH | %s | java-exception %s %s" % (test_name,
                                                                          exception_type,
-                                                                         exception_location)
+                                                                         exception_location))
             else:
-                print "Automation Error: java exception in logcat at line " \
-                    "%d of %d: %s" % (i, len(logcat), line)
+                print("Automation Error: java exception in logcat at line " \
+                    "%d of %d: %s" % (i, len(logcat), line))
             break
 
     return found_exception

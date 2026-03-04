@@ -10,7 +10,7 @@ from StringIO import StringIO
 try:
     (file, section, key) = sys.argv[1:]
 except ValueError:
-    print "Usage: printconfigsetting.py <file> <section> <setting>"
+    print("Usage: printconfigsetting.py <file> <section> <setting>")
     sys.exit(1)
 
 with open(file) as fh:
@@ -21,11 +21,11 @@ c = configobj.ConfigObj(StringIO(content))
 try:
     s = c[section]
 except KeyError:
-    print >>sys.stderr, "Section [%s] not found." % section
+    print("Section [%s] not found." % section, file=sys.stderr)
     sys.exit(1)
 
 try:
-    print s[key]
+    print(s[key])
 except KeyError:
-    print >>sys.stderr, "Key %s not found." % key
+    print("Key %s not found." % key, file=sys.stderr)
     sys.exit(1)

@@ -120,12 +120,12 @@ def cli(args=sys.argv[1:]):
 
     if cli.options.view:
         # view the profile, if specified
-        print profile.summary()
+        print(profile.summary())
         return
 
     # if no profile was passed in print the newly created profile
     if not cli.options.profile:
-        print profile.profile
+        print(profile.profile)
 
 if __name__ == '__main__':
     cli()

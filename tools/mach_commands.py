@@ -75,9 +75,9 @@ class UUIDProvider(object):
                 print('')
         if format in [None, 'cpp', 'c++']:
             u = u.hex
-            print('{ 0x%s, 0x%s, 0x%s, \\' % (u[0:8], u[8:12], u[12:16]))
+            print(('{ 0x%s, 0x%s, 0x%s, \\' % (u[0:8], u[8:12], u[12:16])))
             pairs = tuple(map(lambda n: u[n:n+2], range(16, 32, 2)))
-            print(('  { ' + '0x%s, ' * 7 + '0x%s } }') % pairs)
+            print((('  { ' + '0x%s, ' * 7 + '0x%s } }') % pairs))
 
 
 @CommandProvider
@@ -183,7 +183,7 @@ class PastebinProvider(object):
                 extension = file.split('.')[-1]
                 for l in FILE_TYPES:
                     if extension == l['extension']:
-                        print('Identified file as %s' % l['name'])
+                        print(('Identified file as %s' % l['name']))
                         lang = l['value']
             except IOError:
                 print('ERROR. No such file')
@@ -211,10 +211,10 @@ class PastebinProvider(object):
             response = urllib2.urlopen(req)
             http_response_code = response.getcode()
             if http_response_code == 200:
-                print(response.geturl())
+                print((response.geturl()))
             else:
-                print('Could not upload the file, '
-                      'HTTP Response Code %s' %(http_response_code))
+                print(('Could not upload the file, '
+                      'HTTP Response Code %s' %(http_response_code)))
         except urllib2.URLError:
             print('ERROR. Could not connect to pastebin.mozilla.org.')
             return 1
@@ -242,8 +242,8 @@ class FormatProvider(MachCommandBase):
         else:
             arch = os.uname()[4]
             if (plat != "Linux" and plat != "Darwin") or arch != 'x86_64':
-                print("Unsupported platform " + plat + "/" + arch +
-                      ". Supported platforms are Windows/*, Linux/x86_64 and Darwin/x86_64")
+                print(("Unsupported platform " + plat + "/" + arch +
+                      ". Supported platforms are Windows/*, Linux/x86_64 and Darwin/x86_64"))
                 return 1
 
         os.chdir(self.topsrcdir)
@@ -257,7 +257,7 @@ class FormatProvider(MachCommandBase):
                 return 1
 
         except urllib2.HTTPError as e:
-            print("HTTP error {0}: {1}".format(e.code, e.reason))
+            print(("HTTP error {0}: {1}".format(e.code, e.reason)))
             return 1
 
         from subprocess import Popen, PIPE
@@ -276,7 +276,7 @@ class FormatProvider(MachCommandBase):
                 if e.errno == errno.ENOENT:
                     print("Can't find filterdiff. Please install patchutils.")
                 else:
-                    print("OSError {0}: {1}".format(e.code, e.reason))
+                    print(("OSError {0}: {1}".format(e.code, e.reason)))
                 return 1
 
 
@@ -296,7 +296,7 @@ class FormatProvider(MachCommandBase):
             self.prompt = False
 
             u = site + root
-            print("Downloading {0} to {1}".format(u, target))
+            print(("Downloading {0} to {1}".format(u, target)))
             data = urllib2.urlopen(url=u).read()
             temp = target + ".tmp"
             with open(temp, "wb") as fh:
@@ -340,8 +340,8 @@ def mozregression_create_parser():
                 'install',
                 'mozregression==%s' % release
             ])
-            print("mozregression was updated to version %s. please"
-                  " re-run your command." % release)
+            print(("mozregression was updated to version %s. please"
+                  " re-run your command." % release))
         else:
             # mozregression is up to date, return the parser.
             return mozregression.parser()

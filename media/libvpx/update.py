@@ -16,7 +16,7 @@ from StringIO import StringIO
 def prepare_upstream(prefix, commit=None):
     upstream_url = 'https://chromium.googlesource.com/webm/libvpx'
     shutil.rmtree(os.path.join(base, 'libvpx/'))
-    print(upstream_url + '/+archive/' + commit + '.tar.gz')
+    print((upstream_url + '/+archive/' + commit + '.tar.gz'))
     urllib.urlretrieve(upstream_url + '/+archive/' + commit + '.tar.gz', 'libvpx.tar.gz')
     tarfile.open('libvpx.tar.gz').extractall(path='libvpx')
     os.remove(os.path.join(base, 'libvpx.tar.gz'))

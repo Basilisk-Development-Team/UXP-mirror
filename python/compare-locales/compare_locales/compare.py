@@ -391,7 +391,7 @@ class ContentComparer:
             os.makedirs(outdir)
         if not p.canMerge:
             shutil.copyfile(ref_file.fullpath, outfile)
-            print "copied reference to " + outfile
+            print("copied reference to " + outfile)
             return
         if skips:
             # skips come in ordered by key name, we need them in file order
@@ -412,7 +412,7 @@ class ContentComparer:
         else:
             shutil.copyfile(l10n_file.fullpath, outfile)
             f = codecs.open(outfile, 'ab', p.encoding)
-        print "adding to " + outfile
+        print("adding to " + outfile)
 
         def ensureNewline(s):
             if not s.endswith('\n'):
@@ -615,7 +615,7 @@ def compareApp(app, other_observer=None, merge_stage=None, clobber=False):
                     clobberdir = os.path.join(locale_merge, module)
                     if os.path.exists(clobberdir):
                         shutil.rmtree(clobberdir)
-                        print "clobbered " + clobberdir
+                        print("clobbered " + clobberdir)
             dir_comp.compareWith(localization)
     return comparer.observer
 

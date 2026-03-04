@@ -41,7 +41,7 @@ def get_credentials():
         os.chmod(CREDENTIALS_PATH, 0600)
 
     if not LDAP_PASSWORD:
-        print "Please enter your LDAP password (we won't store it):"
+        print("Please enter your LDAP password (we won't store it):")
         LDAP_PASSWORD = getpass.getpass()
 
     return https_username, LDAP_PASSWORD

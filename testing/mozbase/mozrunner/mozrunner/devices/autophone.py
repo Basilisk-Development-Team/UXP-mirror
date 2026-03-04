@@ -64,7 +64,7 @@ class AutophoneRunner(object):
             with open(self.CONFIG_FILE, 'w') as f:
                 json.dump(self.config, f)
             if self.verbose:
-                print("saved configuration: %s" % self.config)
+                print(("saved configuration: %s" % self.config))
         except:
             self.build_obj.log(logging.ERROR, "autophone", {},
                                "unable to save 'mach autophone' "
@@ -82,7 +82,7 @@ class AutophoneRunner(object):
                 with open(self.CONFIG_FILE, 'r') as f:
                     self.config = json.load(f)
                 if self.verbose:
-                    print("loaded configuration: %s" % self.config)
+                    print(("loaded configuration: %s" % self.config))
             except:
                 self.build_obj.log(logging.ERROR, "autophone", {},
                                    "unable to load 'mach autophone' "
@@ -190,7 +190,7 @@ class AutophoneRunner(object):
                     adb_path = raw_input(
                         "adb not found. Enter path to adb: ").strip()
             if self.verbose:
-                print("Using adb at %s" % adb_path)
+                print(("Using adb at %s" % adb_path))
             dm = DeviceManagerADB(autoconnect=False, adbPath=adb_path, retryLimit=1)
             device_index = 1
             try:
@@ -248,7 +248,7 @@ class AutophoneRunner(object):
                                "These test manifests are available:")
             index = 1
             for option in test_options:
-                print("%d. %s" % (index, option[0]))
+                print(("%d. %s" % (index, option[0])))
                 index += 1
             highest = index - 1
             path = None
@@ -311,7 +311,7 @@ console_level = DEBUG
 log_level = DEBUG
 time_out = 300""" % (xre_path, xre_path))
             if self.verbose:
-                print("Created %s with host utilities path %s" % (defaults_path, xre_path))
+                print(("Created %s with host utilities path %s" % (defaults_path, xre_path)))
         except:
             self.build_obj.log(logging.ERROR, "autophone", {},
                                "Unable to create %s" % defaults_path)
@@ -647,5 +647,5 @@ quit
                 proc.kill(signal.SIGTERM)
         if not proc_complete:
             if not self.verbose:
-                print(proc.output)
+                print((proc.output))
         return proc_complete

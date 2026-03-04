@@ -55,11 +55,11 @@ class TalosResults(object):
                 )
             except:
                 pass
-            print('\nFAIL: %s' % str(e).replace('\n', '\nRETURN:'))
+            print(('\nFAIL: %s' % str(e).replace('\n', '\nRETURN:')))
             raise e
 
         if tbpl_output:
-            print("TinderboxPrint: TalosResult: %s" % json.dumps(tbpl_output))
+            print(("TinderboxPrint: TalosResult: %s" % json.dumps(tbpl_output)))
 
 
 class TestResults(object):
@@ -426,8 +426,8 @@ class BrowserLogResults(object):
 
         filename = 'etl_output_thread_stats.csv'
         if not os.path.exists(filename):
-            print("Warning: we are looking for xperf results file %s, and"
-                  " didn't find it" % filename)
+            print(("Warning: we are looking for xperf results file %s, and"
+                  " didn't find it" % filename))
             return
 
         contents = open(filename).read()
@@ -458,8 +458,8 @@ class BrowserLogResults(object):
         if (set(mainthread_counters).intersection(counter_results.keys())):
             filename = 'etl_output.csv'
             if not os.path.exists(filename):
-                print("Warning: we are looking for xperf results file"
-                      " %s, and didn't find it" % filename)
+                print(("Warning: we are looking for xperf results file"
+                      " %s, and didn't find it" % filename))
                 return
 
             contents = open(filename).read()

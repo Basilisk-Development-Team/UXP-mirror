@@ -26,7 +26,7 @@ def start(xperf_path, xperf_providers, xperf_stackwalk, xperf_user_providers,
                  '-f', '%s.user' % etl_filename
                  ]
     if debug:
-        print("executing '%s'" % subprocess.list2cmdline(xperf_cmd))
+        print(("executing '%s'" % subprocess.list2cmdline(xperf_cmd)))
     subprocess.call(xperf_cmd)
 
 

@@ -18,7 +18,7 @@ import buildconfig
 
 def main(output, input):
     if buildconfig.substs['OS_ARCH'] not in ('Linux', 'SunOS', 'Darwin', 'FreeBSD'):
-        print "Error: unhandled OS_ARCH %s" % buildconfig.substs['OS_ARCH']
+        print("Error: unhandled OS_ARCH %s" % buildconfig.substs['OS_ARCH'])
         return 1
     is_linux = buildconfig.substs['OS_ARCH'] in ('Linux', 'SunOS', 'FreeBSD')
 

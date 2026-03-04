@@ -1836,8 +1836,8 @@ def test():
     if _POSIX:
         attrs.append('uids')
         attrs.append('terminal')
-    print(templ % ("USER", "PID", "%CPU", "%MEM", "VSZ", "RSS", "TTY",
-                   "START", "TIME", "COMMAND"))
+    print((templ % ("USER", "PID", "%CPU", "%MEM", "VSZ", "RSS", "TTY",
+                   "START", "TIME", "COMMAND")))
     for p in process_iter():
         try:
             pinfo = p.as_dict(attrs, ad_value='')
@@ -1866,7 +1866,7 @@ def test():
                 int(pinfo['memory_info'].rss / 1024) or '?'
             memp = pinfo['memory_percent'] and \
                 round(pinfo['memory_percent'], 1) or '?'
-            print(templ % (
+            print((templ % (
                 user[:10],
                 pinfo['pid'],
                 pinfo['cpu_percent'],
@@ -1876,7 +1876,7 @@ def test():
                 pinfo.get('terminal', '') or '?',
                 ctime,
                 cputime,
-                pinfo['name'].strip() or '?'))
+                pinfo['name'].strip() or '?')))
 
 
 del memoize, division

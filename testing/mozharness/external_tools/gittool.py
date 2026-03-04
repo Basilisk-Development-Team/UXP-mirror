@@ -91,4 +91,4 @@ if __name__ == '__main__':
                        clean_dest=options.clean,
                        )
 
-    print "Got revision %s" % got_revision
+    print("Got revision %s" % got_revision)

@@ -647,7 +647,7 @@ With this information, it finally type checks the AST.'''
 
     def reportErrors(self, errout):
         for error in self.errors:
-            print >>errout, error
+            print(error, file=errout)
 
 
 class TcheckVisitor(Visitor):
@@ -1879,19 +1879,19 @@ class CheckProcessGraph(TcheckVisitor):
     # is a dag
     def visitTranslationUnit(self, tu):
         if 0:
-            print 'Processes'
+            print('Processes')
             for process in ProcessGraph.processes:
-                print '  ', process
+                print('  ', process)
                 for edge in process.iteredges():
-                    print '    ', edge
-            print 'Bridges'
+                    print('    ', edge)
+            print('Bridges')
             for bridgeList in ProcessGraph.bridges.itervalues():
                 for bridge in bridgeList:
-                    print '  ', bridge
-            print 'Opens'
+                    print('  ', bridge)
+            print('Opens')
             for opensList in ProcessGraph.opens.itervalues():
                 for opens in opensList:
-                    print '  ', opens
+                    print('  ', opens)
 
 ##-----------------------------------------------------------------------------
 
@@ -2088,19 +2088,19 @@ direction as trigger |t|'''
                 errT2 = None
 
                 if 0 == len(U1) or 0 == len(U2):
-                    print "******* case 1"
+                    print("******* case 1")
                     raceError = True
                 elif 1 < len(U1) or 1 < len(U2):
                     raceError = True
                     # there are potentially many unpaired states; just
                     # pick two
-                    print "******* case 2"
+                    print("******* case 2")
                     for u1, u2 in cartesian_product(U1, U2):
                         if u1 != u2:
                             errT1, errT2 = u1, u2
                             break
                 elif U1 != U2:
-                    print "******* case 3"
+                    print("******* case 3")
                     raceError = True
                     for errT1 in U1: pass
                     for errT2 in U2: pass

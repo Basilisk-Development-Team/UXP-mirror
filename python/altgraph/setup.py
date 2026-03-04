@@ -611,7 +611,7 @@ else:
                     fullname = os.path.join(toplevel, fn)
                     relname = os.path.relpath(fullname, 'doc/_build/html')
 
-                    print ("%s -> %s"%(fullname, relname))
+                    print(("%s -> %s"%(fullname, relname)))
 
                     zf.write(fullname, relname)
 
@@ -692,9 +692,9 @@ else:
                 self.announce('Upload failed (%s): %s' % (r.status, r.reason),
                     log.ERROR)
 
-                print ('-'*75)
-                print (r.read())
-                print ('-'*75)
+                print(('-'*75))
+                print((r.read()))
+                print(('-'*75))
 
 
 def recursiveGlob(root, pathPattern):
@@ -728,7 +728,7 @@ def importExternalTestCases(unittest,
         try:
             module = __import__(modName)
         except ImportError:
-            print("SKIP %s: %s"%(modName, sys.exc_info()[1]))
+            print(("SKIP %s: %s"%(modName, sys.exc_info()[1])))
             continue
 
         if '.' in modName:
@@ -843,7 +843,7 @@ class test (Command):
                 xpass=len(getattr(result, 'expectedSuccesses', [])),
                 skip=len(getattr(result, 'skipped', [])),
             )
-            print("SUMMARY: %s"%(summary,))
+            print(("SUMMARY: %s"%(summary,)))
 
         finally:
             self.remove_from_sys_path()

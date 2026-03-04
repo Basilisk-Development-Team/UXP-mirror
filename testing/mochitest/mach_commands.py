@@ -376,8 +376,8 @@ class MachCommands(MachCommandBase):
         if not suites:
             # Make it very clear why no tests were found
             if not unsupported:
-                print(TESTS_NOT_FOUND.format('\n'.join(
-                    sorted(list(test_paths or test_objects)))))
+                print((TESTS_NOT_FOUND.format('\n'.join(
+                    sorted(list(test_paths or test_objects))))))
                 return 1
 
             msg = []
@@ -393,8 +393,8 @@ class MachCommands(MachCommandBase):
                 else:
                     reason = 'excluded by the command line'
                 msg.append('    mochitest -f {} ({})'.format(name, reason))
-            print(SUPPORTED_TESTS_NOT_FOUND.format(
-                buildapp, '\n'.join(sorted(msg))))
+            print((SUPPORTED_TESTS_NOT_FOUND.format(
+                buildapp, '\n'.join(sorted(msg)))))
             return 1
 
         if buildapp == 'android':
@@ -410,7 +410,7 @@ class MachCommands(MachCommandBase):
             msg = fobj['aliases'][0]
             if subsuite:
                 msg = '{} with subsuite {}'.format(msg, subsuite)
-            print(NOW_RUNNING.format(msg))
+            print((NOW_RUNNING.format(msg)))
 
             harness_args = kwargs.copy()
             harness_args['subsuite'] = subsuite

@@ -275,6 +275,6 @@ class Bisect(object):
 
     def print_summary(self):
         "This method is used to print the recorded summary."
-        print "Bisection summary:"
+        print("Bisection summary:")
         for line in self.summary:
-            print line
+            print(line)

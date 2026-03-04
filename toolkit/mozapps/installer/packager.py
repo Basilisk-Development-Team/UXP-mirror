@@ -84,7 +84,7 @@ class ToolLauncher(object):
             if isinstance(v, unicode):
                 env[k] = v.encode('utf-8')
 
-        print >>errors.out, 'Executing', ' '.join(cmd)
+        print('Executing', ' '.join(cmd), file=errors.out)
         errors.out.flush()
         return subprocess.call(cmd, env=env)
 

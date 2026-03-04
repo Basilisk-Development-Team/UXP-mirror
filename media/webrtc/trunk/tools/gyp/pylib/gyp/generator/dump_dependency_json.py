@@ -96,4 +96,4 @@ def GenerateOutput(target_list, target_dicts, data, params):
   f = open(filename, 'w')
   json.dump(edges, f)
   f.close()
-  print 'Wrote json to %s.' % filename
+  print('Wrote json to %s.' % filename)

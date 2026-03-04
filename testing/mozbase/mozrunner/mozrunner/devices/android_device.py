@@ -646,15 +646,15 @@ def _find_sdk_exe(substs, exe, tools):
 
 def _log_debug(text):
     if verbose_logging:
-        print "DEBUG: %s" % text
+        print("DEBUG: %s" % text)
 
 
 def _log_warning(text):
-    print "WARNING: %s" % text
+    print("WARNING: %s" % text)
 
 
 def _log_info(text):
-    print "%s" % text
+    print("%s" % text)
 
 
 def _download_file(url, filename, path):
@@ -750,13 +750,13 @@ def _update_gdbinit(substs, path):
         # update existing objdir/srcroot in place
         for line in fileinput.input(path, inplace=True):
             if "feninit.default.objdir" in line and substs and 'MOZ_BUILD_ROOT' in substs:
-                print("python feninit.default.objdir = '%s'" % substs['MOZ_BUILD_ROOT'])
+                print(("python feninit.default.objdir = '%s'" % substs['MOZ_BUILD_ROOT']))
                 obj_replaced = True
             elif "feninit.default.srcroot" in line and substs and 'top_srcdir' in substs:
-                print("python feninit.default.srcroot = '%s'" % substs['top_srcdir'])
+                print(("python feninit.default.srcroot = '%s'" % substs['top_srcdir']))
                 src_replaced = True
             else:
-                print(line.strip())
+                print((line.strip()))
         # append objdir/srcroot if not updated
         if (not obj_replaced) and substs and 'MOZ_BUILD_ROOT' in substs:
             with open(path, "a") as f:

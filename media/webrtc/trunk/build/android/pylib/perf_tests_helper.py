@@ -75,7 +75,7 @@ def PrintPerfResult(measurement, trace, values, units, result_type='default',
   if sd:
     output += '\nSd  %s: %f%s' % (measurement, sd, units)
   if print_to_stdout:
-    print output
+    print(output)
   return output
 
 

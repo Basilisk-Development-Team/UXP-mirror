@@ -308,7 +308,7 @@ class Manifest(object):
             rv = json.dump(
                 self.file_records, output_file, indent=0, cls=FileRecordJSONEncoder,
                 separators=(',', ': '))
-            print >> output_file, ''
+            print('', file=output_file)
             return rv
 
     def dumps(self, fmt='json'):
@@ -367,9 +367,9 @@ def list_manifest(manifest_file):
         ))
         return False
     for f in manifest.file_records:
-        print "%s\t%s\t%s" % ("P" if f.present() else "-",
+        print("%s\t%s\t%s" % ("P" if f.present() else "-",
                               "V" if f.present() and f.validate() else "-",
-                              f.filename)
+                              f.filename))
     return True
 
 

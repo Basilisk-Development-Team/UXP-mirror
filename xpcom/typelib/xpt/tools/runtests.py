@@ -66,9 +66,9 @@ if "MOZILLA_OBJDIR" in os.environ:
                 # now run xpt_dump on it
                 out2 = get_output(xptdump, fullpath)
                 if out != out2:
-                    print "diff %s" % f
+                    print("diff %s" % f)
                     for line in difflib.unified_diff(out2.split("\n"), out.split("\n"), lineterm=""):
-                        print line
+                        print(line)
                 self.assert_(out == out2, "xpt_dump output should be identical for %s" % f)
 
 

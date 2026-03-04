@@ -650,9 +650,9 @@ def _ValidateSourcesForOSX(spec, all_sources):
       error += '  %s: %s\n' % (basename, ' '.join(files))
 
   if error:
-    print('static library %s has several files with the same basename:\n' %
+    print(('static library %s has several files with the same basename:\n' %
           spec['target_name'] + error + 'libtool on OS X will generate' +
-          ' warnings for them.')
+          ' warnings for them.'))
     raise GypError('Duplicate basenames in sources section, see list above')
 
 
@@ -1351,8 +1351,8 @@ $(obj).$(TOOLSET)/$(TARGET)/%%.o: $(obj)/%%%s FORCE_DO_CMD
     elif self.type == 'none':
       target = '%s.stamp' % target
     elif self.type != 'executable':
-      print ("ERROR: What output file should be generated?",
-             "type", self.type, "target", target)
+      print(("ERROR: What output file should be generated?",
+             "type", self.type, "target", target))
 
     target_prefix = spec.get('product_prefix', target_prefix)
     target = spec.get('product_name', target)
@@ -1608,7 +1608,7 @@ $(obj).$(TOOLSET)/$(TARGET)/%%.o: $(obj)/%%%s FORCE_DO_CMD
       self.WriteDoCmd([self.output_binary], deps, 'touch', part_of_all,
                       postbuilds=postbuilds)
     else:
-      print "WARNING: no output for", self.type, target
+      print("WARNING: no output for", self.type, target)
 
     # Add an alias for each target (if there are any outputs).
     # Installable target aliases are created below.
@@ -1957,7 +1957,7 @@ def PerformBuild(data, configurations, params):
     if options.toplevel_dir and options.toplevel_dir != '.':
       arguments += '-C', options.toplevel_dir
     arguments.append('BUILDTYPE=' + config)
-    print 'Building [%s]: %s' % (config, arguments)
+    print('Building [%s]: %s' % (config, arguments))
     subprocess.check_call(arguments)
 
 

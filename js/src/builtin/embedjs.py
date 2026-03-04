@@ -109,7 +109,7 @@ def preprocess(cxx, preprocessorOption, source, args = []):
 
   with open(tmpIn, 'wb') as input:
     input.write(source)
-  print(' '.join(cxx + outputArg + args + [tmpIn]))
+  print((' '.join(cxx + outputArg + args + [tmpIn])))
   result = subprocess.Popen(cxx + outputArg + args + [tmpIn]).wait()
   if (result != 0):
     sys.exit(result);

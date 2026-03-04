@@ -306,7 +306,7 @@ class AutoTry(object):
             print("No presets found")
 
         for name, try_string in data:
-            print("%s: %s" % (name, try_string))
+            print(("%s: %s" % (name, try_string)))
 
     def split_try_string(self, data):
         return re.findall(r'(?:\[.*?\]|\S)+', data)
@@ -457,8 +457,8 @@ class AutoTry(object):
         args = ['git'] + list(args)
         ret = subprocess.call(args)
         if ret:
-            print('ERROR git command %s returned %s' %
-                  (args, ret))
+            print(('ERROR git command %s returned %s' %
+                  (args, ret)))
             sys.exit(1)
 
     def _git_push_to_try(self, msg):
@@ -485,8 +485,8 @@ class AutoTry(object):
             return subprocess.check_output(args).strip('\0').split('\0')
         except subprocess.CalledProcessError as e:
             print('Failed while determining files changed on this branch')
-            print('Failed whle running: %s' % args)
-            print(e.output)
+            print(('Failed whle running: %s' % args))
+            print((e.output))
             sys.exit(1)
 
     def _hg_find_changed_files(self):
@@ -501,8 +501,8 @@ class AutoTry(object):
         except subprocess.CalledProcessError as e:
             print('Failed while finding files changed since the last '
                   'public ancestor')
-            print('Failed whle running: %s' % hg_args)
-            print(e.output)
+            print(('Failed whle running: %s' % hg_args))
+            print((e.output))
             sys.exit(1)
 
     def find_changed_files(self):
@@ -521,7 +521,7 @@ class AutoTry(object):
                 hg_args = ['hg', 'push-to-try', '-m', msg]
                 subprocess.check_call(hg_args, stderr=subprocess.STDOUT)
             except subprocess.CalledProcessError as e:
-                print('ERROR hg command %s returned %s' % (hg_args, e.returncode))
+                print(('ERROR hg command %s returned %s' % (hg_args, e.returncode)))
                 print('\nmach failed to push to try. There may be a problem '
                       'with your ssh key, or another issue with your mercurial '
                       'installation.')
@@ -560,8 +560,8 @@ class AutoTry(object):
         changed_files = self.find_changed_files()
         if changed_files:
             if verbose:
-                print("Pushing tests based on modifications to the "
-                      "following files:\n\t%s" % "\n\t".join(changed_files))
+                print(("Pushing tests based on modifications to the "
+                      "following files:\n\t%s" % "\n\t".join(changed_files)))
 
             from mozbuild.frontend.reader import (
                 BuildReader,
@@ -578,9 +578,9 @@ class AutoTry(object):
 
             if verbose:
                 if paths:
-                    print("Pushing tests based on the following patterns:\n\t%s" %
-                          "\n\t".join(paths))
+                    print(("Pushing tests based on the following patterns:\n\t%s" %
+                          "\n\t".join(paths)))
                 if tags:
-                    print("Pushing tests based on the following tags:\n\t%s" %
-                          "\n\t".join(tags))
+                    print(("Pushing tests based on the following tags:\n\t%s" %
+                          "\n\t".join(tags)))
         return paths, tags

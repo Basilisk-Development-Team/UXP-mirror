@@ -103,8 +103,8 @@ class LighttpdServer(object):
       self.process.close()
 
       if self.fixed_port or not 'in use' in server_error:
-        print 'Client error:', client_error
-        print 'Server error:', server_error
+        print('Client error:', client_error)
+        print('Server error:', server_error)
         return False
       self.port = self._GetRandomPort()
     return True
@@ -244,7 +244,7 @@ def main(argv):
       raw_input('Server running at http://127.0.0.1:%s -'
                 ' press Enter to exit it.' % server.port)
     else:
-      print 'Server exit code:', server.process.exitstatus
+      print('Server exit code:', server.process.exitstatus)
   finally:
     server.ShutdownHttpServer()
 

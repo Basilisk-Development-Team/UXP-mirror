@@ -34,36 +34,36 @@ def download_file(url, file_name):
             if f_length is not None:
                 got_length += len(block)
         local_file.close()
-        print "%s downloaded to %s" % (url, file_name)
+        print("%s downloaded to %s" % (url, file_name))
     except urllib2.HTTPError, e:
-        print "Warning: Server returned status %s %s for %s" % (str(e.code), str(e), url)
+        print("Warning: Server returned status %s %s for %s" % (str(e.code), str(e), url))
         raise
     except urllib2.URLError, e:
-        print "URL Error: %s" % url
+        print("URL Error: %s" % url)
         remote_host = urlparse.urlsplit(url)[1]
         if remote_host:
             os.system("nslookup %s" % remote_host)
         raise
     except socket.timeout, e:
-        print "Timed out accessing %s: %s" % (url, str(e))
+        print("Timed out accessing %s: %s" % (url, str(e)))
         raise
     except socket.error, e:
-        print "Socket error when accessing %s: %s" % (url, str(e))
+        print("Socket error when accessing %s: %s" % (url, str(e)))
         raise
 
 if __name__ == '__main__':
     if len(sys.argv) != 3:
         if len(sys.argv) != 2:
-            print "Usage: download_file.py URL [FILENAME]"
+            print("Usage: download_file.py URL [FILENAME]")
             sys.exit(-1)
         parts = urlparse.urlparse(sys.argv[1])
         file_name = parts[2].split('/')[-1]
     else:
         file_name = sys.argv[2]
     if os.path.exists(file_name):
-        print "%s exists; removing" % file_name
+        print("%s exists; removing" % file_name)
         os.remove(file_name)
     if os.path.exists(file_name):
-        print "%s still exists; exiting"
+        print("%s still exists; exiting")
         sys.exit(-1)
     download_file(sys.argv[1], file_name)

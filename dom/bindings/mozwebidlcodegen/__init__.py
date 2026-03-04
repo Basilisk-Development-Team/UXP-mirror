@@ -270,7 +270,7 @@ class WebIDLCodegenManager(LoggingMixin):
         # Generate bindings from .webidl files.
         for filename in sorted(changed_inputs):
             basename = mozpath.basename(filename)
-            print basename
+            print(basename)
             sys.stdout.flush()
             result.inputs.add(filename)
             written, deps = self._generate_build_files_for_webidl(filename)
@@ -314,7 +314,7 @@ class WebIDLCodegenManager(LoggingMixin):
 
         example_paths = self._example_paths(interface)
         for path in example_paths:
-            print "Generating %s" % path
+            print("Generating %s" % path)
 
         return self._maybe_write_codegen(root, *example_paths)
 

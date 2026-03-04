@@ -97,7 +97,7 @@ if __name__ == '__main__':
         ('x86_64', 'win', 'mingw64', False),
     ]
     for cpu, system, arch, generate_sources in platforms:
-        print('Running CMake for %s (%s)' % (cpu, system))
+        print(('Running CMake for %s (%s)' % (cpu, system)))
         variables = shared_variables.copy()
         variables['AOM_TARGET_CPU'] = cpu
 

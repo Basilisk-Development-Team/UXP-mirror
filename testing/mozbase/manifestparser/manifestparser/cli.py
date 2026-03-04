@@ -132,7 +132,7 @@ class CreateCLI(CLICommand):
             manifest = convert(args, pattern=options.pattern, ignore=options.ignore,
                                write=options.in_place)
         if manifest:
-            print manifest
+            print(manifest)
 
 
 class WriteCLI(CLICommand):
@@ -175,9 +175,9 @@ class HelpCLI(CLICommand):
             commands[args[0]](self._parser).parser().print_help()
         else:
             self._parser.print_help()
-            print '\nCommands:'
+            print('\nCommands:')
             for command in sorted(commands):
-                print '  %s : %s' % (command, commands[command].__doc__.strip())
+                print('  %s : %s' % (command, commands[command].__doc__.strip()))
 
 
 class UpdateCLI(CLICommand):

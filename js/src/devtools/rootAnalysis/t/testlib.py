@@ -13,7 +13,7 @@ HazardSummary = namedtuple('HazardSummary', ['function', 'variable', 'type', 'GC
 
 def equal(got, expected):
     if got != expected:
-        print("Got '%s', expected '%s'" % (got, expected))
+        print(("Got '%s', expected '%s'" % (got, expected)))
 
 def extract_unmangled(func):
     return func.split('$')[-1]
@@ -37,7 +37,7 @@ class Test(object):
             CXX=self.cfg.cxx, sixgill=self.cfg.sixgill_plugin,
             options=options)
         if self.cfg.verbose:
-            print("Running %s" % cmd)
+            print(("Running %s" % cmd))
         subprocess.check_call(["sh", "-c", cmd])
 
     def load_db_entry(self, dbname, pattern):
@@ -69,7 +69,7 @@ sixgill_bin = '{bindir}'
         cmd.append("--js=%s" % self.cfg.js)
         if self.cfg.verbose:
             cmd.append("--verbose")
-            print("Running " + " ".join(cmd))
+            print(("Running " + " ".join(cmd)))
         subprocess.check_call(cmd)
 
     def computeGCTypes(self):

@@ -56,7 +56,7 @@ if __name__ == "__main__":
         try:
             env_port = int(env_port)
         except ValueError:
-            print >> sys.stderr, "Port in TEST_DEVICE should be an integer."
+            print("Port in TEST_DEVICE should be an integer.", file=sys.stderr)
             sys.exit(1)
 
     # Deal with the options

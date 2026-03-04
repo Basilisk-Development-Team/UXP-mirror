@@ -177,7 +177,7 @@ def MaybeUpdateFile(args, filename, new_text):
     return True
 
   if args.update:
-    print('Updating %s' % filename)
+    print(('Updating %s' % filename))
     with open(filepath, 'w') as f:
       f.write(new_text)
     return True

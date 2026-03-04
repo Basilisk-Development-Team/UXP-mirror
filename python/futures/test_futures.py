@@ -146,7 +146,7 @@ class ExecutorMixin:
         self.executor.shutdown(wait=True)
         dt = time.time() - self.t1
         if test_support.verbose:
-            print("%.2fs" % dt)
+            print(("%.2fs" % dt))
         self.assertLess(dt, 60, "synchronization issue: test lasted too long")
 
     def _prime_executor(self):

@@ -103,11 +103,11 @@ class Doctor(object):
             if status == 'SKIPPED':
                 continue
             self.results.append(result)
-            print('%s...\t%s\n' % (
+            print(('%s...\t%s\n' % (
                    result.get('desc', ''),
                    status
                 )
-            ).expandtabs(40)
+            ).expandtabs(40))
 
     @property
     def platform(self):

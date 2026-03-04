@@ -2174,7 +2174,7 @@ class IDLUnresolvedType(IDLType):
 
         assert obj
         if obj.isType():
-            print obj
+            print(obj)
         assert not obj.isType()
         if obj.isTypedef():
             assert self.name.name == obj.identifier.name
@@ -3504,7 +3504,7 @@ class IDLInterfaceMember(IDLObjectWithIdentifier, IDLExposureMixins):
     def finish(self, scope):
         # We better be exposed _somewhere_.
         if (len(self._exposureGlobalNames) == 0):
-            print self.identifier.name
+            print(self.identifier.name)
         assert len(self._exposureGlobalNames) != 0
         IDLExposureMixins.finish(self, scope)
 
@@ -6961,14 +6961,14 @@ def main():
             f = open(fullPath, 'rb')
             lines = f.readlines()
             f.close()
-            print fullPath
+            print(fullPath)
             parser.parse(''.join(lines), fullPath)
         parser.finish()
     except WebIDLError, e:
         if options.verbose_errors:
             traceback.print_exc()
         else:
-            print e
+            print(e)
 
 if __name__ == '__main__':
     main()

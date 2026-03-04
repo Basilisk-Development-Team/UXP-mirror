@@ -85,4 +85,4 @@ if __name__ == '__main__':
     for i in sys.argv[1:]:
         pids.update(get_pids(i))
     for i in sorted(pids):
-        print i
+        print(i)

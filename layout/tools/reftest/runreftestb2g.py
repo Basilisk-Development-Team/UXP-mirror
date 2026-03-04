@@ -84,7 +84,7 @@ class B2GRemoteReftest(RefTest):
             try:
                 self._devicemanager.getFile(self.remoteLogFile, self.localLogName)
             except:
-                print "ERROR: We were not able to retrieve the info from %s" % self.remoteLogFile
+                print("ERROR: We were not able to retrieve the info from %s" % self.remoteLogFile)
                 sys.exit(5)
 
         # Delete any bundled extensions
@@ -121,7 +121,7 @@ class B2GRemoteReftest(RefTest):
                 os.remove(self.pidFile)
                 os.remove(self.pidFile + ".xpcshell.pid")
             except:
-                print "Warning: cleaning up pidfile '%s' was unsuccessful from the test harness" % self.pidFile
+                print("Warning: cleaning up pidfile '%s' was unsuccessful from the test harness" % self.pidFile)
 
     def findPath(self, paths, filename = None):
         for path in paths:
@@ -158,7 +158,7 @@ class B2GRemoteReftest(RefTest):
                  os.path.join('..', self.automation._product)]
         options.xrePath = self.findPath(paths)
         if options.xrePath == None:
-            print "ERROR: unable to find xulrunner path for %s, please specify with --xre-path" % (os.name)
+            print("ERROR: unable to find xulrunner path for %s, please specify with --xre-path" % (os.name))
             sys.exit(1)
         paths.append("bin")
         paths.append(os.path.join("..", "bin"))
@@ -169,7 +169,7 @@ class B2GRemoteReftest(RefTest):
 
         options.utilityPath = self.findPath(paths, xpcshell)
         if options.utilityPath == None:
-            print "ERROR: unable to find utility path for %s, please specify with --utility-path" % (os.name)
+            print("ERROR: unable to find utility path for %s, please specify with --utility-path" % (os.name))
             sys.exit(1)
 
         xpcshell = os.path.join(options.utilityPath, xpcshell)
@@ -269,7 +269,7 @@ class B2GRemoteReftest(RefTest):
         try:
             self._devicemanager.pushDir(profileDir, self.remoteProfile)
         except DMError:
-            print "Automation Error: Unable to copy profile to device."
+            print("Automation Error: Unable to copy profile to device.")
             raise
 
         # Copy the extensions to the B2G bundles dir.
@@ -282,7 +282,7 @@ class B2GRemoteReftest(RefTest):
         try:
             self._devicemanager.pushDir(extensionDir, self.bundlesDir)
         except DMError:
-            print "Automation Error: Unable to copy extensions to device."
+            print("Automation Error: Unable to copy extensions to device.")
             raise
 
         self.updateProfilesIni(self.remoteProfile)
@@ -296,7 +296,7 @@ class B2GRemoteReftest(RefTest):
         try:
             self._devicemanager.pushDir(profileDir, options.remoteProfile)
         except DMError:
-            print "Automation Error: Failed to copy extra files to device"
+            print("Automation Error: Failed to copy extra files to device")
             raise
 
     def environment(self, **kwargs):
@@ -375,7 +375,7 @@ def run_test_harness(parser, options):
         width = int(parts[0].split(':')[1])
         height = int(parts[1].split(':')[1])
         if (width < 1366 or height < 1050):
-            print "ERROR: Invalid screen resolution %sx%s, please adjust to 1366x1050 or higher" % (width, height)
+            print("ERROR: Invalid screen resolution %sx%s, please adjust to 1366x1050 or higher" % (width, height))
             return 1
 
     auto.setProduct("b2g")
@@ -406,7 +406,7 @@ def run_test_harness(parser, options):
 
         retVal = reftest.runTests(options.tests, options)
     except:
-        print "Automation Error: Exception caught while running tests"
+        print("Automation Error: Exception caught while running tests")
         traceback.print_exc()
         reftest.stopWebServer(options)
         try:

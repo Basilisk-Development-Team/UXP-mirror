@@ -43,7 +43,7 @@ JITFLAGS = {
 
 def get_jitflags(variant, **kwargs):
     if variant not in JITFLAGS:
-        print('Invalid jitflag: "{}"'.format(variant))
+        print(('Invalid jitflag: "{}"'.format(variant)))
         sys.exit(1)
     if variant == 'none' and 'none' in kwargs:
         return kwargs['none']

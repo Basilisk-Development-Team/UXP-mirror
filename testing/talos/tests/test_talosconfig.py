@@ -52,7 +52,7 @@ class TalosConfigUnitTest(unittest.TestCase):
         if var1 == var2:
             return 1
         else:
-            print("input '%s' != expected '%s'" % (var1, var2))
+            print(("input '%s' != expected '%s'" % (var1, var2)))
 
     def test_talosconfig(self):
         # This function stimulates a call to generateTalosConfig in talosconfig.py .

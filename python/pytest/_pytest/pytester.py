@@ -920,7 +920,7 @@ class Testdir:
             for line in lines:
                 py.builtin.print_(line, file=fp)
         except UnicodeEncodeError:
-            print("couldn't print to %s because of encoding" % (fp,))
+            print(("couldn't print to %s because of encoding" % (fp,)))
 
     def _getpytestargs(self):
         # we cannot use "(sys.executable,script)"

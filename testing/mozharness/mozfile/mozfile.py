@@ -55,7 +55,7 @@ def extract_zip(src, dest):
         try:
             bundle = zipfile.ZipFile(src)
         except Exception, e:
-            print "src: %s" % src
+            print("src: %s" % src)
             raise
 
     namelist = bundle.namelist()
@@ -161,7 +161,7 @@ def remove(path):
                     raise
                 retry_count += 1
 
-                print 'Retrying to remove "%s" because it is in use.' % path
+                print('Retrying to remove "%s" because it is in use.' % path)
                 time.sleep(retry_delay)
 
     if not os.path.exists(path):

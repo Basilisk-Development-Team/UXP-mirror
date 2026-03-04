@@ -644,8 +644,8 @@ def WriteTarget(namer, qualified_target, target_dicts, build_dir, config_to_use,
 
   cmake_target_type = cmake_target_type_from_gyp_target_type.get(target_type)
   if cmake_target_type is None:
-    print ('Target %s has unknown target type %s, skipping.' %
-          (        target_name,               target_type  ) )
+    print(('Target %s has unknown target type %s, skipping.' %
+          (        target_name,               target_type  ) ))
     return
 
   SetVariable(output, 'TARGET', target_name)
@@ -868,8 +868,8 @@ def WriteTarget(namer, qualified_target, target_dicts, build_dir, config_to_use,
       default_product_ext = generator_default_variables['SHARED_LIB_SUFFIX']
 
     elif target_type != 'executable':
-      print ('ERROR: What output file should be generated?',
-              'type', target_type, 'target', target_name)
+      print(('ERROR: What output file should be generated?',
+              'type', target_type, 'target', target_name))
 
     product_prefix = spec.get('product_prefix', default_product_prefix)
     product_name = spec.get('product_name', default_product_name)
@@ -1207,11 +1207,11 @@ def PerformBuild(data, configurations, params):
                                               output_dir,
                                               config_name))
     arguments = ['cmake', '-G', 'Ninja']
-    print 'Generating [%s]: %s' % (config_name, arguments)
+    print('Generating [%s]: %s' % (config_name, arguments))
     subprocess.check_call(arguments, cwd=build_dir)
 
     arguments = ['ninja', '-C', build_dir]
-    print 'Building [%s]: %s' % (config_name, arguments)
+    print('Building [%s]: %s' % (config_name, arguments))
     subprocess.check_call(arguments)
 
 

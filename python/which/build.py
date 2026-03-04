@@ -192,12 +192,12 @@ def _listTargets(targets):
         nameWidth = max(nameWidth, len(name))
     nameWidth += 2  # space btwn name and doc
     format = "%%-%ds%%s" % nameWidth
-    print format % ("TARGET", "DESCRIPTION")
+    print(format % ("TARGET", "DESCRIPTION"))
     for name, func in sorted(targets.items()):
         doc = _first_paragraph(func.__doc__ or "", True)
         if len(doc) > (width - nameWidth):
             doc = doc[:(width-nameWidth-3)] + "..."
-        print format % (name, doc)
+        print(format % (name, doc))
 
 
 # Recipe: first_paragraph (1.0.1) in /Users/trentm/tm/recipes/cookbook
@@ -234,7 +234,7 @@ def target_clean():
     ver = _get_project_version()
     dirs = ["dist", "build", "%s-%s" % (_project_name_, ver)]
     for d in dirs:
-        print "removing '%s'" % d
+        print("removing '%s'" % d)
         if os.path.isdir(d): _rmtree(d)
 
     patterns = ["*.pyc", "*~", "MANIFEST",
@@ -243,7 +243,7 @@ def target_clean():
                ]
     for pattern in patterns:
         for file in glob.glob(pattern):
-            print "removing '%s'" % file
+            print("removing '%s'" % file)
             os.unlink(file)
 
 

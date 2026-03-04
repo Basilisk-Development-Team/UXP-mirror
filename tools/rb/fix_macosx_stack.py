@@ -39,7 +39,7 @@ class unbufferedLineConverter:
     def test():
         assert unbufferedLineConverter("rev").convert("123") == "321"
         assert unbufferedLineConverter("cut", ["-c3"]).convert("abcde") == "c"
-        print "Pass"
+        print("Pass")
 
 def separate_debug_file_for(file):
     return None

@@ -14,7 +14,7 @@ import etlparser
 def stop(xperf_path, debug=False):
     xperf_cmd = [xperf_path, '-stop', '-stop', 'talos_ses']
     if debug:
-        print("executing '%s'" % subprocess.list2cmdline(xperf_cmd))
+        print(("executing '%s'" % subprocess.list2cmdline(xperf_cmd)))
     subprocess.call(xperf_cmd)
 
 

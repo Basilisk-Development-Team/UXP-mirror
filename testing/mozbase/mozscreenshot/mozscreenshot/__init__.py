@@ -16,7 +16,7 @@ def printstatus(name, returncode):
     Note that mozlog structured action "process_exit" should be used
     instead of that in new code.
     """
-    print "TEST-INFO | %s: %s" % (name, strstatus(returncode))
+    print("TEST-INFO | %s: %s" % (name, strstatus(returncode)))
 
 
 def dump_screen(utilityPath, log):

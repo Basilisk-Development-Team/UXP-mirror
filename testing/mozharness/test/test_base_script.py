@@ -54,7 +54,7 @@ def get_debug_script_obj():
 
 def _post_fatal(self, **kwargs):
     fh = open('tmpfile_stdout', 'w')
-    print >>fh, test_string
+    print(test_string, file=fh)
     fh.close()
 
 
@@ -425,7 +425,7 @@ class TestHelperFunctions(unittest.TestCase):
         win32file.CreateDirectoryExW(u'.', path)
 
         for x in range(0, 20):
-            print("path=%s" % path)
+            print(("path=%s" % path))
             path = path + u'\\%sxxxxxxxxxxxxxxxxxxxx' % x
             win32file.CreateDirectoryExW(u'.', path)
         self.s.rmtree('test_dir')
@@ -694,7 +694,7 @@ class TestRetry(unittest.TestCase):
         args = (1, 'two', 3)
         kwargs = dict(foo='a', bar=7)
         ret = self.s.retry(self._mirrorArgs, args=args, kwargs=kwargs.copy(), sleeptime=0)
-        print ret
+        print(ret)
         self.assertEqual(ret[0], args)
         self.assertEqual(ret[1], kwargs)
 

@@ -68,7 +68,7 @@ class GaiaUnitTest(GaiaTest):
                     try:
                         disabled_tests = json.loads(m.read())
                     except:
-                        print "Error while decoding disabled.json; please make sure this file has valid JSON syntax."
+                        print("Error while decoding disabled.json; please make sure this file has valid JSON syntax.")
                         sys.exit(1)
 
                 # Construct a list of all tests

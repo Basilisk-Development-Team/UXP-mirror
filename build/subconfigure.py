@@ -131,11 +131,11 @@ def maybe_clear_cache(data):
         is_set = cache.get('ac_cv_env_%s_set' % precious) == 'set'
         value = cache.get('ac_cv_env_%s_value' % precious) if is_set else None
         if value != env.get(precious):
-            print 'Removing %s because of %s value change from:' \
-                % (data['cache-file'], precious)
-            print '  %s' % (value if value is not None else 'undefined')
-            print 'to:'
-            print '  %s' % env.get(precious, 'undefined')
+            print('Removing %s because of %s value change from:' \
+                % (data['cache-file'], precious))
+            print('  %s' % (value if value is not None else 'undefined'))
+            print('to:')
+            print('  %s' % env.get(precious, 'undefined'))
             os.remove(data['cache-file'])
             return True
     return False
@@ -333,8 +333,8 @@ def run(objdir):
         # We're going to run it ourselves.
         command += ['--no-create']
 
-        print prefix_lines('configuring', relobjdir)
-        print prefix_lines('running %s' % ' '.join(command[:-1]), relobjdir)
+        print(prefix_lines('configuring', relobjdir))
+        print(prefix_lines('running %s' % ' '.join(command[:-1]), relobjdir))
         sys.stdout.flush()
         try:
             output += subprocess.check_output(command,
@@ -368,7 +368,7 @@ def run(objdir):
 
     if not skip_config_status:
         if skip_configure:
-            print prefix_lines('running config.status', relobjdir)
+            print(prefix_lines('running config.status', relobjdir))
             sys.stdout.flush()
         try:
             output += subprocess.check_output([data['shell'], '-c',
@@ -410,7 +410,7 @@ def subconfigure(args):
     pool = Pool(len(subconfigures))
     for relobjdir, returncode, output in \
             pool.imap_unordered(run, subconfigures):
-        print prefix_lines(output, relobjdir)
+        print(prefix_lines(output, relobjdir))
         sys.stdout.flush()
         ret = max(returncode, ret)
         if ret:

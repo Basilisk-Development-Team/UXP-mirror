@@ -29,8 +29,8 @@ def GetVersion(compiler):
   except Exception, e:
     if gcc_error:
       sys.stderr.write(gcc_error)
-    print >> sys.stderr, "compiler_version.py failed to execute:", compiler
-    print >> sys.stderr, e
+    print("compiler_version.py failed to execute:", compiler, file=sys.stderr)
+    print(e, file=sys.stderr)
     return ""
 
 def GetVersionFromEnvironment(compiler_env):
@@ -56,18 +56,18 @@ def main():
   # target compiler's version number as gcc_version in Android.
   cxx_version = GetVersionFromEnvironment("CXX_target")
   if cxx_version:
-    print cxx_version
+    print(cxx_version)
     return 0
 
   cxx_version = GetVersionFromEnvironment("CXX")
   if cxx_version:
-    print cxx_version
+    print(cxx_version)
     return 0
 
   # Otherwise we check the g++ version.
   gccversion = GetVersion("g++")
   if gccversion != "":
-    print gccversion
+    print(gccversion)
     return 0
 
   return 1

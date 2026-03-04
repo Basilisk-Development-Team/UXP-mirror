@@ -8,7 +8,7 @@ class JsTests(unittest.TestCase):
 
     def assertEqual(self, thing1, thing2):
         if thing1 != thing2:
-            print(repr(thing1), repr(thing2))
+            print((repr(thing1), repr(thing2)))
             raise AssertionError
         return True
     

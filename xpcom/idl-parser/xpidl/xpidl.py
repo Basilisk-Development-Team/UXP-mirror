@@ -113,7 +113,7 @@ class Builtin(object):
 
     def nativeType(self, calltype, shared=False, const=False):
         if const:
-            print >>sys.stderr, IDLError("[const] doesn't make sense on builtin types.", self.location, warning=True)
+            print(IDLError("[const] doesn't make sense on builtin types.", self.location, warning=True), file=sys.stderr)
             const = 'const '
         elif calltype == 'in' and self.nativename.endswith('*'):
             const = 'const '
@@ -1461,5 +1461,5 @@ class IDLParser(object):
 if __name__ == '__main__':
     p = IDLParser()
     for f in sys.argv[1:]:
-        print "Parsing %s" % f
+        print("Parsing %s" % f)
         p.parse(open(f).read(), filename=f)

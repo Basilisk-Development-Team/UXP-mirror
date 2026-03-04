@@ -137,7 +137,7 @@ class CLI(MozProfileCLI):
         # attach a debugger if specified
         debug_args, interactive = self.debugger_arguments()
         runner.start(debug_args=debug_args, interactive=interactive)
-        print 'Starting: ' + ' '.join(runner.command)
+        print('Starting: ' + ' '.join(runner.command))
         try:
             runner.wait()
         except KeyboardInterrupt:

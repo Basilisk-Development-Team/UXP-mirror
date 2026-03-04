@@ -118,7 +118,7 @@ class SCM:
 
     def ensure_clean_working_directory(self, force):
         if not force and not self.working_directory_is_clean():
-            print self.run_command(self.status_command(), raise_on_failure=False)
+            print(self.run_command(self.status_command(), raise_on_failure=False))
             error("Working directory has modifications, pass --force-clean or --no-clean to continue.")
         
         log("Cleaning working directory")

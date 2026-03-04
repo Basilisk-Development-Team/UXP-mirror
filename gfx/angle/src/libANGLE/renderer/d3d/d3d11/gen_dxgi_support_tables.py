@@ -182,7 +182,7 @@ def do_format(format_data):
             elif support == '11_0check':
                 fl_11_0_check.update(d3d_flag)
             else:
-                print("Data specification error: " + support)
+                print(("Data specification error: " + support))
                 sys.exit(1)
 
         for feature_level in ['10_0', '10_1', '11_0']:

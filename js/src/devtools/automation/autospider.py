@@ -106,7 +106,7 @@ def set_vars_from_script(script, vars):
                 var, value = m.groups()
                 if var in tograb:
                     env[var] = value
-                    print("Setting %s = %s" % (var, value))
+                    print(("Setting %s = %s" % (var, value)))
                 if var.startswith("ORIGINAL_"):
                     originals[var[9:]] = value
 
@@ -359,7 +359,7 @@ if 'jstests' in test_suites:
 # FIXME bug 1291449: This would be unnecessary if we could run msan with -mllvm
 # -msan-keep-going, but in clang 3.8 it causes a hang during compilation.
 if variant.get('ignore-test-failures'):
-    print("Ignoring test results %s" % (results,))
+    print(("Ignoring test results %s" % (results,)))
     results = [0]
 
 if args.variant in ('tsan', 'msan'):
@@ -384,11 +384,11 @@ if args.variant in ('tsan', 'msan'):
     summary_filename = os.path.join(env['MOZ_UPLOAD_DIR'], "%s_summary.txt" % args.variant)
     with open(summary_filename, 'wb') as outfh:
         for location, count in sites.most_common():
-            print >> outfh, "%d %s" % (count, location)
-    print(open(summary_filename, 'rb').read())
+            print("%d %s" % (count, location), file=outfh)
+    print((open(summary_filename, 'rb').read()))
 
     if 'max-errors' in variant:
-        print("Found %d errors out of %d allowed" % (len(sites), variant['max-errors']))
+        print(("Found %d errors out of %d allowed" % (len(sites), variant['max-errors'])))
         if len(sites) > variant['max-errors']:
             results.append(1)
 

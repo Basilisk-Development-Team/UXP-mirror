@@ -2149,7 +2149,7 @@ class BaseScript(ScriptMixin, LogMixin, object):
                 except ValueError:
                     """log is closed; print as a default. Ran into this
                     when calling from __del__()"""
-                    print "### Log is closed! (%s)" % item['message']
+                    print("### Log is closed! (%s)" % item['message'])
 
     def add_summary(self, message, level=INFO):
         self.summary_list.append({'message': message, 'level': level})

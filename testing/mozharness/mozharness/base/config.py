@@ -177,18 +177,18 @@ def download_config_file(url, file_name):
     max_sleeptime = 5 * 60
     while True:
         if n >= attempts:
-            print "Failed to download from url %s after %d attempts, quiting..." % (url, attempts)
+            print("Failed to download from url %s after %d attempts, quiting..." % (url, attempts))
             raise SystemError(-1)
         try:
             contents = urllib2.urlopen(url, timeout=30).read()
             break
         except urllib2.URLError, e:
-            print "Error downloading from url %s: %s" % (url, str(e))
+            print("Error downloading from url %s: %s" % (url, str(e)))
         except socket.timeout, e:
-            print "Time out accessing %s: %s" % (url, str(e))
+            print("Time out accessing %s: %s" % (url, str(e)))
         except socket.error, e:
-            print "Socket error when accessing %s: %s" % (url, str(e))
-        print "Sleeping %d seconds before retrying" % sleeptime
+            print("Socket error when accessing %s: %s" % (url, str(e)))
+        print("Sleeping %d seconds before retrying" % sleeptime)
         time.sleep(sleeptime)
         sleeptime = sleeptime * 2
         if sleeptime > max_sleeptime:
@@ -200,7 +200,7 @@ def download_config_file(url, file_name):
         f.write(contents)
         f.close()
     except IOError, e:
-        print "Error writing downloaded contents to file %s: %s" % (file_name, str(e))
+        print("Error writing downloaded contents to file %s: %s" % (file_name, str(e)))
         raise SystemError(-1)
 
 
@@ -390,8 +390,8 @@ class BaseConfig(object):
         for action in action_list:
             if action not in self.all_actions:
                 if not quiet:
-                    print("Invalid action %s not in %s!" % (action,
-                                                            self.all_actions))
+                    print(("Invalid action %s not in %s!" % (action,
+                                                            self.all_actions)))
                 raise SystemExit(-1)
         return action_list
 
@@ -401,17 +401,17 @@ class BaseConfig(object):
             sorted_indexes = sorted(indexes)
             for i in range(len(indexes)):
                 if indexes[i] != sorted_indexes[i]:
-                    print(("Action %s comes in different order in %s\n" +
-                           "than in %s") % (action_list[i], action_list, self.all_actions))
+                    print((("Action %s comes in different order in %s\n" +
+                           "than in %s") % (action_list[i], action_list, self.all_actions)))
                     raise SystemExit(-1)
         except ValueError as e:
-            print("Invalid action found: " + str(e))
+            print(("Invalid action found: " + str(e)))
             raise SystemExit(-1)
 
     def list_actions(self):
-        print "Actions available:"
+        print("Actions available:")
         for a in self.all_actions:
-            print "    " + ("*" if a in self.default_actions else " "), a
+            print("    " + ("*" if a in self.default_actions else " "), a)
         raise SystemExit(0)
 
     def get_cfgs_from_files(self, all_config_files, options):
@@ -446,9 +446,9 @@ class BaseConfig(object):
                     all_cfg_files_and_dicts.append((cf, parse_config_file(cf)))
             except Exception:
                 if cf in options.opt_config_files:
-                    print(
+                    print((
                         "WARNING: optional config file not found %s" % cf
-                    )
+                    ))
                 else:
                     raise
         return all_cfg_files_and_dicts

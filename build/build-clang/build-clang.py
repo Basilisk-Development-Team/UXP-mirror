@@ -34,7 +34,7 @@ def symlink(source, link_name):
 def check_run(args):
     global DEBUG
     if DEBUG:
-        print >> sys.stderr, ' '.join(args)
+        print(' '.join(args), file=sys.stderr)
     r = subprocess.call(args)
     assert r == 0
 
@@ -43,11 +43,11 @@ def run_in(path, args):
     d = os.getcwd()
     global DEBUG
     if DEBUG:
-        print >> sys.stderr, 'cd "%s"' % path
+        print('cd "%s"' % path, file=sys.stderr)
     os.chdir(path)
     check_run(args)
     if DEBUG:
-        print >> sys.stderr, 'cd "%s"' % d
+        print('cd "%s"' % d, file=sys.stderr)
     os.chdir(d)
 
 

@@ -56,7 +56,7 @@ class SvnCommandPath(svncommon.SvnPathBase):
         # fixing the locale because we can't otherwise parse
         string = " ".join(l)
         if DEBUG:
-            print("execing %s" % string)
+            print(("execing %s" % string))
         out = self._svncmdexecauth(string)
         return out
 

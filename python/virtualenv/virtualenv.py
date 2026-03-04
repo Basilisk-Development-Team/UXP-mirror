@@ -40,7 +40,7 @@ __version__ = "15.0.1"
 virtualenv_version = __version__  # legacy
 
 if sys.version_info < (2, 6):
-    print('ERROR: %s' % sys.exc_info()[1])
+    print(('ERROR: %s' % sys.exc_info()[1]))
     print('ERROR: this script requires Python 2.6 or greater.')
     sys.exit(101)
 
@@ -479,7 +479,7 @@ class ConfigOptionParser(optparse.OptionParser):
                     val = option.convert_value(key, val)
                 except optparse.OptionValueError:
                     e = sys.exc_info()[1]
-                    print("An error occurred during configuration: %s" % e)
+                    print(("An error occurred during configuration: %s" % e))
                     sys.exit(3)
                 defaults[option.dest] = val
         return defaults
@@ -679,8 +679,8 @@ def main():
         parser.print_help()
         sys.exit(2)
     if len(args) > 1:
-        print('There must be only one argument: DEST_DIR (you gave %s)' % (
-            ' '.join(args)))
+        print(('There must be only one argument: DEST_DIR (you gave %s)' % (
+            ' '.join(args))))
         parser.print_help()
         sys.exit(2)
 
@@ -979,7 +979,7 @@ def path_locations(home_dir):
                 u = str
             ret = GetShortPathName(u(home_dir), buf, size)
             if not ret:
-                print('Error: the path "%s" has a space in it' % home_dir)
+                print(('Error: the path "%s" has a space in it' % home_dir))
                 print('We could not determine the short pathname for it.')
                 print('Exiting.')
                 sys.exit(3)

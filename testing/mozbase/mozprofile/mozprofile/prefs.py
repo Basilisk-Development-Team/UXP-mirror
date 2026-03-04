@@ -196,7 +196,7 @@ class Preferences(object):
             try:
                 eval(line, _globals, {})
             except SyntaxError:
-                print line
+                print(line)
                 raise
 
         # de-magic the marker
@@ -225,7 +225,7 @@ class Preferences(object):
 
         # write the preferences
         for _pref in _prefs:
-            print >> f, pref_string % _pref
+            print(pref_string % _pref, file=f)
 
         # close the file if opened internally
         if isinstance(_file, basestring):

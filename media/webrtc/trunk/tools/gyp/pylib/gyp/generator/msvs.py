@@ -763,8 +763,8 @@ def _EscapeVCProjCommandLineArgListItem(s):
     # the VCProj but cause the same problem on the final command-line. Moving
     # the item to the end of the list does works, but that's only possible if
     # there's only one such item. Let's just warn the user.
-    print >> sys.stderr, ('Warning: MSVS may misinterpret the odd number of ' +
-                          'quotes in ' + s)
+    print(('Warning: MSVS may misinterpret the odd number of ' +
+                          'quotes in ' + s), file=sys.stderr)
   return s
 
 
@@ -984,8 +984,8 @@ def _ValidateSourcesForMSVSProject(spec, version):
       error += '  %s: %s\n' % (basename, ' '.join(files))
 
   if error:
-    print('static library %s has several files with the same basename:\n' %
-          spec['target_name'] + error + 'MSVC08 cannot handle that.')
+    print(('static library %s has several files with the same basename:\n' %
+          spec['target_name'] + error + 'MSVC08 cannot handle that.'))
     raise GypError('Duplicate basenames in sources section, see list above')
 
 
@@ -1962,7 +1962,7 @@ def PerformBuild(data, configurations, params):
 
   for config in configurations:
     arguments = [devenv, sln_path, '/Build', config]
-    print 'Building [%s]: %s' % (config, arguments)
+    print('Building [%s]: %s' % (config, arguments))
     rtn = subprocess.check_call(arguments)
 
 
@@ -2057,7 +2057,7 @@ def GenerateOutput(target_list, target_dicts, data, params):
     if generator_flags.get('msvs_error_on_missing_sources', False):
       raise GypError(error_message)
     else:
-      print >> sys.stdout, "Warning: " + error_message
+      print("Warning: " + error_message, file=sys.stdout)
 
 
 def _GenerateMSBuildFiltersFile(filters_path, source_files,
@@ -2813,7 +2813,7 @@ def _ConvertMSVSBuildAttributes(spec, config, build_file):
     elif a == 'ConfigurationType':
       msbuild_attributes[a] = _ConvertMSVSConfigurationType(msvs_attributes[a])
     else:
-      print 'Warning: Do not know how to convert MSVS attribute ' + a
+      print('Warning: Do not know how to convert MSVS attribute ' + a)
   return msbuild_attributes
 
 
@@ -3054,8 +3054,8 @@ def _FinalizeMSBuildSettings(spec, configuration):
     for ignored_setting in ignored_settings:
       value = configuration.get(ignored_setting)
       if value:
-        print ('Warning: The automatic conversion to MSBuild does not handle '
-               '%s.  Ignoring setting of %s' % (ignored_setting, str(value)))
+        print(('Warning: The automatic conversion to MSBuild does not handle '
+               '%s.  Ignoring setting of %s' % (ignored_setting, str(value))))
 
   defines = [_EscapeCppDefineForMSBuild(d) for d in defines]
   disabled_warnings = _GetDisabledWarnings(configuration)

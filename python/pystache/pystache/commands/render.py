@@ -88,7 +88,7 @@ def main(sys_argv=sys.argv):
         context = json.loads(context)
 
     rendered = renderer.render(template, context)
-    print rendered
+    print(rendered)
 
 
 if __name__=='__main__':

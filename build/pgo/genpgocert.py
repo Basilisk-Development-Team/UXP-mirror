@@ -148,7 +148,7 @@ def createSSLServerCertificate(build, srcDir):
             firstLocation = loc.host
 
     if not firstLocation:
-      print "Nothing to generate, no automatic secure hosts specified"
+      print("Nothing to generate, no automatic secure hosts specified")
     else:
       createRandomFile(rndfile)
 
@@ -162,7 +162,7 @@ def createSSLServerCertificate(build, srcDir):
   return 0
 
 if len(sys.argv) == 1:
-  print "Specify --gen-server or --gen-ca"
+  print("Specify --gen-server or --gen-ca")
   sys.exit(1)
 
 build = MozbuildObject.from_environment()
@@ -170,23 +170,23 @@ certdir = os.path.join(build.topsrcdir, "build", "pgo", "certs")
 if sys.argv[1] == "--gen-server":
   certificateStatus = createSSLServerCertificate(build, certdir)
   if certificateStatus:
-    print "TEST-UNEXPECTED-FAIL | SSL Server Certificate generation"
+    print("TEST-UNEXPECTED-FAIL | SSL Server Certificate generation")
 
   sys.exit(certificateStatus)
 
 if sys.argv[1] == "--gen-ca":
   certificateStatus = createCertificateAuthority(build, certdir)
   if certificateStatus:
-    print "TEST-UNEXPECTED-FAIL | Certificate Authority generation"
+    print("TEST-UNEXPECTED-FAIL | Certificate Authority generation")
   else:
-    print "\n\n"
-    print "==================================================="
-    print " IMPORTANT:"
-    print " To use this new certificate authority in tests"
-    print " run 'make' at testing/mochitest"
-    print "==================================================="
+    print("\n\n")
+    print("===================================================")
+    print(" IMPORTANT:")
+    print(" To use this new certificate authority in tests")
+    print(" run 'make' at testing/mochitest")
+    print("===================================================")
 
   sys.exit(certificateStatus)
 
-print "Invalid option specified"
+print("Invalid option specified")
 sys.exit(1)

@@ -48,7 +48,7 @@ print (" *")
 print (" * on file with this header:")
 print (" *")
 for l in header:
-	print (" * %s" % (l.strip()))
+	print((" * %s" % (l.strip())))
 print (" */")
 print ()
 print ("#ifndef HB_UNICODE_EMOJI_TABLE_HH")

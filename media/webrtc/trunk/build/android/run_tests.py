@@ -370,9 +370,9 @@ def Dispatch(options):
 
 def ListTestSuites():
   """Display a list of available test suites."""
-  print 'Available test suites are:'
+  print('Available test suites are:')
   for test_suite in _TEST_SUITES:
-    print test_suite
+    print(test_suite)
 
 
 def main(argv):
@@ -427,7 +427,7 @@ def main(argv):
 
   options, args = option_parser.parse_args(argv)
   if len(args) > 1:
-    print 'Unknown argument:', args[1:]
+    print('Unknown argument:', args[1:])
     option_parser.print_usage()
     sys.exit(1)
   run_tests_helper.SetLogLevel(options.verbose_count)

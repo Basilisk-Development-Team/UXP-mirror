@@ -850,7 +850,7 @@ class MochitestDesktop(object):
         try:
             return dict(parseKeyValue(extraPrefs, context='--setpref='))
         except KeyValueParseError as e:
-            print str(e)
+            print(str(e))
             sys.exit(1)
 
     def getFullPath(self, path):
@@ -2213,7 +2213,7 @@ toolbar#nav-bar {
 
         result = 1  # default value, if no tests are run.
         for d in dirs:
-            print "dir: %s" % d
+            print("dir: %s" % d)
 
             # BEGIN LEAKCHECK HACK
             # Leak checking was broken in mochitest unnoticed for a length of time. During
@@ -2255,20 +2255,20 @@ toolbar#nav-bar {
 
         # printing total number of tests
         if options.flavor == 'browser':
-            print "TEST-INFO | checking window state"
-            print "Browser Chrome Test Summary"
-            print "\tPassed: %s" % self.countpass
-            print "\tFailed: %s" % self.countfail
-            print "\tTodo: %s" % self.counttodo
-            print "\tMode: %s" % e10s_mode
-            print "*** End BrowserChrome Test Results ***"
+            print("TEST-INFO | checking window state")
+            print("Browser Chrome Test Summary")
+            print("\tPassed: %s" % self.countpass)
+            print("\tFailed: %s" % self.countfail)
+            print("\tTodo: %s" % self.counttodo)
+            print("\tMode: %s" % e10s_mode)
+            print("*** End BrowserChrome Test Results ***")
         else:
-            print "0 INFO TEST-START | Shutdown"
-            print "1 INFO Passed:  %s" % self.countpass
-            print "2 INFO Failed:  %s" % self.countfail
-            print "3 INFO Todo:    %s" % self.counttodo
-            print "4 INFO Mode:    %s" % e10s_mode
-            print "5 INFO SimpleTest FINISHED"
+            print("0 INFO TEST-START | Shutdown")
+            print("1 INFO Passed:  %s" % self.countpass)
+            print("2 INFO Failed:  %s" % self.countfail)
+            print("3 INFO Todo:    %s" % self.counttodo)
+            print("4 INFO Mode:    %s" % e10s_mode)
+            print("5 INFO SimpleTest FINISHED")
 
         return result
 

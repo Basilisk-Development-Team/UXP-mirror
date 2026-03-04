@@ -25,7 +25,7 @@ def compute_sum(data):
         if i[0] not in last_values.keys():
           last_values[i[0]] = 0
         last_values[i[0]] = float(i[3])
-        print last_values
+        print(last_values)
         out[0].append(i[2])
         out[1].append(sum(last_values.values()))
     return out
@@ -59,12 +59,12 @@ if len(sys.argv) == 3:
     name = sys.argv[1]
     channels = int(sys.argv[2])
 else:
-    print sys.argv[0] + "latency_log"
+    print(sys.argv[0] + "latency_log")
 
 try:
     f = open(sys.argv[1])
 except:
-    print "cannot open " + name
+    print("cannot open " + name)
 
 raw_lines = f.readlines()
 lines = clean_data(raw_lines)

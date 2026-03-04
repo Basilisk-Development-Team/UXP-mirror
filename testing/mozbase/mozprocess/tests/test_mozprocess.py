@@ -42,9 +42,9 @@ def make_proclaunch(aDir):
         stdout, stderr = process.communicate()
         if process.returncode:
             # SomethingBadHappen; print all the things
-            print "%s: exit %d" % (command, process.returncode)
-            print "stdout:\n%s" % stdout
-            print "stderr:\n%s" % stderr
+            print("%s: exit %d" % (command, process.returncode))
+            print("stdout:\n%s" % stdout)
+            print("stderr:\n%s" % stderr)
             raise subprocess.CalledProcessError(process.returncode, command, stdout)
 
     # ensure the launcher now exists

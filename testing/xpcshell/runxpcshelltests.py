@@ -822,8 +822,8 @@ class XPCShellTests(object):
         if os.path.exists(ini_path):
             return TestManifest([ini_path], strict=True)
         else:
-            print >> sys.stderr, ("Failed to find manifest at %s; use --manifest "
-                                  "to set path explicitly." % (ini_path,))
+            print(("Failed to find manifest at %s; use --manifest "
+                                  "to set path explicitly." % (ini_path,)), file=sys.stderr)
             sys.exit(1)
 
     def buildTestList(self, test_tags=None, test_paths=None):
@@ -1150,7 +1150,7 @@ class XPCShellTests(object):
                 os.remove(failure_manifest)
                 manifest = rerun_manifest
             else:
-                print >> sys.stderr, "No failures were found to re-run."
+                print("No failures were found to re-run.", file=sys.stderr)
                 sys.exit(1)
 
         if testingModulesDir:
@@ -1483,12 +1483,12 @@ def main():
     log = commandline.setup_logging("XPCShell", options, {"tbpl": sys.stdout})
 
     if options.xpcshell is None:
-        print >> sys.stderr, """Must provide path to xpcshell using --xpcshell"""
+        print("""Must provide path to xpcshell using --xpcshell""", file=sys.stderr)
 
     xpcsh = XPCShellTests(log)
 
     if options.interactive and not options.testPath:
-        print >>sys.stderr, "Error: You must specify a test filename in interactive mode!"
+        print("Error: You must specify a test filename in interactive mode!", file=sys.stderr)
         sys.exit(1)
 
     if not xpcsh.runTests(**vars(options)):

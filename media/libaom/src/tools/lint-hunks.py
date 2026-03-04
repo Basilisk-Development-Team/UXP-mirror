@@ -71,11 +71,11 @@ def main(argv=None):
         # process options
         for o, _ in opts:
             if o in ("-h", "--help"):
-                print __doc__
+                print(__doc__)
                 sys.exit(0)
 
         if args and len(args) > 1:
-            print __doc__
+            print(__doc__)
             sys.exit(0)
 
         # Find the fully qualified path to the root of the tree
@@ -129,8 +129,8 @@ def main(argv=None):
                     continue
                 warning_line_num = int(fields[1])
                 if warning_line_num in affected_lines:
-                    print "%s:%d:%s"%(filename, warning_line_num,
-                                      ":".join(fields[2:]))
+                    print("%s:%d:%s"%(filename, warning_line_num,
+                                      ":".join(fields[2:])))
                     lint_failed = True
 
         # Set exit code if any relevant lint errors seen
@@ -138,8 +138,8 @@ def main(argv=None):
             return 1
 
     except Usage, err:
-        print >>sys.stderr, err
-        print >>sys.stderr, "for help use --help"
+        print(err, file=sys.stderr)
+        print("for help use --help", file=sys.stderr)
         return 2
 
 if __name__ == "__main__":

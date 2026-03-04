@@ -347,7 +347,7 @@ class AndroidCommands(object):
         if 'Success' in install_status:
           return install_status
       except errors.WaitForResponseTimedOutError:
-        print '@@@STEP_WARNINGS@@@'
+        print('@@@STEP_WARNINGS@@@')
         logging.info('Timeout on installing %s' % apk_path)
 
       if reboots_left <= 0:
@@ -587,7 +587,7 @@ class AndroidCommands(object):
       if not os.path.exists(md5sum_path):
         md5sum_path = '%s/out/Release/md5sum_bin' % (CHROME_SRC)
         if not os.path.exists(md5sum_path):
-          print >> sys.stderr, 'Please build md5sum.'
+          print('Please build md5sum.', file=sys.stderr)
           sys.exit(1)
       command = 'push %s %s' % (md5sum_path, MD5SUM_DEVICE_PATH)
       assert _HasAdbPushSucceeded(self._adb.SendCommand(command))

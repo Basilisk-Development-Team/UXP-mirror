@@ -57,7 +57,7 @@ def info(directory):
         call([sys.executable, 'setup.py', 'egg_info'],
              cwd=directory, stdout=PIPE)
     except subprocess.CalledProcessError:
-        print "Error running setup.py in %s" % directory
+        print("Error running setup.py in %s" % directory)
         raise
 
     # get the .egg-info directory
@@ -180,7 +180,7 @@ def main(args=sys.argv[1:]):
     if options.list_dependencies:
         # list the package dependencies
         for package in packages:
-            print '%s: %s' % get_dependencies(os.path.join(here, package))
+            print('%s: %s' % get_dependencies(os.path.join(here, package)))
         parser.exit()
 
     # gather dependencies
@@ -235,7 +235,7 @@ def main(args=sys.argv[1:]):
     if options.list:
         # list what will be installed
         for package in unrolled:
-            print package
+            print(package)
         parser.exit()
 
     # set up the packages for development

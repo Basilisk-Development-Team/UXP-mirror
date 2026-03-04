@@ -68,11 +68,11 @@ class ActionsConfigExample(BaseScript):
             try:
                 time.sleep(interval)
             except:
-                print
+                print()
                 self.error("Impatient, are we?")
                 sys.exit(1)
             counter += interval
-        print
+        print()
         self.info("Ok, done.")
 
     def _ship1(self):

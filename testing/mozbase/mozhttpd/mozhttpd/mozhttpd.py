@@ -323,7 +323,7 @@ def main(args=sys.argv[1:]):
     # create the server
     server = MozHttpd(host=host, port=options.port, docroot=options.docroot)
 
-    print "Serving '%s' at %s:%s" % (server.docroot, server.host, server.port)
+    print("Serving '%s' at %s:%s" % (server.docroot, server.host, server.port))
     server.start(block=True)
 
 if __name__ == '__main__':

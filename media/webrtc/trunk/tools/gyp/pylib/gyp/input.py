@@ -514,8 +514,8 @@ def CallLoadTargetBuildFile(global_flags,
     sys.stderr.write("gyp: %s\n" % e)
     return None
   except Exception, e:
-    print >>sys.stderr, 'Exception:', e
-    print >>sys.stderr, traceback.format_exc()
+    print('Exception:', e, file=sys.stderr)
+    print(traceback.format_exc(), file=sys.stderr)
     return None
 
 
@@ -2528,9 +2528,9 @@ def ValidateSourcesInTarget(target, target_dict, build_file,
       error += '  %s: %s\n' % (basename, ' '.join(files))
 
   if error:
-    print('static library %s has several files with the same basename:\n' %
+    print(('static library %s has several files with the same basename:\n' %
           target + error + 'libtool on Mac cannot handle that. Use '
-          '--no-duplicate-basename-check to disable this validation.')
+          '--no-duplicate-basename-check to disable this validation.'))
     raise GypError('Duplicate basenames in sources section, see list above')
 
 

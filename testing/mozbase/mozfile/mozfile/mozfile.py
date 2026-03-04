@@ -55,7 +55,7 @@ def extract_zip(src, dest):
         try:
             bundle = zipfile.ZipFile(src)
         except Exception:
-            print "src: %s" % src
+            print("src: %s" % src)
             raise
 
     namelist = bundle.namelist()
@@ -161,8 +161,8 @@ def _call_windows_retry(func, args=(), retry_max=5, retry_delay=0.5):
 
             retry_count += 1
 
-            print '%s() failed for "%s". Reason: %s (%s). Retrying...' % \
-                (func.__name__, args, e.strerror, e.errno)
+            print('%s() failed for "%s". Reason: %s (%s). Retrying...' % \
+                (func.__name__, args, e.strerror, e.errno))
             time.sleep(retry_count * retry_delay)
         else:
             # If no exception has been thrown it should be done

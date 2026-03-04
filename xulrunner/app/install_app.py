@@ -215,7 +215,7 @@ def handleCommandLine():
     except exn:
         shutil.rmtree(cmds.installDir)
         raise exn
-    print cmds.appName + " application installed to " + cmds.installDir
+    print(cmds.appName + " application installed to " + cmds.installDir)
 
 if __name__ == '__main__':
     handleCommandLine()

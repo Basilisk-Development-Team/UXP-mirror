@@ -181,7 +181,7 @@ class VideoPuppeteer(object):
                 played_ranges.end(0) > 0.0
             )
         except Exception as e:
-            print ('Got exception {}'.format(e))
+            print(('Got exception {}'.format(e)))
             return False
 
     def playback_done(self):

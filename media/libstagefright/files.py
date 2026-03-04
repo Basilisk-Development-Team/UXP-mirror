@@ -26,4 +26,4 @@ except:
 
 for f in SOURCES+UNIFIED_SOURCES:
     if not f.startswith('binding/'):
-        print f
+        print(f)

@@ -80,7 +80,7 @@ def main():
 
     if options.verbose:
         # Show in our logs what the contents of the snippet are
-        print snippet
+        print(snippet)
 
 def generateSnippet(abstDistDir, applicationIniFile, locale,
                     downloadBaseURL, product, platform, branch):

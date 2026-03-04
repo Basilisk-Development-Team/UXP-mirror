@@ -207,13 +207,13 @@ class TestOther(DeviceManagerADBTestCase):
 if __name__ == '__main__':
     dm = DeviceManagerADB()
     if not dm.devices():
-        print "There are no connected adb devices"
+        print("There are no connected adb devices")
         sys.exit(1)
 
     if find_mount_permissions(dm, "/system") == "rw":
-        print "We've found out that /system is mounted as 'rw'. This is because the command " \
+        print("We've found out that /system is mounted as 'rw'. This is because the command " \
             "'adb remount' has been run before running this test case. Please reboot the device " \
-            "and try again."
+            "and try again.")
         sys.exit(1)
 
     unittest.main()

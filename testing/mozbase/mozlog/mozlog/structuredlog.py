@@ -222,8 +222,8 @@ class StructuredLogger(object):
                 except Exception:
                     # Write the exception details directly to stderr because
                     # log() would call this method again which is currently locked.
-                    print >> sys.__stderr__, '%s: Failure calling log handler:' % __name__
-                    print >> sys.__stderr__, traceback.format_exc()
+                    print('%s: Failure calling log handler:' % __name__, file=sys.__stderr__)
+                    print(traceback.format_exc(), file=sys.__stderr__)
 
     def _make_log_data(self, action, data):
         all_data = {"action": action,

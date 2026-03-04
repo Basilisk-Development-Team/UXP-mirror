@@ -36,11 +36,11 @@ def test_verification_perf(n = 100):
     return results
             
 def print_dict(title, d):
-    print title
-    print '-' * len(title)
+    print(title)
+    print('-' * len(title))
     for k, v in d.items():
-        print k, '\t', v
-    print
+        print(k, '\t', v)
+    print()
 
 n = 100
 print_dict("Key generation", test_generation_perf(n))

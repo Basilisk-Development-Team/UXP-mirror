@@ -150,7 +150,7 @@ def run_tests(config, browser_config):
         browser_config['sourcestamp'] = version_info['application_changeset']
     except KeyError:
         if not browser_config['develop']:
-            print("unable to find changeset or repository: %s" % version_info)
+            print(("unable to find changeset or repository: %s" % version_info))
             sys.exit()
         else:
             browser_config['repository'] = 'develop'
@@ -228,8 +228,8 @@ def run_tests(config, browser_config):
     if results_urls:
         talos_results.output(results_urls)
         if browser_config['develop'] or config['sps_profile']:
-            print("Thanks for running Talos locally. Results are in %s"
-                  % (results_urls['output_urls']))
+            print(("Thanks for running Talos locally. Results are in %s"
+                  % (results_urls['output_urls'])))
 
     # we will stop running tests on a failed test, or we will return 0 for
     # green

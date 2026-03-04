@@ -71,7 +71,7 @@ class HTTPRequestHandler(BaseHTTPServer.BaseHTTPRequestHandler):
         self.wfile.write(content)
       except socket.error, e:
         if options.verbose:
-          print "Got socket error %s" % e
+          print("Got socket error %s" % e)
     #self.close_connection = 1
   def do_HEAD(self):
     self.send_head()
@@ -108,7 +108,7 @@ class HTTPRequestHandler(BaseHTTPServer.BaseHTTPRequestHandler):
         return None
       else:
         if options.verbose:
-          print "Object %s was not in the cache" % self.path
+          print("Object %s was not in the cache" % self.path)
         conn = httplib.HTTPConnection(o.netloc)
         conn.request("GET", reqstring, headers=headers)
         res = conn.getresponse()
@@ -135,7 +135,7 @@ class HTTPRequestHandler(BaseHTTPServer.BaseHTTPRequestHandler):
       self.end_headers()
     except socket.error, e:
       if options.verbose:
-        print "Got socket error %s" % e
+        print("Got socket error %s" % e)
       return None
     return content
   def log_message(self, format, *args):
@@ -264,6 +264,6 @@ if __name__ == '__main__':
     while 1: time.sleep(1)
   except KeyboardInterrupt:
     if options.verbose:
-      print "Quittin' time..."
+      print("Quittin' time...")
 
 __all__ = ['run_proxy', 'configure_proxy']

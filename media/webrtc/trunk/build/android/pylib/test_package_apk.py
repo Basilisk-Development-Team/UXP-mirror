@@ -61,7 +61,7 @@ class TestPackageApk(TestPackage):
   def _WatchFifo(self, timeout, logfile=None):
     for i in range(10):
       if self.adb.FileExistsOnDevice(self._GetFifo()):
-        print 'Fifo created...'
+        print('Fifo created...')
         break
       time.sleep(i)
     else:

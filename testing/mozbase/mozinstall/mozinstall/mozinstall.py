@@ -328,7 +328,7 @@ def install_cli(argv=sys.argv[1:]):
         install_path = install(src, options.dest)
         binary = get_binary(install_path, app_name=options.app)
 
-    print binary
+    print(binary)
 
 
 def uninstall_cli(argv=sys.argv[1:]):

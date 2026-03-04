@@ -91,9 +91,9 @@ class LogMixin(object):
         """
         if not hasattr(self, 'config') or self.config.get('log_to_console', True):
             if stderr:
-                print >> sys.stderr, message
+                print(message, file=sys.stderr)
             else:
-                print message
+                print(message)
 
     def log(self, message, level=INFO, exit_code=-1):
         """ log the message passed to it according to level, exit if level == FATAL

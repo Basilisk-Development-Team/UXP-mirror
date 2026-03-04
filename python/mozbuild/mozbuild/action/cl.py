@@ -55,7 +55,7 @@ def InvokeClWithDependencyGeneration(cmdline):
             break
 
     if target is None:
-        print >>sys.stderr, "No target set"
+        print("No target set", file=sys.stderr)
         return 1
 
     # Assume the source file is the last argument

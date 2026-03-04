@@ -1392,7 +1392,7 @@ def xpt_link(inputs):
         return Typelib.read(i)
 
     if not inputs:
-        print >>sys.stderr, "Usage: xpt_link <destination file> <input files>"
+        print("Usage: xpt_link <destination file> <input files>", file=sys.stderr)
         return None
     # This is the aggregate list of interfaces.
     interfaces = []
@@ -1532,7 +1532,7 @@ def xpt_link(inputs):
 
 if __name__ == '__main__':
     if len(sys.argv) < 3:
-        print >>sys.stderr, "xpt <dump|link> <files>"
+        print("xpt <dump|link> <files>", file=sys.stderr)
         sys.exit(1)
     if sys.argv[1] == 'dump':
         xpt_dump(sys.argv[2])

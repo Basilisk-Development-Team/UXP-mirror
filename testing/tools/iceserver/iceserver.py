@@ -369,8 +369,8 @@ class Allocation(protocol.DatagramProtocol):
 
     def datagramReceived(self, data, (host, port)):
         if not host in self.permissions:
-            print("Dropping packet from {}:{}, no permission on allocation {}"
-                  .format(host, port, self.transport.getHost()))
+            print(("Dropping packet from {}:{}, no permission on allocation {}"
+                  .format(host, port, self.transport.getHost())))
             return
 
         data_indication = StunMessage()
@@ -421,13 +421,13 @@ class StunHandler(object):
             if stun_message.method == SEND:
                 self.handle_send_indication(stun_message)
             else:
-                print("Dropping unknown indication method: {}"
-                      .format(stun_message.method))
+                print(("Dropping unknown indication method: {}"
+                      .format(stun_message.method)))
             return None
 
         if stun_message.msg_class != REQUEST:
-            print("Dropping STUN response, method: {}"
-                  .format(stun_message.method))
+            print(("Dropping STUN response, method: {}"
+                  .format(stun_message.method)))
             return None
 
         if stun_message.method == BINDING:
@@ -559,8 +559,8 @@ class StunHandler(object):
         try:
             allocation = allocations[self.get_allocation_tuple()]
         except KeyError:
-            print("Dropping send indication; no allocation for tuple {}"
-                  .format(self.get_allocation_tuple()))
+            print(("Dropping send indication; no allocation for tuple {}"
+                  .format(self.get_allocation_tuple())))
             return
 
         peer_address = indication.get_xor_address(XOR_PEER_ADDRESS)
@@ -578,8 +578,8 @@ class StunHandler(object):
             return
 
         if not peer_address.host in allocation.permissions:
-            print("Dropping send indication, no permission for {} on tuple {}"
-                  .format(peer_address.host, self.get_allocation_tuple()))
+            print(("Dropping send indication, no permission for {} on tuple {}"
+                  .format(peer_address.host, self.get_allocation_tuple())))
             return
 
         allocation.transport.write(data_attr.data,
@@ -594,7 +594,7 @@ class StunHandler(object):
 
     def make_error_response(self, request, code, reason=None):
         if reason:
-            print("{}: rejecting with {}".format(reason, code))
+            print(("{}: rejecting with {}".format(reason, code)))
         response = copy.deepcopy(request)
         response.attributes = []
         response.add_error_code(code, reason)
@@ -676,12 +676,12 @@ class TcpStunHandler(protocol.Protocol):
         self.stun_handler.data_received(data, self.address)
 
     def connectionLost(self, reason):
-        print("Lost connection from {}".format(self.address))
+        print(("Lost connection from {}".format(self.address)))
         # Destroy allocations that this connection made
         for key, allocation in allocations.items():
             if allocation.other_transport_handler == self:
-                print("Closing allocation due to dropped connection: {}"
-                      .format(key))
+                print(("Closing allocation due to dropped connection: {}"
+                      .format(key)))
                 del allocations[key]
                 allocation.close()
 
@@ -713,7 +713,7 @@ def prune_allocations():
     now = time.time()
     for key, allocation in allocations.items():
         if allocation.expiry < now:
-            print("Allocation expired: {}".format(key))
+            print(("Allocation expired: {}".format(key)))
             del allocations[key]
             allocation.close()
 
@@ -810,11 +810,11 @@ if __name__ == "__main__":
 $cert_prop}]' # Hack to make it easier to override cert checks
 )
 
-    print(template.substitute(user=turn_user,
+    print((template.substitute(user=turn_user,
                               pwd=turn_pass,
                               hostname=hostname,
                               turns_url=turns_url,
-                              cert_prop=cert_prop))
+                              cert_prop=cert_prop)))
 
     reactor.run()
 

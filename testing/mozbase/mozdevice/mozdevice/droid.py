@@ -251,7 +251,7 @@ def DroidConnectByHWID(hwid, timeout=30, **kwargs):
 
     if foundIP is not None:
         return DroidSUT(foundIP, **kwargs)
-    print "Connected via SUT to %s [at %s]" % (hwid, foundIP)
+    print("Connected via SUT to %s [at %s]" % (hwid, foundIP))
 
     # try connecting via adb
     try:
@@ -259,5 +259,5 @@ def DroidConnectByHWID(hwid, timeout=30, **kwargs):
     except:
         return None
 
-    print "Connected via ADB to %s" % (hwid)
+    print("Connected via ADB to %s" % (hwid))
     return sut

@@ -40,7 +40,7 @@ class unbufferedLineConverter:
     def test():
         assert unbufferedLineConverter("rev").convert("123") == "321"
         assert unbufferedLineConverter("cut", ["-c3"]).convert("abcde") == "c"
-        print "Pass"
+        print("Pass")
 
 objdump_section_re = re.compile("^ [0-9a-f]* ([0-9a-f ]{8}) ([0-9a-f ]{8}) ([0-9a-f ]{8}) ([0-9a-f ]{8}).*")
 def elf_section(file, section):

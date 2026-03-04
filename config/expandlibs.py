@@ -140,4 +140,4 @@ class ExpandArgs(list):
         return [relativize(arg)]
 
 if __name__ == '__main__':
-    print " ".join(ExpandArgs(sys.argv[1:]))
+    print(" ".join(ExpandArgs(sys.argv[1:])))
