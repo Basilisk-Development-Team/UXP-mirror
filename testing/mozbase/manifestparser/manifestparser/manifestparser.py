@@ -178,7 +178,7 @@ class ManifestParser(object):
 
             # otherwise an item
             # apply ancestor defaults, while maintaining current file priority
-            data = dict(self._ancestor_defaults.items() + data.items())
+            data = dict(list(self._ancestor_defaults.items()) + list(data.items()))
 
             test = data
             test['name'] = section
@@ -306,19 +306,19 @@ class ManifestParser(object):
         # make some check functions
         if inverse:
             def has_tags(test):
-                return not tags.intersection(test.keys())
+                return not tags.intersection(list(test.keys()))
 
             def dict_query(test):
-                for key, value in kwargs.items():
+                for key, value in list(kwargs.items()):
                     if test.get(key) == value:
                         return False
                 return True
         else:
             def has_tags(test):
-                return tags.issubset(test.keys())
+                return tags.issubset(list(test.keys()))
 
             def dict_query(test):
-                for key, value in kwargs.items():
+                for key, value in list(kwargs.items()):
                     if test.get(key) != value:
                         return False
                 return True
@@ -340,7 +340,7 @@ class ManifestParser(object):
         """
         if tests is None:
             # Make sure to return all the manifests, even ones without tests.
-            return self.manifest_defaults.keys()
+            return list(self.manifest_defaults.keys())
 
         manifests = []
         for test in tests:
@@ -452,7 +452,7 @@ class ManifestParser(object):
             print('[DEFAULT]', file=fp)
             for tag in global_tags:
                 print('%s =' % tag, file=fp)
-            for key, value in global_kwargs.items():
+            for key, value in list(global_kwargs.items()):
                 print('%s = %s' % (key, value), file=fp)
             print(file=fp)
 

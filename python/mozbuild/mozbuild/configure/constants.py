@@ -58,7 +58,7 @@ CPU_bitness = {
     'x86_64': 64,
 }
 
-CPU = EnumString.subclass(*CPU_bitness.keys())
+CPU = EnumString.subclass(*list(CPU_bitness.keys()))
 
 Endianness = EnumString.subclass(
     'big',

@@ -42,7 +42,7 @@ class Tree(object):
         old = None
         new = tuple(parts)
         t = self
-        for k, v in self.branches.iteritems():
+        for k, v in self.branches.items():
             for i, part in enumerate(zip(k, parts)):
                 if part[0] != part[1]:
                     i -= 1
@@ -79,7 +79,7 @@ class Tree(object):
         If flag is 'value', key_or_value is a value object, otherwise
         (flag is 'key') it's a key string.
         '''
-        keys = self.branches.keys()
+        keys = list(self.branches.keys())
         keys.sort()
         if self.value is not None:
             yield (depth, 'value', self.value)
@@ -94,7 +94,7 @@ class Tree(object):
         Only the values need to take care that they're JSON-able.
         '''
         json = {}
-        keys = self.branches.keys()
+        keys = list(self.branches.keys())
         keys.sort()
         if self.value is not None:
             json['value'] = self.value
@@ -203,14 +203,14 @@ class Observer(object):
 
         self.summary = defaultdict(intdict)
         if 'summary' in state:
-            for loc, stats in state['summary'].iteritems():
+            for loc, stats in state['summary'].items():
                 self.summary[loc].update(stats)
         self.details = state['details']
         self.filter = None
 
     def getSummary(self):
         plaindict = {}
-        for k, v in self.summary.iteritems():
+        for k, v in self.summary.items():
             plaindict[k] = dict(v)
         return plaindict
 
@@ -261,7 +261,7 @@ class Observer(object):
 
     def toExhibit(self):
         items = []
-        for locale in sorted(self.summary.iterkeys()):
+        for locale in sorted(self.summary.keys()):
             summary = self.summary[locale]
             if locale is not None:
                 item = {'id': 'xxx/' + locale,
@@ -339,10 +339,10 @@ class Observer(object):
             return '\n'.join(o)
 
         out = []
-        for locale, summary in sorted(self.summary.iteritems()):
+        for locale, summary in sorted(self.summary.items()):
             if locale is not None:
                 out.append(locale + ':')
-            out += [k + ': ' + str(v) for k, v in sorted(summary.iteritems())]
+            out += [k + ': ' + str(v) for k, v in sorted(summary.items())]
             total = sum([summary[k]
                          for k in ['changed', 'unchanged', 'report', 'missing',
                                    'missingInFiles']
@@ -453,7 +453,7 @@ class ContentComparer:
                 return
             self.reference[ref_file] = p.parse()
         ref = self.reference[ref_file]
-        ref_list = ref[1].keys()
+        ref_list = list(ref[1].keys())
         ref_list.sort()
         try:
             p.readContents(l10n.getContents())
@@ -473,7 +473,7 @@ class ContentComparer:
                     return (i, offset - lines[i - 1])
             return (1, offset)
 
-        l10n_list = l10n_map.keys()
+        l10n_list = list(l10n_map.keys())
         l10n_list.sort()
         ar = AddRemove()
         ar.set_left(ref_list)

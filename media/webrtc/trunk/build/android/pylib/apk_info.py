@@ -129,7 +129,7 @@ class ApkInfo(object):
 
   def GetAnnotatedTests(self, annotation_filter_list):
     """Returns a list of all tests that match the given annotation filters."""
-    return [test for test, annotations in self._GetAnnotationMap().iteritems()
+    return [test for test, annotations in self._GetAnnotationMap().items()
             if self._IsTestMethod(test) and self._AnnotationsMatchFilters(
                 annotation_filter_list, annotations)]
 

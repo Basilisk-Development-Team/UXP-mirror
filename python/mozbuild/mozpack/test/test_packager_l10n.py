@@ -118,7 +118,7 @@ class TestL10NRepack(unittest.TestCase):
 
         self.assertEqual(
             dict((p, f.open().read()) for p, f in copier),
-            dict((p, f.open().read()) for p, f in repacked.iteritems())
+            dict((p, f.open().read()) for p, f in repacked.items())
         )
 
 

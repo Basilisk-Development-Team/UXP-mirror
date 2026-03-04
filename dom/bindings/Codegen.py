@@ -9728,7 +9728,7 @@ class CGEnum(CGThing):
                           name=ENUM_ENTRY_VARIABLE_NAME,
                           count=self.nEnumStrings(),
                           entries=''.join('{"%s", %d},\n' % (val, len(val))
-                                          for val in self.enum.values()))))
+                                          for val in list(self.enum.values())))))
         toJSValue = CGEnumToJSValue(enum)
         self.cgThings = CGList([strings, toJSValue], "\n")
 
@@ -9736,7 +9736,7 @@ class CGEnum(CGThing):
         return self.enum.identifier.name + "Values"
 
     def nEnumStrings(self):
-        return len(self.enum.values()) + 1
+        return len(list(self.enum.values())) + 1
 
     def declare(self):
         decl = fill(
@@ -9747,7 +9747,7 @@ class CGEnum(CGThing):
             };
             """,
             name=self.enum.identifier.name,
-            enums=",\n".join(map(getEnumValueName, self.enum.values())) + ",\n")
+            enums=",\n".join(map(getEnumValueName, list(self.enum.values()))) + ",\n")
         strings = CGNamespace(self.stringsNamespace(),
                               CGGeneric(declare="extern const EnumEntry %s[%d];\n"
                                         % (ENUM_ENTRY_VARIABLE_NAME, self.nEnumStrings())))
@@ -13658,7 +13658,7 @@ class ForwardDeclarationBuilder:
         if self.decls:
             decls.append(CGList([CGClassForwardDeclare(cname, isStruct)
                                  for cname, isStruct in sorted(self.decls)]))
-        for namespace, child in sorted(self.children.iteritems()):
+        for namespace, child in sorted(self.children.items()):
             decls.append(CGNamespace(namespace, child._build(atTopLevel=False), declareOnly=True))
 
         cg = CGList(decls, "\n")
@@ -14008,10 +14008,10 @@ class CGBindingRoot(CGThing):
 
         # Add header includes.
         bindingHeaders = [header
-                          for header, include in bindingHeaders.iteritems()
+                          for header, include in bindingHeaders.items()
                           if include]
         bindingDeclareHeaders = [header
-                                 for header, include in bindingDeclareHeaders.iteritems()
+                                 for header, include in bindingDeclareHeaders.items()
                                  if include]
 
         curr = CGHeaders(descriptors,
@@ -14619,7 +14619,7 @@ class CGBindingImplClass(CGClass):
                                (returnType, args),
                                descriptor.getExtendedAttributes(op)))
         # Sort things by name so we get stable ordering in the output.
-        ops = descriptor.operations.items()
+        ops = list(descriptor.operations.items())
         ops.sort(key=lambda x: x[0])
         for name, op in ops:
             appendSpecialOperation(name, op)
@@ -16969,7 +16969,7 @@ class GlobalGenRoots():
     @staticmethod
     def UnionConversions(config):
         unionTypes = []
-        for l in config.unionsPerFilename.itervalues():
+        for l in config.unionsPerFilename.values():
             unionTypes.extend(l)
         unionTypes.sort(key=lambda u: u.name)
         headers, unions = UnionConversions(unionTypes,

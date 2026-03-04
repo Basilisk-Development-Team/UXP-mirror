@@ -336,7 +336,7 @@ class TestConfigure(unittest.TestCase):
         self.assertIs(sandbox['foo'](), sandbox)
 
         # Nothing leaked from the function being executed
-        self.assertEquals(sandbox.keys(), ['__builtins__', 'foo'])
+        self.assertEquals(list(sandbox.keys()), ['__builtins__', 'foo'])
         self.assertEquals(sandbox['__builtins__'], ConfigureSandbox.BUILTINS)
 
         exec_(textwrap.dedent('''

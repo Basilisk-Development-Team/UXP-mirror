@@ -832,7 +832,7 @@ class DeviceManagerSUT(DeviceManager):
             result[d] = data.split('\n')
 
         # Get rid of any 0 length members of the arrays
-        for k, v in result.iteritems():
+        for k, v in result.items():
             result[k] = [x for x in result[k] if x != '']
 
         # Format the process output
@@ -920,7 +920,7 @@ class DeviceManagerSUT(DeviceManager):
         if (env is None or env == ''):
             return ''
 
-        retVal = '"%s"' % ','.join(['%s=%s' % (x[0], x[1]) for x in env.iteritems()])
+        retVal = '"%s"' % ','.join(['%s=%s' % (x[0], x[1]) for x in env.items()])
         if (retVal == '""'):
             return ''
 

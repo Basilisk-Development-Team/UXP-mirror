@@ -179,7 +179,7 @@ def _setup_logging():
 def _getTargets():
     """Find all targets and return a dict of targetName:targetFunc items."""
     targets = {}
-    for name, attr in sys.modules[__name__].__dict__.items():
+    for name, attr in list(sys.modules[__name__].__dict__.items()):
         if name.startswith('target_'):
             targets[ name[len('target_'):] ] = attr
     return targets
@@ -188,7 +188,7 @@ def _listTargets(targets):
     """Pretty print a list of targets."""
     width = 77
     nameWidth = 15 # min width
-    for name in targets.keys():
+    for name in list(targets.keys()):
         nameWidth = max(nameWidth, len(name))
     nameWidth += 2  # space btwn name and doc
     format = "%%-%ds%%s" % nameWidth

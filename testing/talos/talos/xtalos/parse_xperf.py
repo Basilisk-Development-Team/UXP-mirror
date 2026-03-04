@@ -33,7 +33,7 @@ def stop_from_config(config_file=None, debug=False, **kwargs):
         kwargs = xtalos.options_from_config(kwargs, config_file)
 
     # ensure the required options are given
-    for key, msg in required.items():
+    for key, msg in list(required.items()):
         if not kwargs.get(key):
             raise xtalos.XTalosError(msg)
 

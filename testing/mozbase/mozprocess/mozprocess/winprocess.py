@@ -151,7 +151,7 @@ class EnvironmentBlock:
         else:
             values = []
             fs_encoding = sys.getfilesystemencoding() or 'mbcs'
-            for k, v in env.iteritems():
+            for k, v in env.items():
                 if isinstance(k, bytes):
                     k = k.decode(fs_encoding, 'replace')
                 if isinstance(v, bytes):

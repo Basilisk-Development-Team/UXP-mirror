@@ -297,7 +297,7 @@ def etlparser(xperf_path, etl_filename, processID, approot=None,
         mozfile.remove(csvname)
 
     output = "thread, stage, counter, value\n"
-    for cntr in sorted(io.iterkeys()):
+    for cntr in sorted(io.keys()):
         output += "%s, %s\n" % (", ".join(cntr), str(io[cntr]))
     if outputFile:
         fname = "%s_thread_stats%s" % os.path.splitext(outputFile)
@@ -314,7 +314,7 @@ def etlparser(xperf_path, etl_filename, processID, approot=None,
 
     # Filter out stages, threads, and whitelisted files that we're not
     # interested in
-    filekeys = [x for x in files.iterkeys() if (all_stages or x[2] == stages[0]) and
+    filekeys = [x for x in files.keys() if (all_stages or x[2] == stages[0]) and
                                 (all_threads or x[1].endswith("(main)")) and
                                 (all_stages and x[2] != stages[0] or
                                  not checkWhitelist(x[0], whitelist))]

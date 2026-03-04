@@ -140,7 +140,7 @@ class MockedOpen(object):
     '''
     def __init__(self, files = {}):
         self.files = {}
-        for name, content in files.iteritems():
+        for name, content in files.items():
             self.files[normcase(os.path.abspath(name))] = content
 
     def __call__(self, name, mode = 'r'):

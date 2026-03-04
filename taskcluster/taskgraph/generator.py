@@ -155,7 +155,7 @@ class TaskGraphGenerator(object):
         # in post-order
         kinds = {kind.name: kind for kind in self._load_kinds()}
         edges = set()
-        for kind in kinds.itervalues():
+        for kind in kinds.values():
             for dep in kind.config.get('kind-dependencies', []):
                 edges.add((kind.name, dep, 'kind-dependency'))
         kind_graph = Graph(set(kinds), edges)

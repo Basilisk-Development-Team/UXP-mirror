@@ -118,7 +118,7 @@ class Component(object):
         destdir = options.pop('destdir', '')
         if options:
             errors.fatal('Malformed manifest: options %s not recognized'
-                         % options.keys())
+                         % list(options.keys()))
         return Component(name, destdir=destdir)
 
 
@@ -328,7 +328,7 @@ class SimplePackager(object):
 
         bases = self.get_bases()
         broken_bases = sorted(
-            m for m, includer in self._included_manifests.iteritems()
+            m for m, includer in self._included_manifests.items()
             if mozpath.basedir(m, bases) != mozpath.basedir(includer, bases))
         for m in broken_bases:
             errors.fatal('"%s" is included from "%s", which is outside "%s"' %

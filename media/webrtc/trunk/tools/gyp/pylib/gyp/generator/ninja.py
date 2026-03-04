@@ -838,7 +838,7 @@ class NinjaWriter(object):
         'XCASSETS_LAUNCH_IMAGE': 'launch-image',
     }
     settings = self.xcode_settings.xcode_settings[self.config_name]
-    for settings_key, arg_name in settings_to_arg.iteritems():
+    for settings_key, arg_name in settings_to_arg.items():
       value = settings.get(settings_key)
       if value:
         extra_arguments[arg_name] = value
@@ -1943,7 +1943,7 @@ def GenerateOutputForConfig(target_list, target_dicts, data, params,
       wrappers[key[:-len('_wrapper')]] = os.path.join(build_to_root, value)
 
   # Support wrappers from environment variables too.
-  for key, value in os.environ.iteritems():
+  for key, value in os.environ.items():
     if key.lower().endswith('_wrapper'):
       key_prefix = key[:-len('_wrapper')]
       key_prefix = re.sub(r'\.HOST$', '.host', key_prefix)
@@ -1963,7 +1963,7 @@ def GenerateOutputForConfig(target_list, target_dicts, data, params,
               configs, generator_flags)
     cl_paths = gyp.msvs_emulation.GenerateEnvironmentFiles(
         toplevel_build, generator_flags, shared_system_includes, OpenOutput)
-    for arch, path in sorted(cl_paths.iteritems()):
+    for arch, path in sorted(cl_paths.items()):
       if clang_cl:
         # If we have selected clang-cl, use that instead.
         path = clang_cl
@@ -2465,7 +2465,7 @@ def GenerateOutput(target_list, target_dicts, data, params):
     GenerateOutputForConfig(target_list, target_dicts, data, params,
                             user_config)
   else:
-    config_names = target_dicts[target_list[0]]['configurations'].keys()
+    config_names = list(target_dicts[target_list[0]]['configurations'].keys())
     if params['parallel']:
       try:
         pool = multiprocessing.Pool(len(config_names))

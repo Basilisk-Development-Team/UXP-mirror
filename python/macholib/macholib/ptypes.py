@@ -183,7 +183,7 @@ def _make():
             kwargs = args[0]._objects_
             args = ()
         self._objects_ = {}
-        iargs = chain(izip(self._names_, args), kwargs.items())
+        iargs = chain(izip(self._names_, args), list(kwargs.items()))
         for key, value in iargs:
             if key not in self._names_ and key != "_endian_":
                 raise TypeError

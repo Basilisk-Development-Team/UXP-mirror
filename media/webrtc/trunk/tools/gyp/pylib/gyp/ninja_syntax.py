@@ -81,7 +81,7 @@ class Writer(object):
 
         if variables:
             if isinstance(variables, dict):
-                iterator = iter(variables.items())
+                iterator = iter(list(variables.items()))
             else:
                 iterator = iter(variables)
 

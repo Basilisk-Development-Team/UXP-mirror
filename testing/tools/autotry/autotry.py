@@ -43,7 +43,7 @@ def arg_parser():
     parser.add_argument('-v', '--verbose', dest='verbose', action='store_true', default=False,
                         help='Print detailed information about the resulting test selection '
                         'and commands performed.')
-    for arg, opts in AutoTry.pass_through_arguments.items():
+    for arg, opts in list(AutoTry.pass_through_arguments.items()):
         parser.add_argument(arg, **opts)
     return parser
 
@@ -351,7 +351,7 @@ class AutoTry(object):
                     dir_relpath = os.path.dirname(file_relpath)
                     paths_by_flavor[flavor].add(dir_relpath)
 
-        for flavor, path_set in paths_by_flavor.items():
+        for flavor, path_set in list(paths_by_flavor.items()):
             paths_by_flavor[flavor] = self.deduplicate_prefixes(path_set, paths)
 
         return dict(paths_by_flavor)
@@ -388,7 +388,7 @@ class AutoTry(object):
 
         suites = tests if not intersection else {}
         paths = set()
-        for flavor, flavor_tests in paths_by_flavor.iteritems():
+        for flavor, flavor_tests in paths_by_flavor.items():
             suite = self.flavor_suites[flavor]
             if suite not in suites and (not intersection or suite in tests):
                 for job_name in self.flavor_jobs[flavor]:
@@ -401,7 +401,7 @@ class AutoTry(object):
 
         if extras.get('artifact'):
             rejected = []
-            for suite in suites.keys():
+            for suite in list(suites.keys()):
                 if any([suite.startswith(c) for c in self.compiled_suites]):
                     rejected.append(suite)
             if rejected:
@@ -422,8 +422,8 @@ class AutoTry(object):
         if paths:
             parts.append("--try-test-paths %s" % " ".join(sorted(paths)))
 
-        args_by_dest = {v['dest']: k for k, v in AutoTry.pass_through_arguments.items()}
-        for dest, value in extras.iteritems():
+        args_by_dest = {v['dest']: k for k, v in list(AutoTry.pass_through_arguments.items())}
+        for dest, value in extras.items():
             assert dest in args_by_dest
             arg = args_by_dest[dest]
             action = AutoTry.pass_through_arguments[arg]['action']
@@ -438,7 +438,7 @@ class AutoTry(object):
                 parts.append(arg)
 
         try_syntax = " ".join(parts)
-        if extras.get('artifact') and 'all' in suites.keys():
+        if extras.get('artifact') and 'all' in list(suites.keys()):
             message = ('You asked for |-u all| with |--artifact| but compiled-code tests ({tests})'
                        ' can\'t run against an artifact build. Try listing the suites you want'
                        ' instead. For example, this syntax covers most suites:\n{try_syntax}')
@@ -572,7 +572,7 @@ class AutoTry(object):
             reader = BuildReader(config)
             files_info = reader.files_info(changed_files)
 
-            for path, info in files_info.items():
+            for path, info in list(files_info.items()):
                 paths |= info.test_files
                 tags |= info.test_tags
 

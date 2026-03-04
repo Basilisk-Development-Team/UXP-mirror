@@ -82,7 +82,7 @@ class StylishFormatter(object):
 
         num_errors = 0
         num_warnings = 0
-        for path, errors in sorted(result.iteritems()):
+        for path, errors in sorted(result.items()):
             self._reset_max()
 
             message.append(self.term.underline(path))

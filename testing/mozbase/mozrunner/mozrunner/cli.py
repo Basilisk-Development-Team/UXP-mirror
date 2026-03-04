@@ -63,7 +63,7 @@ class CLI(MozProfileCLI):
             self.profile_class = get_app_context(app).profile_class
         except KeyError:
             self.parser.error('Application "%s" unknown (should be one of "%s")' %
-                              (app, ', '.join(runners.keys())))
+                              (app, ', '.join(list(runners.keys()))))
 
     def add_options(self, parser):
         """add options to the parser"""

@@ -122,7 +122,7 @@ class _TreeDiff(dircmp):
         rv['diff_files'] += [basepath.format(l) for l in dc.diff_files]
         rv['funny'] += [basepath.format(l) for l in dc.common_funny]
         rv['funny'] += [basepath.format(l) for l in dc.funny_files]
-        for subdir, _dc in dc.subdirs.iteritems():
+        for subdir, _dc in dc.subdirs.items():
             self._fillDiff(_dc, rv, basepath.format(subdir + "/{0}"))
     def allResults(self, left, right):
         rv = {'right_only':[], 'left_only':[],
@@ -295,7 +295,7 @@ class TestJarMaker(unittest.TestCase):
             ('hoge', 'foo', '2'): ('qux', 'foo', '2'),
             ('hoge', 'baz'): ('qux', 'baz'),
         }
-        for dest, src in expected_symlinks.iteritems():
+        for dest, src in expected_symlinks.items():
             srcpath = os.path.join(self.srcdir, *src)
             destpath = os.path.join(self.builddir, 'chrome', 'test', 'dir',
                                     *dest)

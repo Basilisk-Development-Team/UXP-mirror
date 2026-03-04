@@ -183,7 +183,7 @@ class ArtifactJob(object):
 
         with JarWriter(file=processed_filename, optimize=False, compress_level=5) as writer:
             reader = JarReader(filename)
-            for filename, entry in reader.entries.iteritems():
+            for filename, entry in reader.entries.items():
                 for pattern, (src_prefix, dest_prefix) in self.test_artifact_patterns:
                     if not mozpath.match(filename, pattern):
                         continue
@@ -552,7 +552,7 @@ class CacheManager(object):
 
     def print_cache(self):
         with self:
-            for item in self._cache.items():
+            for item in list(self._cache.items()):
                 self.log(logging.INFO, 'artifact',
                     {'item': item},
                     '{item}')
@@ -565,7 +565,7 @@ class CacheManager(object):
         # We use the persisted LRU caches to our advantage.  The first item is
         # most recent.
         with self:
-            item = next(self._cache.items(), None)
+            item = next(list(self._cache.items()), None)
             if item is not None:
                 (name, args, sorted_kwargs), result = item
                 self.print_last_item(args, sorted_kwargs, result)
@@ -596,7 +596,7 @@ class PushheadCache(CacheManager):
         if req.status_code not in list(range(200, 300)):
             raise ValueError
         result = req.json()
-        [found_pushid] = result['pushes'].keys()
+        [found_pushid] = list(result['pushes'].keys())
         return int(found_pushid)
 
     @cachedmethod(operator.attrgetter('_cache'))
@@ -609,7 +609,7 @@ class PushheadCache(CacheManager):
                            headers={'Accept': 'application/json'})
         result = req.json()
         return [
-            p['changesets'][-1] for p in result['pushes'].values()
+            p['changesets'][-1] for p in list(result['pushes'].values())
         ]
 
 class TaskCache(CacheManager):
@@ -847,7 +847,7 @@ class Artifacts(object):
 
             candidate_pushheads = collections.defaultdict(list)
 
-            for tree, pushid in found_pushids.iteritems():
+            for tree, pushid in found_pushids.items():
                 end = pushid
                 start = pushid - NUM_PUSHHEADS_TO_QUERY_PER_PARENT
 

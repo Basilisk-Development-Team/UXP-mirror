@@ -258,7 +258,7 @@ class TestingMixin(VirtualenvMixin, BuildbotMixin, ResourceMonitoringMixin,
         if c.get("test_packages_url"):
             c["test_packages_url"] = _replace_url(c["test_packages_url"], c["replace_urls"])
 
-        for key, value in self.config.iteritems():
+        for key, value in self.config.items():
             if type(value) == str and value.startswith("http"):
                 self.config[key] = _replace_url(value, c["replace_urls"])
 

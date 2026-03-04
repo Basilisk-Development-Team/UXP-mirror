@@ -855,7 +855,7 @@ def upload(manifest, message, base_urls, auth_file, region):
     # Upload the files, each in a thread.  This allows us to start all of the
     # uploads before any of the URLs expire.
     threads = {}
-    for filename, file in files.iteritems():
+    for filename, file in files.items():
         if 'put_url' in file:
             log.info("%s: starting upload" % (filename,))
             thd = threading.Thread(target=_s3_upload,
@@ -869,7 +869,7 @@ def upload(manifest, message, base_urls, auth_file, region):
     # re-join all of those threads as they exit
     success = True
     while threads:
-        for filename, thread in threads.items():
+        for filename, thread in list(threads.items()):
             if not thread.is_alive():
                 # _s3_upload has annotated file with result information
                 file = files[filename]
@@ -885,7 +885,7 @@ def upload(manifest, message, base_urls, auth_file, region):
     # notify the server that the uploads are completed.  If the notification
     # fails, we don't consider that an error (the server will notice
     # eventually)
-    for filename, file in files.iteritems():
+    for filename, file in files.items():
         if 'put_url' in file and file['upload_ok']:
             log.info("notifying server of upload completion for %s" % (filename,))
             _notify_upload_complete(base_urls[0], auth_file, file)

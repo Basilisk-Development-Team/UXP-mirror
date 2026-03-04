@@ -36,7 +36,7 @@ class TestContext(unittest.TestCase):
             'baz': (dict, dict, ''),
         })
 
-        self.assertEqual(test.keys(), [])
+        self.assertEqual(list(test.keys()), [])
 
         self.assertEqual(test['foo'], 0)
 
@@ -84,12 +84,12 @@ class TestContext(unittest.TestCase):
             'baz': (dict, list, ''),
         })
 
-        self.assertEqual(test.keys(), [])
+        self.assertEqual(list(test.keys()), [])
 
         with self.assertRaises(ValueError):
             test.update(bar=True, foo={})
 
-        self.assertEqual(test.keys(), [])
+        self.assertEqual(list(test.keys()), [])
 
         test.update(bar=True, foo=1)
 
@@ -258,19 +258,19 @@ class TestSymbols(unittest.TestCase):
         self.assertEqual(lines[-1].strip(), '')
 
     def test_documentation_formatting(self):
-        for typ, inp, doc in VARIABLES.values():
+        for typ, inp, doc in list(VARIABLES.values()):
             self._verify_doc(doc)
 
-        for attr, args, doc in FUNCTIONS.values():
+        for attr, args, doc in list(FUNCTIONS.values()):
             self._verify_doc(doc)
 
-        for func, typ, doc in SPECIAL_VARIABLES.values():
+        for func, typ, doc in list(SPECIAL_VARIABLES.values()):
             self._verify_doc(doc)
 
-        for name, cls in SUBCONTEXTS.items():
+        for name, cls in list(SUBCONTEXTS.items()):
             self._verify_doc(cls.__doc__)
 
-            for name, v in cls.VARIABLES.items():
+            for name, v in list(cls.VARIABLES.items()):
                 self._verify_doc(v[2])
 
 

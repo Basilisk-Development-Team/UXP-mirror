@@ -410,7 +410,7 @@ def _GetUnqualifiedToTargetMapping(all_targets, to_find):
   if not to_find:
     return {}, []
   to_find = set(to_find)
-  for target_name in all_targets.keys():
+  for target_name in list(all_targets.keys()):
     extracted = gyp.common.ParseQualifiedTarget(target_name)
     if len(extracted) > 1 and extracted[1] in to_find:
       to_find.remove(extracted[1])
@@ -669,7 +669,7 @@ class TargetCalculator(object):
     assert self.is_build_impacted();
     # Compile targets are found by searching up from changed targets.
     # Reset the visited status for _GetBuildTargets.
-    for target in self._name_to_target.itervalues():
+    for target in self._name_to_target.values():
       target.visited = False
 
     supplied_targets = _LookupTargets(self._supplied_target_names_no_all(),

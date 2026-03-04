@@ -232,7 +232,7 @@ def BuildCleaner(args):
   with open(os.path.join(args.src_dir, 'lib/CMakeLists.txt'), 'r') as f:
     cmake_text = f.read()
   version = {'major_version': '', 'minor_version': '', 'patch_version': ''}
-  for var in version.keys():
+  for var in list(version.keys()):
     cmake_var = f'JPEGXL_{var.upper()}'
     # TODO(eustas): use `cmake -L`
     # Regexp:

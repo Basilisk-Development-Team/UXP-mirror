@@ -64,7 +64,7 @@ def eval_marker(value):
 
     class M:
         def __init__(self, **kwds):
-            for k, v in kwds.items():
+            for k, v in list(kwds.items()):
                 setattr(self, k, v)
 
     variables = {
@@ -634,7 +634,7 @@ else:
             sep_boundary = '\n--' + boundary
             end_boundary = sep_boundary + '--'
             body = StringIO.StringIO()
-            for key, value in data.items():
+            for key, value in list(data.items()):
                 if not isinstance(value, list):
                     value = [value]
 

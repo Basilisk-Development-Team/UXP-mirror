@@ -499,7 +499,7 @@ cmd_infoplist = $(CC.$(TOOLSET)) -E -P -Wno-trigraphs -x c $(INFOPLIST_DEFINES) 
 
 
 def WriteRootHeaderSuffixRules(writer):
-  extensions = sorted(COMPILABLE_EXTENSIONS.keys(), key=str.lower)
+  extensions = sorted(list(COMPILABLE_EXTENSIONS.keys()), key=str.lower)
 
   writer.write('# Suffix rules, putting all outputs into $(obj).\n')
   for ext in extensions:
@@ -645,7 +645,7 @@ def _ValidateSourcesForOSX(spec, all_sources):
     basenames.setdefault(basename, []).append(source)
 
   error = ''
-  for basename, files in basenames.iteritems():
+  for basename, files in basenames.items():
     if len(files) > 1:
       error += '  %s: %s\n' % (basename, ' '.join(files))
 
@@ -680,7 +680,7 @@ class MakefileWriter(object):
     self.suffix_rules_objdir2 = {}
 
     # Generate suffix rules for all compilable extensions.
-    for ext in COMPILABLE_EXTENSIONS.keys():
+    for ext in list(COMPILABLE_EXTENSIONS.keys()):
       # Suffix rules for source folder.
       self.suffix_rules_srcdir.update({ext: ("""\
 $(obj).$(TOOLSET)/$(TARGET)/%%.o: $(srcdir)/%%%s FORCE_DO_CMD

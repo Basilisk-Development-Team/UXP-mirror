@@ -356,7 +356,7 @@ class ProfileSymbolicator:
                 libs_with_symbols[lib["start"]] = {
                     "library": lib, "symbols": set()}
             libs_with_symbols[lib["start"]]["symbols"].add(address)
-        return libs_with_symbols.values()
+        return list(libs_with_symbols.values())
 
     def _module_from_lib(self, lib):
         if "breakpadId" in lib:

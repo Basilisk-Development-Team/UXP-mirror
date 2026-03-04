@@ -280,7 +280,7 @@ class Scanner(object):
         # - should be no longer than 1024 characters.
         # Disabling this procedure will allow simple keys of any length and
         # height (may cause problems if indentation is broken though).
-        for level in self.possible_simple_keys.keys():
+        for level in list(self.possible_simple_keys.keys()):
             key = self.possible_simple_keys[level]
             if key.line != self.line  \
                     or self.index-key.index > 1024:

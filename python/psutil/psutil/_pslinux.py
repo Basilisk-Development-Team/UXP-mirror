@@ -601,7 +601,7 @@ def net_if_stats():
     duplex_map = {cext.DUPLEX_FULL: NIC_DUPLEX_FULL,
                   cext.DUPLEX_HALF: NIC_DUPLEX_HALF,
                   cext.DUPLEX_UNKNOWN: NIC_DUPLEX_UNKNOWN}
-    names = net_io_counters().keys()
+    names = list(net_io_counters().keys())
     ret = {}
     for name in names:
         isup, duplex, speed, mtu = cext.net_if_stats(name)

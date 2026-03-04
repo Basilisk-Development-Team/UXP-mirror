@@ -127,7 +127,7 @@ class TestFileRegistry(BaseTestFileRegistry, unittest.TestCase):
             'bar': [],
         }
         reg = FileRegistry()
-        for path, parts in cases.iteritems():
+        for path, parts in cases.items():
             self.assertEqual(reg._partial_paths(path), parts)
 
     def test_file_registry(self):

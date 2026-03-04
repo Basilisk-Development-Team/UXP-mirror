@@ -45,11 +45,11 @@ def config_status(config):
 
     sanitized_config = {}
     sanitized_config['substs'] = {
-        k: sanitized_bools(v) for k, v in config.iteritems()
+        k: sanitized_bools(v) for k, v in config.items()
         if k not in ('DEFINES', 'non_global_defines', 'TOPSRCDIR', 'TOPOBJDIR')
     }
     sanitized_config['defines'] = {
-        k: sanitized_bools(v) for k, v in config['DEFINES'].iteritems()
+        k: sanitized_bools(v) for k, v in config['DEFINES'].items()
     }
     sanitized_config['non_global_defines'] = config['non_global_defines']
     sanitized_config['topsrcdir'] = config['TOPSRCDIR']
@@ -71,7 +71,7 @@ def config_status(config):
         ''') % {'python': config['PYTHON'], 'encoding': encoding})
         # A lot of the build backend code is currently expecting byte
         # strings and breaks in subtle ways with unicode strings. (bug 1296508)
-        for k, v in sanitized_config.iteritems():
+        for k, v in sanitized_config.items():
             fh.write('%s = encode(%s, encoding)\n' % (k, indented_repr(v)))
         fh.write("__all__ = ['topobjdir', 'topsrcdir', 'defines', "
                  "'non_global_defines', 'substs', 'mozconfig']")

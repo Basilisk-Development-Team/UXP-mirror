@@ -451,7 +451,7 @@ class ConfigOptionParser(optparse.OptionParser):
         # 2. environmental variables
         config.update(dict(self.get_environ_vars()))
         # Then set the options with those values
-        for key, val in config.items():
+        for key, val in list(config.items()):
             key = key.replace('_', '-')
             if not key.startswith('--'):
                 key = '--%s' % key  # only prefer long opts
@@ -490,7 +490,7 @@ class ConfigOptionParser(optparse.OptionParser):
         """
         Returns a generator with all environmental vars with prefix VIRTUALENV
         """
-        for key, val in os.environ.items():
+        for key, val in list(os.environ.items()):
             if key.startswith(prefix):
                 yield (key.replace(prefix, '').lower(), val)
 
@@ -1459,7 +1459,7 @@ def install_files(home_dir, bin_dir, prompt, files):
     if hasattr(home_dir, 'decode'):
         home_dir = home_dir.decode(sys.getfilesystemencoding())
     vname = os.path.basename(home_dir)
-    for name, content in files.items():
+    for name, content in list(files.items()):
         content = content.replace('__VIRTUAL_PROMPT__', prompt or '')
         content = content.replace('__VIRTUAL_WINPROMPT__', prompt or '(%s)' % vname)
         content = content.replace('__VIRTUAL_ENV__', home_dir)
@@ -1473,7 +1473,7 @@ def install_python_config(home_dir, bin_dir, prompt=None):
     else:
         files = {'python-config': PYTHON_CONFIG}
     install_files(home_dir, bin_dir, prompt, files)
-    for name, content in files.items():
+    for name, content in list(files.items()):
         make_exe(os.path.join(bin_dir, name))
 
 def install_distutils(home_dir):
@@ -1519,7 +1519,7 @@ def fix_lib64(lib_dir, symlink=True):
         logger.debug('PyPy detected, skipping lib64 symlinking')
         return
     # Check we have a lib64 library path
-    if not [p for p in distutils.sysconfig.get_config_vars().values()
+    if not [p for p in list(distutils.sysconfig.get_config_vars().values())
             if isinstance(p, basestring) and 'lib64' in p]:
         return
 

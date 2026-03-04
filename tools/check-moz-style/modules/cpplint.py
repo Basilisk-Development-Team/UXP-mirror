@@ -2854,7 +2854,7 @@ def check_for_include_what_you_use(filename, clean_lines, include_state, error,
 
     # include_state is modified during iteration, so we iterate over a copy of
     # the keys.
-    for header in include_state.keys():  #NOLINT
+    for header in list(include_state.keys()):  #NOLINT
         (same_module, common_path) = files_belong_to_same_module(abs_filename, header)
         fullpath = common_path + header
         if same_module and update_include_state(fullpath, include_state, io):

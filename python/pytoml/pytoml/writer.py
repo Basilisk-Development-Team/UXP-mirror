@@ -102,7 +102,7 @@ def dump(fout, obj, sort_keys=False):
             else:
                 fout.write('[{0}]\n'.format(section_name))
 
-        table_keys = sorted(table.keys()) if sort_keys else table.keys()
+        table_keys = sorted(table.keys()) if sort_keys else list(table.keys())
         for k in table_keys:
             v = table[k]
             if isinstance(v, dict):

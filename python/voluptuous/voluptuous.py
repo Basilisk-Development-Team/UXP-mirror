@@ -99,11 +99,11 @@ if sys.version_info >= (3,):
     unicode = str
     basestring = str
     ifilter = filter
-    iteritems = lambda d: d.items()
+    iteritems = lambda d: list(d.items())
 else:
     from itertools import ifilter
     import urlparse
-    iteritems = lambda d: d.iteritems()
+    iteritems = lambda d: iter(d.items())
 
 
 __author__ = 'Alec Thomas <alec@swapoff.org>'
@@ -619,7 +619,7 @@ class Schema(object):
                 raise DictInvalid('expected a dictionary', path)
 
             errors = []
-            for label, group in groups_of_exclusion.items():
+            for label, group in list(groups_of_exclusion.items()):
                 exists = False
                 for exclusive in group:
                     if exclusive.schema in data:
@@ -634,7 +634,7 @@ class Schema(object):
             if errors:
                 raise MultipleInvalid(errors)
 
-            for label, group in groups_of_inclusion.items():
+            for label, group in list(groups_of_inclusion.items()):
                 included = [node.schema in data for node in group]
                 if any(included) and not all(included):
                     msg = "some but not all values in the same group of inclusion '%s'" % label

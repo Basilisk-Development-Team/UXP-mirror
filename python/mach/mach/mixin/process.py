@@ -108,7 +108,7 @@ class ProcessExecutionMixin(LoggingMixin):
         # binary. utf-8 is our globally assumed default. If the caller doesn't
         # want UTF-8, they shouldn't pass in a unicode instance.
         normalized_env = {}
-        for k, v in use_env.items():
+        for k, v in list(use_env.items()):
             if isinstance(k, unicode):
                 k = k.encode('utf-8', 'strict')
 

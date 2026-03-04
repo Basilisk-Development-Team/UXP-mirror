@@ -5,7 +5,7 @@ import logging
 from cStringIO import StringIO
 
 def multitest(cls):
-    for name in cls.testdata.iterkeys():
+    for name in cls.testdata.keys():
         def m(self, name=name):
             return self.runSingle(*self.testdata[name])
 
@@ -217,7 +217,7 @@ class MakeSyntaxTest(TestBase):
             else:
                 self.assertEqual(type(a), getattr(pymake.functions, e['type']),
                                  "compareRecursive: %s" % (ipath,))
-                for k, v in e.iteritems():
+                for k, v in e.items():
                     if k == 'type':
                         pass
                     elif k[0] == '[':
@@ -264,7 +264,7 @@ class VariableTest(TestBase):
 
         m = pymake.data.Makefile()
         stmts.execute(m)
-        for k, v in self.expected.iteritems():
+        for k, v in self.expected.items():
             flavor, source, val = m.variables.get(k)
             if val is None:
                 self.assertEqual(val, v, 'variable named %s' % k)

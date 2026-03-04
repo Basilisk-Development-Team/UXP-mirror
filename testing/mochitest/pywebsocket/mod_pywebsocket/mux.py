@@ -1389,7 +1389,7 @@ class _HandshakeDeltaBase(object):
 
         headers = copy.copy(self._headers)
         if delta:
-            for key, value in delta.items():
+            for key, value in list(delta.items()):
                 # The spec requires that a header with an empty value is
                 # removed from the delta base.
                 if len(value) == 0 and headers.has_key(key):
@@ -1807,7 +1807,7 @@ class _MuxHandler(object):
             'Termiating all logical connections waiting for incoming data '
             '...')
         self._logical_channels_condition.acquire()
-        for channel_data in self._logical_channels.values():
+        for channel_data in list(self._logical_channels.values()):
             try:
                 channel_data.request.connection.set_read_state(
                     _LogicalConnection.STATE_TERMINATED)
@@ -1824,7 +1824,7 @@ class _MuxHandler(object):
             'Termiating all logical connections waiting for write '
             'completion ...')
         self._logical_channels_condition.acquire()
-        for channel_data in self._logical_channels.values():
+        for channel_data in list(self._logical_channels.values()):
             try:
                 channel_data.request.connection.on_writer_done()
             except Exception:

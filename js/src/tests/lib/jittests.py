@@ -567,7 +567,7 @@ def process_test_results(results, num_tests, pb, options):
                 sys.stdout.write(res.err)
 
             if options.check_output:
-                if res.test.path in output_dict.keys():
+                if res.test.path in list(output_dict.keys()):
                     if output_dict[res.test.path] != res.out:
                         pb.message("FAIL - OUTPUT DIFFERS {}".format(res.test.relpath_tests))
                 else:

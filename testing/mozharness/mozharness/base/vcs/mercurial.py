@@ -481,7 +481,7 @@ class MercurialVCS(ScriptMixin, LogMixin, TransferMixin):
             #
             # So we grab the first element ("28537" in this case) and then pull
             # out the 'date' field.
-            pushid = contents.iterkeys().next()
+            pushid = iter(contents.keys()).next()
             self.info('Pushid is: %s' % pushid)
             pushdate = contents[pushid]['date']
             self.info('Pushdate is: %s' % pushdate)

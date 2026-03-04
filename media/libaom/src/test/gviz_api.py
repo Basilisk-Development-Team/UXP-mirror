@@ -491,9 +491,9 @@ class DataTable(object):
     # dictionary).
     # NOTE: this way of differentiating might create ambiguity. See docs.
     if (len(table_description) != 1 or
-        (isinstance(table_description.keys()[0], types.StringTypes) and
-         isinstance(table_description.values()[0], tuple) and
-         len(table_description.values()[0]) < 4)):
+        (isinstance(list(table_description.keys())[0], types.StringTypes) and
+         isinstance(list(table_description.values())[0], tuple) and
+         len(list(table_description.values())[0]) < 4)):
       # This is the most inner dictionary. Parsing types.
       columns = []
       # We sort the items, equivalent to sort the keys since they are unique
@@ -509,11 +509,11 @@ class DataTable(object):
         columns.append(parsed_col)
       return columns
     # This is an outer dictionary, must have at most one key.
-    parsed_col = DataTable.ColumnTypeParser(table_description.keys()[0])
+    parsed_col = DataTable.ColumnTypeParser(list(table_description.keys())[0])
     parsed_col["depth"] = depth
     parsed_col["container"] = "dict"
     return ([parsed_col] +
-            DataTable.TableDescriptionParser(table_description.values()[0],
+            DataTable.TableDescriptionParser(list(table_description.values())[0],
                                              depth=depth + 1))
 
   @property
@@ -622,7 +622,7 @@ class DataTable(object):
       return
 
     # We have a dictionary in an inner depth level.
-    if not data.keys():
+    if not list(data.keys()):
       # In case this is an empty dictionary, we add a record with the columns
       # filled only until this point.
       self.__data.append(prev_col_values)

@@ -990,7 +990,7 @@ class TestSystemAPIs(unittest.TestCase):
                     self.assertIn(conn.type, types_, msg=conn)
 
         from psutil._common import conn_tmap
-        for kind, groups in conn_tmap.items():
+        for kind, groups in list(conn_tmap.items()):
             if SUNOS and kind == 'unix':
                 continue
             families, types_ = groups
@@ -1035,7 +1035,7 @@ class TestSystemAPIs(unittest.TestCase):
         #                  sorted(psutil.net_io_counters(pernic=True).keys()))
 
         families = set([socket.AF_INET, AF_INET6, psutil.AF_LINK])
-        for nic, addrs in nics.items():
+        for nic, addrs in list(nics.items()):
             self.assertEqual(len(set(addrs)), len(addrs))
             for addr in addrs:
                 self.assertIsInstance(addr.family, int)
@@ -1080,7 +1080,7 @@ class TestSystemAPIs(unittest.TestCase):
         all_duplexes = (psutil.NIC_DUPLEX_FULL,
                         psutil.NIC_DUPLEX_HALF,
                         psutil.NIC_DUPLEX_UNKNOWN)
-        for nic, stats in nics.items():
+        for nic, stats in list(nics.items()):
             isup, duplex, speed, mtu = stats
             self.assertIsInstance(isup, bool)
             self.assertIn(duplex, all_duplexes)
@@ -1120,7 +1120,7 @@ class TestSystemAPIs(unittest.TestCase):
                 # https://github.com/giampaolo/psutil/issues/338
                 while key[-1].isdigit():
                     key = key[:-1]
-                self.assertNotIn(key, ret.keys())
+                self.assertNotIn(key, list(ret.keys()))
 
     def test_users(self):
         users = psutil.users()
@@ -2085,7 +2085,7 @@ class TestProcess(unittest.TestCase):
             except psutil.Error:
                 pass
         # this is the one, now let's make sure there are no duplicates
-        pid = sorted(table.items(), key=lambda x: x[1])[-1][0]
+        pid = sorted(list(table.items()), key=lambda x: x[1])[-1][0]
         p = psutil.Process(pid)
         try:
             c = p.children(recursive=True)

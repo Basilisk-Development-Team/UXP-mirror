@@ -45,7 +45,7 @@ class Whitelist:
         filename = filename.lower()
         filename.replace(' (x86)', '')
 
-        for path, subst in self.path_substitutions.iteritems():
+        for path, subst in self.path_substitutions.items():
             parts = filename.split(path)
             if len(parts) >= 2:
                 if self.PRE_PROFILE == '' and subst == '{profile}':
@@ -68,7 +68,7 @@ class Whitelist:
 
                 filename = "%s%s" % (subst, path.join(parts[1:]))
 
-        for old_name, new_name in self.name_substitutions.iteritems():
+        for old_name, new_name in self.name_substitutions.items():
             parts = filename.split(old_name)
             if len(parts) >= 2:
                 filename = "%s%s" % (parts[0], new_name)
@@ -77,7 +77,7 @@ class Whitelist:
 
     def check(self, test, file_name_index):
         errors = {}
-        for row_key in test.iterkeys():
+        for row_key in test.keys():
             filename = self.sanitize_filename(row_key[file_name_index])
 
             if filename in self.listmap:
@@ -94,7 +94,7 @@ class Whitelist:
 
     def checkDuration(self, test, file_name_index, file_duration_index):
         errors = {}
-        for idx, (row_key, row_value) in utils.indexed_items(test.iteritems()):
+        for idx, (row_key, row_value) in utils.indexed_items(iter(test.items())):
             if row_value[file_duration_index] > DEFAULT_DURATION:
                 filename = self.sanitize_filename(row_key[file_name_index])
                 if filename in self.listmap and \
@@ -113,7 +113,7 @@ class Whitelist:
         return errors
 
     def filter(self, test, file_name_index):
-        for row_key in test.keys():
+        for row_key in list(test.keys()):
             filename = self.sanitize_filename(row_key[file_name_index])
             if filename in self.listmap:
                 if 'ignore' in self.listmap[filename] and \
@@ -127,7 +127,7 @@ class Whitelist:
     @staticmethod
     def get_error_strings(errors):
         error_strs = []
-        for filename, data in errors.iteritems():
+        for filename, data in errors.items():
             for datum in data:
                 error_strs.append("File '%s' was accessed and we were not"
                                   " expecting it: %r" % (filename, datum))

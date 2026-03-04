@@ -267,7 +267,7 @@ class Permissions(object):
         for location in locations:
             # set the permissions
             permissions = {'allowXULXBL': 'noxul' not in location.options}
-            for perm, allow in permissions.iteritems():
+            for perm, allow in permissions.items():
                 if allow:
                     permission_type = 1
                 else:

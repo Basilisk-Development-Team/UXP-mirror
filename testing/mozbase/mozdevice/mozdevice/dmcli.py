@@ -190,7 +190,7 @@ class DMCli(object):
 
     def add_commands(self, parser):
         subparsers = parser.add_subparsers(title="Commands", metavar="<command>")
-        for (commandname, commandprops) in sorted(self.commands.iteritems()):
+        for (commandname, commandprops) in sorted(self.commands.items()):
             subparser = subparsers.add_parser(commandname, help=commandprops['help'])
             if commandprops.get('args'):
                 for arg in commandprops['args']:
@@ -199,7 +199,7 @@ class DMCli(object):
                     # this package)
                     # kwargs = { k: v for k,v in arg.items() if k is not 'name' }
                     kwargs = {}
-                    for (k, v) in arg.items():
+                    for (k, v) in list(arg.items()):
                         if k is not 'name':
                             kwargs[k] = v
                     subparser.add_argument(arg['name'], **kwargs)
@@ -292,7 +292,7 @@ class DMCli(object):
 
     def getinfo(self, args):
         info = self.dm.getInfo(directive=args.directive)
-        for (infokey, infoitem) in sorted(info.iteritems()):
+        for (infokey, infoitem) in sorted(info.items()):
             if infokey == "process":
                 pass  # skip process list: get that through ps
             elif args.directive is None:

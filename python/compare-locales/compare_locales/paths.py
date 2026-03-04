@@ -355,7 +355,7 @@ class EnumerateApp(object):
         code and an directory enumerator will be given.
         '''
         dirmap = dict(self.config.directories())
-        mods = dirmap.keys()
+        mods = list(dirmap.keys())
         mods.sort()
         for mod in mods:
             if self.reference == 'en-US':

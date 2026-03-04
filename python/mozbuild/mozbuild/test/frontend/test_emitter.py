@@ -454,7 +454,7 @@ class TestEmitterBasic(unittest.TestCase):
             mozpath.join(o.install_prefix, "absolute-support.ini"),
             mozpath.join(o.install_prefix, "test_file.js"),
         ]
-        paths = sorted([v[0] for v in o.installs.values()])
+        paths = sorted([v[0] for v in list(o.installs.values())])
         self.assertEqual(paths, expected)
 
     @unittest.skip('Bug 1304316 - Items in the second set but not the first')
@@ -500,7 +500,7 @@ class TestEmitterBasic(unittest.TestCase):
             mozpath.normpath(mozpath.join(o.install_prefix, "subdir/support.txt")),
             mozpath.normpath(mozpath.join(o.install_prefix, "subdir/test_foo.html")),
         ]
-        paths = sorted([v[0] for v in o.installs.values()])
+        paths = sorted([v[0] for v in list(o.installs.values())])
         self.assertEqual(paths, expected)
 
     def test_test_manifest_install_includes(self):
@@ -518,7 +518,7 @@ class TestEmitterBasic(unittest.TestCase):
             mozpath.normpath(mozpath.join(o.install_prefix, "subdir/mochitest.ini")),
             mozpath.normpath(mozpath.join(o.install_prefix, "subdir/test_foo.html")),
         ]
-        paths = sorted([v[0] for v in o.installs.values()])
+        paths = sorted([v[0] for v in list(o.installs.values())])
         self.assertEqual(paths, expected)
 
     def test_test_manifest_includes(self):
@@ -635,7 +635,7 @@ class TestEmitterBasic(unittest.TestCase):
             self.assertEqual(external_normalized, m.get('external', set()))
 
             self.assertEqual(len(o.installs), len(m['installs']))
-            for path in o.installs.keys():
+            for path in list(o.installs.keys()):
                 self.assertTrue(path.startswith(o.directory))
                 relpath = path[len(o.directory)+1:]
 
@@ -860,7 +860,7 @@ class TestEmitterBasic(unittest.TestCase):
             '.S': ['g.S'],
             '.s': ['h.s', 'i.asm'],
         }
-        for suffix, files in expected.items():
+        for suffix, files in list(expected.items()):
             sources = suffix_map[suffix]
             self.assertEqual(
                 sources.files,
@@ -913,7 +913,7 @@ class TestEmitterBasic(unittest.TestCase):
             '.S': ['g.S'],
             '.s': ['h.s', 'i.asm'],
         }
-        for suffix, files in expected.items():
+        for suffix, files in list(expected.items()):
             sources = suffix_map[suffix]
             self.assertEqual(
                 sources.files,
@@ -939,7 +939,7 @@ class TestEmitterBasic(unittest.TestCase):
             '.c': ['d.c'],
             '.mm': ['e.mm', 'f.mm'],
         }
-        for suffix, files in expected.items():
+        for suffix, files in list(expected.items()):
             sources = suffix_map[suffix]
             self.assertEqual(
                 sources.files,
@@ -964,7 +964,7 @@ class TestEmitterBasic(unittest.TestCase):
             '.mm': ['objc1.mm', 'objc2.mm'],
             '.c': ['c1.c', 'c2.c'],
         }
-        for suffix, files in expected.items():
+        for suffix, files in list(expected.items()):
             sources = suffix_map[suffix]
             self.assertEqual(
                 sources.files,
@@ -990,7 +990,7 @@ class TestEmitterBasic(unittest.TestCase):
             '.mm': ['objc1.mm', 'objc2.mm'],
             '.c': ['c1.c', 'c2.c'],
         }
-        for suffix, files in expected.items():
+        for suffix, files in list(expected.items()):
             sources = suffix_map[suffix]
             self.assertEqual(
                 sources.files,

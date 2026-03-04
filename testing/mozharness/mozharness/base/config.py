@@ -92,7 +92,7 @@ class ReadOnlyDict(dict):
         assert not self._lock, "ReadOnlyDict is locked!"
 
     def lock(self):
-        for (k, v) in self.items():
+        for (k, v) in list(self.items()):
             self[k] = make_immutable(v)
         self._lock = True
 
@@ -128,10 +128,10 @@ class ReadOnlyDict(dict):
         cls = self.__class__
         result = cls.__new__(cls)
         memo[id(self)] = result
-        for k, v in self.__dict__.items():
+        for k, v in list(self.__dict__.items()):
             setattr(result, k, deepcopy(v, memo))
         result._lock = False
-        for k, v in self.items():
+        for k, v in list(self.items()):
             result[k] = deepcopy(v, memo)
         return result
 
@@ -485,7 +485,7 @@ class BaseConfig(object):
                 # We only append values from various configs for the 'env' entry
                 # For everything else we follow the standard behaviour
                 for i, (c_file, c_dict) in enumerate(self.all_cfg_files_and_dicts):
-                    for v in c_dict.keys():
+                    for v in list(c_dict.keys()):
                         if v == 'env' and v in config:
                             config[v].update(c_dict[v])
                         else:
@@ -499,7 +499,7 @@ class BaseConfig(object):
             #    as the keys/values that make up that instance. Ultimately,
             #    this becomes self.config during BaseScript's init
             self.set_config(config)
-        for key in defaults.keys():
+        for key in list(defaults.keys()):
             value = getattr(options, key)
             if value is None:
                 continue
@@ -511,7 +511,7 @@ class BaseConfig(object):
         # The idea behind the volatile_config is we don't want to save this
         # info over multiple runs.  This defaults to the action-specific
         # config options, but can be anything.
-        for key in self.volatile_config.keys():
+        for key in list(self.volatile_config.keys()):
             if self._config.get(key) is not None:
                 self.volatile_config[key] = self._config[key]
                 del(self._config[key])

@@ -90,7 +90,7 @@ def readConfig(configfile, keys=[], required=[]):
     execfile(configfile, c)
     for k in keys:
         c = c[k]
-    items = c.keys()
+    items = list(c.keys())
     err = False
     for key in required:
         if key not in items:
@@ -137,7 +137,7 @@ def getReleaseName(product, version, buildNumber):
 
 
 def getRepoMatchingBranch(branch, sourceRepositories):
-    for sr in sourceRepositories.values():
+    for sr in list(sourceRepositories.values()):
         if branch in sr['path']:
             return sr
     return None

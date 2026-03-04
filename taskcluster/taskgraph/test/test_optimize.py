@@ -79,7 +79,7 @@ class TestOptimize(unittest.TestCase):
         def repl(task_id):
             return 'SLUGID' if task_id and len(task_id) == 22 else task_id
         got_annotations = {
-            t.label: (t.optimized, repl(t.task_id)) for t in graph.tasks.itervalues()
+            t.label: (t.optimized, repl(t.task_id)) for t in graph.tasks.values()
         }
         self.assertEqual(got_annotations, annotations)
 

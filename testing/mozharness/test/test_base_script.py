@@ -100,7 +100,7 @@ class TestScript(unittest.TestCase):
             # now let's see if only unique items were added from each config
             t_override = local_cfg_files.get('test/test_override.py', {})
             self.assertTrue(
-                t_override.get('keep_string') == "don't change me" and len(t_override.keys()) == 1,
+                t_override.get('keep_string') == "don't change me" and len(list(t_override.keys())) == 1,
                 msg="--dump-config-hierarchy dumped wrong keys/value for "
                     "`test/test_override.py`. There should only be one "
                     "item and it should be unique to all the other "

@@ -128,7 +128,7 @@ class Output(object):
             # counters results_aux data
             counter_subtests = []
             for cd in test.all_counter_results:
-                for name, vals in cd.items():
+                for name, vals in list(cd.items()):
                     # We want to add the xperf data as talos_counters
                     # exclude counters whose values are tuples (bad for
                     # graphserver)

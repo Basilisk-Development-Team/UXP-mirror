@@ -116,7 +116,7 @@ class html(Namespace):
     class Style(object):
 
         def __init__(self, **kw):
-            for x, y in kw.items():
+            for x, y in list(kw.items()):
                 x = x.replace('_', '-')
                 setattr(self, x, y)
 
@@ -227,7 +227,7 @@ class SimpleUnicodeVisitor(object):
         except AttributeError:
             return []
         else:
-            stylelist = [x + ': ' + y for x, y in styledict.items()]
+            stylelist = [x + ': ' + y for x, y in list(styledict.items())]
             return [u(' style="%s"') % u('; ').join(stylelist)]
 
     def _issingleton(self, tagname):
@@ -270,7 +270,7 @@ class _escape:
             u('"'): u('&quot;'), u('<'): u('&lt;'), u('>'): u('&gt;'),
             u('&'): u('&amp;'), u("'"): u('&apos;'),
         }
-        self.charef_rex = re.compile(u("|").join(self.escape.keys()))
+        self.charef_rex = re.compile(u("|").join(list(self.escape.keys())))
 
     def _replacer(self, match):
         return self.escape[match.group(0)]

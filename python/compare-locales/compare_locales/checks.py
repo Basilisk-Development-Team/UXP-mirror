@@ -342,7 +342,7 @@ class DTDChecker(Checker):
                         if u != ru:
                             msgs.append("units for %s don't match "
                                         "(%s != %s)" % (s, u, ru))
-                for s in refMap.iterkeys():
+                for s in refMap.keys():
                     msgs.insert(0, '%s only in reference' % s)
                 if msgs:
                     yield ('warning', 0, ', '.join(msgs), 'css')

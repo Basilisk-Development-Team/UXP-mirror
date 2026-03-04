@@ -518,7 +518,7 @@ class Section(dict):
         self._initialise()
         # we do this explicitly so that __setitem__ is used properly
         # (rather than just passing to ``dict.__init__``)
-        for entry, value in indict.iteritems():
+        for entry, value in indict.items():
             self[entry] = value
             
             
@@ -721,7 +721,7 @@ class Section(dict):
 
     def items(self):
         """D.items() -> list of D's (key, value) pairs, as 2-tuples"""
-        return list(zip((self.scalars + self.sections), self.values()))
+        return list(zip((self.scalars + self.sections), list(self.values())))
 
 
     def keys(self):
@@ -736,7 +736,7 @@ class Section(dict):
 
     def iteritems(self):
         """D.iteritems() -> an iterator over the (key, value) items of D"""
-        return iter(self.items())
+        return iter(list(self.items()))
 
 
     def iterkeys(self):
@@ -748,7 +748,7 @@ class Section(dict):
 
     def itervalues(self):
         """D.itervalues() -> an iterator over the values of D"""
-        return iter(self.values())
+        return iter(list(self.values()))
 
 
     def __repr__(self):
@@ -814,7 +814,7 @@ class Section(dict):
         >>> c2
         ConfigObj({'section1': {'option1': 'False', 'subsection': {'more_options': 'False'}}})
         """
-        for key, val in indict.items():
+        for key, val in list(indict.items()):
             if (key in self and isinstance(self[key], dict) and
                                 isinstance(val, dict)):
                 self[key].merge(val)
@@ -1224,7 +1224,7 @@ class ConfigObj(Section):
             for entry in options:
                 if entry not in OPTION_DEFAULTS:
                     raise TypeError('Unrecognised option "%s".' % entry)
-            for entry, value in OPTION_DEFAULTS.items():
+            for entry, value in list(OPTION_DEFAULTS.items()):
                 if entry not in options:
                     options[entry] = value
                 keyword_value = _options[entry]
@@ -1423,7 +1423,7 @@ class ConfigObj(Section):
             enc = BOM_LIST[self.encoding.lower()]
             if enc == 'utf_16':
                 # For UTF16 we try big endian and little endian
-                for BOM, (encoding, final_encoding) in BOMS.items():
+                for BOM, (encoding, final_encoding) in list(BOMS.items()):
                     if not final_encoding:
                         # skip UTF8
                         continue
@@ -1453,7 +1453,7 @@ class ConfigObj(Section):
             return self._decode(infile, self.encoding)
         
         # No encoding specified - so we need to check for UTF8/UTF16
-        for BOM, (encoding, final_encoding) in BOMS.items():
+        for BOM, (encoding, final_encoding) in list(BOMS.items()):
             if not line.startswith(BOM):
                 continue
             else:
@@ -2422,7 +2422,7 @@ def flatten_errors(cfg, res, levels=None, results=None):
         if levels:
             levels.pop()
         return results
-    for (key, val) in res.items():
+    for (key, val) in list(res.items()):
         if val == True:
             continue
         if isinstance(cfg.get(key), dict):

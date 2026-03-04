@@ -78,10 +78,10 @@ class ConfigureTestSandbox(ConfigureSandbox):
         self._search_path = environ.get('PATH', '').split(os.pathsep)
 
         self._subprocess_paths = {
-            mozpath.abspath(k): v for k, v in paths.iteritems() if v
+            mozpath.abspath(k): v for k, v in paths.items() if v
         }
 
-        paths = paths.keys()
+        paths = list(paths.keys())
 
         environ = dict(environ)
         if 'CONFIG_SHELL' not in environ:

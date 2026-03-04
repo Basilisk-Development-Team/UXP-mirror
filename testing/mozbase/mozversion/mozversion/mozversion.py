@@ -242,7 +242,7 @@ class RemoteB2GVersion(B2GVersion):
         for line in build_props.split('\n'):
             if not line.strip().startswith('#') and '=' in line:
                 key, value = [s.strip() for s in line.split('=', 1)]
-                if key in desired_props.keys():
+                if key in list(desired_props.keys()):
                     self._info[desired_props[key]] = value
 
         if self._info.get('device_id', '').lower() == 'flame':

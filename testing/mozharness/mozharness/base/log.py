@@ -666,7 +666,7 @@ class MultiFileLogger(BaseLogger):
 
         BaseLogger.new_logger(self)
         min_logger_level = self.get_logger_level(self.log_level)
-        for level in self.LEVELS.keys():
+        for level in list(self.LEVELS.keys()):
             if self.get_logger_level(level) >= min_logger_level:
                 self.log_files[level] = '%s_%s.log' % (self.log_name,
                                                        level)

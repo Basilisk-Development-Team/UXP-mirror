@@ -338,7 +338,7 @@ def folded_skips(skipped):
         assert len(key) == 3, (event, key)
         d.setdefault(key, []).append(event)
     l = []
-    for key, events in d.items():
+    for key, events in list(d.items()):
         l.append((len(events),) + key)
     return l
 

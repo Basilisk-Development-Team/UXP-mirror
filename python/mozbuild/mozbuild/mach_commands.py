@@ -136,7 +136,7 @@ class BuildProgressFooter(object):
         # terminal is a blessings.Terminal.
         self._t = terminal
         self._fh = sys.stdout
-        self.tiers = monitor.tiers.tier_status.viewitems()
+        self.tiers = monitor.tiers.tier_status.items()
 
     def clear(self):
         """Removes the footer from the current terminal."""
@@ -835,7 +835,7 @@ class Warnings(MachCommandBase):
             dirpath = None
 
         type_counts = database.type_counts(dirpath)
-        sorted_counts = sorted(type_counts.iteritems(),
+        sorted_counts = sorted(iter(type_counts.items()),
             key=operator.itemgetter(1))
 
         total = 0
@@ -992,7 +992,7 @@ class GTestCommands(MachCommandBase):
             processes[i].run()
 
         exit_code = 0
-        for process in processes.values():
+        for process in list(processes.values()):
             status = process.wait()
             if status:
                 exit_code = status

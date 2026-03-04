@@ -55,7 +55,7 @@ def process_define_file(output, input):
                                 'CONFIGURE_DEFINE_FILE')
                         defines = '\n'.join(sorted(
                             '#define %s %s' % (name, val)
-                            for name, val in config.defines.iteritems()
+                            for name, val in config.defines.items()
                             if name not in config.non_global_defines))
                         l = l[:m.start('cmd') - 1] \
                             + defines + l[m.end('name'):]

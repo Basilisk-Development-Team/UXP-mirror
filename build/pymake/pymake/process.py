@@ -28,7 +28,7 @@ def tokens2re(tokens):
     # which matches the pattern and captures it in a named match group.
     # The group names and patterns come are given as a dict in the function
     # argument.
-    nonescaped = r'(?<!\\)(?:%s)' % '|'.join('(?P<%s>%s)' % (name, value) for name, value in tokens.iteritems())
+    nonescaped = r'(?<!\\)(?:%s)' % '|'.join('(?P<%s>%s)' % (name, value) for name, value in tokens.items())
     # The final pattern matches either the above pattern, or an escaped
     # backslash, captured in the "escape" match group.
     return re.compile('(?:%s|%s)' % (nonescaped, r'(?P<escape>\\\\)'))
@@ -115,7 +115,7 @@ class ClineSplitter(list):
                 self._push(self.cline[:m.start()])
             self.cline = self.cline[m.end():]
 
-            match = dict([(name, value) for name, value in m.groupdict().items() if value])
+            match = dict([(name, value) for name, value in list(m.groupdict().items()) if value])
             if 'quote' in match:
                 # " or ' start a quoted string
                 if match['quote'] == '"':
@@ -166,7 +166,7 @@ class ClineSplitter(list):
                 raise Exception, 'Unterminated quoted string in command'
             self._push(self.cline[:m.start()])
             self.cline = self.cline[m.end():]
-            match = dict([(name, value) for name, value in m.groupdict().items() if value])
+            match = dict([(name, value) for name, value in list(m.groupdict().items()) if value])
             if 'quote' in match:
                 # a double quote ends the quoted string, so go back to
                 # unquoted parsing

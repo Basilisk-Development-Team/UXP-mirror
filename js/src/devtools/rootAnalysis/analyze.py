@@ -44,12 +44,12 @@ def print_command(command, outfile=None, env=None):
     if env:
         changed = {}
         e = os.environ
-        for key,value in env.items():
+        for key,value in list(env.items()):
             if (key not in e) or (e[key] != value):
                 changed[key] = value
         if changed:
             outputs = []
-            for key, value in changed.items():
+            for key, value in list(changed.items()):
                 if key in e and e[key] in value:
                     start = value.index(e[key])
                     end = start + len(e[key])
@@ -184,7 +184,7 @@ def run_job(name, config):
         else:
             with open(stdout_filename, 'w') as output:
                 subprocess.check_call(command, stdout=output, env=env(config))
-        for (temp, final) in temp_map.items():
+        for (temp, final) in list(temp_map.items()):
             try:
                 os.rename(temp, final)
             except OSError:
@@ -232,7 +232,7 @@ for default in defaults:
 
 data = config.copy()
 
-for k,v in vars(args).items():
+for k,v in list(vars(args).items()):
     if v is not None:
         data[k] = v
 

@@ -527,10 +527,10 @@ def process_special_casing(special_casing, table, index):
         return upper
 
     def ascii(char_dict):
-        return ifilter(lambda ch: ch <= 0x7f, char_dict.iterkeys())
+        return ifilter(lambda ch: ch <= 0x7f, iter(char_dict.keys()))
 
     def latin1(char_dict):
-        return ifilter(lambda ch: ch <= 0xff, char_dict.iterkeys())
+        return ifilter(lambda ch: ch <= 0xff, iter(char_dict.keys()))
 
     def is_empty(iterable):
         return not any(True for _ in iterable)
@@ -567,11 +567,11 @@ def process_special_casing(special_casing, table, index):
     assert all(ch != lowerCase(ch) for ch in [0x0130, 0x03A3])
 
     # Ensure Azeri, Lithuanian, and Turkish are the only languages with conditional case mappings.
-    assert is_equals(["az", "lt", "tr"], sorted(lang_conditional_tolower.iterkeys()))
-    assert is_equals(["az", "lt", "tr"], sorted(lang_conditional_toupper.iterkeys()))
+    assert is_equals(["az", "lt", "tr"], sorted(lang_conditional_tolower.keys()))
+    assert is_equals(["az", "lt", "tr"], sorted(lang_conditional_toupper.keys()))
 
     # Maximum case mapping length is three characters.
-    itervals = lambda d: d.itervalues()
+    itervals = lambda d: iter(d.values())
     assert max(imap(len, chain(
         itervals(unconditional_tolower),
         itervals(unconditional_toupper),
@@ -732,7 +732,7 @@ def write_special_casing_methods(unconditional_toupper, codepoint_table, println
         assert unconditional_toupper, "|unconditional_toupper| is not empty"
 
         # Sorted list of code units with special upper case mappings.
-        code_list = sorted(unconditional_toupper.iterkeys())
+        code_list = sorted(unconditional_toupper.keys())
 
         # Fail-fast if the input character isn't a special casing character.
         println('    if ({})'.format(out_range(code_list[0], code_list[-1])))
@@ -787,7 +787,7 @@ def write_special_casing_methods(unconditional_toupper, codepoint_table, println
         println('{')
 
         println('    switch(ch) {')
-        for (code, converted) in sorted(unconditional_toupper.iteritems(), key=itemgetter(0)):
+        for (code, converted) in sorted(iter(unconditional_toupper.items()), key=itemgetter(0)):
             println('      case {}: return {}; // {}'.format(hexlit(code), len(converted),
                                                              codepoint_table.name(code)))
         println('    }')
@@ -804,7 +804,7 @@ def write_special_casing_methods(unconditional_toupper, codepoint_table, println
         println('{')
 
         println('    switch(ch) {')
-        for (code, converted) in sorted(unconditional_toupper.iteritems(), key=itemgetter(0)):
+        for (code, converted) in sorted(iter(unconditional_toupper.items()), key=itemgetter(0)):
             println('      case {}: // {}'.format(hexlit(code), codepoint_table.name(code)))
             for ch in converted:
                 println('        elements[(*index)++] = {}; // {}'.format(hexlit(ch),
@@ -1072,7 +1072,7 @@ def make_unicode_file(version,
         println('bool')
         println('js::unicode::{}(uint32_t codePoint)'.format(name))
         println('{')
-        for (from_code, to_code) in int_ranges(group_set.keys()):
+        for (from_code, to_code) in int_ranges(list(group_set.keys())):
             println('    if (codePoint >= 0x{:X} && codePoint <= 0x{:X}) // {} .. {}'.format(from_code,
                                                                                              to_code,
                                                                                              codepoint_table.name(from_code),
@@ -1117,7 +1117,7 @@ def make_unicode_file(version,
         # If the following assert fails, it means space character is added to
         # non-BMP area.  In that case the following code should be uncommented
         # and the corresponding code should be added to frontend.
-        assert len(non_bmp_space_set.keys()) == 0
+        assert len(list(non_bmp_space_set.keys())) == 0
 
         write_supplemental_identifier_method('IsIdentifierStartNonBMP', non_bmp_id_start_set,
                                              println)
@@ -1304,7 +1304,7 @@ def make_irregexp_tables(version,
             println('            return {};'.format(consequent(casefolded)))
         println('    }')
         println('')
-        for (ch, casemapped_chars) in casemap_for_latin1.iteritems():
+        for (ch, casemapped_chars) in casemap_for_latin1.items():
             for casemapped in casemapped_chars:
                 println('    // "{}" case maps to "{}".'.format(char_name(casemapped),
                                                                 char_name(ch)))

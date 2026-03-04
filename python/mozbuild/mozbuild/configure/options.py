@@ -96,7 +96,7 @@ class ConflictingOptionError(InvalidOptionError):
         if format_data:
             message = message.format(**format_data)
         super(ConflictingOptionError, self).__init__(message)
-        for k, v in format_data.iteritems():
+        for k, v in format_data.items():
             setattr(self, k, v)
 
 
@@ -481,5 +481,5 @@ class CommandLineHelper(object):
 
     def __iter__(self):
         for d in (self._args, self._extra_args):
-            for arg, pos in d.itervalues():
+            for arg, pos in d.values():
                 yield arg

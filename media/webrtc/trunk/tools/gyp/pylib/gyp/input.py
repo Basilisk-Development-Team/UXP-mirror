@@ -302,7 +302,7 @@ def LoadBuildFileIncludesIntoDict(subdict, subdict_path, data, aux_data,
                subdict_path, include)
 
   # Recurse into subdictionaries.
-  for k, v in subdict.iteritems():
+  for k, v in subdict.items():
     if type(v) is dict:
       LoadBuildFileIncludesIntoDict(v, subdict_path, data, aux_data,
                                     None, check)
@@ -488,7 +488,7 @@ def CallLoadTargetBuildFile(global_flags,
     signal.signal(signal.SIGINT, signal.SIG_IGN)
 
     # Apply globals so that the worker process behaves the same.
-    for key, value in global_flags.iteritems():
+    for key, value in global_flags.items():
       globals()[key] = value
 
     SetGeneratorGlobals(generator_input_info)
@@ -1151,7 +1151,7 @@ def ProcessConditionsInDict(the_dict, phase, variables, build_file):
 def LoadAutomaticVariablesFromDict(variables, the_dict):
   # Any keys with plain string values in the_dict become automatic variables.
   # The variable name is the key name with a "_" character prepended.
-  for key, value in the_dict.iteritems():
+  for key, value in the_dict.items():
     if type(value) in (str, int, list):
       variables['_' + key] = value
 
@@ -1164,7 +1164,7 @@ def LoadVariablesFromVariablesDict(variables, the_dict, the_dict_key):
   # the_dict in the_dict's parent dict.  If the_dict's parent is not a dict
   # (it could be a list or it could be parentless because it is a root dict),
   # the_dict_key will be None.
-  for key, value in the_dict.get('variables', {}).iteritems():
+  for key, value in the_dict.get('variables', {}).items():
     if type(value) not in (str, int, list):
       continue
 
@@ -1203,7 +1203,7 @@ def ProcessVariablesAndConditionsInDict(the_dict, phase, variables_in,
     # list before we process them so that you can reference one
     # variable from another.  They will be fully expanded by recursion
     # in ExpandVariables.
-    for key, value in the_dict['variables'].iteritems():
+    for key, value in the_dict['variables'].items():
       variables[key] = value
 
     # Handle the associated variables dict first, so that any variable
@@ -1216,7 +1216,7 @@ def ProcessVariablesAndConditionsInDict(the_dict, phase, variables_in,
 
   LoadVariablesFromVariablesDict(variables, the_dict, the_dict_key)
 
-  for key, value in the_dict.iteritems():
+  for key, value in the_dict.items():
     # Skip "variables", which was already processed if present.
     if key != 'variables' and type(value) is str:
       expanded = ExpandVariables(value, phase, variables, build_file)
@@ -1274,7 +1274,7 @@ def ProcessVariablesAndConditionsInDict(the_dict, phase, variables_in,
 
   # Recurse into child dicts, or process child lists which may result in
   # further recursion into descendant dicts.
-  for key, value in the_dict.iteritems():
+  for key, value in the_dict.items():
     # Skip "variables" and string values, which were already processed if
     # present.
     if key == 'variables' or type(value) is str:
@@ -1371,7 +1371,7 @@ def QualifyDependencies(targets):
                              for dep in dependency_sections
                              for op in ('', '!', '/')]
 
-  for target, target_dict in targets.iteritems():
+  for target, target_dict in targets.items():
     target_build_file = gyp.common.BuildFile(target)
     toolset = target_dict['toolset']
     for dependency_key in all_dependency_sections:
@@ -1411,7 +1411,7 @@ def ExpandWildcardDependencies(targets, data):
   dependency list, must be qualified when this function is called.
   """
 
-  for target, target_dict in targets.iteritems():
+  for target, target_dict in targets.items():
     toolset = target_dict['toolset']
     target_build_file = gyp.common.BuildFile(target)
     for dependency_key in dependency_sections:
@@ -1473,7 +1473,7 @@ def Unify(l):
 def RemoveDuplicateDependencies(targets):
   """Makes sure every dependency appears only once in all targets's dependency
   lists."""
-  for target_name, target_dict in targets.iteritems():
+  for target_name, target_dict in targets.items():
     for dependency_key in dependency_sections:
       dependencies = target_dict.get(dependency_key, [])
       if dependencies:
@@ -1489,7 +1489,7 @@ def Filter(l, item):
 def RemoveSelfDependencies(targets):
   """Remove self dependencies from targets that have the prune_self_dependency
   variable set."""
-  for target_name, target_dict in targets.iteritems():
+  for target_name, target_dict in targets.items():
     for dependency_key in dependency_sections:
       dependencies = target_dict.get(dependency_key, [])
       if dependencies:
@@ -1502,7 +1502,7 @@ def RemoveSelfDependencies(targets):
 def RemoveLinkDependenciesFromNoneTargets(targets):
   """Remove dependencies having the 'link_dependency' attribute from the 'none'
   targets."""
-  for target_name, target_dict in targets.iteritems():
+  for target_name, target_dict in targets.items():
     for dependency_key in dependency_sections:
       dependencies = target_dict.get(dependency_key, [])
       if dependencies:
@@ -1794,14 +1794,14 @@ def BuildDependencyList(targets):
   # Create a DependencyGraphNode for each target.  Put it into a dict for easy
   # access.
   dependency_nodes = {}
-  for target, spec in targets.iteritems():
+  for target, spec in targets.items():
     if target not in dependency_nodes:
       dependency_nodes[target] = DependencyGraphNode(target)
 
   # Set up the dependency links.  Targets that have no dependencies are treated
   # as dependent on root_node.
   root_node = DependencyGraphNode(None)
-  for target, spec in targets.iteritems():
+  for target, spec in targets.items():
     target_node = dependency_nodes[target]
     target_build_file = gyp.common.BuildFile(target)
     dependencies = spec.get('dependencies')
@@ -1825,7 +1825,7 @@ def BuildDependencyList(targets):
     if not root_node.dependents:
       # If all targets have dependencies, add the first target as a dependent
       # of root_node so that the cycle can be discovered from root_node.
-      target = targets.keys()[0]
+      target = list(targets.keys())[0]
       target_node = dependency_nodes[target]
       target_node.dependencies.append(root_node)
       root_node.dependents.append(target_node)
@@ -1844,13 +1844,13 @@ def VerifyNoGYPFileCircularDependencies(targets):
   # Create a DependencyGraphNode for each gyp file containing a target.  Put
   # it into a dict for easy access.
   dependency_nodes = {}
-  for target in targets.iterkeys():
+  for target in targets.keys():
     build_file = gyp.common.BuildFile(target)
     if not build_file in dependency_nodes:
       dependency_nodes[build_file] = DependencyGraphNode(build_file)
 
   # Set up the dependency links.
-  for target, spec in targets.iteritems():
+  for target, spec in targets.items():
     build_file = gyp.common.BuildFile(target)
     build_file_node = dependency_nodes[build_file]
     target_dependencies = spec.get('dependencies', [])
@@ -1875,7 +1875,7 @@ def VerifyNoGYPFileCircularDependencies(targets):
 
   # Files that have no dependencies are treated as dependent on root_node.
   root_node = DependencyGraphNode(None)
-  for build_file_node in dependency_nodes.itervalues():
+  for build_file_node in dependency_nodes.values():
     if len(build_file_node.dependencies) == 0:
       build_file_node.dependencies.append(root_node)
       root_node.dependents.append(build_file_node)
@@ -1888,7 +1888,7 @@ def VerifyNoGYPFileCircularDependencies(targets):
     if not root_node.dependents:
       # If all files have dependencies, add the first file as a dependent
       # of root_node so that the cycle can be discovered from root_node.
-      file_node = dependency_nodes.values()[0]
+      file_node = list(dependency_nodes.values())[0]
       file_node.dependencies.append(root_node)
       root_node.dependents.append(file_node)
     cycles = []
@@ -2115,7 +2115,7 @@ def MergeLists(to, fro, to_file, fro_file, is_paths=False, append=True):
 
 def MergeDicts(to, fro, to_file, fro_file):
   # I wanted to name the parameter "from" but it's a Python keyword...
-  for k, v in fro.iteritems():
+  for k, v in fro.items():
     # It would be nice to do "if not k in to: to[k] = v" but that wouldn't give
     # copy semantics.  Something else may want to merge from the |fro| dict
     # later, and having the same dict ref pointed to twice in the tree isn't
@@ -2250,13 +2250,13 @@ def SetUpConfigurations(target, target_dict):
   if not 'configurations' in target_dict:
     target_dict['configurations'] = {'Default': {}}
   if not 'default_configuration' in target_dict:
-    concrete = [i for (i, config) in target_dict['configurations'].iteritems()
+    concrete = [i for (i, config) in target_dict['configurations'].items()
                 if not config.get('abstract')]
     target_dict['default_configuration'] = sorted(concrete)[0]
 
   merged_configurations = {}
   configs = target_dict['configurations']
-  for (configuration, old_configuration_dict) in configs.iteritems():
+  for (configuration, old_configuration_dict) in configs.items():
     # Skip abstract configurations (saves work only).
     if old_configuration_dict.get('abstract'):
       continue
@@ -2264,7 +2264,7 @@ def SetUpConfigurations(target, target_dict):
     # Get the inheritance relationship right by making a copy of the target
     # dict.
     new_configuration_dict = {}
-    for (key, target_val) in target_dict.iteritems():
+    for (key, target_val) in target_dict.items():
       key_ext = key[-1:]
       if key_ext in key_suffixes:
         key_base = key[:-1]
@@ -2280,12 +2280,12 @@ def SetUpConfigurations(target, target_dict):
     merged_configurations[configuration] = new_configuration_dict
 
   # Put the new configurations back into the target dict as a configuration.
-  for configuration in merged_configurations.keys():
+  for configuration in list(merged_configurations.keys()):
     target_dict['configurations'][configuration] = (
         merged_configurations[configuration])
 
   # Now drop all the abstract ones.
-  for configuration in target_dict['configurations'].keys():
+  for configuration in list(target_dict['configurations'].keys()):
     old_configuration_dict = target_dict['configurations'][configuration]
     if old_configuration_dict.get('abstract'):
       del target_dict['configurations'][configuration]
@@ -2306,9 +2306,9 @@ def SetUpConfigurations(target, target_dict):
     del target_dict[key]
 
   # Check the configurations to see if they contain invalid keys.
-  for configuration in target_dict['configurations'].keys():
+  for configuration in list(target_dict['configurations'].keys()):
     configuration_dict = target_dict['configurations'][configuration]
-    for key in configuration_dict.keys():
+    for key in list(configuration_dict.keys()):
       if key in invalid_configuration_keys:
         raise GypError('%s not allowed in the %s configuration, found in '
                        'target %s' % (key, configuration, target))
@@ -2348,7 +2348,7 @@ def ProcessListFiltersInDict(name, the_dict):
 
   lists = []
   del_lists = []
-  for key, value in the_dict.iteritems():
+  for key, value in the_dict.items():
     operation = key[-1]
     if operation != '!' and operation != '/':
       continue
@@ -2466,7 +2466,7 @@ def ProcessListFiltersInDict(name, the_dict):
       the_dict[excluded_key] = excluded_list
 
   # Now recurse into subdicts and lists that may contain dicts.
-  for key, value in the_dict.iteritems():
+  for key, value in the_dict.items():
     if type(value) is dict:
       ProcessListFiltersInDict(key, value)
     elif type(value) is list:
@@ -2523,7 +2523,7 @@ def ValidateSourcesInTarget(target, target_dict, build_file,
     basenames.setdefault(basename, []).append(source)
 
   error = ''
-  for basename, files in basenames.iteritems():
+  for basename, files in basenames.items():
     if len(files) > 1:
       error += '  %s: %s\n' % (basename, ' '.join(files))
 
@@ -2645,7 +2645,7 @@ def TurnIntIntoStrInDict(the_dict):
   """
   # Use items instead of iteritems because there's no need to try to look at
   # reinserted keys and their associated values.
-  for k, v in the_dict.items():
+  for k, v in list(the_dict.items()):
     if type(v) is int:
       v = str(v)
       the_dict[k] = v
@@ -2802,7 +2802,7 @@ def Load(build_files, variables, includes, depth, generator_input_info, check,
   RemoveLinkDependenciesFromNoneTargets(targets)
 
   # Apply exclude (!) and regex (/) list filters only for dependency_sections.
-  for target_name, target_dict in targets.iteritems():
+  for target_name, target_dict in targets.items():
     tmp_dict = {}
     for key_base in dependency_sections:
       for op in ('', '!', '/'):

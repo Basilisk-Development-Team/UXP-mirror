@@ -15,7 +15,7 @@ import sys
 def print_output(allocation, obj_to_class):
     '''Formats and prints output.'''
     items = []
-    for obj, count, in allocation.iteritems():
+    for obj, count, in allocation.items():
         # Adding items to a list, so we can sort them.
         items.append((obj, count))
     # Sorting by count.

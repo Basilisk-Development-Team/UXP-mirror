@@ -66,7 +66,7 @@ class Profile(object):
         if preferences:
             if isinstance(preferences, dict):
                 # unordered
-                preferences = preferences.items()
+                preferences = list(preferences.items())
 
             # sanity check
             assert not [i for i in preferences if len(i) != 2]
@@ -220,7 +220,7 @@ class Profile(object):
 
         # this is a dict sometimes, convert
         if isinstance(preferences, dict):
-            preferences = preferences.items()
+            preferences = list(preferences.items())
 
         # add new prefs to preserve them during reset
         for new_pref in preferences:

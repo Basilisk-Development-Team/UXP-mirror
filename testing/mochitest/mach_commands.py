@@ -120,8 +120,8 @@ ALL_FLAVORS = {
 }
 
 SUPPORTED_APPS = ['firefox', 'android']
-SUPPORTED_FLAVORS = list(chain.from_iterable([f['aliases'] for f in ALL_FLAVORS.values()]))
-CANONICAL_FLAVORS = sorted([f['aliases'][0] for f in ALL_FLAVORS.values()])
+SUPPORTED_FLAVORS = list(chain.from_iterable([f['aliases'] for f in list(ALL_FLAVORS.values())]))
+CANONICAL_FLAVORS = sorted([f['aliases'][0] for f in list(ALL_FLAVORS.values())])
 
 parser = None
 
@@ -305,14 +305,14 @@ class MachCommands(MachCommandBase):
 
         flavors = None
         if flavor:
-            for fname, fobj in ALL_FLAVORS.iteritems():
+            for fname, fobj in ALL_FLAVORS.items():
                 if flavor in fobj['aliases']:
                     if buildapp not in fobj['enabled_apps']:
                         continue
                     flavors = [fname]
                     break
         else:
-            flavors = [f for f, v in ALL_FLAVORS.iteritems() if buildapp in v['enabled_apps']]
+            flavors = [f for f, v in ALL_FLAVORS.items() if buildapp in v['enabled_apps']]
 
         from mozbuild.controller.building import BuildDriver
         self._ensure_state_subdir_exists('.')

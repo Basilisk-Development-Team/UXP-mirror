@@ -195,11 +195,11 @@ class TestManager(object):
     def add_defaults(self, manifest):
         if not hasattr(manifest, 'manifest_defaults'):
             return
-        for sub_manifest, defaults in manifest.manifest_defaults.items():
+        for sub_manifest, defaults in list(manifest.manifest_defaults.items()):
             self.manifest_defaults[sub_manifest] = defaults
 
     def add_installs(self, obj, topsrcdir):
-        for src, (dest, _) in obj.installs.iteritems():
+        for src, (dest, _) in obj.installs.items():
             key = src[len(topsrcdir)+1:]
             self.installs_by_path[key].append((src, dest))
         for src, pat, dest in obj.pattern_installs:
@@ -366,7 +366,7 @@ class CommonBackend(BuildBackend):
 
         path = mozpath.join(self.environment.topobjdir, 'test-installs.pkl')
         with self._write_file(path, mode='rb') as fh:
-            pickle.dump({k: v for k, v in self._test_manager.installs_by_path.items()
+            pickle.dump({k: v for k, v in list(self._test_manager.installs_by_path.items())
                          if k in self._test_manager.deferred_installs},
                         fh,
                         protocol=2)

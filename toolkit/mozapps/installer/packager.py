@@ -80,7 +80,7 @@ class ToolLauncher(object):
 
         # Work around a bug in Python 2.7.2 and lower where unicode types in
         # environment variables aren't handled by subprocess.
-        for k, v in env.items():
+        for k, v in list(env.items()):
             if isinstance(v, unicode):
                 env[k] = v.encode('utf-8')
 

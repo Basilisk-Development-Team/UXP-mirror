@@ -140,7 +140,7 @@ class DeviceManagerADB(DeviceManager):
         if cwd:
             cmdline = "cd %s; %s" % (cwd, cmdline)
         if env:
-            envstr = '; '.join(['export %s=%s' % (x[0], x[1]) for x in env.iteritems()])
+            envstr = '; '.join(['export %s=%s' % (x[0], x[1]) for x in env.items()])
             cmdline = envstr + "; " + cmdline
 
         # all output should be in stdout
@@ -444,7 +444,7 @@ class DeviceManagerADB(DeviceManager):
         if env != '' and env is not None:
             envCnt = 0
             # env is expected to be a dict of environment variables
-            for envkey, envval in env.iteritems():
+            for envkey, envval in env.items():
                 acmd.append("--es")
                 acmd.append("env" + str(envCnt))
                 acmd.append(envkey + "=" + envval)

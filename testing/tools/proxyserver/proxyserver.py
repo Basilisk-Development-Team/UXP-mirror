@@ -78,7 +78,7 @@ class HTTPRequestHandler(BaseHTTPServer.BaseHTTPRequestHandler):
 
   def getHeaders(self):
     h = {}
-    for name in self.headers.keys():
+    for name in list(self.headers.keys()):
       h[name] = self.headers[name]
 
     return h

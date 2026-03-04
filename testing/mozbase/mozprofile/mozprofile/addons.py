@@ -301,15 +301,15 @@ class AddonManager(object):
             rdf = get_namespace_id(doc, 'http://www.w3.org/1999/02/22-rdf-syntax-ns#')
 
             description = doc.getElementsByTagName(rdf + 'Description').item(0)
-            for entry, value in description.attributes.items():
+            for entry, value in list(description.attributes.items()):
                 # Remove the namespace prefix from the tag for comparison
                 entry = entry.replace(em, "")
-                if entry in details.keys():
+                if entry in list(details.keys()):
                     details.update({entry: value})
             for node in description.childNodes:
                 # Remove the namespace prefix from the tag for comparison
                 entry = node.nodeName.replace(em, "")
-                if entry in details.keys():
+                if entry in list(details.keys()):
                     details.update({entry: get_text(node)})
         except Exception as e:
             raise AddonFormatError(str(e)), None, sys.exc_info()[2]

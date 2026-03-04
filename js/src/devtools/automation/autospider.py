@@ -274,7 +274,7 @@ def run_command(command, check=False, **kwargs):
 
 # Add in environment variable settings for this variant. Normally used to
 # modify the flags passed to the shell or to set the GC zeal mode.
-for k, v in variant.get('env', {}).items():
+for k, v in list(variant.get('env', {}).items()):
     env[k] = v.format(
         DIR=DIR.scripts,
         TOOLTOOL_CHECKOUT=DIR.tooltool,

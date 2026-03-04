@@ -607,7 +607,7 @@ class NonCallableMock(Base):
         self.call_args_list = _CallList()
         self.method_calls = _CallList()
 
-        for child in self._mock_children.values():
+        for child in list(self._mock_children.values()):
             if isinstance(child, _SpecState):
                 continue
             child.reset_mock()
@@ -626,7 +626,7 @@ class NonCallableMock(Base):
 
         >>> attrs = {'method.return_value': 3, 'other.side_effect': KeyError}
         >>> mock.configure_mock(**attrs)"""
-        for arg, val in sorted(kwargs.items(),
+        for arg, val in sorted(list(kwargs.items()),
                                # we sort on the number of dots so that
                                # attributes are set before we set attributes on
                                # attributes
@@ -1942,7 +1942,7 @@ def _format_call_signature(name, args, kwargs):
     formatted_args = ''
     args_string = ', '.join([repr(arg) for arg in args])
     kwargs_string = ', '.join([
-        '%s=%r' % (key, value) for key, value in kwargs.items()
+        '%s=%r' % (key, value) for key, value in list(kwargs.items())
     ])
     if args_string:
         formatted_args = args_string

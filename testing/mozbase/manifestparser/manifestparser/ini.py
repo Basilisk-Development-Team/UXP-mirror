@@ -131,7 +131,7 @@ def combine_fields(global_vars, local_vars):
         'support-files': '%s %s',
     }
     final_mapping = global_vars.copy()
-    for field_name, value in local_vars.items():
+    for field_name, value in list(local_vars.items()):
         if field_name not in field_patterns or field_name not in global_vars:
             final_mapping[field_name] = value
             continue

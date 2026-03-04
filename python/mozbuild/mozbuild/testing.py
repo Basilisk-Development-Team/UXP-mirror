@@ -62,7 +62,7 @@ class TestMetadata(object):
         if test_defaults:
             with open(test_defaults, 'rb') as fh:
                 defaults = pickle.load(fh)
-        for path, tests in test_data.items():
+        for path, tests in list(test_data.items()):
             for metadata in tests:
                 if defaults:
                     manifest = metadata['manifest']
@@ -302,7 +302,7 @@ REFTEST_FLAVORS = ('crashtest', 'reftest')
 WEB_PLATFORM_TESTS_FLAVORS = ('web-platform-tests',)
 
 def all_test_flavors():
-    return ([v[0] for v in TEST_MANIFESTS.values()] +
+    return ([v[0] for v in list(TEST_MANIFESTS.values())] +
             list(REFTEST_FLAVORS) +
             list(WEB_PLATFORM_TESTS_FLAVORS) +
             ['python'])
@@ -444,7 +444,7 @@ def install_test_files(topsrcdir, topobjdir, tests_root, test_objs):
     only a few tests need to be run.
     """
     flavor_info = {flavor: (root, prefix, install)
-                   for (flavor, root, prefix, install) in TEST_MANIFESTS.values()}
+                   for (flavor, root, prefix, install) in list(TEST_MANIFESTS.values())}
     objdir_dest = mozpath.join(topobjdir, tests_root)
 
     converter = SupportFilesConverter()

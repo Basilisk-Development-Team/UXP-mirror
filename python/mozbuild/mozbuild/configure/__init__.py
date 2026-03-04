@@ -334,7 +334,7 @@ class ConfigureSandbox(dict):
         if path:
             self.include_file(path)
 
-        for option in self._options.itervalues():
+        for option in self._options.values():
             # All options must be referenced by some @depends function
             if option not in self._seen:
                 raise ConfigureError(
@@ -542,7 +542,7 @@ class ConfigureSandbox(dict):
         '''
         when = self._normalize_when(kwargs.get('when'), 'option')
         args = [self._resolve(arg) for arg in args]
-        kwargs = {k: self._resolve(v) for k, v in kwargs.iteritems()
+        kwargs = {k: self._resolve(v) for k, v in kwargs.items()
                                       if k != 'when'}
         option = Option(*args, **kwargs)
         if when:
@@ -641,7 +641,7 @@ class ConfigureSandbox(dict):
             (k[:-len('_impl')], getattr(self, k))
             for k in dir(self) if k.endswith('_impl') and k != 'template_impl'
         )
-        glob.update((k, v) for k, v in self.iteritems() if k not in glob)
+        glob.update((k, v) for k, v in self.items() if k not in glob)
 
         # Any function argument to the template must be prepared to be sandboxed.
         # If the template itself returns a function (in which case, it's very
@@ -665,7 +665,7 @@ class ConfigureSandbox(dict):
             def wrapper(*args, **kwargs):
                 args = [maybe_prepare_function(arg) for arg in args]
                 kwargs = {k: maybe_prepare_function(v)
-                          for k, v in kwargs.iteritems()}
+                          for k, v in kwargs.items()}
                 ret = template(*args, **kwargs)
                 if isfunction(ret):
                     # We can't expect the sandboxed code to think about all the
@@ -888,7 +888,7 @@ class ConfigureSandbox(dict):
             return func, func.func_globals
 
         glob = SandboxedGlobal(
-            (k, v) for k, v in func.func_globals.iteritems()
+            (k, v) for k, v in func.func_globals.items()
             if (inspect.isfunction(v) and v not in self._templates) or (
                 inspect.isclass(v) and issubclass(v, Exception))
         )

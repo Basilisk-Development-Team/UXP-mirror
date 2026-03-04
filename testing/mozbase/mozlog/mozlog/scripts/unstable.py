@@ -46,9 +46,9 @@ def _filter(results_cmp):
     def inner(statuses):
         rv = defaultdict(lambda: defaultdict(dict))
 
-        for run_info, tests in statuses.iteritems():
-            for test, subtests in tests.iteritems():
-                for name, results in subtests.iteritems():
+        for run_info, tests in statuses.items():
+            for test, subtests in tests.items():
+                for name, results in subtests.items():
                     if results_cmp(results):
                         rv[run_info][test][name] = results
 
@@ -62,16 +62,16 @@ filter_stable = _filter(lambda x: len(x) == 1)
 def group_results(data):
     rv = defaultdict(lambda: defaultdict(lambda: defaultdict(int)))
 
-    for run_info, tests in data.iteritems():
-        for test, subtests in tests.iteritems():
-            for name, results in subtests.iteritems():
-                for status, number in results.iteritems():
+    for run_info, tests in data.items():
+        for test, subtests in tests.items():
+            for name, results in subtests.items():
+                for status, number in results.items():
                     rv[test][name][status] += number
     return rv
 
 
 def print_results(data):
-    for run_info, tests in data.iteritems():
+    for run_info, tests in data.items():
         run_str = " ".join("%s:%s" % (k, v) for k, v in run_info) if run_info else "No Run Info"
         print(run_str)
         print("=" * len(run_str))
@@ -82,9 +82,9 @@ def print_run(tests):
     for test, subtests in sorted(tests.items()):
         print("\n" + str(test))
         print("-" * len(test))
-        for name, results in subtests.iteritems():
+        for name, results in subtests.items():
             print("[%s]: %s" % (name if name is not None else "",
-                                " ".join("%s (%i)" % (k, v) for k, v in results.iteritems())))
+                                " ".join("%s (%i)" % (k, v) for k, v in results.items())))
 
 
 def get_parser(add_help=True):

@@ -169,7 +169,7 @@ class Configuration(DescriptorProvider):
         # Collect up our filters, because we may have a webIDLFile filter that
         # we always want to apply first.
         tofilter = []
-        for key, val in filters.iteritems():
+        for key, val in filters.items():
             if key == 'webIDLFile':
                 # Special-case this part to make it fast, since most of our
                 # getDescriptors calls are conditioned on a webIDLFile.  We may

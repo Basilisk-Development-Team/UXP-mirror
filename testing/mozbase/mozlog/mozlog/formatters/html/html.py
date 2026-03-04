@@ -148,7 +148,7 @@ class HTMLFormatter(base.BaseFormatter):
                     html.a(html.img(src=screenshot), href="#"),
                     class_='screenshot'))
 
-            for name, content in debug.items():
+            for name, content in list(debug.items()):
                 if name in ['screenshot', 'image1', 'image2']:
                     if not content.startswith('data:image/png;base64,'):
                         href = 'data:image/png;base64,%s' % content
@@ -208,7 +208,7 @@ class HTMLFormatter(base.BaseFormatter):
                         id='environment'),
 
                     html.h2('Summary'),
-                    html.p('%i tests ran in %.1f seconds.' % (sum(self.test_count.itervalues()),
+                    html.p('%i tests ran in %.1f seconds.' % (sum(self.test_count.values()),
                                                               (self.suite_times["end"] -
                                                                self.suite_times["start"]) / 1000.),
                            html.br(),

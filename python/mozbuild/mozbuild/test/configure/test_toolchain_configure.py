@@ -471,7 +471,7 @@ class LinuxToolchainTest(BaseToolchainTest):
         # We'll try gcc and clang, but since there is no gcc (gcc-x.y doesn't
         # count), find clang.
         paths = {
-            k: v for k, v in self.PATHS.iteritems()
+            k: v for k, v in self.PATHS.items()
             if os.path.basename(k) not in ('gcc', 'g++')
         }
         self.do_toolchain_test(paths, {
@@ -506,7 +506,7 @@ class LinuxToolchainTest(BaseToolchainTest):
         # Even if there are gcc-x.y or clang-x.y compilers available, we
         # don't try them. This could be considered something to improve.
         paths = {
-            k: v for k, v in self.PATHS.iteritems()
+            k: v for k, v in self.PATHS.items()
             if os.path.basename(k) not in ('gcc', 'g++', 'clang', 'clang++')
         }
         self.do_toolchain_test(paths, {
@@ -687,7 +687,7 @@ class OSXToolchainTest(BaseToolchainTest):
     def test_not_gcc(self):
         # We won't pick GCC if it's the only thing available.
         paths = {
-            k: v for k, v in self.PATHS.iteritems()
+            k: v for k, v in self.PATHS.items()
             if os.path.basename(k) not in ('clang', 'clang++')
         }
         self.do_toolchain_test(paths, {
@@ -851,7 +851,7 @@ class WindowsToolchainTest(BaseToolchainTest):
     def test_clang_cl(self):
         # We'll pick clang-cl if msvc can't be found.
         paths = {
-            k: v for k, v in self.PATHS.iteritems()
+            k: v for k, v in self.PATHS.items()
             if os.path.basename(k) != 'cl'
         }
         self.do_toolchain_test(paths, {
@@ -862,7 +862,7 @@ class WindowsToolchainTest(BaseToolchainTest):
     def test_gcc(self):
         # We'll pick GCC if msvc and clang-cl can't be found.
         paths = {
-            k: v for k, v in self.PATHS.iteritems()
+            k: v for k, v in self.PATHS.items()
             if os.path.basename(k) not in ('cl', 'clang-cl')
         }
         self.do_toolchain_test(paths, {
@@ -881,7 +881,7 @@ class WindowsToolchainTest(BaseToolchainTest):
     def test_clang(self):
         # We'll pick clang if nothing else is found.
         paths = {
-            k: v for k, v in self.PATHS.iteritems()
+            k: v for k, v in self.PATHS.items()
             if os.path.basename(k) not in ('cl', 'clang-cl', 'gcc')
         }
         self.do_toolchain_test(paths, {

@@ -165,7 +165,7 @@ class SymFileManager:
             return None
 
         logString = "Found " + \
-            str(len(symbolMap.keys())) + " unique entries from "
+            str(len(list(symbolMap.keys()))) + " unique entries from "
         logString += str(publicCount) + " PUBLIC lines, " + \
             str(funcCount) + " FUNC lines"
         LogTrace(logString)

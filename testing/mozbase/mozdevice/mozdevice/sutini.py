@@ -114,7 +114,7 @@ def main():
     if not cfg.sections():
         print('Empty or missing ini file.')
     changed_vals = False
-    for sect, opts in SCHEMA.iteritems():
+    for sect, opts in SCHEMA.items():
         changed_vals |= edit_sect(cfg, sect, opts)
     if changed_vals:
         put_cfg(d, cfg, ini_path)

@@ -991,7 +991,7 @@ class AndroidCommands(object):
     for pid in pid_list:
       usage_dict_per_pid, smaps_per_pid = self.GetMemoryUsageForPid(pid)
       smaps[pid] = smaps_per_pid
-      for (key, value) in usage_dict_per_pid.items():
+      for (key, value) in list(usage_dict_per_pid.items()):
         usage_dict[key] += value
 
     return usage_dict, smaps

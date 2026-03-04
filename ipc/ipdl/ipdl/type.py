@@ -1581,7 +1581,7 @@ class Process:
         self.spawn.add(spawn)
 
     def iteredges(self):
-        for edgelist in self.edges.itervalues():
+        for edgelist in self.edges.values():
             for edge in edgelist:
                 yield edge
 
@@ -1690,7 +1690,7 @@ class ProcessGraph:
 
     @classmethod
     def iterbridges(cls):
-        for edges in cls.bridges.itervalues():
+        for edges in cls.bridges.values():
             for bridge in edges:
                 yield bridge
 
@@ -1711,7 +1711,7 @@ class ProcessGraph:
 
     @classmethod
     def iteropens(cls):
-        for edges in cls.opens.itervalues():
+        for edges in cls.opens.values():
             for opens in edges:
                 yield opens
 
@@ -1885,11 +1885,11 @@ class CheckProcessGraph(TcheckVisitor):
                 for edge in process.iteredges():
                     print('    ', edge)
             print('Bridges')
-            for bridgeList in ProcessGraph.bridges.itervalues():
+            for bridgeList in ProcessGraph.bridges.values():
                 for bridge in bridgeList:
                     print('  ', bridge)
             print('Opens')
-            for opensList in ProcessGraph.opens.itervalues():
+            for opensList in ProcessGraph.opens.values():
                 for opens in opensList:
                     print('  ', opens)
 
@@ -2140,7 +2140,7 @@ direction as trigger |t|'''
                     root.loc,
                     "when starting from state `%s', actors of protocol `%s' cannot be deleted", root.state.name, p.name)
 
-        for ts in p.states.itervalues():
+        for ts in p.states.values():
             if ts.state is not State.DEAD and ts.state not in allvisited:
                 self.error(ts.loc,
                            "unreachable state `%s' in protocol `%s'",

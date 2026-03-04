@@ -321,7 +321,7 @@ class XPCShellRemote(xpcshell.XPCShellTests, object):
         localWrapper = tempfile.mktemp()
         f = open(localWrapper, "w")
         f.write("#!/system/bin/sh\n")
-        for envkey, envval in self.env.iteritems():
+        for envkey, envval in self.env.items():
             f.write("export %s=%s\n" % (envkey, envval))
         f.writelines([
             "cd $1\n",

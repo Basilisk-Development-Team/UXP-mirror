@@ -234,15 +234,15 @@ class Context(KeyedDefaultDict):
         This function is transactional: if setitem fails for one of the values,
         the context is not updated at all."""
         if isinstance(iterable, dict):
-            iterable = iterable.items()
+            iterable = list(iterable.items())
 
         update = {}
-        for key, value in itertools.chain(iterable, kwargs.items()):
+        for key, value in itertools.chain(iterable, list(kwargs.items())):
             stored_type = self._validate(key, value)
             # Don't create an instance of stored_type if coercion is needed,
             # until all values are validated.
             update[key] = (value, stored_type)
-        for key, (value, stored_type) in update.items():
+        for key, (value, stored_type) in list(update.items()):
             if not isinstance(value, stored_type):
                 update[key] = stored_type(value)
             else:
@@ -544,7 +544,7 @@ def ContextDerivedTypedRecord(*fields):
         __slots__ = tuple([name for name, _ in fields])
 
         def __init__(self, context):
-            for fname, ftype in self._fields.items():
+            for fname, ftype in list(self._fields.items()):
                 if issubclass(ftype, ContextDerivedValue):
                     setattr(self, fname, self._fields[fname](context))
                 else:
@@ -764,7 +764,7 @@ class Files(SubContext):
         self.test_tags |= other.test_tags
         self.test_flavors |= other.test_flavors
 
-        for k, v in other.items():
+        for k, v in list(other.items()):
             if k == 'IMPACTED_TESTS':
                 self.test_files |= set(mozpath.relpath(e.full_path, e.context.config.topsrcdir)
                                        for e in v.files)
@@ -818,7 +818,7 @@ class Files(SubContext):
 
         bug_components = Counter()
 
-        for f in files.values():
+        for f in list(files.values()):
             bug_component = f.get('BUG_COMPONENT')
             if bug_component:
                 bug_components[bug_component] += 1
@@ -1758,7 +1758,7 @@ VARIABLES = {
 }
 
 # Sanity check: we don't want any variable above to have a list as storage type.
-for name, (storage_type, input_types, docs) in VARIABLES.items():
+for name, (storage_type, input_types, docs) in list(VARIABLES.items()):
     if storage_type == list:
         raise RuntimeError('%s has a "list" storage type. Use "List" instead.'
             % name)

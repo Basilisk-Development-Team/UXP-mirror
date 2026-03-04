@@ -99,7 +99,7 @@ class WebIDLCodegenManagerState(dict):
         self['version'] = state['version']
         self['global_depends'] = state['global_depends']
 
-        for k, v in state['webidls'].items():
+        for k, v in list(state['webidls'].items()):
             self['webidls'][k] = v
 
             # Sets are converted to lists for serialization because JSON
@@ -111,7 +111,7 @@ class WebIDLCodegenManagerState(dict):
         """Dump serialized state to a file handle."""
         normalized = deepcopy(self)
 
-        for k, v in self['webidls'].items():
+        for k, v in list(self['webidls'].items()):
             # Convert sets to lists because JSON doesn't support sets.
             normalized['webidls'][k]['outputs'] = sorted(v['outputs'])
             normalized['webidls'][k]['inputs'] = sorted(v['inputs'])
@@ -296,7 +296,7 @@ class WebIDLCodegenManager(LoggingMixin):
         if self._make_deps_path:
             mk = Makefile()
             codegen_rule = mk.create_rule([self._make_deps_target])
-            codegen_rule.add_dependencies(global_hashes.keys())
+            codegen_rule.add_dependencies(list(global_hashes.keys()))
             codegen_rule.add_dependencies(self._input_paths)
 
             with FileAvoidWrite(self._make_deps_path) as fh:
@@ -382,7 +382,7 @@ class WebIDLCodegenManager(LoggingMixin):
 
         # Now we move on to the input files.
         old_hashes = {v['filename']: v['sha1']
-                      for v in self._state['webidls'].values()}
+                      for v in list(self._state['webidls'].values())}
 
         old_filenames = set(old_hashes.keys())
         new_filenames = self._input_paths
@@ -403,7 +403,7 @@ class WebIDLCodegenManager(LoggingMixin):
         # Inherit dependencies from previous run. The full set of dependencies
         # is associated with each record, so we don't need to perform any fancy
         # graph traversal.
-        for v in self._state['webidls'].values():
+        for v in list(self._state['webidls'].values()):
             if any(dep for dep in v['inputs'] if dep in changed_inputs):
                 changed_inputs.add(v['filename'])
 
@@ -512,7 +512,7 @@ class WebIDLCodegenManager(LoggingMixin):
             return True, current_hashes
 
         # Compare hashes.
-        for f, sha1 in current_hashes.items():
+        for f, sha1 in list(current_hashes.items()):
             if sha1 != self._state['global_depends'][f]:
                 return True, current_hashes
 

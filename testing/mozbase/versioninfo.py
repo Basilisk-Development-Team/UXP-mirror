@@ -99,7 +99,7 @@ def dependencies(args):
         dependencies[name] = _dependencies
 
     # print package version information
-    for value in info.values():
+    for value in list(info.values()):
         print('%s %s : %s' % (value['Name'], value['Version'],
                               ', '.join(dependencies[value['Name']])))
 

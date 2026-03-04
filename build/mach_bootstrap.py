@@ -335,7 +335,7 @@ def bootstrap(topsrcdir, mozilla_dir=None):
     # always load local repository configuration
     mach.settings_paths.append(mozilla_dir)
 
-    for category, meta in CATEGORIES.items():
+    for category, meta in list(CATEGORIES.items()):
         mach.define_category(category, meta['short'], meta['long'],
             meta['priority'])
 

@@ -149,6 +149,6 @@ class LintRoller(object):
             results, return_code = worker.get()
             if results or return_code:
                 self.return_code = 1
-            for k, v in results.iteritems():
+            for k, v in results.items():
                 all_results[k].extend(v)
         return all_results

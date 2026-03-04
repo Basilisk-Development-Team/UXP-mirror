@@ -185,7 +185,7 @@ class Emitter(object):
                 self.write_version_directive(version_text)
             self.tag_prefixes = self.DEFAULT_TAG_PREFIXES.copy()
             if self.event.tags:
-                handles = self.event.tags.keys()
+                handles = list(self.event.tags.keys())
                 handles.sort()
                 for handle in handles:
                     prefix = self.event.tags[handle]
@@ -586,7 +586,7 @@ class Emitter(object):
             return tag
         handle = None
         suffix = tag
-        prefixes = self.tag_prefixes.keys()
+        prefixes = list(self.tag_prefixes.keys())
         prefixes.sort()
         for prefix in prefixes:
             if tag.startswith(prefix)   \

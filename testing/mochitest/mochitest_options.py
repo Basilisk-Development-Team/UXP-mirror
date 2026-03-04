@@ -982,7 +982,7 @@ class MochitestArgumentParser(ArgumentParser):
 
         if self.app not in container_map:
             self.error("Unrecognized app '{}'! Must be one of: {}".format(
-                self.app, ', '.join(container_map.keys())))
+                self.app, ', '.join(list(container_map.keys()))))
 
         defaults = {}
         for container in self.containers:

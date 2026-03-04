@@ -676,7 +676,7 @@ device_config_options = [[
     {"action": "store",
      "type": "choice",
      "dest": "device_protocol",
-     "choices": DEVICE_PROTOCOL_DICT.keys(),
+     "choices": list(DEVICE_PROTOCOL_DICT.keys()),
      "help": "Specify the device communication protocol."
      }
 ], [

@@ -186,7 +186,7 @@ class GLDatabase:
             headerFile = GLConstHeader(f)
             headerFile.formatFileBegin()
 
-            constNames = self.consts.keys()
+            constNames = list(self.consts.keys())
             constNames.sort()
 
             for lib in GLDatabase.LIBS:

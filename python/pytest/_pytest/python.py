@@ -517,7 +517,7 @@ def add_funcarg_pseudo_fixture_def(collector, metafunc, fixturemanager):
     arg2params = {}
     arg2scope = {}
     for callspec in metafunc._calls:
-        for argname, argvalue in callspec.funcargs.items():
+        for argname, argvalue in list(callspec.funcargs.items()):
             assert argname not in callspec.params
             callspec.params[argname] = argvalue
             arg2params_list = arg2params.setdefault(argname, [])
@@ -532,7 +532,7 @@ def add_funcarg_pseudo_fixture_def(collector, metafunc, fixturemanager):
     # register artificial FixtureDef's so that later at test execution
     # time we can rely on a proper FixtureDef to exist for fixture setup.
     arg2fixturedefs = metafunc._arg2fixturedefs
-    for argname, valuelist in arg2params.items():
+    for argname, valuelist in list(arg2params.items()):
         # if we have a scope that is higher than function we need
         # to make sure we only ever create an according fixturedef on
         # a per-scope basis. We thus store and cache the fixturedef on the
@@ -1164,7 +1164,7 @@ def _showfixtures_main(config, session):
     fm = session._fixturemanager
 
     available = []
-    for argname, fixturedefs in fm._arg2fixturedefs.items():
+    for argname, fixturedefs in list(fm._arg2fixturedefs.items()):
         assert fixturedefs is not None
         if not fixturedefs:
             continue
@@ -1786,7 +1786,7 @@ class FixtureLookupError(LookupError):
         if msg is None:
             fm = self.request._fixturemanager
             available = []
-            for name, fixturedef in fm._arg2fixturedefs.items():
+            for name, fixturedef in list(fm._arg2fixturedefs.items()):
                 parentid = self.request._pyfuncitem.parent.nodeid
                 faclist = list(fm._matchfactories(fixturedef, parentid))
                 if faclist:
@@ -2257,7 +2257,7 @@ def get_parametrized_fixture_keys(item, scopenum):
         # cs.indictes.items() is random order of argnames but
         # then again different functions (items) can change order of
         # arguments so it doesn't matter much probably
-        for argname, param_index in cs.indices.items():
+        for argname, param_index in list(cs.indices.items()):
             if cs._arg2scopenum[argname] != scopenum:
                 continue
             if scopenum == 0:    # session

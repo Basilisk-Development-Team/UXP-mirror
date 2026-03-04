@@ -570,7 +570,7 @@ class AndroidEmulator(object):
         return telnet_ok
 
     def _get_avd_type(self, requested):
-        if requested in AVD_DICT.keys():
+        if requested in list(AVD_DICT.keys()):
             return requested
         if self.substs:
             if not self.substs['TARGET_CPU'].startswith('arm'):

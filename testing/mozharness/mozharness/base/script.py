@@ -1183,7 +1183,7 @@ class ScriptMixin(PlatformMixin):
             for key in default_replace_dict:
                 if key not in replace_dict:
                     replace_dict[key] = default_replace_dict[key]
-        for key in partial_env.keys():
+        for key in list(partial_env.keys()):
             env[key] = partial_env[key] % replace_dict
             self.log("ENV: %s is now %s" % (key, env[key]), level=log_level)
         for k in purge_env:
@@ -1232,7 +1232,7 @@ class ScriptMixin(PlatformMixin):
         if isinstance(exe, dict):
             found = False
             # allow for searchable paths of the buildbot exe
-            for name, path in exe.iteritems():
+            for name, path in exe.items():
                 if isinstance(path, list) or isinstance(path, tuple):
                     path = [x % repl_dict for x in path]
                     if all([os.path.exists(section) for section in path]):
@@ -1919,7 +1919,7 @@ class BaseScript(ScriptMixin, LogMixin, object):
         """Copies logs to the upload directory"""
         self.info("Copying logs to upload dir...")
         log_files = ['localconfig.json']
-        for log_name in self.log_obj.log_files.keys():
+        for log_name in list(self.log_obj.log_files.keys()):
             log_files.append(self.log_obj.log_files[log_name])
         dirs = self.query_abs_dirs()
         for log_file in log_files:
@@ -2122,7 +2122,7 @@ class BaseScript(ScriptMixin, LogMixin, object):
             "append_to_log": False,
         }
         log_type = self.config.get("log_type", "multi")
-        for key in log_config.keys():
+        for key in list(log_config.keys()):
             value = self.config.get(key, None)
             if value is not None:
                 log_config[key] = value

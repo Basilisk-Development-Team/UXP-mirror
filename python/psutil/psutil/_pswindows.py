@@ -215,7 +215,7 @@ def net_connections(kind, _pid=-1):
 
 def net_if_stats():
     ret = cext.net_if_stats()
-    for name, items in ret.items():
+    for name, items in list(ret.items()):
         isup, duplex, speed, mtu = items
         if hasattr(_common, 'NicDuplex'):
             duplex = _common.NicDuplex(duplex)

@@ -678,7 +678,7 @@ class TcpStunHandler(protocol.Protocol):
     def connectionLost(self, reason):
         print(("Lost connection from {}".format(self.address)))
         # Destroy allocations that this connection made
-        for key, allocation in allocations.items():
+        for key, allocation in list(allocations.items()):
             if allocation.other_transport_handler == self:
                 print(("Closing allocation due to dropped connection: {}"
                       .format(key)))
@@ -711,7 +711,7 @@ except:
 
 def prune_allocations():
     now = time.time()
-    for key, allocation in allocations.items():
+    for key, allocation in list(allocations.items()):
         if allocation.expiry < now:
             print(("Allocation expired: {}".format(key)))
             del allocations[key]

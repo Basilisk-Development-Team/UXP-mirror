@@ -174,7 +174,7 @@ def generate_platform_sources():
     sources[plat] = set(v.replace('../', 'skia/') for v in json.load(f));
     f.close()
 
-  return dict(sources.items() + generate_opt_sources().items())
+  return dict(list(sources.items()) + list(generate_opt_sources().items()))
 
 
 def generate_separated_sources(platform_sources):
@@ -281,7 +281,7 @@ def generate_separated_sources(platform_sources):
     'gpu': set()
   })
 
-  for plat in platform_sources.keys():
+  for plat in list(platform_sources.keys()):
     for value in platform_sources[plat]:
       if isblacklisted(value):
         continue

@@ -52,7 +52,7 @@ class AnnotatedFunctions(object):
       List of all annotations for this function.
     """
     return [annotation
-            for annotation, tests in AnnotatedFunctions._ANNOTATED.iteritems()
+            for annotation, tests in AnnotatedFunctions._ANNOTATED.items()
             if qualified_function_name in tests]
 
 

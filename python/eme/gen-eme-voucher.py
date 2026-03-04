@@ -105,7 +105,7 @@ class ApplicationDigest(univ.Sequence):
 
 def meets_requirements(items, requirements):
 	for r in requirements:
-		for n, v in r.items():
+		for n, v in list(r.items()):
 			if n not in items or items[n] != v: return False
 	return True
 

@@ -190,7 +190,7 @@ class VirtualenvMixin(object):
         """
         Return whether the package is installed
         """
-        packages = self.package_versions(error_level=error_level).keys()
+        packages = list(self.package_versions(error_level=error_level).keys())
         return package_name.lower() in [package.lower() for package in packages]
 
     def install_module(self, module=None, module_url=None, install_method=None,
@@ -646,7 +646,7 @@ class ResourceMonitoringMixin(PerfherderResourceOptionsMixin):
 
             })
 
-            for phase in rm.phases.keys():
+            for phase in list(rm.phases.keys()):
                 phase_duration = rm.phases[phase][1] - rm.phases[phase][0]
                 subtests = [
                     {
@@ -726,7 +726,7 @@ class ResourceMonitoringMixin(PerfherderResourceOptionsMixin):
             self._tinderbox_print('Swap in / out<br/>{:,} / {:,}'.format(
                                   swap_in, swap_out))
 
-        for phase in rm.phases.keys():
+        for phase in list(rm.phases.keys()):
             start_time, end_time = rm.phases[phase]
             cpu_percent, cpu_times, io, swap = resources(phase)
             log_usage(phase, end_time - start_time, cpu_percent, cpu_times, io)

@@ -87,11 +87,11 @@ def run_tests(tests, test_dir):
         print('fail')
 
     return dict((filename, dict(TMax=TMax, TAvg=TAvg, MMax=MMax, MAvg=MAvg, SMax=SMax, SAvg=SAvg))
-            for filename, (TMax, TAvg, MMax, MAvg, SMax, SAvg) in bench_map.iteritems())
+            for filename, (TMax, TAvg, MMax, MAvg, SMax, SAvg) in bench_map.items())
 
 def compare(current, baseline):
     percent_speedups = []
-    for key, current_result in current.iteritems():
+    for key, current_result in current.items():
         try:
             baseline_result = baseline[key]
         except KeyError:

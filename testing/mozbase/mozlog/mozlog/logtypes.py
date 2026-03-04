@@ -83,7 +83,7 @@ class log_action(object):
             if name not in values:
                 values[name] = self.args[name].default
 
-        for key, value in values.iteritems():
+        for key, value in values.items():
             if key in self.args:
                 out_value = self.args[key](value)
                 if out_value is not missing:
@@ -94,7 +94,7 @@ class log_action(object):
         return data
 
     def convert_known(self, **kwargs):
-        known_kwargs = {name: value for name, value in kwargs.iteritems()
+        known_kwargs = {name: value for name, value in kwargs.items()
                         if name in self.args}
         return self.convert(**known_kwargs)
 

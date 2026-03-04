@@ -578,7 +578,7 @@ def adjust_paths(dest, **paths):
         config.add_section('paths')
 
     changed = False
-    for path_name, path_value in paths.items():
+    for path_name, path_value in list(paths.items()):
         if (not config.has_option('paths', path_name) or
                 config.get('paths', path_name) != path_value):
             changed = True

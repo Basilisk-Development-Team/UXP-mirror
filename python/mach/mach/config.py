@@ -397,10 +397,10 @@ class ConfigSettings(collections.Mapping):
             meta = self._format_metadata(provider, section, option, *setting[1:])
             config_settings[section][option] = meta
 
-        for section_name, settings in config_settings.items():
+        for section_name, settings in list(config_settings.items()):
             section = self._settings.get(section_name, {})
 
-            for k, v in settings.items():
+            for k, v in list(settings.items()):
                 if k in section:
                     raise ConfigException('Setting already registered: %s.%s' %
                                           section_name, k)
@@ -432,7 +432,7 @@ class ConfigSettings(collections.Mapping):
         if self._finalized:
             return
 
-        for section, settings in self._settings.items():
+        for section, settings in list(self._settings.items()):
             s = ConfigSettings.ConfigSection(self._config, section, settings)
             self._sections[section] = s
 
@@ -445,7 +445,7 @@ class ConfigSettings(collections.Mapping):
     def __iter__(self):
         self._finalize()
 
-        return iter(self._sections.keys())
+        return iter(list(self._sections.keys()))
 
     def __contains__(self, k):
         return k in self._settings

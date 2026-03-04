@@ -82,10 +82,10 @@ class TestStructuredLogging(unittest.TestCase):
 
         self.assertTrue(isinstance(actual['_time'], (int, long)))
 
-        for k, v in expected.items():
+        for k, v in list(expected.items()):
             self.assertEqual(v, actual[k])
 
-        for k in actual.keys():
+        for k in list(actual.keys()):
             if k != '_time':
                 self.assertTrue(expected.get(k) is not None)
 

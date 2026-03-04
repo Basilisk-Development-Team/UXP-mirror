@@ -45,7 +45,7 @@ class CmpNode(object):
         node_string += node.getAttribute("Name")
 
         all_nodes = []
-        for (name, value) in node.attributes.items():
+        for (name, value) in list(node.attributes.items()):
           all_nodes.append((name, value))
 
         all_nodes.sort(CmpTuple())
@@ -78,7 +78,7 @@ def PrettyPrintNode(node, indent=0):
     print('%s<%s' % (' '*indent, node.nodeName))
 
     all_attributes = []
-    for (name, value) in node.attributes.items():
+    for (name, value) in list(node.attributes.items()):
       all_attributes.append((name, value))
       all_attributes.sort(CmpTuple())
     for (name, value) in all_attributes:
@@ -128,7 +128,7 @@ def FixFilenames(filenames, current_directory):
 def AbsoluteNode(node):
   """Makes all the properties we know about in this node absolute."""
   if node.attributes:
-    for (name, value) in node.attributes.items():
+    for (name, value) in list(node.attributes.items()):
       if name in ['InheritedPropertySheets', 'RelativePath',
                   'AdditionalIncludeDirectories',
                   'IntermediateDirectory', 'OutputDirectory',
@@ -157,7 +157,7 @@ def CleanupVcproj(node):
   # Fix all the semicolon separated attributes to be sorted, and we also
   # remove the dups.
   if node.attributes:
-    for (name, value) in node.attributes.items():
+    for (name, value) in list(node.attributes.items()):
       sorted_list = sorted(value.split(';'))
       unique_list = []
       for i in sorted_list:
@@ -246,7 +246,7 @@ def MergeAttributes(node1, node2):
   if not node2.attributes:
     return
 
-  for (name, value2) in node2.attributes.items():
+  for (name, value2) in list(node2.attributes.items()):
     # Don't merge the 'Name' attribute.
     if name == 'Name':
       continue

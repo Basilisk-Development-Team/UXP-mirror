@@ -57,7 +57,7 @@ print ()
 print ('#include "hb-unicode.hh"')
 print ()
 
-for typ, s in ranges.items():
+for typ, s in list(ranges.items()):
 	if typ != "Extended_Pictographic": continue
 
 	arr = dict()

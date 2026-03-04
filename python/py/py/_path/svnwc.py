@@ -913,7 +913,7 @@ class WCStatus:
             if name not in kw or kw[name]:
                 for path in getattr(self, name):
                     d[path] = 1
-        l = d.keys()
+        l = list(d.keys())
         if sort:
             l.sort()
         return l

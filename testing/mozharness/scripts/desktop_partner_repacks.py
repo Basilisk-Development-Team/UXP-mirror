@@ -133,7 +133,7 @@ class DesktopPartnerRepacks(ReleaseMixin, BuildbotMixin, PurgeMixin,
         dirs['abs_repo_dir'] = os.path.join(abs_dirs['abs_work_dir'], '.repo')
         dirs['abs_partners_dir'] = os.path.join(abs_dirs['abs_work_dir'], 'partners')
         dirs['abs_scripts_dir'] = os.path.join(abs_dirs['abs_work_dir'], 'scripts')
-        for key in dirs.keys():
+        for key in list(dirs.keys()):
             if key not in abs_dirs:
                 abs_dirs[key] = dirs[key]
         self.abs_dirs = abs_dirs

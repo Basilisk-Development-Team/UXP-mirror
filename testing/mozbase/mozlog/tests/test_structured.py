@@ -58,7 +58,7 @@ class BaseStructuredTest(unittest.TestCase):
         specials = set(["time"])
 
         all_expected.update(expected)
-        for key, value in all_expected.iteritems():
+        for key, value in all_expected.items():
             self.assertEqual(actual[key], value)
 
         self.assertEquals(set(all_expected.keys()) |
@@ -927,7 +927,7 @@ class TestBuffer(BaseStructuredTest):
         specials = set(["time"])
 
         all_expected.update(expected)
-        for key, value in all_expected.iteritems():
+        for key, value in all_expected.items():
             self.assertEqual(actual[key], value)
 
         self.assertEquals(set(all_expected.keys()) |

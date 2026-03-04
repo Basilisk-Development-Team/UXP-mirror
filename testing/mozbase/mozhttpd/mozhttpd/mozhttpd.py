@@ -87,7 +87,7 @@ class RequestHandler(SimpleHTTPServer.SimpleHTTPRequestHandler):
                 (response_code, headerdict, data) = \
                     handler['function'](self.request, *m.groups())
                 self.send_response(response_code)
-                for (keyword, value) in headerdict.iteritems():
+                for (keyword, value) in headerdict.items():
                     self.send_header(keyword, value)
                 self.end_headers()
                 self.wfile.write(data)
@@ -101,7 +101,7 @@ class RequestHandler(SimpleHTTPServer.SimpleHTTPRequestHandler):
         using self.path_mappings and self.docroot.
         Return (url_path, disk_path)."""
         path_components = [_f for _f in self.request.path.split('/') if _f]
-        for prefix, disk_path in self.path_mappings.iteritems():
+        for prefix, disk_path in self.path_mappings.items():
             prefix_components = [_f for _f in prefix.split('/') if _f]
             if len(path_components) < len(prefix_components):
                 continue

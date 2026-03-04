@@ -43,7 +43,7 @@ def readConfig(configfile, keys=[], required=[]):
     execfile(configfile, c)
     for k in keys:
         c = c[k]
-    items = c.keys()
+    items = list(c.keys())
     err = False
     for key in required:
         if key not in items:

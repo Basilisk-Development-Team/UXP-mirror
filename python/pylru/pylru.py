@@ -354,16 +354,16 @@ class WriteThroughCacheManager(object):
             pass
 
     def __iter__(self):
-        return self.keys()
+        return list(self.keys())
 
     def keys(self):
-        return self.store.keys()
+        return list(self.store.keys())
 
     def values(self):
-        return self.store.values()
+        return list(self.store.values())
 
     def items(self):
-        return self.store.items()
+        return list(self.store.items())
 
 
 
@@ -454,10 +454,10 @@ class WriteBackCacheManager(object):
 
 
     def __iter__(self):
-        return self.keys()
+        return list(self.keys())
 
     def keys(self):
-        for key in self.store.keys():
+        for key in list(self.store.keys()):
             if key not in self.dirty:
                 yield key
 
@@ -466,12 +466,12 @@ class WriteBackCacheManager(object):
 
 
     def values(self):
-        for key, value in self.items():
+        for key, value in list(self.items()):
             yield value
 
 
     def items(self):
-        for key, value in self.store.items():
+        for key, value in list(self.store.items()):
             if key not in self.dirty:
                 yield (key, value)
 

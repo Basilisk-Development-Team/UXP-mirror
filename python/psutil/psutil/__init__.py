@@ -799,7 +799,7 @@ class Process(object):
                         pass
             else:
                 # Windows only (faster)
-                for pid, ppid in ppid_map.items():
+                for pid, ppid in list(ppid_map.items()):
                     if ppid == self.pid:
                         try:
                             child = Process(pid)
@@ -820,7 +820,7 @@ class Process(object):
                     except (NoSuchProcess, ZombieProcess):
                         pass
             else:
-                for pid, ppid in ppid_map.items():
+                for pid, ppid in list(ppid_map.items()):
                     try:
                         p = Process(pid)
                         table[ppid].append(p)
@@ -1674,11 +1674,11 @@ def disk_io_counters(perdisk=False):
     if not rawdict:
         raise RuntimeError("couldn't find any physical disk")
     if perdisk:
-        for disk, fields in rawdict.items():
+        for disk, fields in list(rawdict.items()):
             rawdict[disk] = _common.sdiskio(*fields)
         return rawdict
     else:
-        return _common.sdiskio(*[sum(x) for x in zip(*rawdict.values())])
+        return _common.sdiskio(*[sum(x) for x in zip(*list(rawdict.values()))])
 
 
 # =====================================================================
@@ -1709,11 +1709,11 @@ def net_io_counters(pernic=False):
     if not rawdict:
         raise RuntimeError("couldn't find any network interface")
     if pernic:
-        for nic, fields in rawdict.items():
+        for nic, fields in list(rawdict.items()):
             rawdict[nic] = _common.snetio(*fields)
         return rawdict
     else:
-        return _common.snetio(*[sum(x) for x in zip(*rawdict.values())])
+        return _common.snetio(*[sum(x) for x in zip(*list(rawdict.values()))])
 
 
 def net_connections(kind='inet'):

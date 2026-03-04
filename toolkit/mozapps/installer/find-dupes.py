@@ -23,7 +23,7 @@ def find_dupes(source):
         md5s[m][1].append(p)
     total = 0
     num_dupes = 0
-    for m, (size, paths) in md5s.iteritems():
+    for m, (size, paths) in md5s.items():
         if len(paths) > 1:
             print('Duplicates %d bytes%s:' % (size,
                   ' (%d times)' % (len(paths) - 1) if len(paths) > 2 else ''))

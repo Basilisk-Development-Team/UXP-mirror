@@ -311,7 +311,7 @@ class MozconfigLoader(object):
 
         # Environment variables also appear as shell variables, but that's
         # uninteresting duplication of information. Filter them out.
-        filt = lambda x, y: {k: v for k, v in x.items() if k not in y}
+        filt = lambda x, y: {k: v for k, v in list(x.items()) if k not in y}
         result['vars'] = diff_vars(
             filt(parsed['vars_before'], parsed['env_before']),
             filt(parsed['vars_after'], parsed['env_after'])

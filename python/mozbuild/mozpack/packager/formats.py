@@ -89,7 +89,7 @@ class PiecemealFormatter(object):
         Return the deepest base directory containing the given path.
         '''
         self._frozen_bases = True
-        base = mozpath.basedir(path, self._sub_formatter.keys())
+        base = mozpath.basedir(path, list(self._sub_formatter.keys()))
         relpath = mozpath.relpath(path, base) if base else path
         return base, relpath
 

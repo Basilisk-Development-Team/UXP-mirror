@@ -38,7 +38,7 @@ def test_verification_perf(n = 100):
 def print_dict(title, d):
     print(title)
     print('-' * len(title))
-    for k, v in d.items():
+    for k, v in list(d.items()):
         print(k, '\t', v)
     print()
 

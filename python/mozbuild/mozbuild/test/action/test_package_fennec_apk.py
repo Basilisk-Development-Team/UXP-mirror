@@ -57,8 +57,8 @@ class TestPackageFennecAPK(unittest.TestCase):
         # overrides the first.
         jarrer = package(inputs=[data('input2.apk'), data('input1.ap_')])
 
-        files1 = JarReader(data('input1.ap_')).entries.keys()
-        files2 = JarReader(data('input2.apk')).entries.keys()
+        files1 = list(JarReader(data('input1.ap_')).entries.keys())
+        files2 = list(JarReader(data('input2.apk')).entries.keys())
         for name in files2:
             self.assertTrue(name in files1 or
                             jarrer[name].open().read().startswith('input2/'))

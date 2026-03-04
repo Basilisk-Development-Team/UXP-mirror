@@ -171,7 +171,7 @@ class XcodeSettings(object):
     # the same for all configs are implicitly per-target settings.
     self.xcode_settings = {}
     configs = spec['configurations']
-    for configname, config in configs.iteritems():
+    for configname, config in configs.items():
       self.xcode_settings[configname] = config.get('xcode_settings', {})
       self._ConvertConditionalKeys(configname)
       if self.xcode_settings[configname].get('IPHONEOS_DEPLOYMENT_TARGET',
@@ -963,7 +963,7 @@ class XcodeSettings(object):
         result = dict(self.xcode_settings[configname])
         first_pass = False
       else:
-        for key, value in self.xcode_settings[configname].iteritems():
+        for key, value in self.xcode_settings[configname].items():
           if key not in result:
             continue
           elif result[key] != value:
@@ -1462,7 +1462,7 @@ def MergeGlobalXcodeSettingsToSpec(global_dict, spec):
   # that amounts to merging in the global xcode_settings into each local
   # xcode_settings dict.
   global_xcode_settings = global_dict.get('xcode_settings', {})
-  for config in spec['configurations'].values():
+  for config in list(spec['configurations'].values()):
     if 'xcode_settings' in config:
       new_settings = global_xcode_settings.copy()
       new_settings.update(config['xcode_settings'])
@@ -1734,7 +1734,7 @@ def _TopologicallySortedEnvVarKeys(env):
     # Topologically sort, and then reverse, because we used an edge definition
     # that's inverted from the expected result of this function (see comment
     # above).
-    order = gyp.common.TopologicallySorted(env.keys(), GetEdges)
+    order = gyp.common.TopologicallySorted(list(env.keys()), GetEdges)
     order.reverse()
     return order
   except gyp.common.CycleError, e:
@@ -1764,8 +1764,8 @@ def GetSpecPostbuildCommands(spec, quiet=False):
 def _HasIOSTarget(targets):
   """Returns true if any target contains the iOS specific key
   IPHONEOS_DEPLOYMENT_TARGET."""
-  for target_dict in targets.values():
-    for config in target_dict['configurations'].values():
+  for target_dict in list(targets.values()):
+    for config in list(target_dict['configurations'].values()):
       if config.get('xcode_settings', {}).get('IPHONEOS_DEPLOYMENT_TARGET'):
         return True
   return False
@@ -1774,10 +1774,10 @@ def _HasIOSTarget(targets):
 def _AddIOSDeviceConfigurations(targets):
   """Clone all targets and append -iphoneos to the name. Configure these targets
   to build for iOS devices and use correct architectures for those builds."""
-  for target_dict in targets.itervalues():
+  for target_dict in targets.values():
     toolset = target_dict['toolset']
     configs = target_dict['configurations']
-    for config_name, simulator_config_dict in dict(configs).iteritems():
+    for config_name, simulator_config_dict in dict(configs).items():
       iphoneos_config_dict = copy.deepcopy(simulator_config_dict)
       configs[config_name + '-iphoneos'] = iphoneos_config_dict
       configs[config_name + '-iphonesimulator'] = simulator_config_dict

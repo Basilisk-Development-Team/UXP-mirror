@@ -1730,7 +1730,7 @@ class _GenerateProtocolCode(ipdl.ast.Visitor):
                 transitions.append(ifsametrigger)
                 msgToTransitions[msgid] = transitions
 
-            for msgid, transitions in msgToTransitions.iteritems():
+            for msgid, transitions in msgToTransitions.items():
                 block = Block()
                 block.addstmts(transitions +[ StmtBreak() ])
                 msgswitch.addcase(CaseLabel(msgid), block)

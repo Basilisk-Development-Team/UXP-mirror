@@ -412,7 +412,7 @@ class Entry:
             "optaddarg" :
             self._optaddarg and ", const %s value" % self._ctype or ""
             }
-        for (k, v) in extradict.items():
+        for (k, v) in list(extradict.items()):
             mapping[k] = v
 
         return mapping

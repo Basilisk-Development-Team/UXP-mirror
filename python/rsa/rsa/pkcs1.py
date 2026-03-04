@@ -364,7 +364,7 @@ def _find_method_hash(method_hash):
 
     '''
 
-    for (hashname, asn1code) in HASH_ASN1.items():
+    for (hashname, asn1code) in list(HASH_ASN1.items()):
         if not method_hash.startswith(asn1code):
             continue
         

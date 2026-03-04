@@ -1447,7 +1447,7 @@ toolbar#nav-bar {
             options.hideResultsTable = True
 
         # strip certain unnecessary items to avoid serialization errors in json.dumps()
-        d = dict((k, v) for k, v in options.__dict__.items() if (v is None) or
+        d = dict((k, v) for k, v in list(options.__dict__.items()) if (v is None) or
                  isinstance(v, (basestring, numbers.Number)))
         d['testRoot'] = self.testRoot
         if options.jscov_dir_prefix:
@@ -2687,7 +2687,7 @@ def run_test_harness(parser, options):
     parser.validate(options)
 
     logger_options = {
-        key: value for key, value in vars(options).iteritems()
+        key: value for key, value in vars(options).items()
         if key.startswith('log') or key == 'valgrind'}
 
     runner = MochitestDesktop(logger_options, quiet=options.quiet)

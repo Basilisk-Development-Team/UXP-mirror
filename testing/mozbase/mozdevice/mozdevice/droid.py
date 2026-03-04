@@ -54,7 +54,7 @@ class DroidMixin(object):
             acmd.extend(["-a", intent])
 
         if extras:
-            for (key, val) in extras.iteritems():
+            for (key, val) in extras.items():
                 if type(val) is int:
                     extraTypeParam = "--ei"
                 elif type(val) is bool:
@@ -96,7 +96,7 @@ class DroidMixin(object):
         if mozEnv:
             # mozEnv is expected to be a dictionary of environment variables: Fennec
             # itself will set them when launched
-            for (envCnt, (envkey, envval)) in enumerate(mozEnv.iteritems()):
+            for (envCnt, (envkey, envval)) in enumerate(mozEnv.items()):
                 extras["env" + str(envCnt)] = envkey + "=" + envval
 
         # Additional command line arguments that fennec will read and use (e.g.

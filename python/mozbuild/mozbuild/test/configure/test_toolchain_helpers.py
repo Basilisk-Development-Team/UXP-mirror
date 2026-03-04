@@ -53,7 +53,7 @@ class CompilerPreprocessor(Preprocessor):
             return self.HAS_FEATURE.sub(r'\1\2', expr)
         self.context = self.Context(
             (normalize_has_feature(k), normalize_numbers(v))
-            for k, v in context.iteritems()
+            for k, v in context.items()
         )
         try:
             return Preprocessor.do_if(self, normalize_has_feature(expression),
@@ -164,9 +164,9 @@ class FakeCompiler(dict):
     '''
     def __init__(self, *definitions):
         for definition in definitions:
-            if all(not isinstance(d, dict) for d in definition.itervalues()):
+            if all(not isinstance(d, dict) for d in definition.values()):
                 definition = {None: definition}
-            for key, value in definition.iteritems():
+            for key, value in definition.items():
                 self.setdefault(key, {}).update(value)
 
     def __call__(self, stdin, args):
@@ -178,14 +178,14 @@ class FakeCompiler(dict):
             pp = CompilerPreprocessor(self[None])
 
             def apply_defn(defn):
-                for k, v in defn.iteritems():
+                for k, v in defn.items():
                     if v is False:
                         if k in pp.context:
                             del pp.context[k]
                     else:
                         pp.context[k] = v
 
-            for glob, defn in self.iteritems():
+            for glob, defn in self.items():
                 if glob and not glob.startswith('-') and fnmatch(file, glob):
                     apply_defn(defn)
 
@@ -370,7 +370,7 @@ class CompilerResult(ReadOnlyNamespace):
     def __add__(self, other):
         assert isinstance(other, dict)
         result = copy.deepcopy(self.__dict__)
-        for k, v in other.iteritems():
+        for k, v in other.items():
             if k == 'flags':
                 result.setdefault(k, []).extend(v)
             else:

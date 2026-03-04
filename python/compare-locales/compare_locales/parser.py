@@ -499,7 +499,7 @@ class BookmarksParser(Parser):
             t = tks[i]
             if t._type == START:
                 k.append(t.tag)
-                keys = t.attrs.keys()
+                keys = list(t.attrs.keys())
                 keys.sort()
                 for attrname in keys:
                     yield self.BMEntity('.'.join(k) + '.@' + attrname,

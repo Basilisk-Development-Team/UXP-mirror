@@ -116,7 +116,7 @@ class BaseRepresenter(object):
             self.represented_objects[self.alias_key] = node
         best_style = True
         if hasattr(mapping, 'items'):
-            mapping = mapping.items()
+            mapping = list(mapping.items())
             mapping.sort()
         for item_key, item_value in mapping:
             node_key = self.represent_data(item_key)

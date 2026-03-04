@@ -125,7 +125,7 @@ class EmptyConfig(object):
             b'JS_STANDALONE': b'1',
         })
         udict = {}
-        for k, v in self.substs.items():
+        for k, v in list(self.substs.items()):
             if isinstance(v, str):
                 udict[k.decode('utf-8')] = v.decode('utf-8')
             else:
@@ -388,7 +388,7 @@ class MozbuildSandbox(Sandbox):
             klass = self._context.__class__
             self._context.__class__ = TemplateContext
             # The sandbox will do all the necessary checks for these merges.
-            for key, value in context.items():
+            for key, value in list(context.items()):
                 if isinstance(value, dict):
                     self[key].update(value)
                 elif isinstance(value, (list, HierarchicalStringList)):
@@ -765,7 +765,7 @@ class BuildReaderError(Exception):
             s.write('    %s\n' % inner.args[2])
             s.write('\n')
             close_matches = difflib.get_close_matches(inner.args[2],
-                                                      VARIABLES.keys(), 2)
+                                                      list(VARIABLES.keys()), 2)
             if close_matches:
                 s.write('Maybe you meant %s?\n' % ' or '.join(close_matches))
                 s.write('\n')
@@ -1129,7 +1129,7 @@ class BuildReader(object):
                         context)
                 non_unified_sources.add(source)
             action_overrides = {}
-            for action, script in gyp_dir.action_overrides.iteritems():
+            for action, script in gyp_dir.action_overrides.items():
                 action_overrides[action] = SourcePath(context, script)
             time_start = time.time()
             for gyp_context in read_from_gyp(context.config,
@@ -1173,7 +1173,7 @@ class BuildReader(object):
 
                 recurse_info[d][key] = dict(sandbox.metadata[key])
 
-        for path, child_metadata in recurse_info.items():
+        for path, child_metadata in list(recurse_info.items()):
             child_path = path.join('moz.build').full_path
 
             # Ensure we don't break out of the topsrcdir. We don't do realpath
@@ -1265,7 +1265,7 @@ class BuildReader(object):
         # There is room to improve this code (and the code in
         # _find_relevant_mozbuilds) to better handle multiple files in the same
         # directory. Bug 1136966 tracks.
-        for path, mbpaths in relevants.items():
+        for path, mbpaths in list(relevants.items()):
             path_mozbuilds[path] = [mozpath.join(topsrcdir, p) for p in mbpaths]
 
             for i, mbpath in enumerate(mbpaths[0:-1]):
@@ -1302,7 +1302,7 @@ class BuildReader(object):
             all_contexts.append(context)
 
         result = {}
-        for path, paths in path_mozbuilds.items():
+        for path, paths in list(path_mozbuilds.items()):
             result[path] = reduce(lambda x, y: x + y, (contexts[p] for p in paths), [])
 
         return result, all_contexts
@@ -1329,7 +1329,7 @@ class BuildReader(object):
 
         r = {}
 
-        for path, ctxs in paths.items():
+        for path, ctxs in list(paths.items()):
             flags = Files(Context())
 
             for ctx in ctxs:

@@ -278,7 +278,7 @@ class Preprocessor:
         self.context = Context()
         for k,v in {'FILE': '',
                     'LINE': 0,
-                    'DIRECTORY': os.path.abspath('.')}.iteritems():
+                    'DIRECTORY': os.path.abspath('.')}.items():
             self.context[k] = v
         self.actionLevel = 0
         self.disableLevel = 0
@@ -306,7 +306,7 @@ class Preprocessor:
                            'unfilter': 0,
                            'include': 0,
                            'includesubst': 0,
-                           'error': 0}.iteritems():
+                           'error': 0}.items():
             self.cmds[cmd] = (level, getattr(self, 'do_' + cmd))
         self.out = sys.stdout
         self.setMarker(marker)
@@ -677,7 +677,7 @@ class Preprocessor:
         current = dict(self.filters)
         for f in filters:
             current[f] = getattr(self, 'filter_' + f)
-        filterNames = current.keys()
+        filterNames = list(current.keys())
         filterNames.sort()
         self.filters = [(fn, current[fn]) for fn in filterNames]
         return
@@ -687,7 +687,7 @@ class Preprocessor:
         for f in filters:
             if f in current:
                 del current[f]
-        filterNames = current.keys()
+        filterNames = list(current.keys())
         filterNames.sort()
         self.filters = [(fn, current[fn]) for fn in filterNames]
         return

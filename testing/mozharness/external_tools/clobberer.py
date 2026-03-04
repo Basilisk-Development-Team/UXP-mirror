@@ -211,7 +211,7 @@ if __name__ == "__main__":
 
     root_dir = os.path.abspath(options.dir)
 
-    for builddir, (server_clobber_date, who) in server_clobber_dates.items():
+    for builddir, (server_clobber_date, who) in list(server_clobber_dates.items()):
         builder_dir = os.path.join(root_dir, builddir)
         if not os.path.isdir(builder_dir):
             print("%s doesn't exist, skipping" % builder_dir)

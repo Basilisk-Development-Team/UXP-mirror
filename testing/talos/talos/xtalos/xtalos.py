@@ -25,7 +25,7 @@ def options_from_config(options, config_file):
 
     with open(config_file, 'r') as config:
         conf = json.load(config)
-    for optname, value in options.items():
+    for optname, value in list(options.items()):
         options[optname] = conf.get(optname, value)
     return options
 

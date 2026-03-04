@@ -304,7 +304,7 @@ class JarMaker(object):
         '''
         myregister = dict.fromkeys([s.replace('%',
             chromebasepath) for s in register])
-        addEntriesToListFile(manifestPath, myregister.iterkeys())
+        addEntriesToListFile(manifestPath, iter(myregister.keys()))
 
     def makeJar(self, infile, jardir):
         '''makeJar is the main entry point to JarMaker.

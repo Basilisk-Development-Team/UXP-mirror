@@ -136,10 +136,10 @@ class TestExtensiveStored(unittest.TestCase):
     self.failIf(badEntry, badEntry)
     zlist = zf.namelist()
     zlist.sort()
-    vlist = self.ref.keys()
+    vlist = list(self.ref.keys())
     vlist.sort()
     self.assertEqual(zlist, vlist)
-    for leaf, content in self.ref.iteritems():
+    for leaf, content in self.ref.items():
       zcontent = zf.read(leaf)
       self.assertEqual(content, zcontent)
   

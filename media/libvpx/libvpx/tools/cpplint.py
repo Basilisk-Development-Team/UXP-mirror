@@ -512,7 +512,7 @@ _ALT_TOKEN_REPLACEMENT = {
 # False positives include C-style multi-line comments and multi-line strings
 # but those have always been troublesome for cpplint.
 _ALT_TOKEN_REPLACEMENT_PATTERN = re.compile(
-    r'[ =()](' + ('|'.join(_ALT_TOKEN_REPLACEMENT.keys())) + r')(?=[ (]|$)')
+    r'[ =()](' + ('|'.join(list(_ALT_TOKEN_REPLACEMENT.keys()))) + r')(?=[ (]|$)')
 
 
 # These constants define types of headers for use with
@@ -952,7 +952,7 @@ class _CppLintState(object):
 
   def PrintErrorCounts(self):
     """Print a summary of errors by category, and the total."""
-    for category, count in self.errors_by_category.iteritems():
+    for category, count in self.errors_by_category.items():
       sys.stderr.write('Category \'%s\' errors found: %d\n' %
                        (category, count))
     sys.stdout.write('Total errors found: %d\n' % self.error_count)
@@ -4622,7 +4622,7 @@ def _GetTextInside(text, start_pattern):
 
   # Give opening punctuations to get the matching close-punctuations.
   matching_punctuation = {'(': ')', '{': '}', '[': ']'}
-  closing_punctuation = set(matching_punctuation.itervalues())
+  closing_punctuation = set(matching_punctuation.values())
 
   # Find the position to start extracting text.
   match = re.search(start_pattern, text, re.M)
@@ -5570,7 +5570,7 @@ def CheckForIncludeWhatYouUse(filename, clean_lines, include_state, error,
 
   # include_dict is modified during iteration, so we iterate over a copy of
   # the keys.
-  header_keys = include_dict.keys()
+  header_keys = list(include_dict.keys())
   for header in header_keys:
     (same_module, common_path) = FilesBelongToSameModule(abs_filename, header)
     fullpath = common_path + header

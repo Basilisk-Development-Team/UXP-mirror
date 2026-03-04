@@ -110,7 +110,7 @@ class ConstraintSet (object):
 			cases = collections.defaultdict (set)
 			for first, rest in sorted (self._c.items ()):
 				cases[rest.__str__ (index + 1, depth + 2)].add (first)
-			for body, labels in sorted (cases.items (), key=lambda b_ls: sorted (b_ls[1])[0]):
+			for body, labels in sorted (list(cases.items ()), key=lambda b_ls: sorted (b_ls[1])[0]):
 				for i, cp in enumerate (sorted (labels)):
 					if i % 4 == 0:
 						s.append (self._indent (depth + 1))
@@ -205,7 +205,7 @@ print ('  unsigned int count = buffer->len;')
 print ('  switch ((unsigned) buffer->props.script)')
 print ('  {')
 
-for script, constraints in sorted (constraints.items (), key=lambda s_c: script_order[s_c[0]]):
+for script, constraints in sorted (list(constraints.items ()), key=lambda s_c: script_order[s_c[0]]):
 	print(('    case HB_SCRIPT_{}:'.format (script.upper ())))
 	print ('      for (buffer->idx = 0; buffer->idx + 1 < count && buffer->successful;)')
 	print ('      {')

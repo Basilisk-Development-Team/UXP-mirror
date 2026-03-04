@@ -116,9 +116,9 @@ class Sandbox(dict):
         """Initialize a Sandbox ready for execution.
         """
         self._builtins = ReadOnlyDict(
-            (builtins or self.BUILTINS).viewitems() |
+            (builtins or self.BUILTINS).items() |
             {b: __builtins__[b] for b in ('__build_class__',)
-             if b in __builtins__}.viewitems())
+             if b in __builtins__}.items())
         dict.__setitem__(self, '__builtins__', self._builtins)
 
         assert isinstance(self._builtins, ReadOnlyDict)

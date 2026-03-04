@@ -719,8 +719,8 @@ class TestRequests(object):
         jar.set(key1, value1)
 
         d1 = dict(jar)
-        d2 = dict(jar.iteritems())
-        d3 = dict(jar.items())
+        d2 = dict(iter(jar.items()))
+        d3 = dict(list(jar.items()))
 
         assert len(jar) == 2
         assert len(d1) == 2
@@ -739,8 +739,8 @@ class TestRequests(object):
         jar.set(key1, value1)
 
         d1 = dict(jar)
-        d2 = dict(jar.iteritems())
-        d3 = dict(jar.items())
+        d2 = dict(iter(jar.items()))
+        d3 = dict(list(jar.items()))
 
         assert d1['some_cookie'] == 'some_value'
         assert d2['some_cookie'] == 'some_value'
@@ -757,7 +757,7 @@ class TestRequests(object):
         jar.set(key, value)
         jar.set(key1, value1)
 
-        keys = jar.keys()
+        keys = list(jar.keys())
         assert keys == list(keys)
         # make sure one can use keys multiple times
         assert list(keys) == list(keys)
@@ -773,7 +773,7 @@ class TestRequests(object):
         jar.set(key, value)
         jar.set(key1, value1)
 
-        values = jar.values()
+        values = list(jar.values())
         assert values == list(values)
         # make sure one can use values multiple times
         assert list(values) == list(values)
@@ -789,7 +789,7 @@ class TestRequests(object):
         jar.set(key, value)
         jar.set(key1, value1)
 
-        items = jar.items()
+        items = list(jar.items())
         assert items == list(items)
         # make sure one can use items multiple times
         assert list(items) == list(items)
@@ -977,8 +977,8 @@ class TestRequests(object):
 
         # This is testing that they are builtin strings. A bit weird, but there
         # we go.
-        assert 'unicode' in p.headers.keys()
-        assert 'byte' in p.headers.keys()
+        assert 'unicode' in list(p.headers.keys())
+        assert 'byte' in list(p.headers.keys())
 
     def test_can_send_nonstring_objects_with_files(self, httpbin):
         data = {'a': 0.0}
@@ -1305,8 +1305,8 @@ class TestCaseInsensitiveDict(unittest.TestCase):
             'user-Agent': 'requests',
         })
         keyset = frozenset(['Accept', 'user-Agent'])
-        assert frozenset(i[0] for i in cid.items()) == keyset
-        assert frozenset(cid.keys()) == keyset
+        assert frozenset(i[0] for i in list(cid.items())) == keyset
+        assert frozenset(list(cid.keys())) == keyset
         assert frozenset(cid) == keyset
 
     def test_preserve_last_key_case(self):
@@ -1317,8 +1317,8 @@ class TestCaseInsensitiveDict(unittest.TestCase):
         cid.update({'ACCEPT': 'application/json'})
         cid['USER-AGENT'] = 'requests'
         keyset = frozenset(['ACCEPT', 'USER-AGENT'])
-        assert frozenset(i[0] for i in cid.items()) == keyset
-        assert frozenset(cid.keys()) == keyset
+        assert frozenset(i[0] for i in list(cid.items())) == keyset
+        assert frozenset(list(cid.keys())) == keyset
         assert frozenset(cid) == keyset
 
     def test_copy(self):

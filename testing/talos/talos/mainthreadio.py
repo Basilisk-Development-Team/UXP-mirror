@@ -95,7 +95,7 @@ def write_output(outfilename, data):
     try:
         with open(outfilename, 'w') as outfile:
             outfile.write("[\n")
-            for idx, (key, value) in utils.indexed_items(data.iteritems()):
+            for idx, (key, value) in utils.indexed_items(iter(data.items())):
                 output = "    [\"%s\", \"%s\", \"%s\", \"%s\", %d, %d, %f]" % (
                     key[0], key[1], key[2], key[3], value[KEY_COUNT],
                     value[KEY_RUN_COUNT], value[KEY_DURATION])

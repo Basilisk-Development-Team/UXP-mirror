@@ -267,8 +267,8 @@ class XPCShellTestThread(Thread):
         self.log.info("%s | current directory: %r" % (name, testdir))
         # Show only those environment variables that are changed from
         # the ambient environment.
-        changedEnv = (set("%s=%s" % i for i in self.env.iteritems())
-                      - set("%s=%s" % i for i in os.environ.iteritems()))
+        changedEnv = (set("%s=%s" % i for i in self.env.items())
+                      - set("%s=%s" % i for i in os.environ.items()))
         self.log.info("%s | environment: %s" % (name, list(changedEnv)))
 
     def killTimeout(self, proc):
@@ -751,7 +751,7 @@ class XPCShellTestThread(Thread):
                 if self.failureManifest:
                     with open(self.failureManifest, 'a') as f:
                         f.write('[%s]\n' % self.test_object['path'])
-                        for k, v in self.test_object.items():
+                        for k, v in list(self.test_object.items()):
                             f.write('%s = %s\n' % (k, v))
 
             else:
@@ -1043,7 +1043,7 @@ class XPCShellTests(object):
         """
           Shut down our node process, if it exists
         """
-        for name, proc in self.nodeProc.iteritems():
+        for name, proc in self.nodeProc.items():
             self.log.info('Node %s server shutting down ...' % name)
             if proc.poll() is not None:
                 self.log.info('Node server %s already dead %s' % (name, proc.poll()))
@@ -1219,7 +1219,7 @@ class XPCShellTests(object):
         # an older Python that can't handle Unicode keys in kwargs.
         # All of the keys in question should be ASCII.
         fixedInfo = {}
-        for k, v in self.mozInfo.items():
+        for k, v in list(self.mozInfo.items()):
             if isinstance(k, unicode):
                 k = k.encode('ascii')
             fixedInfo[k] = v

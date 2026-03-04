@@ -1016,7 +1016,7 @@ class ComposedFinder(BaseFinder):
         from mozpack.copier import FileRegistry
         self.files = FileRegistry()
 
-        for base, finder in sorted(finders.iteritems()):
+        for base, finder in sorted(finders.items()):
             if self.files.contains(base):
                 self.files.remove(base)
             for p, f in finder.find(''):

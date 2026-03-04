@@ -93,7 +93,7 @@ def update_configfile(source, target, replacements):
 
     with open(source) as config:
         for line in config:
-            for source_string, target_string in replacements.iteritems():
+            for source_string, target_string in replacements.items():
                 if target_string:
                     line = line.replace(source_string, target_string)
             lines.append(line)

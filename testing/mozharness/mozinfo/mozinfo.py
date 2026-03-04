@@ -161,7 +161,7 @@ def find_and_update_from_json(*dirs):
 update({})
 
 # exports
-__all__ = info.keys()
+__all__ = list(info.keys())
 __all__ += ['is' + os_name.title() for os_name in choices['os']]
 __all__ += [
     'info',
@@ -194,7 +194,7 @@ def main(args=None):
 
     # print out choices if requested
     flag = False
-    for key, value in options.__dict__.items():
+    for key, value in list(options.__dict__.items()):
         if value is True:
             print('%s choices: %s' % (key, ' '.join([str(choice)
                                                      for choice in choices[key]])))
@@ -202,7 +202,7 @@ def main(args=None):
     if flag: return
 
     # otherwise, print out all info
-    for key, value in info.items():
+    for key, value in list(info.items()):
         print('%s: %s' % (key, value))
 
 if __name__ == '__main__':

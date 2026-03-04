@@ -166,7 +166,7 @@ class SpidermonkeyBuild(MockMixin,
 
         dirs = self.query_abs_dirs()
         replacements = self.config['env_replacements'].copy()
-        for k,v in replacements.items():
+        for k,v in list(replacements.items()):
             replacements[k] = v % dirs
 
         self.env = self.query_env(replace_dict=replacements,

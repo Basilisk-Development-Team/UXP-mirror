@@ -201,7 +201,7 @@ class NameMap(object):
         return self._d[key]
 
     def __iter__(self):
-        return self._d.itervalues()
+        return iter(self._d.values())
 
     def __contains__(self, key):
         return key in builtinMap or key in self._d
@@ -422,7 +422,7 @@ class Native(object):
                 if self.modifier is not None:
                     raise IDLError("More than one ptr/ref modifier", aloc)
                 self.modifier = name
-            elif name in self.specialtypes.keys():
+            elif name in list(self.specialtypes.keys()):
                 if self.specialtype is not None:
                     raise IDLError("More than one special type", aloc)
                 self.specialtype = name
@@ -1053,7 +1053,7 @@ class IDLParser(object):
         'NATIVEID',
         ]
 
-    tokens.extend(keywords.values())
+    tokens.extend(list(keywords.values()))
 
     states = (
         ('nativeid', 'exclusive'),

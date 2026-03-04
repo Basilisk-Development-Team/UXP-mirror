@@ -159,7 +159,7 @@ class AndroidEmulatorTest(BlobUploadMixin, TestingMixin, EmulatorMixin, VCSMixin
             'marionette', 'harness', 'marionette_harness', 'tests')
         dirs['abs_avds_dir'] = self.config.get("avds_dir", "/home/cltbld/.android")
 
-        for key in dirs.keys():
+        for key in list(dirs.keys()):
             if key not in abs_dirs:
                 abs_dirs[key] = dirs[key]
         self.abs_dirs = abs_dirs

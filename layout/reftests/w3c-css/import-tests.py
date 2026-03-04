@@ -339,7 +339,7 @@ def main():
                 listfile.write("\ndefault-preferences {0}\n\n".format(defaultPreferences))
             lastDefaultPreferences = defaultPreferences
         key = 1
-        while not test[key] in gTestFlags.keys() and key < len(test):
+        while not test[key] in list(gTestFlags.keys()) and key < len(test):
             key = key + 1
         testType = test[key - 1]
         testFlags = gTestFlags[test[key]]

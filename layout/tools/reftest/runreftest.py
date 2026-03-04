@@ -194,7 +194,7 @@ class ReftestResolver(object):
                     manifests[manifest] = set()
                 manifests[manifest].add(filter_str)
 
-        for key in manifests.iterkeys():
+        for key in manifests.keys():
             if None in manifests[key]:
                 manifests[key] = None
             else:

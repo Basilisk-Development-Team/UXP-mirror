@@ -149,7 +149,7 @@ def gen_list(output, lib):
 
     deps = dependentlibs(lib, libpaths, func)
     deps[lib] = mozpath.join(libpaths[0], lib)
-    output.write('\n'.join(deps.keys()) + '\n')
+    output.write('\n'.join(list(deps.keys())) + '\n')
     return set(deps.values())
 
 def main():

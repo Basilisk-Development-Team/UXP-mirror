@@ -92,7 +92,7 @@ def Load(build_files, format, default_variables={},
   # These parameters are passed in order (as opposed to by key)
   # because ActivePython cannot handle key parameters to __import__.
   generator = __import__(generator_name, globals(), locals(), generator_name)
-  for (key, val) in generator.generator_default_variables.items():
+  for (key, val) in list(generator.generator_default_variables.items()):
     default_variables.setdefault(key, val)
 
   # Give the generator the opportunity to set additional variables based on
@@ -210,7 +210,7 @@ def RegenerateFlags(options):
   # We always want to ignore the environment when regenerating, to avoid
   # duplicate or changed flags in the environment at the time of regeneration.
   flags = ['--ignore-environment']
-  for name, metadata in options._regeneration_metadata.iteritems():
+  for name, metadata in options._regeneration_metadata.items():
     opt = metadata['opt']
     value = getattr(options, name)
     value_predicate = metadata['type'] == 'path' and FixPath or Noop
@@ -493,7 +493,7 @@ def gyp_main(args):
   if options.generator_flags:
     gen_flags += options.generator_flags
   generator_flags = NameValueListToDict(gen_flags)
-  if DEBUG_GENERAL in gyp.debug.keys():
+  if DEBUG_GENERAL in list(gyp.debug.keys()):
     DebugOutput(DEBUG_GENERAL, "generator_flags: %s", generator_flags)
 
   # Generate all requested formats (use a set in case we got one format request
@@ -526,7 +526,7 @@ def gyp_main(args):
     generator.GenerateOutput(flat_list, targets, data, params)
 
     if options.configs:
-      valid_configs = targets[flat_list[0]]['configurations'].keys()
+      valid_configs = list(targets[flat_list[0]]['configurations'].keys())
       for conf in options.configs:
         if conf not in valid_configs:
           raise GypError('Invalid config specified via --build: %s' % conf)

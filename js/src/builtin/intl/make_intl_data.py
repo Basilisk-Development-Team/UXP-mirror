@@ -64,7 +64,7 @@ def writeMappingsVar(println, mapping, name, description, source, url):
     println(u"")
     writeMappingHeader(println, description, source, url)
     println(u"var {0} = {{".format(name))
-    for (key, value) in sorted(mapping.items(), key=itemgetter(0)):
+    for (key, value) in sorted(list(mapping.items()), key=itemgetter(0)):
         println(u'    "{0}": "{1}",'.format(key, value))
     println(u"};")
 
@@ -103,7 +103,7 @@ bool js::intl::LanguageTag::{0}({1} {2}) {{
     # Sort the subtags by length. That enables using an optimized comparator
     # for the binary search, which only performs a single |memcmp| for multiple
     # of two subtag lengths.
-    mappings_keys = mappings.keys() if type(mappings) == dict else mappings
+    mappings_keys = list(mappings.keys()) if type(mappings) == dict else mappings
     for (length, subtags) in groupby(sorted(mappings_keys, key=len), len):
         # Omit the length check if the current length is the maximum length.
         if length != tag_maxlength:
@@ -198,7 +198,7 @@ void js::intl::LanguageTag::performComplexLanguageMappings() {
     # Merge duplicate language entries.
     language_aliases = {}
     for (deprecated_language, (language, script, region)) in (
-        sorted(complex_language_mappings.items(), key=itemgetter(0))
+        sorted(list(complex_language_mappings.items()), key=itemgetter(0))
     ):
         key = (language, script, region)
         if key not in language_aliases:
@@ -208,7 +208,7 @@ void js::intl::LanguageTag::performComplexLanguageMappings() {
 
     first_language = True
     for (deprecated_language, (language, script, region)) in (
-        sorted(complex_language_mappings.items(), key=itemgetter(0))
+        sorted(list(complex_language_mappings.items()), key=itemgetter(0))
     ):
         key = (language, script, region)
         if deprecated_language in language_aliases[key]:
@@ -265,7 +265,7 @@ void js::intl::LanguageTag::performComplexRegionMappings() {
     # Merge duplicate region entries.
     region_aliases = {}
     for (deprecated_region, (default, non_default_replacements)) in (
-        sorted(complex_region_mappings.items(), key=itemgetter(0))
+        sorted(list(complex_region_mappings.items()), key=itemgetter(0))
     ):
         key = hash_key(default, non_default_replacements)
         if key not in region_aliases:
@@ -275,7 +275,7 @@ void js::intl::LanguageTag::performComplexRegionMappings() {
 
     first_region = True
     for (deprecated_region, (default, non_default_replacements)) in (
-        sorted(complex_region_mappings.items(), key=itemgetter(0))
+        sorted(list(complex_region_mappings.items()), key=itemgetter(0))
     ):
         key = hash_key(default, non_default_replacements)
         if deprecated_region in region_aliases[key]:
@@ -380,7 +380,7 @@ bool js::intl::LanguageTag::performVariantMappings(JSContext* cx) {
     first_variant = True
 
     for (deprecated_variant, (type, replacement)) in (
-        sorted(variant_mappings.items(), key=itemgetter(0))
+        sorted(list(variant_mappings.items()), key=itemgetter(0))
     ):
         if_kind = u"if" if first_variant else u"else if"
         first_variant = False
@@ -498,7 +498,7 @@ bool js::intl::LanguageTag::updateGrandfatheredMappings(JSContext* cx) {
 
     is_first = True
 
-    for (tag, modern) in sorted(grandfathered_mappings.items(), key=itemgetter(0)):
+    for (tag, modern) in sorted(list(grandfathered_mappings.items()), key=itemgetter(0)):
         tag_match = re_unicode_locale_id.match(tag)
         assert tag_match is not None
 
@@ -823,12 +823,12 @@ def readSupplementalData(core_file):
 
     complex_region_mappings_final = {}
 
-    for (deprecated_region, replacements) in complex_region_mappings.items():
+    for (deprecated_region, replacements) in list(complex_region_mappings.items()):
         # Find all likely subtag entries which don't already contain a region
         # subtag and whose target region is in the list of replacement regions.
         region_likely_subtags = [(from_language, from_script, to_region)
                                  for ((from_language, from_script, from_region),
-                                      (_, _, to_region)) in likely_subtags.items()
+                                      (_, _, to_region)) in list(likely_subtags.items())
                                  if from_region is None and to_region in replacements]
 
         # The first replacement entry is the default region.
@@ -1152,7 +1152,7 @@ static bool IsCanonicallyCasedTransformType(mozilla::Span<const char> type) {
                               "const LanguageSubtag&", "language",
                               "IsStructurallyValidLanguageTag",
                               "IsCanonicallyCasedLanguageTag",
-                              complex_language_mappings.keys(), language_maxlength,
+                              list(complex_language_mappings.keys()), language_maxlength,
                               "Language subtags with complex mappings.", source, url)
     writeMappingsBinarySearch(println, "regionMapping",
                               "RegionSubtag&", "region",
@@ -1164,7 +1164,7 @@ static bool IsCanonicallyCasedTransformType(mozilla::Span<const char> type) {
                               "const RegionSubtag&", "region",
                               "IsStructurallyValidRegionTag",
                               "IsCanonicallyCasedRegionTag",
-                              complex_region_mappings.keys(), region_maxlength,
+                              list(complex_region_mappings.keys()), region_maxlength,
                               "Region subtags with complex mappings.", source, url)
 
     writeComplexLanguageTagMappings(println, complex_language_mappings,
@@ -1282,17 +1282,17 @@ def writeCLDRLanguageTagLikelySubtagsTest(println, data, url):
         return to_canonical
 
     # |likely_subtags| contains non-canonicalized tags, so canonicalize it first.
-    likely_subtags_canonical = {k: likely_canonical(k, v) for (k, v) in likely_subtags.items()}
+    likely_subtags_canonical = {k: likely_canonical(k, v) for (k, v) in list(likely_subtags.items())}
 
     # Add test data for |Intl.Locale.prototype.maximize()|.
-    writeMappingsVar(println, {bcp47(k): bcp47(v) for (k, v) in likely_subtags_canonical.items()},
+    writeMappingsVar(println, {bcp47(k): bcp47(v) for (k, v) in list(likely_subtags_canonical.items())},
                      "maxLikelySubtags", "Extracted from likelySubtags.xml.", source, url)
 
     # Use the maximalized tags as the input for the remove likely-subtags test.
-    minimized = {tag: removeLikelySubtags(tag) for tag in likely_subtags_canonical.values()}
+    minimized = {tag: removeLikelySubtags(tag) for tag in list(likely_subtags_canonical.values())}
 
     # Add test data for |Intl.Locale.prototype.minimize()|.
-    writeMappingsVar(println, {bcp47(k): bcp47(v) for (k, v) in minimized.items()},
+    writeMappingsVar(println, {bcp47(k): bcp47(v) for (k, v) in list(minimized.items())},
                      "minLikelySubtags", "Extracted from likelySubtags.xml.", source, url)
 
     println(u"""
@@ -1435,13 +1435,13 @@ class TzDataFile:
 
 def validateTimeZones(zones, links):
     """ Validate the zone and link entries. """
-    linkZones = set(links.viewkeys())
+    linkZones = set(links.keys())
     intersect = linkZones.intersection(zones)
     if intersect:
         raise RuntimeError("Links also present in zones: %s" % intersect)
 
     zoneNames = set(z.name for z in zones)
-    linkTargets = set(links.viewvalues())
+    linkTargets = set(links.values())
     if not linkTargets.issubset(zoneNames):
         raise RuntimeError("Link targets not found: %s" % linkTargets.difference(zoneNames))
 
@@ -1507,7 +1507,7 @@ def readIANATimeZones(tzdataDir, ignoreBackzone, ignoreFactory):
     # Merge with backzone data.
     if not ignoreBackzone:
         zones |= backzones
-        links = {name: target for name, target in links.iteritems() if name not in backzones}
+        links = {name: target for name, target in links.items() if name not in backzones}
         links.update(backlinks)
 
     validateTimeZones(zones, links)
@@ -1644,7 +1644,7 @@ def readICUTimeZonesFromZoneInfo(icuTzDir):
         elif name == namesKey:
             tzNames.extend(value)
 
-    links = dict((Zone(tzNames[zone]), tzNames[target]) for (zone, target) in tzLinks.iteritems())
+    links = dict((Zone(tzNames[zone]), tzNames[target]) for (zone, target) in tzLinks.items())
     zones = set([Zone(v) for v in tzNames if Zone(v) not in links])
 
     validateTimeZones(zones, links)
@@ -1673,7 +1673,7 @@ def readICUTimeZones(icuDir, icuTzDir, ignoreFactory):
 
     # Remove any outdated ICU links.
     for links in (zoneinfoLinks, typesLinks):
-        for zone in otherICULegacyLinks().keys():
+        for zone in list(otherICULegacyLinks().keys()):
             if zone not in links:
                 raise KeyError("Can't remove non-existent link from '%s'" % zone)
             del links[zone]
@@ -1685,7 +1685,7 @@ def readICUTimeZones(icuDir, icuTzDir, ignoreFactory):
     if notFoundInZoneInfo64:
         raise RuntimeError("Missing time zones in zoneinfo64.txt: %s" % notFoundInZoneInfo64)
 
-    notFoundInZoneInfo64 = [zone for zone in typesLinks.iterkeys() if not inZoneInfo64(zone)]
+    notFoundInZoneInfo64 = [zone for zone in typesLinks.keys() if not inZoneInfo64(zone)]
     if notFoundInZoneInfo64:
         raise RuntimeError("Missing time zones in zoneinfo64.txt: %s" % notFoundInZoneInfo64)
 
@@ -1697,8 +1697,8 @@ def readICUTimeZones(icuDir, icuTzDir, ignoreFactory):
                  (zone for zone in typesZones)
                ))
     icuLinks = dict(chain(
-                 ((zone, target) for (zone, target) in zoneinfoLinks.iteritems() if zone not in typesZones),
-                 ((zone, target) for (zone, target) in typesLinks.iteritems())
+                 ((zone, target) for (zone, target) in zoneinfoLinks.items() if zone not in typesZones),
+                 ((zone, target) for (zone, target) in typesLinks.items())
                ))
 
     return (icuZones, icuLinks)
@@ -1723,7 +1723,7 @@ def readICULegacyZones(icuDir):
 
     # A handful of non-IANA zones/links are not in icuzones and must be added
     # manually so that we won't invoke ICU with them.
-    for (zone, target) in otherICULegacyLinks().items():
+    for (zone, target) in list(otherICULegacyLinks().items()):
         if zone in links:
             if links[zone] != target:
                 raise KeyError(
@@ -1813,23 +1813,23 @@ def findIncorrectICULinks(ianaZones, ianaLinks, icuZones, icuLinks):
     isICUZone = lambda zone: zone in icuZones
 
     # All links should be present in ICU.
-    missingTimeZones = [zone for zone in ianaLinks.iterkeys() if not isICUTimeZone(zone)]
+    missingTimeZones = [zone for zone in ianaLinks.keys() if not isICUTimeZone(zone)]
     if missingTimeZones:
         raise RuntimeError("Not all zones are present in ICU, did you forget "
                            "to run intl/update-tzdata.sh? %s" % missingTimeZones)
 
     # Links which are only present in ICU?
-    additionalTimeZones = [zone for zone in icuLinks.iterkeys() if not isIANATimeZone(zone)]
+    additionalTimeZones = [zone for zone in icuLinks.keys() if not isIANATimeZone(zone)]
     if additionalTimeZones:
         raise RuntimeError("Additional links present in ICU, did you forget "
                            "to run intl/update-tzdata.sh? %s" % additionalTimeZones)
 
     result = chain(
         # IANA links which have a different target in ICU.
-        ((zone, target, icuLinks[zone]) for (zone, target) in ianaLinks.iteritems() if isICULink(zone) and target != icuLinks[zone]),
+        ((zone, target, icuLinks[zone]) for (zone, target) in ianaLinks.items() if isICULink(zone) and target != icuLinks[zone]),
 
         # IANA links which are zones in ICU.
-        ((zone, target, zone.name) for (zone, target) in ianaLinks.iteritems() if isICUZone(zone))
+        ((zone, target, zone.name) for (zone, target) in ianaLinks.items() if isICUZone(zone))
     )
 
     # Remove unnecessary UTC mappings.
@@ -1851,7 +1851,7 @@ def processTimeZones(tzdataDir, icuDir, icuTzDir, version, ignoreBackzone, ignor
     # Remove all egacy ICU time zones.
     icuZones = {zone for zone in icuZones if zone not in legacyZones}
     icuLinks = {
-        zone: target for (zone, target) in icuLinks.items() if zone not in legacyLinks
+        zone: target for (zone, target) in list(icuLinks.items()) if zone not in legacyLinks
     }
 
     incorrectZones = findIncorrectICUZones(ianaZones, ianaLinks, icuZones, icuLinks, ignoreBackzone)
@@ -1919,7 +1919,7 @@ def processTimeZones(tzdataDir, icuDir, icuTzDir, version, ignoreBackzone, ignor
 def updateBackzoneLinks(tzdataDir, links):
     (backzoneZones, backzoneLinks) = readIANAFiles(tzdataDir, ["backzone"])
     (stableZones, updatedLinks, updatedZones) = partition(
-        links.iteritems(),
+        iter(links.items()),
         # Link not changed in backzone.
         lambda (zone, target): zone not in backzoneLinks and zone not in backzoneZones,
         # Link has a new target.
@@ -1981,7 +1981,7 @@ def generateTzDataTestBackwardLinks(tzdataDir, version, ignoreBackzone, testDir)
         testDir, version,
         "timeZone_backward_links.js",
         u"// Link names derived from IANA Time Zone Database, backward file.",
-        links.iteritems()
+        iter(links.items())
     )
 
 def generateTzDataTestNotBackwardLinks(tzdataDir, version, ignoreBackzone, testDir):
@@ -1995,7 +1995,7 @@ def generateTzDataTestNotBackwardLinks(tzdataDir, version, ignoreBackzone, testD
         testDir, version,
         "timeZone_notbackward_links.js",
         u"// Link names derived from IANA Time Zone Database, excluding backward file.",
-        links.iteritems()
+        iter(links.items())
     )
 
 def generateTzDataTestBackzone(tzdataDir, version, ignoreBackzone, testDir):
@@ -2056,7 +2056,7 @@ def generateTzDataTestBackzoneLinks(tzdataDir, version, ignoreBackzone, testDir)
         testDir, version,
         "timeZone_backzone_links.js",
         comment +  u"// Backzone links derived from IANA Time Zone Database.",
-        ((zone, target if not ignoreBackzone else links[zone]) for (zone, target) in backlinks.iteritems())
+        ((zone, target if not ignoreBackzone else links[zone]) for (zone, target) in backlinks.items())
     )
 
 def generateTzDataTests(tzdataDir, version, ignoreBackzone, testDir):
@@ -2146,8 +2146,8 @@ static inline bool Is{0}Type(
 
     linear_search_max_length = 4
 
-    needs_binary_search = any(len(replacements.items()) > linear_search_max_length
-                              for replacements in mapping.values())
+    needs_binary_search = any(len(list(replacements.items())) > linear_search_max_length
+                              for replacements in list(mapping.values()))
 
     if needs_binary_search:
         println(u"""
@@ -2220,7 +2220,7 @@ const char* js::intl::LanguageTag::replace{0}ExtensionType(
 
     # Merge duplicate keys.
     key_aliases = {}
-    for (key, replacements) in sorted(mapping.items(), key=itemgetter(0)):
+    for (key, replacements) in sorted(list(mapping.items()), key=itemgetter(0)):
         hash_key = to_hash_key(replacements)
         if hash_key not in key_aliases:
             key_aliases[hash_key] = []
@@ -2228,7 +2228,7 @@ const char* js::intl::LanguageTag::replace{0}ExtensionType(
             key_aliases[hash_key].append(key)
 
     first_key = True
-    for (key, replacements) in sorted(mapping.items(), key=itemgetter(0)):
+    for (key, replacements) in sorted(list(mapping.items()), key=itemgetter(0)):
         hash_key = to_hash_key(replacements)
         if key in key_aliases[hash_key]:
             continue
@@ -2242,7 +2242,7 @@ const char* js::intl::LanguageTag::replace{0}ExtensionType(
   {} ({}) {{""".format(if_kind, cond).strip("\n"))
         first_key = False
 
-        replacements = sorted(replacements.items(), key=itemgetter(0))
+        replacements = sorted(list(replacements.items()), key=itemgetter(0))
 
         if len(replacements) > linear_search_max_length:
             types = [t for (t, _) in replacements]

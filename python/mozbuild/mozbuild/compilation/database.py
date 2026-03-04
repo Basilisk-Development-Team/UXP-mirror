@@ -118,7 +118,7 @@ class CompileDBBackend(CommonBackend):
 
         db = []
 
-        for (directory, filename), cmd in self._db.iteritems():
+        for (directory, filename), cmd in self._db.items():
             env = self._envs[directory]
             cmd = list(cmd)
             cmd.append(filename)

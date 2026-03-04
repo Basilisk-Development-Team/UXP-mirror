@@ -51,8 +51,8 @@ def load_image_by_task_id(task_id):
     print("Determining image name")
     tf = tarfile.open(filename)
     repositories = json.load(tf.extractfile('repositories'))
-    name = repositories.keys()[0]
-    tag = repositories[name].keys()[0]
+    name = list(repositories.keys())[0]
+    tag = list(repositories[name].keys())[0]
     name = '{}:{}'.format(name, tag)
     print("Image name:", name)
 

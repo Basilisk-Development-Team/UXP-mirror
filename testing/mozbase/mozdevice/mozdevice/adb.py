@@ -1037,7 +1037,7 @@ class ADBDevice(ADBCommand):
             cmd = "cd %s && %s" % (cwd, cmd)
         if env:
             envstr = '&& '.join(['export %s=%s' %
-                                    (x[0], x[1]) for x in env.iteritems()])
+                                    (x[0], x[1]) for x in env.items()])
             cmd = envstr + "&& " + cmd
         cmd += "; echo rc=$?"
 
@@ -1651,7 +1651,7 @@ class ADBDevice(ADBCommand):
             else:
                 entry = line
             entries[entry] = 1
-        entry_list = entries.keys()
+        entry_list = list(entries.keys())
         entry_list.sort()
         return entry_list
 

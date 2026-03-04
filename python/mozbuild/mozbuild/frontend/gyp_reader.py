@@ -122,7 +122,7 @@ def read_from_gyp(config, path, output, vars, no_chromium, no_unified, action_ov
     # gyp expects plain str instead of unicode. The frontend code gives us
     # unicode strings, so convert them.
     path = encode(path)
-    str_vars = dict((name, encode(value)) for name, value in vars.items())
+    str_vars = dict((name, encode(value)) for name, value in list(vars.items()))
     if is_msvc:
         # This isn't actually used anywhere in this generator, but it's needed
         # to override the registry detection of VC++ in gyp.

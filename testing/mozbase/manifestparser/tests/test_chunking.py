@@ -85,7 +85,7 @@ class ChunkByDir(TestCase):
                         { <dir>: <num tests> }
         """
         i = 0
-        for d, num in dirs.iteritems():
+        for d, num in dirs.items():
             for j in range(num):
                 i += 1
                 name = 'test%i' % i
@@ -176,7 +176,7 @@ class ChunkByRuntime(TestCase):
                      { <dir>: <num tests> }
         """
         i = 0
-        for d, num in dirs.iteritems():
+        for d, num in dirs.items():
             for j in range(num):
                 i += 1
                 name = 'test%i' % i

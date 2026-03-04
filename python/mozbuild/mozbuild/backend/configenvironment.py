@@ -176,7 +176,7 @@ class ConfigEnvironment(object):
                 except UnicodeDecodeError:
                     return v.decode('utf-8', 'replace')
 
-        for k, v in self.substs.items():
+        for k, v in list(self.substs.items()):
             if not isinstance(v, StringTypes):
                 if isinstance(v, Iterable):
                     type(v)(decode(i) for i in v)
