@@ -462,9 +462,9 @@ class _Printer(object):
                 key = None
                 while key is None:
                     try:
-                        key = raw_input(prompt)
-                    except NameError:
                         key = input(prompt)
+                    except NameError:
+                        key = eval(input(prompt))
                     if key not in ('', 'q'):
                         key = None
                 if key == 'q':

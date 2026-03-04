@@ -241,7 +241,7 @@ def main(argv):
   server = LighttpdServer(*argv[1:])
   try:
     if server.StartupHttpServer():
-      raw_input('Server running at http://127.0.0.1:%s -'
+      input('Server running at http://127.0.0.1:%s -'
                 ' press Enter to exit it.' % server.port)
     else:
       print('Server exit code:', server.process.exitstatus)

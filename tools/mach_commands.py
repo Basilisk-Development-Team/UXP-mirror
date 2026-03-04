@@ -290,7 +290,7 @@ class FormatProvider(MachCommandBase):
         target = os.path.join(self._mach_context.state_dir, os.path.basename(root))
         if not os.path.exists(target):
             site = "https://people.mozilla.org/~ajones/clang-format/"
-            if self.prompt and raw_input("Download clang-format executables from {0} (yN)? ".format(site)).lower() != 'y':
+            if self.prompt and input("Download clang-format executables from {0} (yN)? ".format(site)).lower() != 'y':
                 print("Download aborted.")
                 return 1
             self.prompt = False

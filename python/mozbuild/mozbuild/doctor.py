@@ -83,7 +83,7 @@ class Doctor(object):
         valid = False
         while not valid and limit > 0:
             try:
-                choice = strtobool(raw_input(prompt + '[Y/N]\n'))
+                choice = strtobool(input(prompt + '[Y/N]\n'))
                 valid = True
             except ValueError:
                 print("ERROR! Please enter a valid option!")

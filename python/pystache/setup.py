@@ -300,7 +300,7 @@ Run the following command and commit the changes--
 
     print(("Description up-to-date: %s" % RST_DESCRIPTION_PATH))
 
-    answer = raw_input("Are you sure you want to publish to PyPI (yes/no)?")
+    answer = input("Are you sure you want to publish to PyPI (yes/no)?")
 
     if answer != "yes":
         exit("Aborted: nothing published")

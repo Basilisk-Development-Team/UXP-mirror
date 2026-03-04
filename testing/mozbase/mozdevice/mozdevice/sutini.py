@@ -60,7 +60,7 @@ def set_opt(cfg, s, o, dflt):
     prompt += ': '
     if dflt:
         prompt += '[%s] ' % dflt
-    newval = raw_input(prompt)
+    newval = input(prompt)
     if not newval:
         newval = dflt
     if newval == curval:
@@ -71,7 +71,7 @@ def set_opt(cfg, s, o, dflt):
 
 def bool_query(prompt, dflt):
     while True:
-        i = raw_input('%s [%s] ' % (prompt, 'y' if dflt else 'n')).lower()
+        i = input('%s [%s] ' % (prompt, 'y' if dflt else 'n')).lower()
         if not i or i[0] in ('y', 'n'):
             break
         print('Enter y or n.')

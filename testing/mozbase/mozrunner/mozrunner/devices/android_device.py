@@ -96,7 +96,7 @@ def verify_android_device(build_obj, install=False, xre=False, debugger=False, v
     if (len(devices) > 0) and ('device' in [d[1] for d in devices]):
         device_verified = True
     elif emulator.is_available():
-        response = raw_input(
+        response = input(
             "No Android devices connected. Start an emulator? (Y/n) ").strip()
         if response.lower().startswith('y') or response == '':
             if not emulator.check_avd():
@@ -124,7 +124,7 @@ def verify_android_device(build_obj, install=False, xre=False, debugger=False, v
         installed = emulator.dm.shellCheckOutput(['pm', 'list',
                                                   'packages', 'org.mozilla.'])
         if 'fennec' not in installed and 'firefox' not in installed:
-            response = raw_input(
+            response = input(
                 "It looks like Firefox is not installed on this device.\n"
                 "Install Firefox? (Y/n) ").strip()
             if response.lower().startswith('y') or response == '':
@@ -153,7 +153,7 @@ def verify_android_device(build_obj, install=False, xre=False, debugger=False, v
                     break
         if err:
             _log_info("Host utilities not found: %s" % err)
-            response = raw_input(
+            response = input(
                 "Download and setup your host utilities? (Y/n) ").strip()
             if response.lower().startswith('y') or response == '':
                 _log_info("Installing host utilities. This may take a while...")
@@ -188,7 +188,7 @@ def verify_android_device(build_obj, install=False, xre=False, debugger=False, v
             err = '%s not found' % gdb_path
         if err:
             _log_info("JimDB (%s) not found: %s" % (build_platform, err))
-            response = raw_input(
+            response = input(
                 "Download and setup JimDB (%s)? (Y/n) " % build_platform).strip()
             if response.lower().startswith('y') or response == '':
                 host_platform = _get_host_platform()

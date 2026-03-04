@@ -42,7 +42,7 @@ def choose_item(jobs, max_items, display):
     for i, job in enumerate(jobs, 1):
         print("{}) {}".format(i, display(job)))
 
-    item = raw_input('Which one:\n')
+    item = input('Which one:\n')
     try:
         item = int(item)
         if item > job_count or item < 1:
