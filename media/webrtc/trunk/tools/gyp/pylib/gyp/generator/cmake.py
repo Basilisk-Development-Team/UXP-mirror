@@ -273,7 +273,7 @@ def WriteActions(target_name, actions, extra_sources, extra_deps,
     dirs = set(dir for dir in (os.path.dirname(o) for o in outputs) if dir)
 
     if int(action.get('process_outputs_as_sources', False)):
-      extra_sources.extend(zip(cmake_outputs, outputs))
+      extra_sources.extend(list(zip(cmake_outputs, outputs)))
 
     # add_custom_command
     output.write('add_custom_command(OUTPUT ')

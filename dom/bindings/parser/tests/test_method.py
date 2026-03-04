@@ -59,7 +59,7 @@ def WebIDLTest(parser, harness):
         harness.check(method.isStringifier(), stringifier, "Method has the correct stringifier value")
         harness.check(len(method.signatures()), len(signatures), "Method has the correct number of signatures")
 
-        sigpairs = zip(method.signatures(), signatures)
+        sigpairs = list(zip(method.signatures(), signatures))
         for (gotSignature, expectedSignature) in sigpairs:
             (gotRetType, gotArgs) = gotSignature
             (expectedRetType, expectedArgs) = expectedSignature

@@ -15,7 +15,7 @@ def all_first(*sequences):
 # http://codereview.stackexchange.com/questions/13027/joining-url-path-components-intelligently
 # I wonder why this is not a builtin feature in Python
 def urljoin(*parts):
-    schemes, netlocs, paths, queries, fragments = zip(*(urlsplit(part) for part in parts))
+    schemes, netlocs, paths, queries, fragments = list(zip(*(urlsplit(part) for part in parts)))
     scheme, netloc, query, fragment = all_first(schemes, netlocs, queries, fragments)
     path = '/'.join(p.strip('/') for p in paths if p)
     return urlunsplit((scheme, netloc, path, query, fragment))

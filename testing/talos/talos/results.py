@@ -442,7 +442,7 @@ class BrowserLogResults(object):
                 # data is counters
                 header = row
                 continue
-            values = dict(zip(header, row))
+            values = dict(list(zip(header, row)))
 
             # Format for talos
             thread = values['thread']
@@ -473,7 +473,7 @@ class BrowserLogResults(object):
                     # other data is counters
                     header = row
                     continue
-                values = dict(zip(header, row))
+                values = dict(list(zip(header, row)))
                 for i, mainthread_counter in enumerate(mainthread_counters):
                     if int(values[mainthread_counter_keys[i]]) > 0:
                         counter_results.setdefault(mainthread_counter, [])\

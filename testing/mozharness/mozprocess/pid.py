@@ -35,7 +35,7 @@ def ps(arg=psarg):
             header = line.split()
             continue
         split = line.split(None, len(header)-1)
-        process_dict = dict(zip(header, split))
+        process_dict = dict(list(zip(header, split)))
         retval.append(process_dict)
     return retval
 

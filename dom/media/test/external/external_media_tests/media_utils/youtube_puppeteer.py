@@ -386,11 +386,11 @@ class YouTubePuppeteer(VideoPuppeteer):
         # Get video state
         self._last_seen_video_state = (
             self._create_video_state_info(**dict(
-                zip(video_keys, values[:len(video_keys)]))))
+                list(zip(video_keys, values[:len(video_keys)])))))
         # Get player state
         self._last_seen_player_state = (
             self._create_player_state_info(**dict(
-                zip(player_keys, values[-len(player_keys):]))))
+                list(zip(player_keys, values[-len(player_keys):])))))
 
     def mse_enabled(self):
         """

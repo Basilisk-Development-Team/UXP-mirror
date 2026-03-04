@@ -50,7 +50,7 @@ class Component(object):
         '''
         Split [1, 2, 3, 4, 5, 6, 7] into [(1, 2, 3), (4, 5, 6)].
         '''
-        return zip(*[iter(lst)] * 3)
+        return list(zip(*[iter(lst)] * 3))
 
     KEY_VALUE_RE = re.compile(r'''
         \s*                 # optional whitespace.

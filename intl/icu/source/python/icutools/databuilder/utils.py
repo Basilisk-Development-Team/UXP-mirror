@@ -76,13 +76,13 @@ def concat_dicts(*dicts):
 def repeated_execution_request_looper(request):
     # dictionary of lists to list of dictionaries:
     ld = [
-        dict(zip(request.repeat_with, t))
+        dict(list(zip(request.repeat_with, t)))
         for t in zip(*request.repeat_with.values())
     ]
     if not ld:
         # No special options given in repeat_with
         ld = [{} for _ in range(len(request.input_files))]
-    return zip(ld, request.specific_dep_files, request.input_files, request.output_files)
+    return list(zip(ld, request.specific_dep_files, request.input_files, request.output_files))
 
 
 def format_single_request_command(request, cmd_template, common_vars):

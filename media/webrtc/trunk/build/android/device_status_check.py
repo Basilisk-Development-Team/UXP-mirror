@@ -156,7 +156,7 @@ def main():
   devices = GetAttachedDevices()
   types, builds, reports = [], [], []
   if devices:
-    types, builds, reports = zip(*[DeviceInfo(dev) for dev in devices])
+    types, builds, reports = list(zip(*[DeviceInfo(dev) for dev in devices]))
 
   unique_types = list(set(types))
   unique_builds = list(set(builds))

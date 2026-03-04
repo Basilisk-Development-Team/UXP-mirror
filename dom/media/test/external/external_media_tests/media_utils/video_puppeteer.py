@@ -366,7 +366,7 @@ class VideoPuppeteer(object):
                 'corrupted_frames']
         values = self._execute_video_script(self._fetch_state_script)
         self._last_seen_video_state = (
-            self._create_video_state_info(**dict(zip(keys, values))))
+            self._create_video_state_info(**dict(list(zip(keys, values)))))
 
     def _measure_progress(self):
         self._refresh_state()

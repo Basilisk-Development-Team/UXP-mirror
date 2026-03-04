@@ -383,7 +383,7 @@ class ProfileSymbolicator:
         if not request.isValidRequest:
             return {}
         symbolicated_stack = request.Symbolicate(0)
-        return dict(zip(all_symbols, symbolicated_stack))
+        return dict(list(zip(all_symbols, symbolicated_stack)))
 
     def _substitute_symbols_v2(self, profile_json, symbolication_table):
         for thread in profile_json["threads"]:

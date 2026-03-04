@@ -362,7 +362,7 @@ if __name__ == "__main__":
 
         c1 = [rsa.random.randint(1, n) for i in range(tcount)]
         c2 = [rsa.random.randint(1, n) for i in range(tcount)]
-        c = zip(c1, c2)
+        c = list(zip(c1, c2))
 
         t = time.time()
         for i, j in c:

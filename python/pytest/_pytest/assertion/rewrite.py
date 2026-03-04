@@ -858,7 +858,7 @@ class AssertionRewriter(ast.NodeVisitor):
         res_variables = [self.variable() for i in range(len(comp.ops))]
         load_names = [ast.Name(v, ast.Load()) for v in res_variables]
         store_names = [ast.Name(v, ast.Store()) for v in res_variables]
-        it = zip(list(range(len(comp.ops))), comp.ops, comp.comparators)
+        it = list(zip(list(range(len(comp.ops))), comp.ops, comp.comparators))
         expls = []
         syms = []
         results = [left_res]

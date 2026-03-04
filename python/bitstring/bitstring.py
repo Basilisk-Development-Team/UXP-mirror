@@ -671,7 +671,7 @@ def expand_brackets(s):
 OCT_TO_BITS = ['{0:03b}'.format(i) for i in range(8)]
 
 # A dictionary of number of 1 bits contained in binary representation of any byte
-BIT_COUNT = dict(zip(range(256), [bin(i).count('1') for i in range(256)]))
+BIT_COUNT = dict(list(zip(range(256), [bin(i).count('1') for i in range(256)])))
 
 
 class Bits(object):

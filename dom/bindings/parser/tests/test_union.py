@@ -125,7 +125,7 @@ def WebIDLTest(parser, harness):
 
     # Create a list of tuples containing the name of the type as a string and
     # the parsed IDL type.
-    types = zip(types, (a.type for a in iface.members))
+    types = list(zip(types, (a.type for a in iface.members)))
 
     validUnionTypes = chain(unionTypes(combinations(types, 2), typesAreDistinguishable),
                             unionTypes(combinations(types, 3), typesAreDistinguishable))
