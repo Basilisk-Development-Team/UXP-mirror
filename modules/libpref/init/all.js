@@ -1014,9 +1014,6 @@ pref("layout.framevisibility.numscrollportheights", 1);
 // 1 and higher - slider thickness multiple
 pref("slider.snapMultiplier", 0);
 
-// option to choose plug-in finder
-pref("application.use_ns_plugin_finder", false);
-
 // URI fixup prefs
 pref("browser.fixup.alternate.enabled", true);
 pref("browser.fixup.alternate.prefix", "www.");
@@ -2176,7 +2173,6 @@ pref("security.directory",              "");
 
 pref("signed.applets.codebase_principal_support", false);
 pref("security.checkloaduri", true);
-pref("security.xpconnect.plugin.unrestricted", true);
 // security-sensitive dialogs should delay button enabling. In milliseconds.
 pref("security.dialog_enable_delay", 1000);
 pref("security.notification_enable_delay", 500);
@@ -2732,8 +2728,10 @@ pref("dom.animations.offscreen-throttling", true);
 // pref to permit users to make verified SOAP calls by default
 pref("capability.policy.default.SOAPCall.invokeVerifySourceHeader", "allAccess");
 
+#if defined(MOZ_ENABLE_NPAPI) || defined(MOZ_GMP)
 // if true, allow plug-ins to override internal imglib decoder mime types in full-page mode
 pref("plugin.override_internal_types", false);
+#endif
 
 // See bug 136985.  Gives embedders a pref to hook into to show
 // a popup blocker if they choose.
@@ -2779,6 +2777,7 @@ pref("idle_queue.min_period", 3);
 // resolved.
 pref("hangmonitor.timeout", 0);
 
+#if defined(MOZ_ENABLE_NPAPI)
 pref("plugins.load_appdir_plugins", false);
 // If true, plugins will be click to play
 pref("plugins.click_to_play", false);
@@ -2809,9 +2808,10 @@ pref("plugins.favorfallback.mode", "never");
 // whether an object has been provided with good fallback content.
 // The valid values can be found at nsObjectLoadingContent::HasGoodFallback.
 pref("plugins.favorfallback.rules", "");
+#endif
 
-
-// Set IPC timeouts for plugins and tabs, except in leak-checking and
+#if defined(MOZ_ENABLE_NPAPI) || defined(MOZ_GMP)
+// Set IPC timeouts for plugins, except in leak-checking and
 // dynamic analysis builds.  (NS_FREE_PERMANENT_DATA is C++ only, so
 // approximate its definition here.)
 #if !defined(DEBUG) && !defined(MOZ_ASAN) && !defined(MOZ_VALGRIND) && !defined(MOZ_TSAN)
@@ -2835,10 +2835,6 @@ pref("dom.ipc.plugins.hangUITimeoutSecs", 11);
 // Minimum time that the plugin hang UI will be displayed
 pref("dom.ipc.plugins.hangUIMinDisplaySecs", 10);
 #endif
-// How long a content process can take before closing its IPC channel
-// after shutdown is initiated.  If the process exceeds the timeout,
-// we fear the worst and kill it.
-pref("dom.ipc.tabs.shutdownTimeoutSecs", 5);
 #else
 // No timeout in leak-checking builds
 pref("dom.ipc.plugins.timeoutSecs", 0);
@@ -2849,22 +2845,36 @@ pref("dom.ipc.plugins.parentTimeoutSecs", 0);
 pref("dom.ipc.plugins.hangUITimeoutSecs", 0);
 pref("dom.ipc.plugins.hangUIMinDisplaySecs", 0);
 #endif
+#endif
+#endif // MOZ_ENABLE NPAPI || MOZ_GMP
+
+// Set IPC timeouts for tabs, except in leak-checking and
+// dynamic analysis builds.  (NS_FREE_PERMANENT_DATA is C++ only, so
+// approximate its definition here.)
+#if !defined(DEBUG) && !defined(MOZ_ASAN) && !defined(MOZ_VALGRIND) && !defined(MOZ_TSAN)
+// How long a content process can take before closing its IPC channel
+// after shutdown is initiated.  If the process exceeds the timeout,
+// we fear the worst and kill it.
+pref("dom.ipc.tabs.shutdownTimeoutSecs", 5);
+#else
 pref("dom.ipc.tabs.shutdownTimeoutSecs", 0);
 #endif
 
+#if defined(MOZ_GMP)
+// How long we wait before unloading an idle plugin process.
+// Defaults to 30 seconds.
+pref("dom.ipc.plugins.unloadTimeoutSecs", 30);
+// Asynchronous plugin initialization is on hold.
+pref("dom.ipc.plugins.asyncInit.enabled", false);
+pref("dom.ipc.plugins.asyncdrawing.enabled", true);
+
+#if defined(MOZ_ENABLE_NPAPI)
 pref("dom.ipc.plugins.flash.disable-protected-mode", false);
 
 pref("dom.ipc.plugins.flash.subprocess.crashreporter.enabled", true);
 pref("dom.ipc.plugins.reportCrashURL", true);
-
-// How long we wait before unloading an idle plugin process.
-// Defaults to 30 seconds.
-pref("dom.ipc.plugins.unloadTimeoutSecs", 30);
-
-// Asynchronous plugin initialization is on hold.
-pref("dom.ipc.plugins.asyncInit.enabled", false);
-
-pref("dom.ipc.plugins.asyncdrawing.enabled", true);
+#endif
+#endif
 
 pref("dom.ipc.processCount", 1);
 
@@ -3436,6 +3446,7 @@ pref("print.print_extra_margin", 90); // twips (90 twips is an eigth of an inch)
 // Whether to extend the native dialog with information on printing frames.
 pref("print.extend_native_print_dialog", true);
 
+#if defined(MOZ_ENABLE_NPAPI)
 // Locate plugins by scanning the Adobe Acrobat installation directory with a minimum version
 pref("plugin.scan.Acrobat", "5.0");
 
@@ -3451,6 +3462,7 @@ pref("plugin.scan.plid.all", true);
 
 // Whether sending WM_MOUSEWHEEL and WM_MOUSEHWHEEL to plugins on Windows.
 pref("plugin.mousewheel.enabled", true);
+#endif
 
 // Switch the keyboard layout per window
 pref("intl.keyboard.per_window_layout", false);
@@ -5030,11 +5042,13 @@ pref("webextensions.webRequest.requestBodyMaxRawBytes", 16777216);
 // Allow customization of the fallback directory for file uploads
 pref("dom.input.fallbackUploadDir", "");
 
+#if defined(MOZ_ENABLE_NPAPI)
 // Turn rewriting of youtube embeds on/off
 pref("plugins.rewrite_youtube_embeds", true);
 
 // Don't hide Flash from navigator.plugins when it is click-to-activate
 pref("plugins.navigator_hide_disabled_flash", false);
+#endif
 
 // Disable browser frames by default
 pref("dom.mozBrowserFramesEnabled", false);
