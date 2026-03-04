@@ -20,7 +20,7 @@ from optparse import OptionParser
 
 def parse_version(version_str):
   """'10.5' => [10, 5]"""
-  return map(int, re.findall(r'(\d+)', version_str))
+  return list(map(int, re.findall(r'(\d+)', version_str)))
 
 
 def main():

@@ -195,7 +195,7 @@ class Rule(Statement):
 
         deps = list(_expandwildcards(makefile, data.stripdotslashes(self.depexp.resolvesplit(makefile, makefile.variables))))
         if ispattern:
-            rule = data.PatternRule(targets, map(data.Pattern, deps), self.doublecolon, loc=self.targetexp.loc)
+            rule = data.PatternRule(targets, list(map(data.Pattern, deps)), self.doublecolon, loc=self.targetexp.loc)
             makefile.appendimplicitrule(rule)
         else:
             rule = data.Rule(deps, self.doublecolon, loc=self.targetexp.loc, weakdeps=False)

@@ -91,11 +91,11 @@ def parse(filename):
     if toks[0] == "border-image-repeat:":
       props.repeat = toks[1]
     if toks[0] == "border-image-slice:":
-      props.slice = map(parse_p, toks[1:5])
+      props.slice = list(map(parse_p, toks[1:5]))
     if toks[0] == "border-image-width:":
-      props.image_width = map(parse_np, toks[1:5])
+      props.image_width = list(map(parse_np, toks[1:5]))
     if toks[0] == "border-image-outset:":
-      props.outset = map(parse_np, toks[1:5])
+      props.outset = list(map(parse_np, toks[1:5]))
   f.close()
   return props
 
@@ -106,8 +106,8 @@ def normalise(props):
   result = Props()
   result.source = props.source
   result.repeat = props.repeat
-  result.width = map(lambda x: x.get_absolute(props.width), props.image_width)
-  outsets = map(lambda x: x.get_absolute(props.width), props.outset)
+  result.width = [x.get_absolute(props.width) for x in props.image_width]
+  outsets = [x.get_absolute(props.width) for x in props.outset]
   result.size.width = props.size.width + 2*props.width + outsets[1] + outsets[3]
   result.size.height = props.size.height + 2*props.width + outsets[0] + outsets[2]
   result.slice = props.slice

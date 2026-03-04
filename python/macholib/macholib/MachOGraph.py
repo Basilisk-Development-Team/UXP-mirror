@@ -112,7 +112,7 @@ class MachOGraph(ObjectGraph):
         self.msgout(2, '', node)
 
     def itergraphreport(self, name='G'):
-        nodes = map(self.graph.describe_node, self.graph.iterdfs(self))
+        nodes = list(map(self.graph.describe_node, self.graph.iterdfs(self)))
         describe_edge = self.graph.describe_edge
         return itergraphreport(nodes, describe_edge, name=name)
 

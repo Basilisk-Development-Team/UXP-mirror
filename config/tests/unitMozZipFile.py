@@ -38,7 +38,7 @@ leafs = (
   'firstdir/oneleaf',
   'seconddir/twoleaf',
   'thirddir/with/sub/threeleaf')
-_lengths = map(lambda n: n * 64, [16, 64, 80])
+_lengths = [n * 64 for n in [16, 64, 80]]
 lengths = 3
 writes = 5
 

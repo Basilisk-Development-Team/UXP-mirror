@@ -110,7 +110,7 @@ class Tree(object):
                 return self.indent * t[0] + '/'.join(t[2])
             return self.indent * (t[0] + 1) + str(t[2])
 
-        return map(tostr, self.getContent())
+        return list(map(tostr, self.getContent()))
 
     def __str__(self):
         return '\n'.join(self.getStrRows())
@@ -352,7 +352,7 @@ class Observer(object):
                 rate = (('changed' in summary and summary['changed'] * 100) or
                         0) / total
             out.append('%d%% of entries changed' % rate)
-        return '\n'.join(map(tostr, self.details.getContent()) + out)
+        return '\n'.join(list(map(tostr, self.details.getContent())) + out)
 
     def __str__(self):
         return 'observer'

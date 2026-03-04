@@ -113,7 +113,7 @@ class ChunkByDir(TestCase):
                     f = chunk_by_dir(this, total, depth)
                     res.append(list(f(tests, {})))
 
-                lengths = map(num_groups, res)
+                lengths = list(map(num_groups, res))
                 # the chunk with the most dirs should have at most one more
                 # dir than the chunk with the least dirs
                 self.assertLessEqual(max(lengths) - min(lengths), 1)

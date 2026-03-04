@@ -490,7 +490,7 @@ class Descriptor(DescriptorProvider):
                 if config == '*':
                     iface = self.interface
                     while iface:
-                        add('all', map(lambda m: m.name, iface.members), attribute)
+                        add('all', [m.name for m in iface.members], attribute)
                         iface = iface.parent
                 else:
                     add('all', [config], attribute)
@@ -542,7 +542,7 @@ class Descriptor(DescriptorProvider):
 
     @property
     def prototypeNameChain(self):
-        return map(lambda p: self.getDescriptor(p).name, self.prototypeChain)
+        return [self.getDescriptor(p).name for p in self.prototypeChain]
 
     @property
     def parentPrototypeName(self):

@@ -1016,7 +1016,7 @@ class Config(object):
         elif type == "args":
             return shlex.split(value)
         elif type == "linelist":
-            return [t for t in map(lambda x: x.strip(), value.split("\n")) if t]
+            return [t for t in [x.strip() for x in value.split("\n")] if t]
         elif type == "bool":
             return bool(_strtobool(value.strip()))
         else:

@@ -197,7 +197,7 @@ class PythonTestSharder(object):
       A list of test objects which correspond to test names found in
       failed_tests, or an empty list if there is no correspondence.
     """
-    failed_test_names = map(lambda t: t.test_name, failed_tests)
+    failed_test_names = [t.test_name for t in failed_tests]
     tests_to_retry = [t for t in available_tests
                       if t.qualified_name in failed_test_names]
     return tests_to_retry

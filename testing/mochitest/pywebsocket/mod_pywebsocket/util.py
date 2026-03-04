@@ -147,7 +147,7 @@ def wrap_popen3_for_win(cygwin_path):
 
 
 def hexify(s):
-    return ' '.join(map(lambda x: '%02x' % ord(x), s))
+    return ' '.join(['%02x' % ord(x) for x in s])
 
 
 def get_class_logger(o):
@@ -191,7 +191,7 @@ class RepeatedXorMasker(object):
 
         # Use temporary local variables to eliminate the cost to access
         # attributes
-        masking_key = map(ord, self._masking_key)
+        masking_key = list(map(ord, self._masking_key))
         masking_key_size = len(masking_key)
         masking_key_index = self._masking_key_index
 

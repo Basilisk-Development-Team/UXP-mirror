@@ -1348,11 +1348,11 @@ def make_irregexp_tables(version,
         space_chars = list(filter(is_space, range(0, MAX_BMP + 1)))
 
         # Characters in \d, 21.2.2.12 CharacterClassEscape.
-        digit_chars = map(ord, string.digits)
+        digit_chars = list(map(ord, string.digits))
         assert all(ch <= MAX_ASCII for ch in digit_chars)
 
         # Characters in \w, 21.2.2.12 CharacterClassEscape.
-        word_chars = map(ord, string.digits + string.ascii_letters + '_')
+        word_chars = list(map(ord, string.digits + string.ascii_letters + '_'))
         assert all(ch <= MAX_ASCII for ch in word_chars)
 
         # Characters which case-fold to characters in \w.

@@ -302,8 +302,8 @@ class JarMaker(object):
         '''updateManifest replaces the % in the chrome registration entries
         with the given chrome base path, and updates the given manifest file.
         '''
-        myregister = dict.fromkeys(map(lambda s: s.replace('%',
-            chromebasepath), register))
+        myregister = dict.fromkeys([s.replace('%',
+            chromebasepath) for s in register])
         addEntriesToListFile(manifestPath, myregister.iterkeys())
 
     def makeJar(self, infile, jardir):

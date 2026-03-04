@@ -331,7 +331,7 @@ class MacTool(object):
 
   def ExecCompileIosFrameworkHeaderMap(self, out, framework, *all_headers):
     framework_name = os.path.basename(framework).split('.')[0]
-    all_headers = map(os.path.abspath, all_headers)
+    all_headers = list(map(os.path.abspath, all_headers))
     filelist = {}
     for header in all_headers:
       filename = os.path.basename(header)
@@ -395,7 +395,7 @@ class MacTool(object):
           command_line.append(str(value))
     # Note: actool crashes if inputs path are relative, so use os.path.abspath
     # to get absolute path name for inputs.
-    command_line.extend(map(os.path.abspath, inputs))
+    command_line.extend(list(map(os.path.abspath, inputs)))
     subprocess.check_call(command_line)
 
   def ExecMergeInfoPlist(self, output, *inputs):

@@ -10,7 +10,7 @@ def first(seq):
     return next(iter([x for x in seq if x]), '')
 
 def all_first(*sequences):
-    return map(lambda x: first(x), sequences)
+    return [first(x) for x in sequences]
 
 # http://codereview.stackexchange.com/questions/13027/joining-url-path-components-intelligently
 # I wonder why this is not a builtin feature in Python

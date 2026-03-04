@@ -1197,9 +1197,9 @@ class CGHeaders(CGWrapper):
                 # parametrized over, if needed.
                 addHeadersForType((t.inner, dictionary))
 
-        map(addHeadersForType,
+        list(map(addHeadersForType,
             getAllTypes(descriptors + callbackDescriptors, dictionaries,
-                        callbacks))
+                        callbacks)))
 
         # Now make sure we're not trying to include the header from inside itself
         declareIncludes.discard(prefix + ".h")
@@ -2068,8 +2068,7 @@ class MemberCondition:
         if nonExposedGlobals:
             # Nonempty set
             self.nonExposedGlobals = " | ".join(
-                map(lambda g: "GlobalNames::%s" % g,
-                    sorted(nonExposedGlobals)))
+                ["GlobalNames::%s" % g for g in sorted(nonExposedGlobals)])
         else:
             self.nonExposedGlobals = "0"
 
@@ -5135,9 +5134,9 @@ def getJSToNativeConversionInfo(type, descriptorProvider, failureCode=None,
                 return CGGeneric("done = (failed = !%s.TrySetTo%s(cx, ${val}, tryNext)) || !tryNext;\n"
                                  "break;\n" % (unionArgumentObj, name))
             other = CGList([])
-            stringConversion = map(getStringOrPrimitiveConversion, stringTypes)
-            numericConversion = map(getStringOrPrimitiveConversion, numericTypes)
-            booleanConversion = map(getStringOrPrimitiveConversion, booleanTypes)
+            stringConversion = list(map(getStringOrPrimitiveConversion, stringTypes))
+            numericConversion = list(map(getStringOrPrimitiveConversion, numericTypes))
+            booleanConversion = list(map(getStringOrPrimitiveConversion, booleanTypes))
             if stringConversion:
                 if booleanConversion:
                     other.append(CGIfWrapper(booleanConversion[0],

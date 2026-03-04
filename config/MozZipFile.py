@@ -109,8 +109,8 @@ class ZipFile(zipfile.ZipFile):
       # adjust file mode if we originally just wrote, now we rewrite
       self.fp.close()
       self.fp = open(self.filename, 'r+b')
-    all = map(lambda zi: (zi, True), self.filelist) + \
-        map(lambda zi: (zi, False), self._remove)
+    all = [(zi, True) for zi in self.filelist] + \
+        [(zi, False) for zi in self._remove]
     all.sort(lambda l, r: cmp(l[0].header_offset, r[0].header_offset))
     # empty _remove for multiple closes
     self._remove = []

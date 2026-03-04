@@ -27,7 +27,7 @@ def main(ip, port, heartbeat_port, scripts, directory, isTestDevice, verbose):
     if scripts:
         # Ensure the user didn't include the .py on the name of the test file
         # (and get rid of it if they did)
-        scripts = map(lambda x: x.split('.')[0], scripts)
+        scripts = [x.split('.')[0] for x in scripts]
     else:
         # Go through the directory and pick up everything
         # named test_*.py and run it

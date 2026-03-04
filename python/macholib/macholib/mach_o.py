@@ -210,7 +210,7 @@ MH_DYLINKER_SYM = "_mh_dylinker_header"
     MH_CANONICAL, MH_WEAK_DEFINES, MH_BINDS_TO_WEAK, MH_ALLOW_STACK_EXECUTION,
     MH_ROOT_SAFE, MH_SETUID_SAFE, MH_NO_REEXPORTED_DYLIBS, MH_PIE,
     MH_DEAD_STRIPPABLE_DYLIB, MH_HAS_TLV_DESCRIPTORS, MH_NO_HEAP_EXECUTION
-) = map((1).__lshift__, list(range(25)))
+) = list(map((1).__lshift__, list(range(25))))
 
 MH_MAGIC = 0xfeedface
 MH_CIGAM = 0xcefaedfe

@@ -91,7 +91,7 @@ eff = effVal""")
         p = getParser(mergefile)
         p.readFile(mergefile)
         [m, n] = p.parse()
-        self.assertEqual(map(lambda e: e.key,  m), ["bar", "eff", "foo"])
+        self.assertEqual([e.key for e in m], ["bar", "eff", "foo"])
 
     def testError(self):
         self.assertTrue(os.path.isdir(self.tmp))
@@ -222,7 +222,7 @@ class TestDTD(unittest.TestCase, ContentMixin):
         p = getParser(mergefile)
         p.readFile(mergefile)
         [m, n] = p.parse()
-        self.assertEqual(map(lambda e: e.key,  m), ["bar", "eff", "foo"])
+        self.assertEqual([e.key for e in m], ["bar", "eff", "foo"])
 
     def testJunk(self):
         self.assertTrue(os.path.isdir(self.tmp))
@@ -259,7 +259,7 @@ class TestDTD(unittest.TestCase, ContentMixin):
         p = getParser(mergefile)
         p.readFile(mergefile)
         [m, n] = p.parse()
-        self.assertEqual(map(lambda e: e.key,  m), ["foo", "eff", "bar"])
+        self.assertEqual([e.key for e in m], ["foo", "eff", "bar"])
 
 if __name__ == '__main__':
     unittest.main()

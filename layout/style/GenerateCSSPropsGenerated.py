@@ -62,7 +62,7 @@ def generate_assertions(properties):
             return "eCSSProperty_%s" % p["id"]
     msg = ('static_assert(%s == %d, "GenerateCSSPropsGenerated.py did not list '
            'properties in nsCSSPropertyID order");')
-    return "\n".join(map(lambda p: msg % (enum(p), p["index"]), properties))
+    return "\n".join([msg % (enum(p), p["index"]) for p in properties])
 
 def generate_idl_name_positions(properties):
     # Skip aliases.

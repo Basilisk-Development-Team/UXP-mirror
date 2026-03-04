@@ -247,7 +247,7 @@ class Handshaker(object):
                 self._request.ws_extensions = accepted_extensions
                 self._logger.debug(
                     'Extensions accepted: %r',
-                    map(common.ExtensionParameter.name, accepted_extensions))
+                    list(map(common.ExtensionParameter.name, accepted_extensions)))
             else:
                 self._request.ws_extensions = None
 
@@ -333,8 +333,8 @@ class Handshaker(object):
 
         self._logger.debug(
             'Extensions requested: %r',
-            map(common.ExtensionParameter.name,
-                self._request.ws_requested_extensions))
+            list(map(common.ExtensionParameter.name,
+                self._request.ws_requested_extensions)))
 
     def _validate_key(self, key):
         if key.find(',') >= 0:

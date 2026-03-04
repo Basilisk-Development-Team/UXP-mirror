@@ -121,7 +121,7 @@ def mergetree(src, dst, condition=None, copyfn=mergecopy, srcbase=None):
     dst = fsencoding(dst)
     if srcbase is None:
         srcbase = src
-    names = map(fsencoding, os.listdir(src))
+    names = list(map(fsencoding, os.listdir(src)))
     try:
         os.makedirs(dst)
     except OSError:

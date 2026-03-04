@@ -76,7 +76,7 @@ class GaiaUnitTest(GaiaTest):
                 for path in ('apps', 'tv_apps'):
                     test_root    = os.path.join(dirs['abs_gaia_dir'], path)
                     full_paths   = glob.glob(os.path.join(test_root, '*/test/unit/*_test.js'))
-                    unit_tests  += map(lambda x: os.path.relpath(x, test_root), full_paths)
+                    unit_tests  += [os.path.relpath(x, test_root) for x in full_paths]
 
                 # Remove the tests that are disabled
                 active_unit_tests = [x for x in unit_tests if x not in disabled_tests]

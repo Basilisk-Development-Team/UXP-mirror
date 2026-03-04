@@ -920,7 +920,7 @@ class DeviceManagerSUT(DeviceManager):
         if (env is None or env == ''):
             return ''
 
-        retVal = '"%s"' % ','.join(map(lambda x: '%s=%s' % (x[0], x[1]), env.iteritems()))
+        retVal = '"%s"' % ','.join(['%s=%s' % (x[0], x[1]) for x in env.iteritems()])
         if (retVal == '""'):
             return ''
 

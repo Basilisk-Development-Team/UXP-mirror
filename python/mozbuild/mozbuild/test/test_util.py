@@ -432,7 +432,7 @@ class TestListWithAction(unittest.TestCase):
         self.assertEqual(len(l), 0)
         original = ['a', 'b', 'c']
         l = ListWithAction(['a', 'b', 'c'], action=self.action)
-        expected = map(self.action, original)
+        expected = list(map(self.action, original))
         self.assertSameList(expected, l)
 
         with self.assertRaises(ValueError):
@@ -445,7 +445,7 @@ class TestListWithAction(unittest.TestCase):
         l = ListWithAction(action=self.action)
         original = ['a', 'b']
         l.extend(original)
-        expected = map(self.action, original)
+        expected = list(map(self.action, original))
         self.assertSameList(expected, l)
 
         with self.assertRaises(ValueError):
@@ -455,7 +455,7 @@ class TestListWithAction(unittest.TestCase):
         l = ListWithAction(action=self.action)
         original = ['a', 'b']
         l[:] = original
-        expected = map(self.action, original)
+        expected = list(map(self.action, original))
         self.assertSameList(expected, l)
 
         with self.assertRaises(ValueError):
@@ -465,7 +465,7 @@ class TestListWithAction(unittest.TestCase):
         l = ListWithAction(action=self.action)
         original = ['a', 'b']
         l2 = l + original
-        expected = map(self.action, original)
+        expected = list(map(self.action, original))
         self.assertSameList(expected, l2)
 
         with self.assertRaises(ValueError):
@@ -475,7 +475,7 @@ class TestListWithAction(unittest.TestCase):
         l = ListWithAction(action=self.action)
         original = ['a', 'b']
         l += original
-        expected = map(self.action, original)
+        expected = list(map(self.action, original))
         self.assertSameList(expected, l)
 
         with self.assertRaises(ValueError):

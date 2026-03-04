@@ -140,7 +140,7 @@ class DeviceManagerADB(DeviceManager):
         if cwd:
             cmdline = "cd %s; %s" % (cwd, cmdline)
         if env:
-            envstr = '; '.join(map(lambda x: 'export %s=%s' % (x[0], x[1]), env.iteritems()))
+            envstr = '; '.join(['export %s=%s' % (x[0], x[1]) for x in env.iteritems()])
             cmdline = envstr + "; " + cmdline
 
         # all output should be in stdout
@@ -453,7 +453,7 @@ class DeviceManagerADB(DeviceManager):
             acmd.append("-d")
             acmd.append(uri)
 
-        acmd = ["shell", ' '.join(map(lambda x: '"' + x + '"', ["am", "start"] + acmd))]
+        acmd = ["shell", ' '.join(['"' + x + '"' for x in ["am", "start"] + acmd])]
         self._logger.info(acmd)
         self._checkCmd(acmd)
         return outputFile

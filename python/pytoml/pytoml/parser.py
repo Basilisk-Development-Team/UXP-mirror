@@ -246,7 +246,7 @@ def _p_value(s):
     if s.consume_re(_datetime_re):
         m = s.last()
         s0 = m.group(0)
-        r = map(int, m.groups()[:6])
+        r = list(map(int, m.groups()[:6]))
         if m.group(7):
             micro = float(m.group(7))
         else:

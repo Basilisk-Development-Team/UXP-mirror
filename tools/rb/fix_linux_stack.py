@@ -177,7 +177,7 @@ def separate_debug_file_for(file):
         s = list(s)
         if endian == "big":
             s.reverse()
-        return sum(map(lambda idx: ord(s[idx]) * (256 ** idx), list(range(0, 4))))
+        return sum([ord(s[idx]) * (256 ** idx) for idx in list(range(0, 4))])
 
     buildid = elf_section(file, ".note.gnu.build-id");
     if buildid is not None:
@@ -192,7 +192,7 @@ def separate_debug_file_for(file):
            note_header[12:16] != "GNU\0":
             sys.stderr.write("malformed .note.gnu.build_id in " + file + "\n")
         else:
-            buildid = "".join(map(lambda ch: "%02X" % ord(ch), buildid)).lower()
+            buildid = "".join(["%02X" % ord(ch) for ch in buildid]).lower()
             f = os.path.join(global_debug_dir, ".build-id", buildid[0:2], buildid[2:] + ".debug")
             if have_debug_file(f):
                 return f

@@ -307,7 +307,7 @@ try:
 except NameError:
     def zip(*lists):
         result = []
-        for i in range(min(map(len, lists))):
+        for i in range(min(list(map(len, lists)))):
             result.append(tuple(map(lambda l, i=i: l[i], lists)))
         return result
 
@@ -316,7 +316,7 @@ class Collector:
         self.entries = [top]
     def __call__(self, arg, dirname, names):
         pathjoin = lambda n, d=dirname: os.path.join(d, n)
-        self.entries.extend(map(pathjoin, names))
+        self.entries.extend(list(map(pathjoin, names)))
 
 def _caller(tblist, skip):
     string = ""
@@ -475,15 +475,15 @@ else:
         for op, a1, a2, b1, b2 in sm.get_opcodes():
             if op == 'delete':
                 result.append("%sd%d" % (comma(a1, a2), b1))
-                result.extend(map(lambda l: '< ' + l, a[a1:a2]))
+                result.extend(['< ' + l for l in a[a1:a2]])
             elif op == 'insert':
                 result.append("%da%s" % (a1, comma(b1, b2)))
-                result.extend(map(lambda l: '> ' + l, b[b1:b2]))
+                result.extend(['> ' + l for l in b[b1:b2]])
             elif op == 'replace':
                 result.append("%sc%s" % (comma(a1, a2), comma(b1, b2)))
-                result.extend(map(lambda l: '< ' + l, a[a1:a2]))
+                result.extend(['< ' + l for l in a[a1:a2]])
                 result.append('---')
-                result.extend(map(lambda l: '> ' + l, b[b1:b2]))
+                result.extend(['> ' + l for l in b[b1:b2]])
         return result
 
 def diff_re(a, b, fromfile='', tofile='',
@@ -1154,7 +1154,7 @@ class TestCmd(object):
         prepended unless it is enclosed in a [list].
         """
         cmd = self.command_args(program, interpreter, arguments)
-        cmd_string = string.join(map(self.escape, cmd), ' ')
+        cmd_string = string.join(list(map(self.escape, cmd)), ' ')
         if self.verbose:
             sys.stderr.write(cmd_string + "\n")
         if universal_newlines is None:

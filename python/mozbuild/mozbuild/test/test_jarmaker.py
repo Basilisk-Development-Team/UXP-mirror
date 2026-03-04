@@ -117,11 +117,11 @@ class _TreeDiff(dircmp):
     """Helper to report rich results on difference between two directories.
     """
     def _fillDiff(self, dc, rv, basepath="{0}"):
-        rv['right_only'] += map(lambda l: basepath.format(l), dc.right_only)
-        rv['left_only'] += map(lambda l: basepath.format(l), dc.left_only)
-        rv['diff_files'] += map(lambda l: basepath.format(l), dc.diff_files)
-        rv['funny'] += map(lambda l: basepath.format(l), dc.common_funny)
-        rv['funny'] += map(lambda l: basepath.format(l), dc.funny_files)
+        rv['right_only'] += [basepath.format(l) for l in dc.right_only]
+        rv['left_only'] += [basepath.format(l) for l in dc.left_only]
+        rv['diff_files'] += [basepath.format(l) for l in dc.diff_files]
+        rv['funny'] += [basepath.format(l) for l in dc.common_funny]
+        rv['funny'] += [basepath.format(l) for l in dc.funny_files]
         for subdir, _dc in dc.subdirs.iteritems():
             self._fillDiff(_dc, rv, basepath.format(subdir + "/{0}"))
     def allResults(self, left, right):

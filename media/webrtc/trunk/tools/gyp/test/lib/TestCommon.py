@@ -237,7 +237,7 @@ class TestCommon(TestCmd):
         them.  Exits FAILED if any of the files does not exist or is
         not writable.
         """
-        files = map(lambda x: is_List(x) and apply(os.path.join, x) or x, files)
+        files = [is_List(x) and apply(os.path.join, x) or x for x in files]
         existing, missing = separate_files(files)
         unwritable = list(filter(lambda x, iw=is_writable: not iw(x), existing))
         if missing:
@@ -323,7 +323,7 @@ class TestCommon(TestCmd):
         pathname will be constructed by concatenating them.  Exits FAILED
         if any of the files does not exist.
         """
-        files = map(lambda x: is_List(x) and apply(os.path.join, x) or x, files)
+        files = [is_List(x) and apply(os.path.join, x) or x for x in files]
         missing = [x for x in files if not os.path.exists(x)]
         if missing:
             print("Missing files: `%s'" % string.join(missing, "', `"))
@@ -395,7 +395,7 @@ class TestCommon(TestCmd):
         which case the pathname will be constructed by concatenating them.
         Exits FAILED if any of the files exists.
         """
-        files = map(lambda x: is_List(x) and apply(os.path.join, x) or x, files)
+        files = [is_List(x) and apply(os.path.join, x) or x for x in files]
         existing = list(filter(os.path.exists, files))
         if existing:
             print("Unexpected files exist: `%s'" % string.join(existing, "', `"))
@@ -408,7 +408,7 @@ class TestCommon(TestCmd):
         them.  Exits FAILED if any of the files does not exist or is
         writable.
         """
-        files = map(lambda x: is_List(x) and apply(os.path.join, x) or x, files)
+        files = [is_List(x) and apply(os.path.join, x) or x for x in files]
         existing, missing = separate_files(files)
         writable = list(filter(is_writable, existing))
         if missing:

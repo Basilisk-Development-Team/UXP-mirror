@@ -1036,8 +1036,8 @@ class ADBDevice(ADBCommand):
         if cwd:
             cmd = "cd %s && %s" % (cwd, cmd)
         if env:
-            envstr = '&& '.join(map(lambda x: 'export %s=%s' %
-                                    (x[0], x[1]), env.iteritems()))
+            envstr = '&& '.join(['export %s=%s' %
+                                    (x[0], x[1]) for x in env.iteritems()])
             cmd = envstr + "&& " + cmd
         cmd += "; echo rc=$?"
 

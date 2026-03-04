@@ -155,7 +155,7 @@ def _GetTestsFromClass(test_class):
   """
   test_names = [m for m in dir(test_class)
                 if _IsTestMethod(m, test_class)]
-  return map(test_class, test_names)
+  return list(map(test_class, test_names))
 
 
 def _GetTestClassesFromModule(test_module):

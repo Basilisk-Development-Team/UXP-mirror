@@ -447,7 +447,7 @@ class TestChecksConfigure(unittest.TestCase):
             checking for a... %s
         ''' % self.OTHER_A))
 
-        dirs = map(mozpath.dirname, (self.OTHER_A, self.KNOWN_A))
+        dirs = list(map(mozpath.dirname, (self.OTHER_A, self.KNOWN_A)))
         config, out, status = self.get_result(textwrap.dedent('''\
             check_prog("A", ("known-a",), paths=["%s"])
         ''' % os.pathsep.join(dirs)))
@@ -457,7 +457,7 @@ class TestChecksConfigure(unittest.TestCase):
             checking for a... %s
         ''' % self.OTHER_A))
 
-        dirs = map(mozpath.dirname, (self.KNOWN_A, self.KNOWN_B))
+        dirs = list(map(mozpath.dirname, (self.KNOWN_A, self.KNOWN_B)))
         config, out, status = self.get_result(textwrap.dedent('''\
             check_prog("A", ("known-a",), paths=["%s", "%s"])
         ''' % (os.pathsep.join(dirs), self.OTHER_A)))

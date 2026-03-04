@@ -94,9 +94,9 @@ def _DoRemapping(element, map):
     if not callable(map):
       map = map.get # Assume it's a dict, otherwise a callable to do the remap.
     if isinstance(element, list) or isinstance(element, tuple):
-      element = [_f for _f in [map(elem) for elem in element] if _f]
+      element = [_f for _f in [list(map(elem)) for elem in element] if _f]
     else:
-      element = map(element)
+      element = list(map(element))
   return element
 
 
@@ -916,10 +916,10 @@ class PrecompiledHeader(object):
     if input == self.pch_source:
       pch_output = ['/Yc' + self._PchHeader()]
       if command == 'cxx':
-        return ([('cflags_cc', map(expand_special, cflags_cc + pch_output))],
+        return ([('cflags_cc', list(map(expand_special, cflags_cc + pch_output)))],
                 self.output_obj, [])
       elif command == 'cc':
-        return ([('cflags_c', map(expand_special, cflags_c + pch_output))],
+        return ([('cflags_c', list(map(expand_special, cflags_c + pch_output)))],
                 self.output_obj, [])
     return [], output, implicit
 

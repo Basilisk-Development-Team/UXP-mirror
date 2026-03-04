@@ -1762,7 +1762,7 @@ class FixtureLookupError(LookupError):
         tblines = []
         addline = tblines.append
         stack = [self.request._pyfuncitem.obj]
-        stack.extend(map(lambda x: x.func, self.fixturestack))
+        stack.extend([x.func for x in self.fixturestack])
         msg = self.msg
         if msg is not None:
             # the last fixture raise an error, let's present

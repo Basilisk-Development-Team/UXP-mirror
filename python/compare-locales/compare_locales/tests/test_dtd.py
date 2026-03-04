@@ -47,7 +47,7 @@ class TestDTD(ParserTestMixin, unittest.TestCase):
             return qr.sub(lambda m: m.group(0) == '"' and "'" or '"', s)
 
         self._test(quot2apos(self.quoteContent),
-                   map(lambda t: (t[0], quot2apos(t[1])), self.quoteRef))
+                   [(t[0], quot2apos(t[1])) for t in self.quoteRef])
 
     def test_parsed_ref(self):
         self._test('''<!ENTITY % fooDTD SYSTEM "chrome://brand.dtd">

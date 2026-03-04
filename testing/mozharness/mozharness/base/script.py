@@ -537,7 +537,7 @@ class ScriptMixin(PlatformMixin):
     def _filter_entries(self, namelist, extract_dirs):
         """Filter entries of the archive based on the specified list of to extract dirs."""
         filter_partial = functools.partial(fnmatch.filter, namelist)
-        entries = itertools.chain(*map(filter_partial, extract_dirs or ['*']))
+        entries = itertools.chain(*list(map(filter_partial, extract_dirs or ['*'])))
 
         for entry in entries:
             yield entry

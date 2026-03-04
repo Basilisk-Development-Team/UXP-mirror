@@ -33,7 +33,7 @@ headerdirect = []
 cppdirect = []
 
 def TranslateList(mylist, mydict):
-    return map(lambda x: x % mydict, mylist)
+    return [x % mydict for x in mylist]
 
 # Exception class for parse errors
 class RpcGenError(Exception):
@@ -1119,7 +1119,7 @@ class EntryArray(Entry):
 
         codearrayassign = self._entry.CodeArrayAssign(
             'msg->%(name)s_data[off]' % self.GetTranslation(), 'value')
-        code += map(lambda x: '    ' + x, codearrayassign)
+        code += ['    ' + x for x in codearrayassign]
 
         code += TranslateList([
             '  }',
@@ -1160,7 +1160,7 @@ class EntryArray(Entry):
 
         code = TranslateList(code, self.GetTranslation())
 
-        code += map(lambda x: '  ' + x, codearrayadd)
+        code += ['  ' + x for x in codearrayadd]
 
         code += TranslateList([
             '  msg->%(name)s_set = 1;',
@@ -1188,7 +1188,7 @@ class EntryArray(Entry):
 
         code = TranslateList(code, translate)
 
-        code += map(lambda x: '    ' + x, tmp)
+        code += ['    ' + x for x in tmp]
 
         code += [
             '  }',
@@ -1253,7 +1253,7 @@ class EntryArray(Entry):
         code = TranslateList(code, translate)
 
         if codearrayfree:
-            code += map(lambda x: '    ' + x, codearrayfree)
+            code += ['    ' + x for x in codearrayfree]
             code += [
                 '  }' ]
 

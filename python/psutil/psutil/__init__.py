@@ -972,7 +972,7 @@ class Process(object):
                 path = tupl[2]
                 nums = tupl[3:]
                 try:
-                    d[path] = map(lambda x, y: x + y, d[path], nums)
+                    d[path] = list(map(lambda x, y: x + y, d[path], nums))
                 except KeyError:
                     d[path] = nums
             nt = _psplatform.pmmap_grouped

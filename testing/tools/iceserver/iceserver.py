@@ -789,7 +789,7 @@ if __name__ == "__main__":
         lines = f.readlines();
         lines.pop(0); # Remove BEGIN CERTIFICATE
         lines.pop(); # Remove END CERTIFICATE
-        lines = map(string.strip, lines);
+        lines = list(map(string.strip, lines));
         certbase64 = string.join(lines, '');
 
         turns_url = ', "turns:' + hostname + '"'

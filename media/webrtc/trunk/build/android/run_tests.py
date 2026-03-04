@@ -290,8 +290,8 @@ def _RunATestSuite(options):
       buildbot_emulators.append(buildbot_emulator)
       attached_devices.append(buildbot_emulator.device)
     # Wait for all emulators to boot completed.
-    map(lambda buildbot_emulator: buildbot_emulator.ConfirmLaunch(True),
-        buildbot_emulators)
+    list(map(lambda buildbot_emulator: buildbot_emulator.ConfirmLaunch(True),
+        buildbot_emulators))
   elif options.test_device:
     attached_devices = [options.test_device]
   else:

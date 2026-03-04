@@ -73,7 +73,7 @@ def print_header_file(fd, conf, incdirs):
             fd.write("public:\n")
 
             attributes = allAttributes(iface)
-            args = map(writeAttributeParams, attributes)
+            args = list(map(writeAttributeParams, attributes))
             fd.write("  %s(%s) :\n" % (classname, ", ".join(args)))
 
             initializers = []
@@ -103,7 +103,7 @@ def interfaceAttributeTypes(idl):
         ifaceAttributes = allAttributes(i)
         attributes.extend(ifaceAttributes)
     ifaceAttrs = [a for a in attributes if a.realtype.nativeType("in").endswith("*")]
-    return map(lambda a: a.realtype.nativeType("in").strip(" *"), ifaceAttrs)
+    return [a.realtype.nativeType("in").strip(" *") for a in ifaceAttrs]
 
 def print_cpp(idl, fd, conf, eventname):
     for p in idl.productions:
