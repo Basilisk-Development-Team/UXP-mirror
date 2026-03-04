@@ -1003,9 +1003,9 @@ class Param(object):
 
         try:
             return self.realtype.nativeType(self.paramtype, **kwargs)
-        except IDLError, e:
+        except IDLError as e:
             raise IDLError(e.message, self.location)
-        except TypeError, e:
+        except TypeError as e:
             raise IDLError("Unexpected parameter attribute", self.location)
 
     def toIDL(self):

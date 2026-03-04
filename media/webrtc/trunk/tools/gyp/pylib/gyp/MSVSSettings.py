@@ -461,7 +461,7 @@ def ConvertToMSBuildSettings(msvs_settings, stderr=sys.stderr):
           # Invoke the translation function.
           try:
             msvs_tool[msvs_setting](msvs_value, msbuild_settings)
-          except ValueError, e:
+          except ValueError as e:
             print(('Warning: while converting %s/%s to MSBuild, '
                               '%s' % (msvs_tool_name, msvs_setting, e)), file=stderr)
         else:
@@ -517,7 +517,7 @@ def _ValidateSettings(validators, settings, stderr):
         if setting in tool_validators:
           try:
             tool_validators[setting](value)
-          except ValueError, e:
+          except ValueError as e:
             print(('Warning: for %s/%s, %s' %
                               (tool_name, setting, e)), file=stderr)
         else:

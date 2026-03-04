@@ -468,7 +468,7 @@ class TestCommon(TestCmd):
                          kw)
         except KeyboardInterrupt:
             raise
-        except Exception, e:
+        except Exception as e:
             print(self.banner('STDOUT '))
             try:
                 print(self.stdout())

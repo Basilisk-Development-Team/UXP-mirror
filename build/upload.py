@@ -370,6 +370,6 @@ if __name__ == '__main__':
                                          package=options.package, verbose=True)
 
             WriteProperties(args, options.properties_file, url_properties, options.package)
-    except IOError, (strerror):
+    except IOError as strerror:
         print(strerror)
         sys.exit(1)

@@ -109,7 +109,7 @@ Be careful to specify the right merge directory when using this option."""),
         try:
             observer = compareApp(app, merge_stage=options.merge,
                                   clobber=options.clobber)
-        except (OSError, IOError), exc:
+        except (OSError, IOError) as exc:
             print("FAIL: " + str(exc))
             self.parser.exit(2)
         return observer

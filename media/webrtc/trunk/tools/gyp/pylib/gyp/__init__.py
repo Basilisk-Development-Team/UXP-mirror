@@ -539,7 +539,7 @@ def gyp_main(args):
 def main(args):
   try:
     return gyp_main(args)
-  except GypError, e:
+  except GypError as e:
     sys.stderr.write("gyp: %s\n" % e)
     return 1
 

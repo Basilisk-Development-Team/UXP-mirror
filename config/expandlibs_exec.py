@@ -339,7 +339,7 @@ def main(args, proc_callback=None):
             proc = subprocess.Popen(args, stdout = subprocess.PIPE, stderr = subprocess.STDOUT)
             if proc_callback:
                 proc_callback(proc)
-        except Exception, e:
+        except Exception as e:
             print('error: Launching', args, ':', e, file=sys.stderr)
             raise e
         (stdout, stderr) = proc.communicate()

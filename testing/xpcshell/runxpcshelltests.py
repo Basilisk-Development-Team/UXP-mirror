@@ -1002,7 +1002,7 @@ class XPCShellTests(object):
                 # node did not support ALPN until this version.
                 if version >= LooseVersion("5.0.0"):
                     nodeBin = localPath
-            except (subprocess.CalledProcessError, OSError), e:
+            except (subprocess.CalledProcessError, OSError) as e:
                 self.log.error('Could not retrieve node version: %s' % str(e))
 
         if os.getenv('MOZ_ASSUME_NODE_RUNNING', None):
@@ -1030,7 +1030,7 @@ class XPCShellTests(object):
                             searchObj = re.search( r'HTTP2 server listening on port (.*)', msg, 0)
                             if searchObj:
                               self.env["MOZHTTP2_PORT"] = searchObj.group(1)
-                    except OSError, e:
+                    except OSError as e:
                         # This occurs if the subprocess couldn't be started
                         self.log.error('Could not run %s server: %s' % (name, str(e)))
 

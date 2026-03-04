@@ -110,7 +110,7 @@ class ProcTest(proctest.ProcTest):
             processhandler.ProcessHandler([self.proclaunch, "process_normal_finish.ini"],
                                           args=["1", "2", "3"],
                                           cwd=here)
-        except TypeError, e:
+        except TypeError as e:
             err = e
 
         self.assertTrue(err)
@@ -128,7 +128,7 @@ class ProcTest(proctest.ProcTest):
             processhandler.ProcessHandler([self.proclaunch, "process_normal_finish.ini"],
                                           args=["1", "2", "3"],
                                           cwd=here)
-        except TypeError, e:
+        except TypeError as e:
             err = e
 
         self.assertTrue(err)

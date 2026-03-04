@@ -477,7 +477,7 @@ class TestRunner(BaseTestRunner):
       # See ../../third_party/android/testrunner/adb_interface.py
       except (errors.WaitForResponseTimedOutError,
               errors.DeviceUnresponsiveError,
-              errors.InstrumentationError), e:
+              errors.InstrumentationError) as e:
         if start_date_ms:
           duration_ms = int(time.time()) * 1000 - start_date_ms
         else:

@@ -51,7 +51,9 @@ try:
     "/c", "CompilerVersionCheck", "/c", "SafeSEHCheck", "/c", "SNCheck",
     "/c", "DBCheck"], stdout=subprocess.PIPE)
 
-except WindowsError, (errno, strerror): 
+except OSError as e: 
+  errno = e.errno
+  strerror = e.strerror or str(e)
   if errno != 2 and errno != 3:
     print("Unexpected error ! \nError " + str(errno) + " : " + strerror + "\nExiting !\n")
     sys.exit(0)

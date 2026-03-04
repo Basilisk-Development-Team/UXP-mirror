@@ -69,7 +69,7 @@ class HTTPRequestHandler(BaseHTTPServer.BaseHTTPRequestHandler):
     if content:
       try:
         self.wfile.write(content)
-      except socket.error, e:
+      except socket.error as e:
         if options.verbose:
           print("Got socket error %s" % e)
     #self.close_connection = 1
@@ -133,7 +133,7 @@ class HTTPRequestHandler(BaseHTTPServer.BaseHTTPRequestHandler):
       if "Content-Length" not in headers:
         self.send_header("Content-Length", str(len(content)))
       self.end_headers()
-    except socket.error, e:
+    except socket.error as e:
       if options.verbose:
         print("Got socket error %s" % e)
       return None

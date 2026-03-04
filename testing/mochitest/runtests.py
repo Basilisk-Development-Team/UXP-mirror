@@ -51,7 +51,7 @@ from manifestparser.filters import (
 try:
     from marionette_driver.addons import Addons
     from marionette_harness import Marionette
-except ImportError, e:
+except ImportError as e:
     # Defer ImportError until attempt to use Marionette
     def reraise(*args, **kwargs):
         raise(e)

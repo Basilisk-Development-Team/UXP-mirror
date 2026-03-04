@@ -7743,7 +7743,7 @@ class CGPerSignatureCall(CGThing):
         }
         try:
             wrapCode += wrapForType(self.returnType, self.descriptor, resultTemplateValues)
-        except MethodNotNewObjectError, err:
+        except MethodNotNewObjectError as err:
             assert not returnsNewObject
             raise TypeError("%s being returned from non-NewObject method or property %s.%s" %
                             (err.typename,

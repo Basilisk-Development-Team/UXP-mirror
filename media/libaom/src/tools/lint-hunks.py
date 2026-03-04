@@ -65,7 +65,7 @@ def main(argv=None):
     try:
         try:
             opts, args = getopt.getopt(argv[1:], SHORT_OPTIONS, LONG_OPTIONS)
-        except getopt.error, msg:
+        except getopt.error as msg:
             raise Usage(msg)
 
         # process options
@@ -137,7 +137,7 @@ def main(argv=None):
         if lint_failed:
             return 1
 
-    except Usage, err:
+    except Usage as err:
         print(err, file=sys.stderr)
         print("for help use --help", file=sys.stderr)
         return 2

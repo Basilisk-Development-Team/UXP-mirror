@@ -26,7 +26,7 @@ def GetVersion(compiler):
 
     result = re.match(r"(\d+)\.(\d+)", gcc_output)
     return result.group(1) + result.group(2)
-  except Exception, e:
+  except Exception as e:
     if gcc_error:
       sys.stderr.write(gcc_error)
     print("compiler_version.py failed to execute:", compiler, file=sys.stderr)

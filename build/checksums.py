@@ -140,7 +140,7 @@ def main():
     try:
         for digest in options.digests:
             hashlib.new(digest)
-    except ValueError, ve:
+    except ValueError as ve:
         logger.error('Could not create a "%s" hash object (%s)' %
                      (digest, ve.args[0]))
         exit(1)

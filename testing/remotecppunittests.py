@@ -274,7 +274,7 @@ def main():
                                            {"tbpl": sys.stdout})
     try:
         result = run_test_harness(options, args)
-    except Exception, e:
+    except Exception as e:
         log.error(str(e))
         result = False
     sys.exit(0 if result else 1)

@@ -433,7 +433,7 @@ def match_re(lines = None, res = None):
         s = "^" + res[i] + "$"
         try:
             expr = re.compile(s)
-        except re.error, e:
+        except re.error as e:
             msg = "Regular expression error in %s: %s"
             raise re.error(msg % (repr(s), e[0]))
         if not expr.search(lines[i]):
@@ -450,7 +450,7 @@ def match_re_dotall(lines = None, res = None):
     s = "^" + res + "$"
     try:
         expr = re.compile(s, re.DOTALL)
-    except re.error, e:
+    except re.error as e:
         msg = "Regular expression error in %s: %s"
         raise re.error(msg % (repr(s), e[0]))
     if expr.match(lines):
@@ -506,7 +506,7 @@ def diff_re(a, b, fromfile='', tofile='',
         s = "^" + aline + "$"
         try:
             expr = re.compile(s)
-        except re.error, e:
+        except re.error as e:
             msg = "Regular expression error in %s: %s"
             raise re.error(msg % (repr(s), e[0]))
         if not expr.search(bline):
@@ -722,7 +722,7 @@ class Popen(subprocess.Popen):
                 (errCode, written) = WriteFile(x, input)
             except ValueError:
                 return self._close('stdin')
-            except (subprocess.pywintypes.error, Exception), why:
+            except (subprocess.pywintypes.error, Exception) as why:
                 if why[0] in (109, errno.ESHUTDOWN):
                     return self._close('stdin')
                 raise
@@ -743,7 +743,7 @@ class Popen(subprocess.Popen):
                     (errCode, read) = ReadFile(x, nAvail, None)
             except ValueError:
                 return self._close(which)
-            except (subprocess.pywintypes.error, Exception), why:
+            except (subprocess.pywintypes.error, Exception) as why:
                 if why[0] in (109, errno.ESHUTDOWN):
                     return self._close(which)
                 raise
@@ -762,7 +762,7 @@ class Popen(subprocess.Popen):
 
             try:
                 written = os.write(self.stdin.fileno(), input)
-            except OSError, why:
+            except OSError as why:
                 if why[0] == errno.EPIPE: #broken pipe
                     return self._close('stdin')
                 raise

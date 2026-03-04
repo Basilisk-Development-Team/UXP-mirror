@@ -1737,7 +1737,7 @@ def _TopologicallySortedEnvVarKeys(env):
     order = gyp.common.TopologicallySorted(list(env.keys()), GetEdges)
     order.reverse()
     return order
-  except gyp.common.CycleError, e:
+  except gyp.common.CycleError as e:
     raise GypError(
         'Xcode environment variables are cyclically dependent: ' + str(e.nodes))
 

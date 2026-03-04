@@ -54,7 +54,7 @@ def extract_zip(src, dest):
     else:
         try:
             bundle = zipfile.ZipFile(src)
-        except Exception, e:
+        except Exception as e:
             print("src: %s" % src)
             raise
 

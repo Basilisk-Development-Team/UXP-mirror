@@ -194,7 +194,7 @@ def clinetoargv(cline, cwd):
     str = _escapednewlines.sub('', cline)
     try:
         args = ClineSplitter(str, cwd)
-    except MetaCharacterException, e:
+    except MetaCharacterException as e:
         return None, e.char
 
     if len(args) and args[0].find('=') != -1:
@@ -331,7 +331,7 @@ class PopenJob(Job):
                 os.environ['PATH'] = self.env['PATH']
             p = subprocess.Popen(self.argv, executable=self.executable, shell=self.shell, env=self.env, cwd=self.cwd)
             return p.wait()
-        except OSError, e:
+        except OSError as e:
             print(e, file=sys.stderr)
             return -127
         finally:
@@ -398,7 +398,7 @@ class PythonJob(Job):
                     (self.module, self.method, rv)), file=sys.stderr)
                 return (rv if isinstance(rv, int) else 1)
 
-        except PythonException, e:
+        except PythonException as e:
             print(e, file=sys.stderr)
             return e.exitcode
         except:

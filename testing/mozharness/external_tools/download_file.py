@@ -35,19 +35,19 @@ def download_file(url, file_name):
                 got_length += len(block)
         local_file.close()
         print("%s downloaded to %s" % (url, file_name))
-    except urllib2.HTTPError, e:
+    except urllib2.HTTPError as e:
         print("Warning: Server returned status %s %s for %s" % (str(e.code), str(e), url))
         raise
-    except urllib2.URLError, e:
+    except urllib2.URLError as e:
         print("URL Error: %s" % url)
         remote_host = urlparse.urlsplit(url)[1]
         if remote_host:
             os.system("nslookup %s" % remote_host)
         raise
-    except socket.timeout, e:
+    except socket.timeout as e:
         print("Timed out accessing %s: %s" % (url, str(e)))
         raise
-    except socket.error, e:
+    except socket.error as e:
         print("Socket error when accessing %s: %s" % (url, str(e)))
         raise
 

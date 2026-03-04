@@ -1700,11 +1700,11 @@ if __name__ == '__main__':
         CommandLine(sys.argv).run()
         sys.exit(0)
 
-    except RpcGenError, e:
+    except RpcGenError as e:
         print(e, file=sys.stderr)
         sys.exit(1)
 
-    except EnvironmentError, e:
+    except EnvironmentError as e:
         if e.filename and e.strerror:
             print("%s: %s" % (e.filename, e.strerror), file=sys.stderr)
             sys.exit(1)

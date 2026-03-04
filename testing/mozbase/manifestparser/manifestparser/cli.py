@@ -81,7 +81,7 @@ class Copy(CLICommand):
         # parse the arguments
         try:
             kwargs, tags, args = parse_args(args)
-        except ParserError, e:
+        except ParserError as e:
             self._parser.error(e.message)
 
         # make sure we have some manifests, otherwise it will
@@ -146,7 +146,7 @@ class WriteCLI(CLICommand):
         # parse the arguments
         try:
             kwargs, tags, args = parse_args(args)
-        except ParserError, e:
+        except ParserError as e:
             self._parser.error(e.message)
 
         # make sure we have some manifests, otherwise it will
@@ -190,7 +190,7 @@ class UpdateCLI(CLICommand):
         # parse the arguments
         try:
             kwargs, tags, args = parse_args(args)
-        except ParserError, e:
+        except ParserError as e:
             self._parser.error(e.message)
 
         # make sure we have some manifests, otherwise it will

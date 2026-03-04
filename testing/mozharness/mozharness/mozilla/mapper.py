@@ -55,7 +55,7 @@ class MapperMixin:
                     else:
                         self.warning("Mapper returned a revision of None.  Accepting because require_answer is False.")
                 return j['%s_rev' % vcs]
-            except Exception, err:
+            except Exception as err:
                 self.warning('Error: %s' % str(err))
                 if n == attempts:
                     self.fatal('Giving up on %s %s revision for %s.' % (project_name, vcs, rev))

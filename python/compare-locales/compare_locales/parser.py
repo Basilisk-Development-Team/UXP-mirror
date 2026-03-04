@@ -122,7 +122,7 @@ class Parser:
         f = codecs.open(file, 'r', self.encoding)
         try:
             self.contents = f.read()
-        except UnicodeDecodeError, e:
+        except UnicodeDecodeError as e:
             (logging.getLogger('locales')
                     .error("Can't read file: " + file + '; ' + str(e)))
             self.contents = u''

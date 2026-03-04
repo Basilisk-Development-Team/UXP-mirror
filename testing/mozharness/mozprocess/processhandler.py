@@ -94,7 +94,7 @@ class ProcessHandlerMixin(object):
                                           preexec_fn, close_fds,
                                           shell, cwd, env,
                                           universal_newlines, startupinfo, creationflags)
-            except OSError, e:
+            except OSError as e:
                 print(args, file=sys.stderr)
                 raise
 
@@ -131,7 +131,7 @@ class ProcessHandlerMixin(object):
                 if not self._ignore_children:
                     try:
                         os.killpg(self.pid, sig)
-                    except BaseException, e:
+                    except BaseException as e:
                         if getattr(e, "errno", None) != 3:
                             # Error 3 is "no such process", which is ok
                             print("Could not kill process, could not find pid: %s, assuming it's already dead" % self.pid, file=sys.stdout)
@@ -546,7 +546,7 @@ falling back to not using job objects for managing child processes""", file=sys.
                         if status > 255:
                             return status >> 8
                         return -status
-                    except OSError, e:
+                    except OSError as e:
                         if getattr(e, "errno", None) != 10:
                             # Error 10 is "no child process", which could indicate normal
                             # close

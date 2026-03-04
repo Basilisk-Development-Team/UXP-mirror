@@ -182,11 +182,11 @@ def download_config_file(url, file_name):
         try:
             contents = urllib2.urlopen(url, timeout=30).read()
             break
-        except urllib2.URLError, e:
+        except urllib2.URLError as e:
             print("Error downloading from url %s: %s" % (url, str(e)))
-        except socket.timeout, e:
+        except socket.timeout as e:
             print("Time out accessing %s: %s" % (url, str(e)))
-        except socket.error, e:
+        except socket.error as e:
             print("Socket error when accessing %s: %s" % (url, str(e)))
         print("Sleeping %d seconds before retrying" % sleeptime)
         time.sleep(sleeptime)
@@ -199,7 +199,7 @@ def download_config_file(url, file_name):
         f = open(file_name, 'w')
         f.write(contents)
         f.close()
-    except IOError, e:
+    except IOError as e:
         print("Error writing downloaded contents to file %s: %s" % (file_name, str(e)))
         raise SystemError(-1)
 

@@ -1041,7 +1041,7 @@ add_test({
         try:
             # The actual return value is never checked because we raise.
             self.assertTestResult(True)
-        except Exception, ex:
+        except Exception as ex:
             raised = True
             self.assertEquals(ex.message[0:9], "head file")
 
@@ -1058,7 +1058,7 @@ add_test({
 
         try:
             self.assertTestResult(True)
-        except Exception, ex:
+        except Exception as ex:
             raised = True
             self.assertEquals(ex.message[0:9], "tail file")
 

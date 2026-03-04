@@ -460,10 +460,10 @@ class ScriptMixin(PlatformMixin):
                     got_length += len(block)
             local_file.close()
             return file_name
-        except urllib2.HTTPError, e:
+        except urllib2.HTTPError as e:
             self.warning("Server returned status %s %s for %s" % (str(e.code), str(e), url))
             raise
-        except urllib2.URLError, e:
+        except urllib2.URLError as e:
             self.warning("URL Error: %s" % url)
 
             # Failures due to missing local files won't benefit from retry.
@@ -482,10 +482,10 @@ class ScriptMixin(PlatformMixin):
                 self.run_command([nslookup, remote_host],
                                  error_list=error_list)
             raise
-        except socket.timeout, e:
+        except socket.timeout as e:
             self.warning("Timed out accessing %s: %s" % (url, str(e)))
             raise
-        except socket.error, e:
+        except socket.error as e:
             self.warning("Socket error when accessing %s: %s" % (url, str(e)))
             raise
 
@@ -768,11 +768,11 @@ class ScriptMixin(PlatformMixin):
         try:
             shutil.move(src, dest)
         # http://docs.python.org/tutorial/errors.html
-        except IOError, e:
+        except IOError as e:
             self.log("IO error: %s" % str(e),
                      level=error_level, exit_code=exit_code)
             return -1
-        except shutil.Error, e:
+        except shutil.Error as e:
             self.log("shutil error: %s" % str(e),
                      level=error_level, exit_code=exit_code)
             return -1
@@ -819,7 +819,7 @@ class ScriptMixin(PlatformMixin):
                 outfile.writelines(infile)
                 outfile.close()
                 infile.close()
-            except IOError, e:
+            except IOError as e:
                 self.log("Can't compress %s to %s: %s!" % (src, dest, str(e)),
                          level=error_level)
                 return -1
@@ -827,7 +827,7 @@ class ScriptMixin(PlatformMixin):
             self.log("Copying %s to %s" % (src, dest), level=log_level)
             try:
                 shutil.copyfile(src, dest)
-            except (IOError, shutil.Error), e:
+            except (IOError, shutil.Error) as e:
                 self.log("Can't copy %s to %s: %s!" % (src, dest, str(e)),
                          level=error_level)
                 return -1
@@ -835,7 +835,7 @@ class ScriptMixin(PlatformMixin):
         if copystat:
             try:
                 shutil.copystat(src, dest)
-            except (IOError, shutil.Error), e:
+            except (IOError, shutil.Error) as e:
                 self.log("Can't copy attributes of %s to %s: %s!" % (src, dest, str(e)),
                          level=error_level)
                 return -1
@@ -968,7 +968,7 @@ class ScriptMixin(PlatformMixin):
         self.info("Reading from file %s" % file_path)
         try:
             fh = open(file_path, open_mode)
-        except IOError, err:
+        except IOError as err:
             self.log("unable to open %s: %s" % (file_path, err.strerror),
                      level=error_level)
             yield None, err
@@ -1111,7 +1111,7 @@ class ScriptMixin(PlatformMixin):
                 status = action(*args, **kwargs)
                 if good_statuses and status not in good_statuses:
                     retry = True
-            except retry_exceptions, e:
+            except retry_exceptions as e:
                 retry = True
                 error_message = "%s\nCaught exception: %s" % (error_message, str(e))
                 self.log('retry: attempt #%d caught exception: %s' % (n, str(e)), level=INFO)
@@ -1390,7 +1390,7 @@ class ScriptMixin(PlatformMixin):
                             break
                         parser.add_lines(line)
                 returncode = p.returncode
-        except OSError, e:
+        except OSError as e:
             level = error_level
             if halt_on_failure:
                 level = FATAL

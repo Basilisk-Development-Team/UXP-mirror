@@ -13,7 +13,7 @@ def mkdir(args):
   """
   try:
     opts, args = getopt(args, "p", ["parents"])
-  except GetoptError, e:
+  except GetoptError as e:
     raise PythonException("mkdir: %s" % e, 1)
   parents = False
   for o, a in opts:
@@ -25,7 +25,7 @@ def mkdir(args):
         os.makedirs(f)
       else:
         os.mkdir(f)
-    except OSError, e:
+    except OSError as e:
       if e.errno == errno.EEXIST and parents:
         pass
       else:
@@ -38,7 +38,7 @@ def rm(args):
   """
   try:
     opts, args = getopt(args, "rRf", ["force", "recursive"])
-  except GetoptError, e:
+  except GetoptError as e:
     raise PythonException("rm: %s" % e, 1)
   force = False
   recursive = False
@@ -88,7 +88,7 @@ def touch(args):
     """
     try:
         opts, args = getopt(args, "t:")
-    except GetoptError, e:
+    except GetoptError as e:
         raise PythonException("touch: %s" % e, 1)
     opts = dict(opts)
     times = None

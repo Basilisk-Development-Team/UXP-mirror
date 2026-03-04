@@ -56,6 +56,6 @@ def dump_screen(utilityPath, log):
             log.process_exit(utilityname, returncode)
         else:
             printstatus(utilityname, returncode)
-    except OSError, err:
+    except OSError as err:
         log.info("Failed to start %s for screenshot: %s"
                  % (utility[0], err.strerror))

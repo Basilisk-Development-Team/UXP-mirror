@@ -95,7 +95,7 @@ class PropertiesChecker(Checker):
     def checkPrintf(self, refSpecs, l10nValue):
         try:
             l10nSpecs = self.getPrintfSpecs(l10nValue)
-        except PrintfException, e:
+        except PrintfException as e:
             yield ('error', e.pos, e.msg, 'printf')
             return
         if refSpecs != l10nSpecs:
@@ -253,7 +253,7 @@ class DTDChecker(Checker):
             parser.parse(StringIO(self.tmpl %
                                   (refEnt.all.encode('utf-8') + entities,
                                    '&%s;' % refEnt.key.encode('utf-8'))))
-        except sax.SAXParseException, e:
+        except sax.SAXParseException as e:
             yield ('warning',
                    (0, 0),
                    "can't parse en-US value", 'xmlparse')
@@ -275,7 +275,7 @@ class DTDChecker(Checker):
             parser.parse(StringIO(self.tmpl % (
                 l10nEnt.all.encode('utf-8') + _entities,
                 '&%s;' % l10nEnt.key.encode('utf-8'))))
-        except sax.SAXParseException, e:
+        except sax.SAXParseException as e:
             # xml parse error, yield error
             # sometimes, the error is reported on our fake closing
             # element, make that the end of the last line

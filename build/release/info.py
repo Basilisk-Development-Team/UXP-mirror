@@ -50,7 +50,7 @@ def findOldBuildIDs(product, version, buildNumber, platforms,
                 id = getBuildID(platform, product, version, n, nightlyDir,
                                 server)
                 ids[platform].append(id)
-            except Exception, e:
+            except Exception as e:
                 log.error("Hit exception: %s" % e)
     return ids
 

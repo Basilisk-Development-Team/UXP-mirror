@@ -41,7 +41,7 @@ def put_cfg(d, cfg, ini_path):
     t.close()
     try:
         d.pushFile(t.name, ini_path)
-    except DMError, e:
+    except DMError as e:
         print(e)
     else:
         print('Done.')
@@ -103,7 +103,7 @@ def main():
         sys.exit(1)
     try:
         d = DroidSUT(host, retryLimit=1)
-    except DMError, e:
+    except DMError as e:
         print(e)
         sys.exit(1)
     # check if using Negatus and change path accordingly

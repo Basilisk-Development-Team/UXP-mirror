@@ -206,22 +206,22 @@ def test_nice_formatting_errors():
     t = TestTerminal()
     try:
         t.bold_misspelled('hey')
-    except TypeError, e:
+    except TypeError as e:
         assert 'probably misspelled' in e.args[0]
 
     try:
         t.bold_misspelled(u'hey')  # unicode
-    except TypeError, e:
+    except TypeError as e:
         assert 'probably misspelled' in e.args[0]
 
     try:
         t.bold_misspelled(None)  # an arbitrary non-string
-    except TypeError, e:
+    except TypeError as e:
         assert 'probably misspelled' not in e.args[0]
 
     try:
         t.bold_misspelled('a', 'b')  # >1 string arg
-    except TypeError, e:
+    except TypeError as e:
         assert 'probably misspelled' not in e.args[0]
 
 

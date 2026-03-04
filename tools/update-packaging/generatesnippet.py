@@ -88,7 +88,7 @@ def generateSnippet(abstDistDir, applicationIniFile, locale,
     c = ConfigParser()
     try:
         c.readfp(open(applicationIniFile))
-    except IOError, (stderror):
+    except IOError as stderror:
        sys.exit(stderror)
     buildid = c.get("App", "BuildID")
     appVersion = c.get("App", "Version")
@@ -141,7 +141,7 @@ def getFileHashAndSize(filepath):
         shaObj = sha.new(f.read())
         sha1Hash = shaObj.hexdigest()
         size = os.stat(filepath)[ST_SIZE]
-    except IOError, (stderror):
+    except IOError as stderror:
        sys.exit(stderror)
 
     return (sha1Hash, size)

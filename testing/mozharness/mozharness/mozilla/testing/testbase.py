@@ -331,7 +331,7 @@ class TestingMixin(VirtualenvMixin, BuildbotMixin, ResourceMonitoringMixin,
                     if not self.installer_url:
                         self.installer_url = str(f['name'])
                         self.info("Found installer url %s." % self.installer_url)
-        except IndexError, e:
+        except IndexError as e:
             self.error(str(e))
 
     def find_artifacts_from_taskcluster(self):

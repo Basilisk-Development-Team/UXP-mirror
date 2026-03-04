@@ -298,7 +298,7 @@ class AndroidEmulatorTest(BlobUploadMixin, TestingMixin, EmulatorMixin, VCSMixin
                 telnet_ok = True
             else:
                 self.warning('Unable to connect to port %d' % port)
-        except socket.error, e:
+        except socket.error as e:
             self.info('Trying again after socket error: %s' % str(e))
             pass
         except EOFError:
@@ -398,7 +398,7 @@ class AndroidEmulatorTest(BlobUploadMixin, TestingMixin, EmulatorMixin, VCSMixin
             os.close(tmpfd)
             self.info("Taking screenshot with %s; saving to %s" % (utility, filename))
             subprocess.call([utility, filename], env=self.query_env())
-        except OSError, err:
+        except OSError as err:
             self.warning("Failed to take screenshot: %s" % err.strerror)
 
     def _query_package_name(self):

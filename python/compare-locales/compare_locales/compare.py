@@ -448,7 +448,7 @@ class ContentComparer:
             # we didn't parse this before
             try:
                 p.readContents(ref_file.getContents())
-            except Exception, e:
+            except Exception as e:
                 self.notify('error', ref_file, str(e))
                 return
             self.reference[ref_file] = p.parse()
@@ -458,7 +458,7 @@ class ContentComparer:
         try:
             p.readContents(l10n.getContents())
             l10n_entities, l10n_map = p.parse()
-        except Exception, e:
+        except Exception as e:
             self.notify('error', l10n, str(e))
             return
         lines = []
@@ -573,7 +573,7 @@ class ContentComparer:
         try:
             p.readContents(f.getContents())
             entities, map = p.parse()
-        except Exception, e:
+        except Exception as e:
             self.notify('error', f, str(e))
             return
         self.notify('missingInFiles', missing, len(map))

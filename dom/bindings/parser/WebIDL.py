@@ -5417,7 +5417,7 @@ class Parser(Tokenizer):
                                       [location, existingObj.location])
                 existingObj.setNonPartial(*nonPartialArgs)
                 return existingObj
-        except Exception, ex:
+        except Exception as ex:
             if isinstance(ex, WebIDLError):
                 raise ex
             pass
@@ -5455,7 +5455,7 @@ class Parser(Tokenizer):
                                       "%s and %s" % (identifier.name, p[0]),
                                       [location, p[0].location])
                 return
-        except Exception, ex:
+        except Exception as ex:
             if isinstance(ex, WebIDLError):
                 raise ex
             pass
@@ -5518,7 +5518,7 @@ class Parser(Tokenizer):
                                       "non-%s object" %
                                       (prettyname, prettyname),
                                       [location, nonPartialObject.location])
-        except Exception, ex:
+        except Exception as ex:
             if isinstance(ex, WebIDLError):
                 raise ex
             pass
@@ -6964,7 +6964,7 @@ def main():
             print(fullPath)
             parser.parse(''.join(lines), fullPath)
         parser.finish()
-    except WebIDLError, e:
+    except WebIDLError as e:
         if options.verbose_errors:
             traceback.print_exc()
         else:

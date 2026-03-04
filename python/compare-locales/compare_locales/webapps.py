@@ -80,7 +80,7 @@ class Manifest(object):
     def load_and_parse(self):
         try:
             manifest = json.load(open(self.file.fullpath))
-        except (ValueError, IOError), e:
+        except (ValueError, IOError) as e:
             if self.watcher:
                 self.watcher.notify('error', self.file, str(e))
             return False

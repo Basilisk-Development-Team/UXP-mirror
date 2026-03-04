@@ -222,7 +222,7 @@ def uninstall(install_folder):
                     if time.time() > end_time:
                         raise Exception('Failure removing uninstall folder.')
 
-            except Exception, ex:
+            except Exception as ex:
                 cls, exc, trbk = sys.exc_info()
                 error = UninstallError('Failed to uninstall %s (%s)' % (install_folder, str(ex)))
                 raise UninstallError(error).with_traceback(trbk)

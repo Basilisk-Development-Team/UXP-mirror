@@ -129,7 +129,7 @@ class XcodeProject(object):
     try:
       os.makedirs(self.path)
       self.created_dir = True
-    except OSError, e:
+    except OSError as e:
       if e.errno != errno.EEXIST:
         raise
 
@@ -454,7 +454,7 @@ sys.exit(subprocess.call(sys.argv[1:]))" """
       same = False
       try:
         same = filecmp.cmp(pbxproj_path, new_pbxproj_path, False)
-      except OSError, e:
+      except OSError as e:
         if e.errno != errno.ENOENT:
           raise
 
@@ -744,7 +744,7 @@ def GenerateOutput(target_list, target_dicts, data, params):
       xctarget_type = gyp.xcodeproj_file.PBXNativeTarget
       try:
         target_properties['productType'] = _types[type_bundle_key]
-      except KeyError, e:
+      except KeyError as e:
         gyp.common.ExceptionAppend(e, "-- unknown product type while "
                                    "writing target %s" % target_name)
         raise

@@ -52,7 +52,7 @@ def convert_yuv_to_png_files(yuv_file_name, yuv_frame_width, yuv_frame_height,
     print(' '.join(command))
     helper_functions.run_shell_command(
         command, fail_msg='Error during YUV to PNG conversion')
-  except helper_functions.HelperError, err:
+  except helper_functions.HelperError as err:
     print('Error executing command: %s. Error: %s' % (command, err))
     return False
   except OSError:
@@ -106,7 +106,7 @@ def _decode_barcode_in_file(file_name, command_line_decoder):
     text_file = open('%s.txt' % file_name[:-4], 'w')
     text_file.write(out)
     text_file.close()
-  except helper_functions.HelperError, err:
+  except helper_functions.HelperError as err:
     print('Barcode in %s cannot be decoded.' % file_name)
     print(err)
     return False
