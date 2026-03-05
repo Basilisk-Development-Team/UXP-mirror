@@ -1,6 +1,6 @@
 import logging, re, os
-import data, parser, functions, util
-from cStringIO import StringIO
+from . import data, parser, functions, util
+from io import StringIO
 from pymake.globrelative import hasglob, glob
 
 _log = logging.getLogger('pymake.data')

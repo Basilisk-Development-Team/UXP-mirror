@@ -4,7 +4,7 @@
 
 import re
 
-import android_commands
+from . import android_commands
 import math
 
 # Valid values of result type.

@@ -10,7 +10,7 @@ import signal
 import subprocess
 import sys
 import tempfile
-import urllib2
+import urllib.request, urllib.error, urllib.parse
 import zipfile
 from collections import namedtuple
 
@@ -177,7 +177,7 @@ class CrashInfo(object):
             self.remove_symbols = True
             self.logger.info("Downloading symbols from: %s" % self.symbols_path)
             # Get the symbols and write them to a temporary zipfile
-            data = urllib2.urlopen(self.symbols_path)
+            data = urllib.request.urlopen(self.symbols_path)
             with tempfile.TemporaryFile() as symbols_file:
                 symbols_file.write(data.read())
                 # extract symbols to a temporary directory (which we'll delete after

@@ -54,13 +54,13 @@ import threading
 import shelve
 from optparse import OptionParser, OptionValueError
 
-import SocketServer
-import BaseHTTPServer
+import socketserver
+import http.server
 import socket
-import httplib
-from urlparse import urlsplit, urlunsplit
+import http.client
+from urllib.parse import urlsplit, urlunsplit
 
-class HTTPRequestHandler(BaseHTTPServer.BaseHTTPRequestHandler):
+class HTTPRequestHandler(http.server.BaseHTTPRequestHandler):
   server_version = "TalosProxy/" + __version__
   protocol_version = "HTTP/1.1"
 
@@ -109,7 +109,7 @@ class HTTPRequestHandler(BaseHTTPServer.BaseHTTPRequestHandler):
       else:
         if options.verbose:
           print("Object %s was not in the cache" % self.path)
-        conn = httplib.HTTPConnection(o.netloc)
+        conn = http.client.HTTPConnection(o.netloc)
         conn.request("GET", reqstring, headers=headers)
         res = conn.getresponse()
 
@@ -140,11 +140,11 @@ class HTTPRequestHandler(BaseHTTPServer.BaseHTTPRequestHandler):
     return content
   def log_message(self, format, *args):
     if options.verbose:
-      BaseHTTPServer.BaseHTTPRequestHandler.log_message(self, format, *args)
+      http.server.BaseHTTPRequestHandler.log_message(self, format, *args)
 
-class HTTPServer(SocketServer.ThreadingMixIn, BaseHTTPServer.HTTPServer):
+class HTTPServer(socketserver.ThreadingMixIn, http.server.HTTPServer):
   def __init__(self, address, handler):
-    BaseHTTPServer.HTTPServer.__init__(self, address, handler)
+    http.server.HTTPServer.__init__(self, address, handler)
 
 class Cache(object):
   """Multithreaded cache uses the shelve module to store pages"""

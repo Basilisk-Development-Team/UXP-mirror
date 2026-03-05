@@ -9,16 +9,16 @@ import os
 import sys
 import types
 
-import android_commands
-import apk_info
-import constants
-import python_test_base
-from python_test_caller import CallPythonTest
-from python_test_sharder import PythonTestSharder
-import run_java_tests
-from run_java_tests import FatalTestException
-from test_info_collection import TestInfoCollection
-from test_result import TestResults
+from . import android_commands
+from . import apk_info
+from . import constants
+from . import python_test_base
+from .python_test_caller import CallPythonTest
+from .python_test_sharder import PythonTestSharder
+from . import run_java_tests
+from .run_java_tests import FatalTestException
+from .test_info_collection import TestInfoCollection
+from .test_result import TestResults
 
 
 def _GetPythonFiles(root, files):

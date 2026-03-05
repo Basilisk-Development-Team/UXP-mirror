@@ -36,7 +36,7 @@ if sys.version_info[0] == 3:
     from configparser import RawConfigParser, NoSectionError
     str_type = str
 else:
-    from ConfigParser import RawConfigParser, NoSectionError
+    from configparser import RawConfigParser, NoSectionError
     str_type = basestring
 
 

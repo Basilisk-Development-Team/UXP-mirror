@@ -12,7 +12,7 @@ xterm-256color exists.
 from __future__ import with_statement  # Make 2.5-compatible
 from curses import tigetstr, tparm
 from functools import partial
-from StringIO import StringIO
+from io import StringIO
 import sys
 
 from nose import SkipTest

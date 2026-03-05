@@ -13,7 +13,7 @@ import mozcrash
 import mozfile
 import mozinfo
 import mozlog
-import StringIO
+import io
 import posixpath
 from mozdevice import devicemanager, devicemanagerADB, devicemanagerSUT
 
@@ -131,7 +131,7 @@ class RemoteCPPUnitTests(cppunittests.CPPUnitTests):
         basename = os.path.basename(prog)
         remote_bin = posixpath.join(self.remote_bin_dir, basename)
         self.log.test_start(basename)
-        buf = StringIO.StringIO()
+        buf = io.StringIO()
         test_timeout = cppunittests.CPPUnitTests.TEST_PROC_TIMEOUT * timeout_factor
         returncode = self.device.shell([remote_bin], buf, env=env, cwd=self.remote_home_dir,
                                        timeout=test_timeout)

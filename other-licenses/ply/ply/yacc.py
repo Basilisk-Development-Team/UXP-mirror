@@ -103,7 +103,7 @@ except AttributeError:
 # Python 2.x/3.0 compatibility.
 def load_ply_lex():
     if sys.version_info[0] < 3:
-        import lex
+        from . import lex
     else:
         import ply.lex as lex
     return lex
@@ -1844,7 +1844,7 @@ class LRTable(object):
 
     def read_pickle(self,filename):
         try:
-            import cPickle as pickle
+            import pickle as pickle
         except ImportError:
             import pickle
 
@@ -2665,7 +2665,7 @@ del _lr_goto_items
 
     def pickle_table(self,filename,signature=""):
         try:
-            import cPickle as pickle
+            import pickle as pickle
         except ImportError:
             import pickle
         outf = open(filename,"wb")

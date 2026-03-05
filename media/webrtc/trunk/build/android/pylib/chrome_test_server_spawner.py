@@ -8,7 +8,7 @@ It's used to accept requests from the device to spawn and kill instances of the
 chrome test server on the host.
 """
 
-import BaseHTTPServer
+import http.server
 import json
 import logging
 import os
@@ -17,11 +17,11 @@ import struct
 import subprocess
 import threading
 import time
-import urlparse
+import urllib.parse
 
-import constants
-from forwarder import Forwarder
-import ports
+from . import constants
+from .forwarder import Forwarder
+from . import ports
 
 
 # Path that are needed to import necessary modules when running testserver.py.
@@ -261,7 +261,7 @@ class TestServerThread(threading.Thread):
     self.wait_event.wait()
 
 
-class SpawningServerRequestHandler(BaseHTTPServer.BaseHTTPRequestHandler):
+class SpawningServerRequestHandler(http.server.BaseHTTPRequestHandler):
   """A handler used to process http GET/POST request."""
 
   def _SendResponse(self, response_code, response_reason, additional_headers,
@@ -344,7 +344,7 @@ class SpawningServerRequestHandler(BaseHTTPServer.BaseHTTPRequestHandler):
     self.server.test_server_instance = None
 
   def do_POST(self):
-    parsed_path = urlparse.urlparse(self.path)
+    parsed_path = urllib.parse.urlparse(self.path)
     action = parsed_path.path
     logging.info('Action for POST method is: %s.', action)
     if action == '/start':
@@ -354,9 +354,9 @@ class SpawningServerRequestHandler(BaseHTTPServer.BaseHTTPRequestHandler):
       logging.info('Encounter unknown request: %s.', action)
 
   def do_GET(self):
-    parsed_path = urlparse.urlparse(self.path)
+    parsed_path = urllib.parse.urlparse(self.path)
     action = parsed_path.path
-    params = urlparse.parse_qs(parsed_path.query, keep_blank_values=1)
+    params = urllib.parse.parse_qs(parsed_path.query, keep_blank_values=1)
     logging.info('Action for GET method is: %s.', action)
     for param in params:
       logging.info('%s=%s', param, params[param][0])
@@ -378,7 +378,7 @@ class SpawningServer(object):
 
   def __init__(self, test_server_spawner_port, adb, tool, build_type):
     logging.info('Creating new spawner on port: %d.', test_server_spawner_port)
-    self.server = BaseHTTPServer.HTTPServer(('', test_server_spawner_port),
+    self.server = http.server.HTTPServer(('', test_server_spawner_port),
                                             SpawningServerRequestHandler)
     self.port = test_server_spawner_port
     self.server.adb = adb

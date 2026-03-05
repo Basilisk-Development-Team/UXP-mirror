@@ -12,7 +12,7 @@ import sys
 import tempfile
 import unittest
 
-from cStringIO import StringIO
+from io import StringIO
 from mozfile.mozfile import NamedTemporaryFile
 
 from mozunit import main

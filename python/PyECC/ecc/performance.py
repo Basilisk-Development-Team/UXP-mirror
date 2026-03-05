@@ -1,4 +1,4 @@
-from Key import Key
+from .Key import Key
 import time
 from collections import OrderedDict
 

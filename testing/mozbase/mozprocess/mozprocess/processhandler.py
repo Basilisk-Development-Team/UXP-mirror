@@ -11,7 +11,7 @@ import sys
 import threading
 import time
 import traceback
-from Queue import Queue, Empty
+from queue import Queue, Empty
 from datetime import datetime
 
 __all__ = ['ProcessHandlerMixin', 'ProcessHandler', 'LogOutput',

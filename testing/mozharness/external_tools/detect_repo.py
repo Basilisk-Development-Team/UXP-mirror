@@ -1,9 +1,5 @@
-#!/usr/bin/env python
-# Stolen from taskcluster-vcs
-# https://github.com/taskcluster/taskcluster-vcs/blob/master/src/vcs/detect_remote.js
-
-from urllib2 import Request, urlopen
-from urlparse import urlsplit, urlunsplit
+from urllib.request import Request, urlopen
+from urllib.parse import urlsplit, urlunsplit
 from os.path import exists, join
 
 def first(seq):

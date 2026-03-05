@@ -61,7 +61,7 @@ import tarfile
 import mozpack.path as mozpath
 from tempfile import mkdtemp
 from io import BytesIO
-from StringIO import StringIO
+from io import StringIO
 from xpt import Typelib
 
 

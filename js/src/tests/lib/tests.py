@@ -8,7 +8,7 @@ from contextlib import contextmanager
 from subprocess import Popen, PIPE
 from threading import Thread
 
-from results import TestOutput
+from .results import TestOutput
 
 # When run on tbpl, we run each test multiple times with the following
 # arguments.

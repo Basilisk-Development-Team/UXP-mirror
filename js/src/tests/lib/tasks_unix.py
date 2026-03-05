@@ -4,8 +4,8 @@
 
 import errno, os, select, sys
 from datetime import datetime, timedelta
-from progressbar import ProgressBar
-from results import NullTestOutput, TestOutput, escape_cmdline
+from .progressbar import ProgressBar
+from .results import NullTestOutput, TestOutput, escape_cmdline
 
 class Task(object):
     def __init__(self, test, prefix, pid, stdout, stderr):

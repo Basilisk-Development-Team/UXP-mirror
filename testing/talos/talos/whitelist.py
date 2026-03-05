@@ -5,7 +5,7 @@
 
 import json
 import os
-import utils
+from . import utils
 
 KEY_XRE = '{xre}'
 DEFAULT_DURATION = 100.0

@@ -20,7 +20,7 @@ import logging
 import os
 from os import path
 import sys
-from Queue import Queue
+from queue import Queue
 import shutil
 import subprocess
 import tempfile

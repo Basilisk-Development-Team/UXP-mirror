@@ -7,7 +7,7 @@ from tempfile import mkdtemp
 from shutil import rmtree
 import mozunit
 
-from UserString import UserString
+from collections import UserString
 # Create a controlled configuration for use by expandlibs
 config_win = {
     'AR': 'lib',

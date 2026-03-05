@@ -12,8 +12,8 @@
 from optparse import OptionParser
 import json
 import re
-import urllib2
-import urlparse
+import urllib.request, urllib.error, urllib.parse
+import urllib.parse
 import sys
 import os
 
@@ -88,7 +88,7 @@ def get_filename_from_url(url):
     '''
     This returns the filename of the file we're trying to download
     '''
-    parsed = urlparse.urlsplit(url.rstrip('/'))
+    parsed = urllib.parse.urlsplit(url.rstrip('/'))
     if parsed.path != '':
         return parsed.path.rsplit('/', 1)[-1]
     else:
@@ -101,8 +101,8 @@ def download_file(url, path="", saveAs=None):
     '''
     It downloads a file from URL to the indicated path
     '''
-    req = urllib2.Request(url)
-    f = urllib2.urlopen(req)
+    req = urllib.request.Request(url)
+    f = urllib.request.urlopen(req)
     if path != "" and not os.path.isdir(path):
         try:
             os.makedirs(path)

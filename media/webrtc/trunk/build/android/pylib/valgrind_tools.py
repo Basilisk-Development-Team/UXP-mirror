@@ -24,7 +24,7 @@ Call tool.CleanUpEnvironment().
 import os.path
 import sys
 
-from constants import CHROME_DIR
+from .constants import CHROME_DIR
 
 
 def SetChromeTimeoutScale(adb, scale):

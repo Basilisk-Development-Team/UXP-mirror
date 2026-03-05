@@ -12,8 +12,8 @@ import signal
 import sys
 import telnetlib
 import time
-import urlparse
-import urllib2
+import urllib.parse
+import urllib.request, urllib.error, urllib.parse
 from distutils.spawn import find_executable
 
 from mozdevice import DeviceManagerADB, DMError
@@ -252,7 +252,7 @@ def run_firefox_for_android(build_obj, params):
         cmd = ['am', 'start', '-a', 'android.activity.MAIN', '-n', app]
         if params:
             for p in params:
-                if urlparse.urlparse(p).scheme != "":
+                if urllib.parse.urlparse(p).scheme != "":
                     cmd.extend(['-d', p])
                     params.remove(p)
                     break
@@ -658,7 +658,7 @@ def _log_info(text):
 
 
 def _download_file(url, filename, path):
-    f = urllib2.urlopen(url)
+    f = urllib.request.urlopen(url)
     if not os.path.isdir(path):
         try:
             os.makedirs(path)

@@ -1,4 +1,4 @@
-from ConfigParser import (
+from configparser import (
     ConfigParser,
     RawConfigParser
 )

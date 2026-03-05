@@ -168,11 +168,11 @@ prime having great security characteristics, 521 bits are preferred
 over a constructed 512 bit field.)
 """
 
-from encoding import *
-from eccrypt import *
-import ecdsa
+from .encoding import *
+from .eccrypt import *
+from . import ecdsa
 import hashlib
-from SecurityViolationException import *
+from .SecurityViolationException import *
 
 class Key:
 

@@ -8,7 +8,7 @@
 """
 
 import os
-from urlparse import urljoin
+from urllib.parse import urljoin
 import sys
 from copy import deepcopy
 

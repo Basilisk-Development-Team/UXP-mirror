@@ -6,7 +6,7 @@
 
 import os
 import sys
-import xtalos
+from . import xtalos
 import subprocess
 
 

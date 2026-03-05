@@ -2,7 +2,7 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this file,
 # You can obtain one at http://mozilla.org/MPL/2.0/.
 
-import ConfigParser
+import configparser
 import os
 import sys
 import tempfile
@@ -25,7 +25,7 @@ from marionette_harness import Marionette
 from mozdevice import DeviceManagerADB, DMError
 
 
-class ProfileConfigParser(ConfigParser.RawConfigParser):
+class ProfileConfigParser(configparser.RawConfigParser):
     """Subclass of RawConfigParser that outputs .ini files in the exact
        format expected for profiles.ini, which is slightly different
        than the default format.
@@ -36,7 +36,7 @@ class ProfileConfigParser(ConfigParser.RawConfigParser):
 
     def write(self, fp):
         if self._defaults:
-            fp.write("[%s]\n" % ConfigParser.DEFAULTSECT)
+            fp.write("[%s]\n" % configparser.DEFAULTSECT)
             for (key, value) in list(self._defaults.items()):
                 fp.write("%s=%s\n" % (key, str(value).replace('\n', '\n\t')))
             fp.write("\n")

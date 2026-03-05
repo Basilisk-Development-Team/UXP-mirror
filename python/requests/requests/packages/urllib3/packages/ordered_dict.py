@@ -3,9 +3,9 @@
 # Copyright 2009 Raymond Hettinger, released under the MIT License.
 # http://code.activestate.com/recipes/576693/
 try:
-    from thread import get_ident as _get_ident
+    from _thread import get_ident as _get_ident
 except ImportError:
-    from dummy_thread import get_ident as _get_ident
+    from _dummy_thread import get_ident as _get_ident
 
 try:
     from _abcoll import KeysView, ValuesView, ItemsView

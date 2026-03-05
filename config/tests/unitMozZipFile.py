@@ -11,6 +11,7 @@ import sys
 import random
 import copy
 from string import letters
+from functools import reduce
 
 '''
 Test case infrastructure for MozZipFile.

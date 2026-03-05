@@ -10,7 +10,7 @@ import os
 import platform
 import pprint
 import re
-import urllib2
+import urllib.request, urllib.error, urllib.parse
 import json
 import socket
 
@@ -281,19 +281,19 @@ class TestingMixin(VirtualenvMixin, BuildbotMixin, ResourceMonitoringMixin,
 
             self.https_username, self.https_password = get_credentials()
             # This creates a password manager
-            passman = urllib2.HTTPPasswordMgrWithDefaultRealm()
+            passman = urllib.request.HTTPPasswordMgrWithDefaultRealm()
             # Because we have put None at the start it will use this username/password combination from here on
             passman.add_password(None, url, self.https_username, self.https_password)
-            authhandler = urllib2.HTTPBasicAuthHandler(passman)
+            authhandler = urllib.request.HTTPBasicAuthHandler(passman)
 
-            return urllib2.build_opener(authhandler).open(url, **kwargs)
+            return urllib.request.build_opener(authhandler).open(url, **kwargs)
 
         # If we have the developer_run flag enabled then we will switch
         # URLs to the right place and enable http authentication
         if "developer_config.py" in self.config["config_files"]:
             return _urlopen_basic_auth(url, **kwargs)
         else:
-            return urllib2.urlopen(url, **kwargs)
+            return urllib.request.urlopen(url, **kwargs)
 
     # read_buildbot_config is in BuildbotMixin.
 

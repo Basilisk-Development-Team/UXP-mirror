@@ -12,7 +12,7 @@ import random
 import subprocess
 import sys
 import uuid
-import __builtin__
+import builtins
 
 from types import ModuleType
 
@@ -409,4 +409,4 @@ class ImportHook(object):
 
 
 # Install our hook
-__builtin__.__import__ = ImportHook(__builtin__.__import__)
+builtins.__import__ = ImportHook(builtins.__import__)

@@ -15,11 +15,11 @@
 import os
 import sys
 import platform
-import results
+from . import results
 import subprocess
-import utils
+from . import utils
 import mozcrash
-import talosconfig
+from . import talosconfig
 import shutil
 import mozfile
 

@@ -5,7 +5,7 @@
 __all__ = [ 'gencxx', 'genipdl', 'parse', 'typecheck', 'writeifmodified' ]
 
 import os, sys
-from cStringIO import StringIO
+from io import StringIO
 
 from ipdl.cgen import IPDLCodeGen
 from ipdl.lower import LowerToCxx, msgenums

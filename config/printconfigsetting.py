@@ -5,7 +5,7 @@
 import configobj
 import sys
 import re
-from StringIO import StringIO
+from io import StringIO
 
 try:
     (file, section, key) = sys.argv[1:]

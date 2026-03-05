@@ -10,7 +10,7 @@ else:
 try:
     from io import BytesIO
 except ImportError:
-    from cStringIO import StringIO as BytesIO
+    from io import StringIO as BytesIO
 import mmap
 
 try:

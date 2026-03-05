@@ -11,7 +11,7 @@ import logging
 import os
 import site
 import sys
-import urllib2
+import urllib.request, urllib.error, urllib.parse
 import difflib
 
 FAILURE_CODE = 1
@@ -126,7 +126,7 @@ def get_mozconfig(path, options):
     else:
         url = make_hg_url(options.hghost, options.branch, 'http',
                     options.revision, path)
-        return urllib2.urlopen(url).readlines()
+        return urllib.request.urlopen(url).readlines()
 
 if __name__ == '__main__':
     from optparse import OptionParser

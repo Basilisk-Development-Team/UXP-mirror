@@ -9,7 +9,7 @@ import shutil
 import tempfile
 import unittest
 from manifestparser import ManifestParser
-from StringIO import StringIO
+from io import StringIO
 
 here = os.path.dirname(os.path.abspath(__file__))
 

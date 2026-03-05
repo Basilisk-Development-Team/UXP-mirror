@@ -31,12 +31,12 @@ import codecs
 import sys
 import tarfile
 import tempfile
-import urllib2
+import urllib.request, urllib.error, urllib.parse
 from contextlib import closing
 from functools import partial
 from itertools import chain, ifilter, ifilterfalse, imap, izip_longest, groupby, tee
 from operator import attrgetter, itemgetter
-from urlparse import urlsplit
+from urllib.parse import urlsplit
 from zipfile import ZipFile
 
 # From https://docs.python.org/3/library/itertools.html
@@ -1360,7 +1360,7 @@ def updateCLDRLangTags(args):
             readFiles(cldr_file)
     else:
         print("Downloading CLDR core.zip...")
-        with closing(urllib2.urlopen(url)) as cldr_file:
+        with closing(urllib.request.urlopen(url)) as cldr_file:
             cldr_data = io.BytesIO(cldr_file.read())
             readFiles(cldr_data)
 
@@ -2114,7 +2114,7 @@ def updateTzdata(topsrcdir, args):
 
     if tzDir is None:
         print("Downloading tzdata file...")
-        with closing(urllib2.urlopen(url)) as tzfile:
+        with closing(urllib.request.urlopen(url)) as tzfile:
             fname = urlsplit(tzfile.geturl()).path.split("/")[-1]
             with tempfile.NamedTemporaryFile(suffix=fname) as tztmpfile:
                 print("File stored in %s" % tztmpfile.name)

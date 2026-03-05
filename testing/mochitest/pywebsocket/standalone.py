@@ -155,13 +155,13 @@ It may execute arbitrary Python code or external programs. It should not be
 used outside a firewall.
 """
 
-import BaseHTTPServer
-import CGIHTTPServer
-import SimpleHTTPServer
-import SocketServer
-import ConfigParser
+import http.server
+import http.server
+import http.server
+import socketserver
+import configparser
 import base64
-import httplib
+import http.client
 import logging
 import logging.handlers
 import optparse
@@ -382,7 +382,7 @@ def _alias_handlers(dispatcher, websock_handlers_map_file):
         fp.close()
 
 
-class WebSocketServer(SocketServer.ThreadingMixIn, BaseHTTPServer.HTTPServer):
+class WebSocketServer(socketserver.ThreadingMixIn, http.server.HTTPServer):
     """HTTPServer specialized for WebSocket."""
 
     # Overrides SocketServer.ThreadingMixIn.daemon_threads
@@ -416,7 +416,7 @@ class WebSocketServer(SocketServer.ThreadingMixIn, BaseHTTPServer.HTTPServer):
         self.__ws_is_shut_down = threading.Event()
         self.__ws_serving = False
 
-        SocketServer.BaseServer.__init__(
+        socketserver.BaseServer.__init__(
             self, (options.server_host, options.port), WebSocketRequestHandler)
 
         # Expose the options object to allow handler objects access it. We name
@@ -653,11 +653,11 @@ class WebSocketServer(SocketServer.ThreadingMixIn, BaseHTTPServer.HTTPServer):
         self.__ws_is_shut_down.wait()
 
 
-class WebSocketRequestHandler(CGIHTTPServer.CGIHTTPRequestHandler):
+class WebSocketRequestHandler(http.server.CGIHTTPRequestHandler):
     """CGIHTTPRequestHandler specialized for WebSocket."""
 
     # Use httplib.HTTPMessage instead of mimetools.Message.
-    MessageClass = httplib.HTTPMessage
+    MessageClass = http.client.HTTPMessage
 
     def setup(self):
         """Override SocketServer.StreamRequestHandler.setup to wrap rfile
@@ -673,7 +673,7 @@ class WebSocketRequestHandler(CGIHTTPServer.CGIHTTPRequestHandler):
         # Call superclass's setup to prepare rfile, wfile, etc. See setup
         # definition on the root class SocketServer.StreamRequestHandler to
         # understand what this does.
-        CGIHTTPServer.CGIHTTPRequestHandler.setup(self)
+        http.server.CGIHTTPRequestHandler.setup(self)
 
         self.rfile = memorizingfile.MemorizingFile(
             self.rfile,
@@ -691,7 +691,7 @@ class WebSocketRequestHandler(CGIHTTPServer.CGIHTTPRequestHandler):
             self.is_executable = self._options.is_executable_method
 
         # This actually calls BaseRequestHandler.__init__.
-        CGIHTTPServer.CGIHTTPRequestHandler.__init__(
+        http.server.CGIHTTPRequestHandler.__init__(
             self, request, client_address, server)
 
     def parse_request(self):
@@ -712,7 +712,7 @@ class WebSocketRequestHandler(CGIHTTPServer.CGIHTTPRequestHandler):
         # handling (self.path, self.command, self.requestline, etc. See also
         # how _StandaloneRequest's members are implemented using these
         # attributes).
-        if not CGIHTTPServer.CGIHTTPRequestHandler.parse_request(self):
+        if not http.server.CGIHTTPRequestHandler.parse_request(self):
             return False
 
         if self._options.use_basic_auth:
@@ -832,7 +832,7 @@ class WebSocketRequestHandler(CGIHTTPServer.CGIHTTPRequestHandler):
         rather than a CGI script.
         """
 
-        if CGIHTTPServer.CGIHTTPRequestHandler.is_cgi(self):
+        if http.server.CGIHTTPRequestHandler.is_cgi(self):
             if '..' in self.path:
                 return False
             # strip query parameter from request path
@@ -1052,7 +1052,7 @@ def _parse_args_and_config(args):
                 e)
             sys.exit(1)
 
-        config_parser = ConfigParser.SafeConfigParser()
+        config_parser = configparser.SafeConfigParser()
         config_parser.readfp(config_fp)
         config_fp.close()
 

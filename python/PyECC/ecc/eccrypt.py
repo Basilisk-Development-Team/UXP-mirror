@@ -3,11 +3,11 @@
 #   COPYRIGHT (c) 2010 by Toni Mattis <solaris@live.de>
 #
 
-from curves import get_curve
-from elliptic import mulp
-from encoding import enc_long
+from .curves import get_curve
+from .elliptic import mulp
+from .encoding import enc_long
 from random import SystemRandom
-from Rabbit import Rabbit
+from .Rabbit import Rabbit
 
 # important for cryptographically secure random numbers:
 random = SystemRandom()

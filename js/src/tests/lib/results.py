@@ -1,7 +1,7 @@
 from __future__ import print_function
 
 import re
-from progressbar import NullProgressBar, ProgressBar
+from .progressbar import NullProgressBar, ProgressBar
 import pipes
 
 # subprocess.list2cmdline does not properly escape for sh-like shells

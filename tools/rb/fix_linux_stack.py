@@ -13,7 +13,7 @@ import re
 import os
 import pty
 import termios
-from StringIO import StringIO
+from io import StringIO
 
 class unbufferedLineConverter:
     """

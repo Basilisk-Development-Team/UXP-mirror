@@ -3,8 +3,9 @@ A representation of makefile data structures.
 """
 
 import logging, re, os, sys
-import parserdata, parser, functions, process, util, implicit
-from cStringIO import StringIO
+from . import parserdata, parser, functions, process, util, implicit
+from io import StringIO
+from functools import reduce
 
 if sys.version_info[0] < 3:
     str_type = basestring

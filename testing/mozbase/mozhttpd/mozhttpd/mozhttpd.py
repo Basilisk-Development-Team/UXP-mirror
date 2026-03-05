@@ -4,8 +4,8 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this file,
 # You can obtain one at http://mozilla.org/MPL/2.0/.
 
-import BaseHTTPServer
-import SimpleHTTPServer
+import http.server
+import http.server
 import errno
 import logging
 import threading
@@ -13,15 +13,15 @@ import posixpath
 import socket
 import sys
 import os
-import urllib
-import urlparse
+import urllib.request, urllib.parse, urllib.error
+import urllib.parse
 import re
 import moznetwork
 import time
-from SocketServer import ThreadingMixIn
+from socketserver import ThreadingMixIn
 
 
-class EasyServer(ThreadingMixIn, BaseHTTPServer.HTTPServer):
+class EasyServer(ThreadingMixIn, http.server.HTTPServer):
     allow_reuse_address = True
     acceptable_errors = (errno.EPIPE, errno.ECONNABORTED)
 
@@ -48,7 +48,7 @@ class Request(object):
     def __init__(self, uri, headers, rfile=None):
         self.uri = uri
         self.headers = headers
-        parsed = urlparse.urlsplit(uri)
+        parsed = urllib.parse.urlsplit(uri)
         for i, attr in enumerate(self.uri_attrs):
             setattr(self, attr, parsed[i])
         try:
@@ -61,7 +61,7 @@ class Request(object):
             self.body = None
 
 
-class RequestHandler(SimpleHTTPServer.SimpleHTTPRequestHandler):
+class RequestHandler(http.server.SimpleHTTPRequestHandler):
 
     docroot = os.getcwd()  # current working directory at time of import
     proxy_host_dirs = False
@@ -70,7 +70,7 @@ class RequestHandler(SimpleHTTPServer.SimpleHTTPRequestHandler):
     request = None
 
     def __init__(self, *args, **kwargs):
-        SimpleHTTPServer.SimpleHTTPRequestHandler.__init__(self, *args, **kwargs)
+        http.server.SimpleHTTPRequestHandler.__init__(self, *args, **kwargs)
         self.extensions_map['.svg'] = 'image/svg+xml'
 
     def _try_handler(self, method):
@@ -113,7 +113,7 @@ class RequestHandler(SimpleHTTPServer.SimpleHTTPRequestHandler):
         return None
 
     def parse_request(self):
-        retval = SimpleHTTPServer.SimpleHTTPRequestHandler.parse_request(self)
+        retval = http.server.SimpleHTTPRequestHandler.parse_request(self)
         self.request = Request(self.path, self.headers, self.rfile)
         return retval
 
@@ -127,7 +127,7 @@ class RequestHandler(SimpleHTTPServer.SimpleHTTPRequestHandler):
                 if self.request.netloc and self.proxy_host_dirs:
                     self.path = '/' + self.request.netloc + \
                         self.path
-                SimpleHTTPServer.SimpleHTTPRequestHandler.do_GET(self)
+                http.server.SimpleHTTPRequestHandler.do_GET(self)
             else:
                 self.send_response(404)
                 self.end_headers()
@@ -156,7 +156,7 @@ class RequestHandler(SimpleHTTPServer.SimpleHTTPRequestHandler):
         # except we serve from self.docroot instead of os.getcwd(), and
         # parse_request()/do_GET() have already stripped the query string and
         # fragment and mangled the path for proxying, if required.
-        path = posixpath.normpath(urllib.unquote(self.path))
+        path = posixpath.normpath(urllib.parse.unquote(self.path))
         words = path.split('/')
         words = [_f for _f in words if _f]
         path = self.disk_root

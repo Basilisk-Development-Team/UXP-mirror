@@ -7,7 +7,7 @@ from __future__ import absolute_import, print_function, unicode_literals
 import logging
 import os
 
-from StringIO import StringIO
+from io import StringIO
 
 from mozunit import main
 

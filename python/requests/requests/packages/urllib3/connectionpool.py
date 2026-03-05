@@ -10,9 +10,9 @@ import socket
 try:  # Python 3
     from queue import LifoQueue, Empty, Full
 except ImportError:
-    from Queue import LifoQueue, Empty, Full
+    from queue import LifoQueue, Empty, Full
     # Queue is imported for side effects on MS Windows
-    import Queue as _unused_module_Queue  # noqa: unused
+    import queue as _unused_module_Queue  # noqa: unused
 
 
 from .exceptions import (

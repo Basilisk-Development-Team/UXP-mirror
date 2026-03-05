@@ -8,9 +8,9 @@ import time
 
 from abc import ABCMeta
 
-import version_codes
+from . import version_codes
 
-from adb import ADBDevice, ADBError
+from .adb import ADBDevice, ADBError
 
 
 class ADBAndroid(ADBDevice, metaclass=ABCMeta):

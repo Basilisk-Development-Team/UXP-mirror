@@ -10,7 +10,7 @@ from mozpack.errors import (
 import unittest
 import mozunit
 import sys
-from cStringIO import StringIO
+from io import StringIO
 
 
 class TestErrors(object):

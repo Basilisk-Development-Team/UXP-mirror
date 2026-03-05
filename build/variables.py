@@ -69,7 +69,7 @@ def get_info_from_sourcestamp(sourcestamp_path):
 def source_repo_header(output):
     # We allow the source repo and changeset to be specified via the
     # environment (see configure)
-    import buildconfig
+    from . import buildconfig
     repo = buildconfig.substs.get('MOZ_SOURCE_REPO')
     changeset = buildconfig.substs.get('MOZ_SOURCE_CHANGESET')
     source = ''

@@ -32,7 +32,7 @@ from distutils.util import strtobool
 from os.path import join
 
 try:
-    import ConfigParser
+    import configparser
 except ImportError:
     import configparser as ConfigParser
 
@@ -86,7 +86,7 @@ else:
     try:
         import winreg
     except ImportError:
-        import _winreg as winreg
+        import winreg as winreg
 
     def get_installed_pythons():
         try:
@@ -433,7 +433,7 @@ class ConfigOptionParser(optparse.OptionParser):
     configuration files and environmental variables
     """
     def __init__(self, *args, **kwargs):
-        self.config = ConfigParser.RawConfigParser()
+        self.config = configparser.RawConfigParser()
         self.files = self.get_config_files()
         self.config.read(self.files)
         optparse.OptionParser.__init__(self, *args, **kwargs)
@@ -846,8 +846,8 @@ def install_wheel(project_names, py_executable, search_dirs=None,
     # PIP_FIND_LINKS uses space as the path separator and thus cannot have paths
     # with spaces in them. Convert any of those to local file:// URL form.
     try:
-        from urlparse import urljoin
-        from urllib import pathname2url
+        from urllib.parse import urljoin
+        from urllib.request import pathname2url
     except ImportError:
         from urllib.parse import urljoin
         from urllib.request import pathname2url

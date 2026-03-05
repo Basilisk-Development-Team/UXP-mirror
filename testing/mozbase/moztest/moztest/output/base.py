@@ -5,7 +5,7 @@
 
 from __future__ import with_statement
 from contextlib import closing
-from StringIO import StringIO
+from io import StringIO
 
 try:
     from abc import abstractmethod

@@ -9,9 +9,9 @@ import unittest
 import subprocess
 import tempfile
 import shutil
-import urlparse
+import urllib.parse
 import zipfile
-import StringIO
+import io
 import mozcrash
 import mozhttpd
 import mozlog.unstructured as mozlog
@@ -179,7 +179,7 @@ class TestCrash(unittest.TestCase):
         self.stdouts.append(["this is some output"])
 
         def make_zipfile():
-            data = StringIO.StringIO()
+            data = io.StringIO()
             z = zipfile.ZipFile(data, 'w')
             z.writestr("symbols.txt", "abc/xyz")
             z.close()
@@ -193,7 +193,7 @@ class TestCrash(unittest.TestCase):
                                                 'path': '/symbols',
                                                 'function': get_symbols}])
         httpd.start()
-        symbol_url = urlparse.urlunsplit(('http', '%s:%d' % httpd.httpd.server_address,
+        symbol_url = urllib.parse.urlunsplit(('http', '%s:%d' % httpd.httpd.server_address,
                                           '/symbols', '', ''))
         self.assert_(mozcrash.check_for_crashes(self.tempdir,
                                                 symbol_url,

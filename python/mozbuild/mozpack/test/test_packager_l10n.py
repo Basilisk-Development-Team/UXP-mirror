@@ -4,7 +4,7 @@
 
 import unittest
 import mozunit
-from test_packager import MockFinder
+from .test_packager import MockFinder
 from mozpack.packager import l10n
 from mozpack.files import (
     GeneratedFile,

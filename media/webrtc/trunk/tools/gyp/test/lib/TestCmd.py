@@ -230,7 +230,7 @@ import tempfile
 import time
 import traceback
 import types
-import UserList
+import collections
 
 __all__ = [
     'diff_re',
@@ -251,10 +251,10 @@ except ImportError:
 
 def is_List(e):
     return type(e) is types.ListType \
-        or isinstance(e, UserList.UserList)
+        or isinstance(e, collections.UserList)
 
 try:
-    from UserString import UserString
+    from collections import UserString
 except ImportError:
     class UserString:
         pass

@@ -12,7 +12,7 @@
 """Performs style checking on each diff hunk."""
 import getopt
 import os
-import StringIO
+import io
 import subprocess
 import sys
 
@@ -97,7 +97,7 @@ def main(argv=None):
         file_affected_line_map = {}
         p = Subprocess(diff_cmd, stdout=subprocess.PIPE)
         stdout = p.communicate()[0]
-        for hunk in diff.ParseDiffHunks(StringIO.StringIO(stdout)):
+        for hunk in diff.ParseDiffHunks(io.StringIO(stdout)):
             filename = hunk.right.filename[2:]
             if filename not in file_affected_line_map:
                 file_affected_line_map[filename] = set()

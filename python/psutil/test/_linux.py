@@ -65,8 +65,8 @@ def get_mac_address(ifname):
             def ord(x):
                 return x
         else:
-            import __builtin__
-            ord = __builtin__.ord
+            import builtins
+            ord = builtins.ord
         return ''.join(['%02x:' % ord(char) for char in info[18:24]])[:-1]
 
 

@@ -10,8 +10,8 @@ import json
 import mozfile
 import os
 import tokenize
-from ConfigParser import SafeConfigParser as ConfigParser
-from StringIO import StringIO
+from configparser import SafeConfigParser as ConfigParser
+from io import StringIO
 
 __all__ = ('PreferencesReadError', 'Preferences')
 

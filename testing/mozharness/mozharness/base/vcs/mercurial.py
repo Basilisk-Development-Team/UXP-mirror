@@ -11,7 +11,7 @@ import os
 import re
 import subprocess
 from collections import namedtuple
-from urlparse import urlsplit
+from urllib.parse import urlsplit
 import hashlib
 
 import sys

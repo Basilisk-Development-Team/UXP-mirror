@@ -46,7 +46,7 @@ against by using the '--rev' option.
 # This code is derived from appcfg.py in the App Engine SDK (open source),
 # and from ASPN recipe #146306.
 
-import cookielib
+import http.cookiejar
 import getpass
 import logging
 import md5
@@ -57,9 +57,9 @@ import re
 import socket
 import subprocess
 import sys
-import urllib
-import urllib2
-import urlparse
+import urllib.request, urllib.parse, urllib.error
+import urllib.request, urllib.error, urllib.parse
+import urllib.parse
 
 try:
   import readline
@@ -127,11 +127,11 @@ def ErrorExit(msg):
   sys.exit(1)
 
 
-class ClientLoginError(urllib2.HTTPError):
+class ClientLoginError(urllib.error.HTTPError):
   """Raised to indicate there was an error authenticating with ClientLogin."""
 
   def __init__(self, url, code, msg, headers, args):
-    urllib2.HTTPError.__init__(self, url, code, msg, headers, None)
+    urllib.error.HTTPError.__init__(self, url, code, msg, headers, None)
     self.args = args
     self.reason = args["Error"]
 
@@ -177,7 +177,7 @@ class AbstractRpcServer(object):
   def _CreateRequest(self, url, data=None):
     """Creates a new urllib request."""
     logging.debug("Creating request for: '%s' with payload:\n%s", url, data)
-    req = urllib2.Request(url, data=data)
+    req = urllib.request.Request(url, data=data)
     if self.host_override:
       req.add_header("Host", self.host_override)
     for key, value in self.extra_headers.items():
@@ -204,7 +204,7 @@ class AbstractRpcServer(object):
       account_type = "HOSTED"
     req = self._CreateRequest(
         url="https://www.google.com/accounts/ClientLogin",
-        data=urllib.urlencode({
+        data=urllib.parse.urlencode({
             "Email": email,
             "Passwd": password,
             "service": "ah",
@@ -218,7 +218,7 @@ class AbstractRpcServer(object):
       response_dict = dict(x.split("=")
                            for x in response_body.split("\n") if x)
       return response_dict["Auth"]
-    except urllib2.HTTPError as e:
+    except urllib.error.HTTPError as e:
       if e.code == 403:
         body = e.read()
         response_dict = dict(x.split("=", 1) for x in body.split("\n") if x)
@@ -240,14 +240,14 @@ class AbstractRpcServer(object):
     continue_location = "http://localhost/"
     args = {"continue": continue_location, "auth": auth_token}
     req = self._CreateRequest("http://%s/_ah/login?%s" %
-                              (self.host, urllib.urlencode(args)))
+                              (self.host, urllib.parse.urlencode(args)))
     try:
       response = self.opener.open(req)
-    except urllib2.HTTPError as e:
+    except urllib.error.HTTPError as e:
       response = e
     if (response.code != 302 or
         response.info()["location"] != continue_location):
-      raise urllib2.HTTPError(req.get_full_url(), response.code, response.msg,
+      raise urllib.error.HTTPError(req.get_full_url(), response.code, response.msg,
                               response.headers, response.fp)
     self.authenticated = True
 
@@ -334,7 +334,7 @@ class AbstractRpcServer(object):
         args = dict(kwargs)
         url = "http://%s%s" % (self.host, request_path)
         if args:
-          url += "?" + urllib.urlencode(args)
+          url += "?" + urllib.parse.urlencode(args)
         req = self._CreateRequest(url=url, data=payload)
         req.add_header("Content-Type", content_type)
         try:
@@ -342,7 +342,7 @@ class AbstractRpcServer(object):
           response = f.read()
           f.close()
           return response
-        except urllib2.HTTPError as e:
+        except urllib.error.HTTPError as e:
           if tries > 3:
             raise
           elif e.code == 401:
@@ -372,23 +372,23 @@ class HttpRpcServer(AbstractRpcServer):
     Returns:
       A urllib2.OpenerDirector object.
     """
-    opener = urllib2.OpenerDirector()
-    opener.add_handler(urllib2.ProxyHandler())
-    opener.add_handler(urllib2.UnknownHandler())
-    opener.add_handler(urllib2.HTTPHandler())
-    opener.add_handler(urllib2.HTTPDefaultErrorHandler())
-    opener.add_handler(urllib2.HTTPSHandler())
+    opener = urllib.request.OpenerDirector()
+    opener.add_handler(urllib.request.ProxyHandler())
+    opener.add_handler(urllib.request.UnknownHandler())
+    opener.add_handler(urllib.request.HTTPHandler())
+    opener.add_handler(urllib.request.HTTPDefaultErrorHandler())
+    opener.add_handler(urllib.request.HTTPSHandler())
     opener.add_handler(urllib2.HTTPErrorProcessor())
     if self.save_cookies:
       self.cookie_file = os.path.expanduser("~/.codereview_upload_cookies")
-      self.cookie_jar = cookielib.MozillaCookieJar(self.cookie_file)
+      self.cookie_jar = http.cookiejar.MozillaCookieJar(self.cookie_file)
       if os.path.exists(self.cookie_file):
         try:
           self.cookie_jar.load()
           self.authenticated = True
           StatusUpdate("Loaded authentication cookies from %s" %
                        self.cookie_file)
-        except (cookielib.LoadError, IOError):
+        except (http.cookiejar.LoadError, IOError):
           # Failed to load cookies - just ignore them.
           pass
       else:
@@ -399,8 +399,8 @@ class HttpRpcServer(AbstractRpcServer):
       os.chmod(self.cookie_file, 0o600)
     else:
       # Don't save cookies across runs of update.py.
-      self.cookie_jar = cookielib.CookieJar()
-    opener.add_handler(urllib2.HTTPCookieProcessor(self.cookie_jar))
+      self.cookie_jar = http.cookiejar.CookieJar()
+    opener.add_handler(urllib.request.HTTPCookieProcessor(self.cookie_jar))
     return opener
 
 
@@ -770,8 +770,8 @@ class SubversionVCS(VersionControlSystem):
       words = line.split()
       if len(words) == 2 and words[0] == "URL:":
         url = words[1]
-        scheme, netloc, path, params, query, fragment = urlparse.urlparse(url)
-        username, netloc = urllib.splituser(netloc)
+        scheme, netloc, path, params, query, fragment = urllib.parse.urlparse(url)
+        username, netloc = urllib.parse.splituser(netloc)
         if username:
           logging.info("Removed username from base URL")
         if netloc.endswith("svn.python.org"):
@@ -789,12 +789,12 @@ class SubversionVCS(VersionControlSystem):
           logging.info("Guessed CollabNet base = %s", base)
         elif netloc.endswith(".googlecode.com"):
           path = path + "/"
-          base = urlparse.urlunparse(("http", netloc, path, params,
+          base = urllib.parse.urlunparse(("http", netloc, path, params,
                                       query, fragment))
           logging.info("Guessed Google Code base = %s", base)
         else:
           path = path + "/"
-          base = urlparse.urlunparse((scheme, netloc, path, params,
+          base = urllib.parse.urlunparse((scheme, netloc, path, params,
                                       query, fragment))
           logging.info("Guessed base = %s", base)
         return base

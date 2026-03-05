@@ -4,10 +4,10 @@
 
 import os.path
 import os
-from ConfigParser import ConfigParser, NoSectionError, NoOptionError
-from urlparse import urlparse, urljoin
-from urllib import pathname2url, url2pathname
-from urllib2 import urlopen
+from configparser import ConfigParser, NoSectionError, NoOptionError
+from urllib.parse import urlparse, urljoin
+from urllib.request import pathname2url, url2pathname
+from urllib.request import urlopen
 from collections import defaultdict
 from compare_locales import util
 

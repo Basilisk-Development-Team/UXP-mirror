@@ -6,9 +6,9 @@
 
 import os
 import sys
-import xtalos
+from . import xtalos
 import subprocess
-import etlparser
+from . import etlparser
 
 
 def stop(xperf_path, debug=False):

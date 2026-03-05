@@ -420,9 +420,9 @@ def is_url(thing):
     Return True if thing looks like a URL.
     """
 
-    import urlparse
+    import urllib.parse
 
-    parsed = urlparse.urlparse(thing)
+    parsed = urllib.parse.urlparse(thing)
     if 'scheme' in parsed:
         return len(parsed.scheme) >= 2
     else:
@@ -436,7 +436,7 @@ def load(resource):
     result of urllib2.urlopen()
     """
 
-    import urllib2
+    import urllib.request, urllib.error, urllib.parse
 
     # handle file URLs separately due to python stdlib limitations
     if resource.startswith('file://'):
@@ -446,4 +446,4 @@ def load(resource):
         # if no scheme is given, it is a file path
         return file(resource)
 
-    return urllib2.urlopen(resource)
+    return urllib.request.urlopen(resource)

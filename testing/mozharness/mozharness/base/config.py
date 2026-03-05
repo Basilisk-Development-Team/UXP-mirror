@@ -28,7 +28,7 @@ from copy import deepcopy
 from optparse import OptionParser, Option, OptionGroup
 import os
 import sys
-import urllib2
+import urllib.request, urllib.error, urllib.parse
 import socket
 import time
 try:
@@ -180,9 +180,9 @@ def download_config_file(url, file_name):
             print("Failed to download from url %s after %d attempts, quiting..." % (url, attempts))
             raise SystemError(-1)
         try:
-            contents = urllib2.urlopen(url, timeout=30).read()
+            contents = urllib.request.urlopen(url, timeout=30).read()
             break
-        except urllib2.URLError as e:
+        except urllib.error.URLError as e:
             print("Error downloading from url %s: %s" % (url, str(e)))
         except socket.timeout as e:
             print("Time out accessing %s: %s" % (url, str(e)))

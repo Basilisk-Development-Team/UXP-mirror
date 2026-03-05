@@ -4,7 +4,7 @@
 
 from __future__ import unicode_literals
 
-import cPickle as pickle
+import pickle as pickle
 import json
 import os
 import unittest

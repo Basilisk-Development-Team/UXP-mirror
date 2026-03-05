@@ -3,7 +3,7 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
 import optparse, os, re, sys
-from cStringIO import StringIO
+from io import StringIO
 from mozbuild.pythonutil import iter_modules_in_path
 import mozpack.path as mozpath
 import itertools

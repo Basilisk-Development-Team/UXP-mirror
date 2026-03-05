@@ -164,7 +164,7 @@ if sys.version_info >= (3, 0):
         exec_(co, globs, locs)
 
 else:
-    import __builtin__ as builtins
+    import builtins as builtins
     _totext = unicode
     _basestring = basestring
     text = unicode

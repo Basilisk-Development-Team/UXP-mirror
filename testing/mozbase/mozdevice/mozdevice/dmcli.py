@@ -10,7 +10,7 @@ import errno
 import logging
 import os
 import posixpath
-import StringIO
+import io
 import sys
 import mozdevice
 import mozlog
@@ -286,7 +286,7 @@ class DMCli(object):
             self.dm.killProcess(name)
 
     def shell(self, args):
-        buf = StringIO.StringIO()
+        buf = io.StringIO()
         self.dm.shell(args.command, buf, root=args.root)
         print(str(buf.getvalue()[0:-1]).rstrip())
 

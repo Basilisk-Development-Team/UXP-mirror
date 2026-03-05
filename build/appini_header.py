@@ -5,11 +5,11 @@
 '''Parses a given application.ini file and outputs the corresponding
    XULAppData structure as a C++ header file'''
 
-import ConfigParser
+import configparser
 import sys
 
 def main(output, file):
-    config = ConfigParser.RawConfigParser()
+    config = configparser.RawConfigParser()
     config.read(file)
     flags = set()
     try:

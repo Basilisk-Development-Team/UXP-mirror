@@ -10,7 +10,7 @@
 import sys
 import os.path
 import re
-import xpidl
+from . import xpidl
 import itertools
 import glob
 

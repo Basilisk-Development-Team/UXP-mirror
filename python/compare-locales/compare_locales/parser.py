@@ -5,7 +5,7 @@
 import re
 import codecs
 import logging
-from HTMLParser import HTMLParser
+from html.parser import HTMLParser
 
 __constructors = []
 

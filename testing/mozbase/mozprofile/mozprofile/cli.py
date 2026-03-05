@@ -13,9 +13,9 @@ resulting profile is printed.
 
 import sys
 from optparse import OptionParser
-from prefs import Preferences
-from profile import FirefoxProfile
-from profile import Profile
+from .prefs import Preferences
+from .profile import FirefoxProfile
+from .profile import Profile
 
 __all__ = ['MozProfileCLI', 'cli']
 

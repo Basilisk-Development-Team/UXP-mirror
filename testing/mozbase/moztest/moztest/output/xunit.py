@@ -5,7 +5,7 @@
 
 import xml.dom.minidom as dom
 
-from base import Output, count
+from .base import Output, count
 from moztest.results import TestResult
 
 

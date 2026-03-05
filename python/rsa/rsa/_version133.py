@@ -18,7 +18,7 @@ __version__ = '1.3.3'
 # NOTE: Python's modulo can return negative numbers. We compensate for
 # this behaviour using the abs() function
 
-from cPickle import dumps, loads
+from pickle import dumps, loads
 import base64
 import math
 import os

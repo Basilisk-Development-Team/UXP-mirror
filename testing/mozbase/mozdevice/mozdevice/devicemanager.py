@@ -9,7 +9,7 @@ import os
 import posixpath
 import re
 import struct
-import StringIO
+import io
 import zlib
 
 from functools import wraps
@@ -404,7 +404,7 @@ class DeviceManager(object):
         :param root: Specifies whether command requires root privileges
         :raises: DMError
         """
-        buf = StringIO.StringIO()
+        buf = io.StringIO()
         retval = self.shell(cmd, buf, env=env, cwd=cwd, timeout=timeout, root=root)
         output = str(buf.getvalue()[0:-1]).rstrip()
         buf.close()

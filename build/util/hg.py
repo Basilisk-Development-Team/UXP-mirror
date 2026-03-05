@@ -2,8 +2,8 @@
 import os
 import re
 import subprocess
-from urlparse import urlsplit
-from ConfigParser import RawConfigParser
+from urllib.parse import urlsplit
+from configparser import RawConfigParser
 
 from util.commands import run_cmd, get_output, remove_path
 from util.retry import retry

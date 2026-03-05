@@ -11,7 +11,7 @@ import textwrap
 import unittest
 import sys
 
-from StringIO import StringIO
+from io import StringIO
 
 from mozunit import main
 from mozpack import path as mozpath

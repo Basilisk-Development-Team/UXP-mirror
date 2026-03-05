@@ -29,7 +29,7 @@ import mozpack.path as mozpath
 import buildconfig
 from argparse import ArgumentParser
 import os
-from StringIO import StringIO
+from io import StringIO
 import subprocess
 import platform
 

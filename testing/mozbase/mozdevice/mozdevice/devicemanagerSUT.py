@@ -12,8 +12,8 @@ import os
 import re
 import posixpath
 import subprocess
-import StringIO
-from devicemanager import DeviceManager, DMError, _pop_last_line
+import io
+from .devicemanager import DeviceManager, DMError, _pop_last_line
 import errno
 from distutils.version import StrictVersion
 
@@ -148,7 +148,7 @@ class DeviceManagerSUT(DeviceManager):
         writing to a file
         """
         retryLimit = retryLimit or self.retryLimit
-        outputfile = StringIO.StringIO()
+        outputfile = io.StringIO()
         self._sendCmds(cmdlist, outputfile, timeout, retryLimit=retryLimit)
         outputfile.seek(0)
         return outputfile.read()

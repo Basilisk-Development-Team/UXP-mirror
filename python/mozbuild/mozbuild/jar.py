@@ -17,7 +17,7 @@ import re
 import logging
 from time import localtime
 from MozZipFile import ZipFile
-from cStringIO import StringIO
+from io import StringIO
 from collections import defaultdict
 
 from mozbuild.preprocessor import Preprocessor

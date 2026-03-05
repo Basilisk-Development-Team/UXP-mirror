@@ -8,7 +8,7 @@ import os
 import shutil
 import tempfile
 import unittest
-import urllib2
+import urllib.request, urllib.error, urllib.parse
 
 from manifestparser import ManifestParser
 import mozfile
@@ -99,7 +99,7 @@ class TestAddonsManager(unittest.TestCase):
 
         # Download from an invalid URL
         addon = server.get_url() + 'not_existent.xpi'
-        self.assertRaises(urllib2.HTTPError,
+        self.assertRaises(urllib.error.HTTPError,
                           self.am.download, addon, self.tmpdir)
         self.assertEqual(os.listdir(self.tmpdir), [])
 

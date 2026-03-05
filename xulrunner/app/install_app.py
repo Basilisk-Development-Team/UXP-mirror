@@ -10,7 +10,7 @@ if ((sys.version_info.major != 2) or (sys.version_info.minor < 7)):
     raise Exception("You need to use Python version 2.7 or higher")
 
 import os, shutil, re, zipfile
-from ConfigParser import SafeConfigParser
+from configparser import SafeConfigParser
 
 # Platform-specific support
 # see https://developer.mozilla.org/en/XULRunner/Deploying_XULRunner_1.8

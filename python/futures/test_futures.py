@@ -7,7 +7,7 @@ import contextlib
 import logging
 import re
 import time
-from StringIO import StringIO
+from io import StringIO
 from test import test_support
 
 from concurrent import futures

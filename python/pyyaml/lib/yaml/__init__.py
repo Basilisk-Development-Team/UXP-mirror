@@ -1,17 +1,17 @@
 
-from error import *
+from .error import *
 
-from tokens import *
-from events import *
-from nodes import *
+from .tokens import *
+from .events import *
+from .nodes import *
 
-from loader import *
-from dumper import *
+from .loader import *
+from .dumper import *
 
 __version__ = '3.11'
 
 try:
-    from cyaml import *
+    from .cyaml import *
     __with_libyaml__ = True
 except ImportError:
     __with_libyaml__ = False
@@ -109,7 +109,7 @@ def emit(events, stream=None, Dumper=Dumper,
     """
     getvalue = None
     if stream is None:
-        from StringIO import StringIO
+        from io import StringIO
         stream = StringIO()
         getvalue = stream.getvalue
     dumper = Dumper(stream, canonical=canonical, indent=indent, width=width,
@@ -134,9 +134,9 @@ def serialize_all(nodes, stream=None, Dumper=Dumper,
     getvalue = None
     if stream is None:
         if encoding is None:
-            from StringIO import StringIO
+            from io import StringIO
         else:
-            from cStringIO import StringIO
+            from io import StringIO
         stream = StringIO()
         getvalue = stream.getvalue
     dumper = Dumper(stream, canonical=canonical, indent=indent, width=width,
@@ -173,9 +173,9 @@ def dump_all(documents, stream=None, Dumper=Dumper,
     getvalue = None
     if stream is None:
         if encoding is None:
-            from StringIO import StringIO
+            from io import StringIO
         else:
-            from cStringIO import StringIO
+            from io import StringIO
         stream = StringIO()
         getvalue = stream.getvalue
     dumper = Dumper(stream, default_style=default_style,

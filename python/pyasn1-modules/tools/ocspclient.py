@@ -5,7 +5,7 @@ from pyasn1_modules import rfc2560, rfc2459, pem
 from pyasn1.type import univ
 import sys, hashlib
 try:
-  import urllib2
+  import urllib.request, urllib.error, urllib.parse
 except ImportError:
   import urllib.request as urllib2
 
@@ -125,12 +125,12 @@ ocspReq = mkOcspRequest(issuerCert, userCert)
 # Use HTTP POST to get response (see Appendix A of RFC 2560)
 # In case you need proxies, set the http_proxy env variable
 
-httpReq = urllib2.Request(
+httpReq = urllib.request.Request(
     ocspUrl,
     encoder.encode(ocspReq),
     { 'Content-Type': 'application/ocsp-request' }
     )
-httpRsp = urllib2.urlopen(httpReq).read()
+httpRsp = urllib.request.urlopen(httpReq).read()
 
 # Process OCSP response
     

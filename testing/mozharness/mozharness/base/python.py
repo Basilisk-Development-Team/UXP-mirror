@@ -14,7 +14,7 @@ import sys
 import json
 import socket
 import traceback
-import urlparse
+import urllib.parse
 
 import mozharness
 from mozharness.base.script import (
@@ -255,7 +255,7 @@ class VirtualenvMixin(object):
         proxxy = Proxxy(self.config, self.log_obj)
         trusted_hosts = set()
         for link in proxxy.get_proxies_and_urls(c.get('find_links', [])):
-            parsed = urlparse.urlparse(link)
+            parsed = urllib.parse.urlparse(link)
 
             try:
                 socket.gethostbyname(parsed.hostname)

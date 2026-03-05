@@ -57,7 +57,7 @@ import stat
 import subprocess
 import tarfile
 import tempfile
-import urlparse
+import urllib.parse
 import zipfile
 
 import pylru
@@ -1052,7 +1052,7 @@ class Artifacts(object):
         """
         if source and os.path.isfile(source):
             return self.install_from_file(source, distdir)
-        elif source and urlparse.urlparse(source).scheme:
+        elif source and urllib.parse.urlparse(source).scheme:
             return self.install_from_url(source, distdir)
         else:
             if source is None and 'MOZ_ARTIFACT_REVISION' in os.environ:

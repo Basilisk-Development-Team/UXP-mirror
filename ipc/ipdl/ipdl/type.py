@@ -10,6 +10,7 @@ from ipdl.ast import ASYNC, SYNC, INTR
 from ipdl.ast import IN, OUT, INOUT, ANSWER, CALL, RECV, SEND
 from ipdl.ast import NOT_NESTED, INSIDE_SYNC_NESTED, INSIDE_CPOW_NESTED
 import ipdl.builtin as builtin
+from functools import reduce
 
 _DELETE_MSG = '__delete__'
 

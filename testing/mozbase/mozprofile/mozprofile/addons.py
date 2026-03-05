@@ -6,7 +6,7 @@ import os
 import shutil
 import sys
 import tempfile
-import urllib2
+import urllib.request, urllib.error, urllib.parse
 import zipfile
 from xml.dom import minidom
 
@@ -104,7 +104,7 @@ class AddonManager(object):
         :param target_folder: Folder to store the XPI file in
 
         """
-        response = urllib2.urlopen(url)
+        response = urllib.request.urlopen(url)
         fd, path = tempfile.mkstemp(suffix='.xpi')
         os.write(fd, response.read())
         os.close(fd)
@@ -226,7 +226,7 @@ class AddonManager(object):
 
         .. _query-documentation: https://developer.mozilla.org/en/addons.mozilla.org_%28AMO%29_API_Developers%27_Guide/The_generic_AMO_API # noqa
         """
-        response = urllib2.urlopen(query)
+        response = urllib.request.urlopen(query)
         dom = minidom.parseString(response.read())
         for node in dom.getElementsByTagName('install')[0].childNodes:
             if node.nodeType == node.TEXT_NODE:

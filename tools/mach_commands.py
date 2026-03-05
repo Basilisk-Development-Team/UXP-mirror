@@ -92,7 +92,7 @@ class RageProvider(MachCommandBase):
         form where you can submit feedback. Just close the tab when done.
         """
         import getpass
-        import urllib
+        import urllib.request, urllib.parse, urllib.error
         import webbrowser
 
         # Try to resolve the current user.
@@ -127,7 +127,7 @@ class RageProvider(MachCommandBase):
 
         url = 'https://docs.google.com/a/mozilla.com/forms/d/e/1FAIpQLSeDVC3IXJu5d33Hp_ZTCOw06xEUiYH1pBjAqJ1g_y63sO2vvA/viewform'
         if user:
-            url += '?entry.1281044204=%s' % urllib.quote(user)
+            url += '?entry.1281044204=%s' % urllib.parse.quote(user)
 
         print('Please leave your feedback in the opened web form')
         webbrowser.open_new_tab(url)
@@ -148,8 +148,8 @@ class PastebinProvider(object):
                      help='Specify the file to upload to pastebin.mozilla.org')
 
     def pastebin(self, language, poster, duration, file):
-        import urllib
-        import urllib2
+        import urllib.request, urllib.parse, urllib.error
+        import urllib.request, urllib.error, urllib.parse
 
         URL = 'https://pastebin.mozilla.org/'
 
@@ -204,18 +204,18 @@ class PastebinProvider(object):
             ('expiry', duration),
             ('paste', 'Send')]
 
-        data = urllib.urlencode(params)
+        data = urllib.parse.urlencode(params)
         print('Uploading ...')
         try:
-            req = urllib2.Request(URL, data)
-            response = urllib2.urlopen(req)
+            req = urllib.request.Request(URL, data)
+            response = urllib.request.urlopen(req)
             http_response_code = response.getcode()
             if http_response_code == 200:
                 print((response.geturl()))
             else:
                 print(('Could not upload the file, '
                       'HTTP Response Code %s' %(http_response_code)))
-        except urllib2.URLError:
+        except urllib.error.URLError:
             print('ERROR. Could not connect to pastebin.mozilla.org.')
             return 1
         return 0
@@ -228,7 +228,7 @@ class FormatProvider(MachCommandBase):
     @CommandArgument('--show', '-s', action = 'store_true',
         help = 'Show diff output on instead of applying changes')
     def clang_format(self, show=False):
-        import urllib2
+        import urllib.request, urllib.error, urllib.parse
 
         plat = platform.system()
         fmt = plat.lower() + "/clang-format-3.5"
@@ -256,7 +256,7 @@ class FormatProvider(MachCommandBase):
             if not clang_format_diff:
                 return 1
 
-        except urllib2.HTTPError as e:
+        except urllib.error.HTTPError as e:
             print(("HTTP error {0}: {1}".format(e.code, e.reason)))
             return 1
 
@@ -297,7 +297,7 @@ class FormatProvider(MachCommandBase):
 
             u = site + root
             print(("Downloading {0} to {1}".format(u, target)))
-            data = urllib2.urlopen(url=u).read()
+            data = urllib.request.urlopen(url=u).read()
             temp = target + ".tmp"
             with open(temp, "wb") as fh:
                 fh.write(data)

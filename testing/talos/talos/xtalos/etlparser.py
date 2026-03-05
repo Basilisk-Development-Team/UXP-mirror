@@ -8,7 +8,7 @@ import csv
 import re
 import os
 import sys
-import xtalos
+from . import xtalos
 import subprocess
 import json
 import mozfile

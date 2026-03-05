@@ -7,12 +7,12 @@ import time
 import tempfile
 import uuid
 
-from addons import AddonManager
+from .addons import AddonManager
 import mozfile
-from permissions import Permissions
-from prefs import Preferences
+from .permissions import Permissions
+from .prefs import Preferences
 from shutil import copytree
-from webapps import WebappCollection
+from .webapps import WebappCollection
 
 __all__ = ['Profile',
            'FirefoxProfile',

@@ -12,7 +12,7 @@ from collections import (
     defaultdict,
     namedtuple,
 )
-from StringIO import StringIO
+from io import StringIO
 from itertools import chain
 
 from mozpack.manifests import (
@@ -68,6 +68,7 @@ from ..util import (
 )
 from ..makeutil import Makefile
 from mozbuild.shellutil import quote as shell_quote
+from functools import reduce
 
 MOZBUILD_VARIABLES = [
     b'ASFLAGS',

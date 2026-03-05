@@ -27,7 +27,8 @@ import os
 import re
 from optparse import OptionParser
 import errno
-from makeutil import Makefile
+from .makeutil import Makefile
+from functools import reduce
 
 # hack around win32 mangling our line endings
 # http://aspn.activestate.com/ASPN/Cookbook/Python/Recipe/65443
@@ -462,7 +463,7 @@ class Preprocessor:
                 raise Preprocessor.Error(self, "--depend doesn't work with stdout",
                                          None)
             try:
-                from makeutil import Makefile
+                from .makeutil import Makefile
             except:
                 raise Preprocessor.Error(self, "--depend requires the "
                                                "mozbuild.makeutil module", None)

@@ -244,7 +244,7 @@ var  foo    =  "hey";
     
     def testInputStream(self):
         try:
-            from StringIO import StringIO
+            from io import StringIO
         except ImportError:
             from io import StringIO
             

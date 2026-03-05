@@ -5,7 +5,7 @@
 from abc import ABCMeta, abstractmethod, abstractproperty
 from argparse import ArgumentParser, SUPPRESS
 from distutils.util import strtobool
-from urlparse import urlparse
+from urllib.parse import urlparse
 import json
 import os
 import tempfile

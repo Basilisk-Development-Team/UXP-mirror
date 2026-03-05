@@ -18,7 +18,7 @@ import sys
 import tempfile
 import time
 
-import io_stats_parser
+from . import io_stats_parser
 from pylib import pexpect
 
 CHROME_SRC = os.path.join(
@@ -27,7 +27,7 @@ CHROME_SRC = os.path.join(
 sys.path.append(os.path.join(CHROME_SRC, 'third_party', 'android_testrunner'))
 import adb_interface
 
-import cmd_helper
+from . import cmd_helper
 import errors  #  is under ../../../third_party/android_testrunner/errors.py
 
 

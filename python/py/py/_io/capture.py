@@ -6,7 +6,7 @@ import tempfile
 try:
     from io import StringIO
 except ImportError:
-    from StringIO import StringIO
+    from io import StringIO
 
 if sys.version_info < (3,0):
     class TextIO(StringIO):

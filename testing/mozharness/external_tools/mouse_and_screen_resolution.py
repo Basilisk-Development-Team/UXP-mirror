@@ -17,7 +17,7 @@ except:
     import simplejson as json
 import os
 import sys
-import urllib2
+import urllib.request, urllib.error, urllib.parse
 import socket
 import platform
 import time
@@ -28,10 +28,10 @@ default_mouse_position = {"x": 1010, "y": 10}
 def wfetch(url, retries=5):
     while True:
         try:
-            return urllib2.urlopen(url, timeout=30).read()
-        except urllib2.HTTPError as e:
+            return urllib.request.urlopen(url, timeout=30).read()
+        except urllib.error.HTTPError as e:
             print(("Failed to fetch '%s': %s" % (url, str(e))))
-        except urllib2.URLError as e:
+        except urllib.error.URLError as e:
             print(("Failed to fetch '%s': %s" % (url, str(e))))
         except socket.timeout as e:
             print(("Time out accessing %s: %s" % (url, str(e))))
@@ -74,12 +74,12 @@ def main():
             conf_dict = json.loads(wfetch(options.configuration_url))
             new_screen_resolution = conf_dict["win7"]["screen_resolution"]
             new_mouse_position = conf_dict["win7"]["mouse_position"]
-        except urllib2.HTTPError as e:
+        except urllib.error.HTTPError as e:
             print("This branch does not seem to have the configuration file %s" % str(e))
             print("Let's fail over to 1024x768.")
             new_screen_resolution = default_screen_resolution
             new_mouse_position = default_mouse_position
-        except urllib2.URLError as e:
+        except urllib.error.URLError as e:
             print("INFRA-ERROR: We couldn't reach hg.mozilla.org: %s" % str(e))
             return 1
         except Exception as e:

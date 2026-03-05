@@ -7,7 +7,7 @@ import os
 import time
 import tempfile
 import traceback
-import urllib2
+import urllib.request, urllib.error, urllib.parse
 
 import mozdevice
 import mozinfo
@@ -115,7 +115,7 @@ class ReftestServer:
     def stop(self):
         if hasattr(self, '_process'):
             try:
-                c = urllib2.urlopen(self.shutdownURL)
+                c = urllib.request.urlopen(self.shutdownURL)
                 c.read()
                 c.close()
 

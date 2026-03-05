@@ -10,7 +10,7 @@ import sys
 import threading
 import time
 import traceback
-from Queue import Queue
+from queue import Queue
 from datetime import datetime, timedelta
 __all__ = ['ProcessHandlerMixin', 'ProcessHandler']
 
@@ -24,8 +24,8 @@ isPosix = os.name == "posix" # includes MacOS X
 if isWin:
     import ctypes, ctypes.wintypes, msvcrt
     from ctypes import sizeof, addressof, c_ulong, byref, POINTER, WinError, c_longlong
-    import winprocess
-    from qijo import JobObjectAssociateCompletionPortInformation,\
+    from . import winprocess
+    from .qijo import JobObjectAssociateCompletionPortInformation,\
     JOBOBJECT_ASSOCIATE_COMPLETION_PORT, JobObjectExtendedLimitInformation,\
     JOBOBJECT_BASIC_LIMIT_INFORMATION, JOBOBJECT_EXTENDED_LIMIT_INFORMATION, IO_COUNTERS
 

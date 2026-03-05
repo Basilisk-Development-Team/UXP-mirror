@@ -5,14 +5,14 @@
 
 """output formats for Talos"""
 
-import filter
+from . import filter
 import json
-import utils
+from . import utils
 
 from mozlog import get_proxy_logger
 
 # NOTE: we have a circular dependency with output.py when we import results
-import results as TalosResults
+from . import results as TalosResults
 
 LOG = get_proxy_logger()
 

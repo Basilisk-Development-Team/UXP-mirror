@@ -12,19 +12,19 @@ import shutil
 import sys
 import time
 
-import android_commands
-import apk_info
-from base_test_runner import BaseTestRunner
-from base_test_sharder import BaseTestSharder, SetTestsContainer
-import cmd_helper
-import constants
+from . import android_commands
+from . import apk_info
+from .base_test_runner import BaseTestRunner
+from .base_test_sharder import BaseTestSharder, SetTestsContainer
+from . import cmd_helper
+from . import constants
 import errors
-from forwarder import Forwarder
-from json_perf_parser import GetAverageRunInfoFromJSONString
-from perf_tests_helper import PrintPerfResult
-import sharded_tests_queue
-from test_result import SingleTestResult, TestResults
-import valgrind_tools
+from .forwarder import Forwarder
+from .json_perf_parser import GetAverageRunInfoFromJSONString
+from .perf_tests_helper import PrintPerfResult
+from . import sharded_tests_queue
+from .test_result import SingleTestResult, TestResults
+from . import valgrind_tools
 
 _PERF_TEST_ANNOTATION = 'PerfTest'
 

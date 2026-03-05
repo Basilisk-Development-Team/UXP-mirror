@@ -9,7 +9,7 @@ import os, sys, os.path, time, inspect
 from filecmp import dircmp
 from tempfile import mkdtemp
 from shutil import rmtree, copy2
-from StringIO import StringIO
+from io import StringIO
 from zipfile import ZipFile
 import mozunit
 

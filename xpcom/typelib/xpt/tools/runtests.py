@@ -32,7 +32,7 @@
 
 import difflib
 import os
-from StringIO import StringIO
+from io import StringIO
 import subprocess
 import tempfile
 import mozunit

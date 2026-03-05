@@ -293,8 +293,8 @@ else:
     def u(s):
         return unicode(s, "unicode_escape")
     int2byte = chr
-    import StringIO
-    StringIO = BytesIO = StringIO.StringIO
+    import io
+    StringIO = BytesIO = io.StringIO
 _add_doc(b, """Byte literal""")
 _add_doc(u, """Text literal""")
 

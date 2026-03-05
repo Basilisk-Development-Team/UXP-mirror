@@ -9,8 +9,8 @@ import os
 import time
 import traceback
 
-import buildbot_report
-import constants
+from . import buildbot_report
+from . import constants
 
 
 class BaseTestResult(object):

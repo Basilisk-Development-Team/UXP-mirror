@@ -40,7 +40,7 @@ import socket
 import sys
 import tempfile
 import unittest
-from StringIO import StringIO
+from io import StringIO
 
 from mozdevice import DeviceManagerADB, DMError
 

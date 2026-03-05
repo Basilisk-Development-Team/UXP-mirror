@@ -1,8 +1,8 @@
 #!/usr/bin/python
 import sys
 import shutil
-import urllib2
-import urllib
+import urllib.request, urllib.error, urllib.parse
+import urllib.request, urllib.parse, urllib.error
 import os
 import traceback
 import time
@@ -140,14 +140,14 @@ def do_clobber(dir, dryrun=False, skip=None):
 def getClobberDates(clobberURL, branch, buildername, builddir, slave, master):
     params = dict(branch=branch, buildername=buildername,
                   builddir=builddir, slave=slave, master=master)
-    url = "%s?%s" % (clobberURL, urllib.urlencode(params))
+    url = "%s?%s" % (clobberURL, urllib.parse.urlencode(params))
     print("Checking clobber URL: %s" % url)
     # The timeout arg was added to urlopen() at Python 2.6
     # Deprecate this test when esr17 reaches EOL
     if sys.version_info[:2] < (2, 6):
-        data = urllib2.urlopen(url).read().strip()
+        data = urllib.request.urlopen(url).read().strip()
     else:
-        data = urllib2.urlopen(url, timeout=30).read().strip()
+        data = urllib.request.urlopen(url, timeout=30).read().strip()
 
     retval = {}
     try:

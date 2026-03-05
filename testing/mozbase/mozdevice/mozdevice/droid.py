@@ -2,19 +2,19 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this file,
 # You can obtain one at http://mozilla.org/MPL/2.0/.
 
-import StringIO
+import io
 import moznetwork
 import re
 import threading
 import time
 
-import version_codes
+from . import version_codes
 
-from Zeroconf import Zeroconf, ServiceBrowser
-from devicemanager import ZeroconfListener
-from devicemanagerADB import DeviceManagerADB
-from devicemanagerSUT import DeviceManagerSUT
-from devicemanager import DMError
+from .Zeroconf import Zeroconf, ServiceBrowser
+from .devicemanager import ZeroconfListener
+from .devicemanagerADB import DeviceManagerADB
+from .devicemanagerSUT import DeviceManagerSUT
+from .devicemanager import DMError
 
 
 class DroidMixin(object):
@@ -69,7 +69,7 @@ class DroidMixin(object):
         # shell output not that interesting and debugging logs should already
         # show what's going on here... so just create an empty memory buffer
         # and ignore (except on error)
-        shellOutput = StringIO.StringIO()
+        shellOutput = io.StringIO()
         if self.shell(acmd, shellOutput) == 0:
             return
 

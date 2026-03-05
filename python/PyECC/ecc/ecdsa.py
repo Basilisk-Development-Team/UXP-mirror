@@ -4,8 +4,8 @@
 #   COPYRIGHT (c) 2010 by Toni Mattis <solaris@live.de>
 #
 
-from elliptic import inv, mulf, mulp, muladdp, element
-from curves import get_curve, implemented_keys
+from .elliptic import inv, mulf, mulp, muladdp, element
+from .curves import get_curve, implemented_keys
 from os import urandom
 
 import hashlib

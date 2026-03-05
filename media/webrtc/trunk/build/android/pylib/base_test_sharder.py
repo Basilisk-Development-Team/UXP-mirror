@@ -6,7 +6,7 @@
 import logging
 import multiprocessing
 
-from test_result import TestResults
+from .test_result import TestResults
 
 
 def _ShardedTestRunnable(test):

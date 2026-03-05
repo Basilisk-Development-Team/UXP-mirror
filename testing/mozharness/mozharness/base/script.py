@@ -31,10 +31,10 @@ import sys
 import tarfile
 import time
 import traceback
-import urllib2
+import urllib.request, urllib.error, urllib.parse
 import zipfile
-import httplib
-import urlparse
+import http.client
+import urllib.parse
 import hashlib
 if os.name == 'nt':
     try:
@@ -316,7 +316,7 @@ class ScriptMixin(PlatformMixin):
                  of the url.
         """
 
-        parsed = urlparse.urlsplit(url.rstrip('/'))
+        parsed = urllib.parse.urlsplit(url.rstrip('/'))
         if parsed.path != '':
             return parsed.path.rsplit('/', 1)[-1]
         else:
@@ -342,8 +342,8 @@ class ScriptMixin(PlatformMixin):
         https://docs.python.org/2/library/urllib2.html#urllib2.urlopen
         """
         # http://bugs.python.org/issue13359 - urllib2 does not automatically quote the URL
-        url_quoted = urllib2.quote(url, safe='%/:=&?~#+!$,;\'@()*[]|')
-        return urllib2.urlopen(url_quoted, **kwargs)
+        url_quoted = urllib.parse.quote(url, safe='%/:=&?~#+!$,;\'@()*[]|')
+        return urllib.request.urlopen(url_quoted, **kwargs)
 
 
 
@@ -363,7 +363,7 @@ class ScriptMixin(PlatformMixin):
             BytesIO: contents of url
         '''
         self.info('Fetch {} into memory'.format(url))
-        parsed_url = urlparse.urlparse(url)
+        parsed_url = urllib.parse.urlparse(url)
 
         if parsed_url.scheme in ('', 'file'):
             if not os.path.isfile(url):
@@ -374,9 +374,9 @@ class ScriptMixin(PlatformMixin):
             # In case we're referrencing a file without file://
             if parsed_url.scheme == '':
                 url = 'file://%s' % os.path.abspath(url)
-                parsed_url = urlparse.urlparse(url)
+                parsed_url = urllib.parse.urlparse(url)
 
-        request = urllib2.Request(url)
+        request = urllib.request.Request(url)
         # When calling fetch_url_into_memory() you should retry when we raise one of these exceptions:
         # * Bug 1300663 - HTTPError: HTTP Error 404: Not Found
         # * Bug 1300413 - HTTPError: HTTP Error 500: Internal Server Error
@@ -389,7 +389,7 @@ class ScriptMixin(PlatformMixin):
         # * Bug 1301807 - BadStatusLine: ''
         #
         # Bug 1309912 - Adding timeout in hopes to solve blocking on response.read() (bug 1300413)
-        response = urllib2.urlopen(request, timeout=30)
+        response = urllib.request.urlopen(request, timeout=30)
 
         if parsed_url.scheme in ('http', 'https'):
             expected_file_size = int(response.headers.get('Content-Length'))
@@ -453,17 +453,17 @@ class ScriptMixin(PlatformMixin):
                 block = f.read(1024 ** 2)
                 if not block:
                     if f_length is not None and got_length != f_length:
-                        raise urllib2.URLError("Download incomplete; content-length was %d, but only received %d" % (f_length, got_length))
+                        raise urllib.error.URLError("Download incomplete; content-length was %d, but only received %d" % (f_length, got_length))
                     break
                 local_file.write(block)
                 if f_length is not None:
                     got_length += len(block)
             local_file.close()
             return file_name
-        except urllib2.HTTPError as e:
+        except urllib.error.HTTPError as e:
             self.warning("Server returned status %s %s for %s" % (str(e.code), str(e), url))
             raise
-        except urllib2.URLError as e:
+        except urllib.error.URLError as e:
             self.warning("URL Error: %s" % url)
 
             # Failures due to missing local files won't benefit from retry.
@@ -471,7 +471,7 @@ class ScriptMixin(PlatformMixin):
             if isinstance(e.args[0], OSError) and e.args[0].errno == errno.ENOENT:
                 raise e.args[0]
 
-            remote_host = urlparse.urlsplit(url)[1]
+            remote_host = urllib.parse.urlsplit(url)[1]
             if remote_host:
                 nslookup = self.query_exe('nslookup')
                 error_list = [{
@@ -511,8 +511,8 @@ class ScriptMixin(PlatformMixin):
         """
         retry_args = dict(
             failure_status=None,
-            retry_exceptions=(urllib2.HTTPError, urllib2.URLError,
-                              httplib.BadStatusLine,
+            retry_exceptions=(urllib.error.HTTPError, urllib.error.URLError,
+                              http.client.BadStatusLine,
                               socket.timeout, socket.error),
             error_message="Can't download from %s to %s!" % (url, file_name),
             error_level=error_level,
@@ -666,9 +666,9 @@ class ScriptMixin(PlatformMixin):
         # 1) Let's fetch the file
         retry_args = dict(
             retry_exceptions=(
-                urllib2.HTTPError,
-                urllib2.URLError,
-                httplib.BadStatusLine,
+                urllib.error.HTTPError,
+                urllib.error.URLError,
+                http.client.BadStatusLine,
                 socket.timeout,
                 socket.error,
                 FetchedIncorrectFilesize,

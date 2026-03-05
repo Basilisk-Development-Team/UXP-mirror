@@ -10,7 +10,7 @@ import types
 import unittest
 
 from fnmatch import fnmatch
-from StringIO import StringIO
+from io import StringIO
 from textwrap import dedent
 
 from mozunit import (

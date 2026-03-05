@@ -9,7 +9,7 @@ and determine the MAR's filename
 """
 import sys, os, platform, sha
 from optparse import OptionParser
-from ConfigParser import ConfigParser
+from configparser import ConfigParser
 from stat import ST_SIZE
 
 def main():

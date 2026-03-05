@@ -5,7 +5,7 @@
 from __future__ import unicode_literals
 
 import os
-from cStringIO import StringIO
+from io import StringIO
 
 from mach.base import CommandContext
 from mach.registrar import Registrar

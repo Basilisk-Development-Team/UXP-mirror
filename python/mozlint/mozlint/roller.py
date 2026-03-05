@@ -9,7 +9,7 @@ import signal
 import sys
 import traceback
 from collections import defaultdict
-from Queue import Empty
+from queue import Empty
 from multiprocessing import (
     Manager,
     Pool,

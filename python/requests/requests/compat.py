@@ -33,12 +33,13 @@ except (ImportError, SyntaxError):
 # ---------
 
 if is_py2:
-    from urllib import quote, unquote, quote_plus, unquote_plus, urlencode, getproxies, proxy_bypass
-    from urlparse import urlparse, urlunparse, urljoin, urlsplit, urldefrag
+    from urllib.parse import quote, unquote, quote_plus, unquote_plus, urlencode
+    from urllib.request import getproxies
+    from urllib.parse import urlparse, urlunparse, urljoin, urlsplit, urldefrag
     from urllib2 import parse_http_list
-    import cookielib
-    from Cookie import Morsel
-    from StringIO import StringIO
+    import http.cookiejar
+    from http.cookies import Morsel
+    from io import StringIO
     from .packages.urllib3.packages.ordered_dict import OrderedDict
 
     builtin_str = str

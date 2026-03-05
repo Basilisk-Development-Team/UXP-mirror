@@ -2,7 +2,7 @@ import argparse
 import os
 import sys
 from collections import OrderedDict
-from urlparse import urlparse
+from urllib.parse import urlparse
 
 import mozlog
 

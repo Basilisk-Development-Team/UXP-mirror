@@ -4,7 +4,7 @@
 
 from __future__ import absolute_import, print_function, unicode_literals
 
-from StringIO import StringIO
+from io import StringIO
 from . import (
     CombinedDependsFunction,
     ConfigureError,

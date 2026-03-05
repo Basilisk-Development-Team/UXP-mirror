@@ -9,8 +9,8 @@ import os
 import sys
 import time
 import traceback
-import urllib
-import utils
+import urllib.request, urllib.parse, urllib.error
+from . import utils
 import mozhttpd
 
 from mozlog import get_proxy_logger
@@ -101,7 +101,7 @@ def run_tests(config, browser_config):
                 test[path] = utils.interpolate(test[path])
         if test.get('tpmanifest'):
             test['tpmanifest'] = \
-                os.path.normpath('file:/%s' % (urllib.quote(test['tpmanifest'],
+                os.path.normpath('file:/%s' % (urllib.parse.quote(test['tpmanifest'],
                                                '/\\t:\\')))
         if not test.get('url'):
             # build 'url' for tptest

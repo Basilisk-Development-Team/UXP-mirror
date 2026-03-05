@@ -5,7 +5,7 @@ diff two profile summaries
 """
 
 import difflib
-import profile
+from . import profile
 import optparse
 import os
 import sys

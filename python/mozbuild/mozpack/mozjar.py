@@ -14,9 +14,10 @@ from zipfile import (
     ZIP_DEFLATED,
 )
 from collections import OrderedDict
-from urlparse import urlparse, ParseResult
+from urllib.parse import urlparse, ParseResult
 import mozpack.path as mozpath
 from mozbuild.util import memoize
+from functools import reduce
 
 JAR_STORED = ZIP_STORED
 JAR_DEFLATED = ZIP_DEFLATED

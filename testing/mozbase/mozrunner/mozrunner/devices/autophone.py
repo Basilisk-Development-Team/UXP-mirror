@@ -13,8 +13,8 @@ import sys
 import threading
 import time
 import which
-import BaseHTTPServer
-import SimpleHTTPServer
+import http.server
+import http.server
 
 from mozbuild.virtualenv import VirtualenvManager
 from mozdevice import DeviceManagerADB
@@ -612,7 +612,7 @@ quit
         self.threadweb.start()
 
     def run_webserver(self):
-        class AutoHTTPRequestHandler(SimpleHTTPServer.SimpleHTTPRequestHandler):
+        class AutoHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
             # A simple request handler with logging suppressed.
 
             def log_message(self, format, *args):
@@ -620,7 +620,7 @@ quit
 
         os.chdir(self.config['base-dir'])
         address = (self.webserver_addr, self.webserver_port)
-        self.httpd = BaseHTTPServer.HTTPServer(address, AutoHTTPRequestHandler)
+        self.httpd = http.server.HTTPServer(address, AutoHTTPRequestHandler)
         try:
             self.httpd.serve_forever()
         except KeyboardInterrupt:

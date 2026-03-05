@@ -31,7 +31,7 @@ from requests.models import urlencode
 from requests.hooks import default_hooks
 
 try:
-    import StringIO
+    import io
 except ImportError:
     import io as StringIO
 
@@ -803,7 +803,7 @@ class TestRequests(object):
 
     def test_response_is_iterable(self):
         r = requests.Response()
-        io = StringIO.StringIO('abc')
+        io = io.StringIO('abc')
         read_ = io.read
 
         def read_mock(amt, decode_content=None):
@@ -1340,26 +1340,26 @@ class UtilsTestCase(unittest.TestCase):
         from io import BytesIO
         from requests.utils import super_len
 
-        assert super_len(StringIO.StringIO()) == 0
+        assert super_len(io.StringIO()) == 0
         assert super_len(
-            StringIO.StringIO('with so much drama in the LBC')) == 29
+            io.StringIO('with so much drama in the LBC')) == 29
 
         assert super_len(BytesIO()) == 0
         assert super_len(
             BytesIO(b"it's kinda hard bein' snoop d-o-double-g")) == 40
 
         try:
-            import cStringIO
+            import io
         except ImportError:
             pass
         else:
             assert super_len(
-                cStringIO.StringIO('but some how, some way...')) == 25
+                io.StringIO('but some how, some way...')) == 25
 
     def test_super_len_correctly_calculates_len_of_partially_read_file(self):
         """Ensure that we handle partially consumed file like objects."""
         from requests.utils import super_len
-        s = StringIO.StringIO()
+        s = io.StringIO()
         s.write('foobarbogus')
         assert super_len(s) == 0
 
@@ -1616,7 +1616,7 @@ class RedirectSession(SessionRedirectMixin):
         return r
 
     def _build_raw(self):
-        string = StringIO.StringIO('')
+        string = io.StringIO('')
         setattr(string, 'release_conn', lambda *args: args)
         return string
 

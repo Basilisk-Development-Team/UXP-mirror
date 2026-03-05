@@ -11,7 +11,7 @@ from mozpack.chrome.manifest import (
     ManifestBinaryComponent,
     ManifestResource,
 )
-from urlparse import urlparse
+from urllib.parse import urlparse
 import mozpack.path as mozpath
 from mozpack.files import (
     ManifestFile,

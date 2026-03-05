@@ -8,7 +8,7 @@
 
 import os
 import sys
-import ConfigParser
+import configparser
 
 # load modules from parent dir
 sys.path.insert(1, os.path.dirname(sys.path[0]))
@@ -21,7 +21,7 @@ CONFIG = {
 
 
 def query_ini_file(ini_file, section, option):
-    ini = ConfigParser.SafeConfigParser()
+    ini = configparser.SafeConfigParser()
     ini.read(ini_file)
     return ini.get(section, option)
 

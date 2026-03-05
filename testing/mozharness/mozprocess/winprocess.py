@@ -36,7 +36,7 @@
 
 from ctypes import c_void_p, POINTER, sizeof, Structure, Union, windll, WinError, WINFUNCTYPE, c_ulong
 from ctypes.wintypes import BOOL, BYTE, DWORD, HANDLE, LPCWSTR, LPWSTR, UINT, WORD, ULONG
-from qijo import QueryInformationJobObject
+from .qijo import QueryInformationJobObject
 
 LPVOID = c_void_p
 LPBYTE = POINTER(BYTE)

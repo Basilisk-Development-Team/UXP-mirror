@@ -2,8 +2,8 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this file,
 # You can obtain one at http://mozilla.org/MPL/2.0/.
 
-import ConfigParser
-import StringIO
+import configparser
+import io
 import os
 import sys
 import tempfile
@@ -25,9 +25,9 @@ SCHEMA = {'Registration Server': (('IPAddr', ''),
 
 
 def get_cfg(d, ini_path):
-    cfg = ConfigParser.RawConfigParser()
+    cfg = configparser.RawConfigParser()
     try:
-        cfg.readfp(StringIO.StringIO(d.pullFile(ini_path)), 'SUTAgent.ini')
+        cfg.readfp(io.StringIO(d.pullFile(ini_path)), 'SUTAgent.ini')
     except DMError:
         # assume this is due to a missing file...
         pass
@@ -53,7 +53,7 @@ def set_opt(cfg, s, o, dflt):
     prompt = '  %s' % o
     try:
         curval = cfg.get(s, o)
-    except (ConfigParser.NoSectionError, ConfigParser.NoOptionError):
+    except (configparser.NoSectionError, configparser.NoOptionError):
         curval = ''
     if curval:
         dflt = curval

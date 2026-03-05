@@ -16,7 +16,7 @@ from mozbuild.configure import ConfigureSandbox
 from mozbuild.util import ReadOnlyNamespace
 from mozpack import path as mozpath
 
-from StringIO import StringIO
+from io import StringIO
 from which import WhichError
 
 from buildconfig import (

@@ -2,12 +2,12 @@
 __all__ = ['BaseRepresenter', 'SafeRepresenter', 'Representer',
     'RepresenterError']
 
-from error import *
-from nodes import *
+from .error import *
+from .nodes import *
 
 import datetime
 
-import sys, copy_reg, types
+import sys, copyreg, types
 
 class RepresenterError(YAMLError):
     pass
@@ -402,8 +402,8 @@ class Representer(SafeRepresenter):
         # !!python/object/apply node.
 
         cls = type(data)
-        if cls in copy_reg.dispatch_table:
-            reduce = copy_reg.dispatch_table[cls](data)
+        if cls in copyreg.dispatch_table:
+            reduce = copyreg.dispatch_table[cls](data)
         elif hasattr(data, '__reduce_ex__'):
             reduce = data.__reduce_ex__(2)
         elif hasattr(data, '__reduce__'):

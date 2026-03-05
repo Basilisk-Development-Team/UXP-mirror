@@ -10,8 +10,8 @@ import shutil
 import stat
 import tarfile
 import tempfile
-import urlparse
-import urllib2
+import urllib.parse
+import urllib.request, urllib.error, urllib.parse
 import zipfile
 import time
 
@@ -347,7 +347,7 @@ def is_url(thing):
     Return True if thing looks like a URL.
     """
 
-    parsed = urlparse.urlparse(thing)
+    parsed = urllib.parse.urlparse(thing)
     if 'scheme' in parsed:
         return len(parsed.scheme) >= 2
     else:
@@ -368,5 +368,5 @@ def load(resource):
         # if no scheme is given, it is a file path
         return file(resource)
 
-    return urllib2.urlopen(resource)
+    return urllib.request.urlopen(resource)
 

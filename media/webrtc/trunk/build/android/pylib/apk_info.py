@@ -8,7 +8,7 @@ import collections
 import os
 import re
 
-import cmd_helper
+from . import cmd_helper
 
 
 class ApkInfo(object):

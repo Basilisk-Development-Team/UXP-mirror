@@ -10,7 +10,7 @@ try:
 except ImportError:
     blessings = None
 
-import base
+from . import base
 from .process import strstatus
 
 

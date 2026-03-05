@@ -2,7 +2,7 @@
 #   Encodings and Formats for Elliptic Curve Cryptography
 #
 
-import StringIO
+import io
 
 # Big-Endian Encoding
 
@@ -75,7 +75,7 @@ def dec_point(s):
 class Encoder:
 
     def __init__(self):
-        self._io = StringIO.StringIO()
+        self._io = io.StringIO()
 
     def int(self, n, size = 4):
         self._io.write(enc_fixed_long(n, size))
@@ -106,7 +106,7 @@ class Encoder:
 class Decoder:
 
     def __init__(self, data, offset = 0):
-        self._io = StringIO.StringIO(data)
+        self._io = io.StringIO(data)
         self._io.seek(offset)
         self._res = []
         self._limit = None

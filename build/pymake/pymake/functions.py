@@ -2,10 +2,10 @@
 Makefile functions.
 """
 
-import parser, util
+from . import parser, util
 import subprocess, os, logging, sys
-from globrelative import glob
-from cStringIO import StringIO
+from .globrelative import glob
+from io import StringIO
 
 log = logging.getLogger('pymake.data')
 
@@ -770,7 +770,7 @@ class ShellFunction(Function):
     __slots__ = Function.__slots__
 
     def resolve(self, makefile, variables, fd, setting):
-        from process import prepare_command
+        from .process import prepare_command
         cline = self._arguments[0].resolvestr(makefile, variables, setting)
         executable, cline = prepare_command(cline, makefile.workdir, self.loc)
 
@@ -870,4 +870,4 @@ functionmap = {
     'info': InfoFunction,
 }
 
-import data
+from . import data

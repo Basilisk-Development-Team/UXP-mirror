@@ -1,9 +1,9 @@
 #!/usr/bin/env python
 
 import argparse
-import unstable
-import format as formatlog
-import logmerge
+from . import unstable
+from . import format as formatlog
+from . import logmerge
 
 
 def get_parser():

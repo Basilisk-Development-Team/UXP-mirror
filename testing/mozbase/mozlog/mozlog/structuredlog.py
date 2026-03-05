@@ -11,8 +11,8 @@ import sys
 import time
 import traceback
 
-from logtypes import Unicode, TestId, Status, SubStatus, Dict, List, Int, Any, Tuple
-from logtypes import log_action, convertor_registry
+from .logtypes import Unicode, TestId, Status, SubStatus, Dict, List, Int, Any, Tuple
+from .logtypes import log_action, convertor_registry
 
 """Structured Logging for recording test results.
 

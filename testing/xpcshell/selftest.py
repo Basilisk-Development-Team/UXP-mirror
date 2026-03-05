@@ -15,7 +15,7 @@ import tempfile
 import unittest
 
 from buildconfig import substs
-from StringIO import StringIO
+from io import StringIO
 from mozlog import structured
 from mozbuild.base import MozbuildObject
 os.environ.pop('MOZ_OBJDIR', None)

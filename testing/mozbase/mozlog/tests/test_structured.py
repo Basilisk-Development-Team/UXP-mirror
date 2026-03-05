@@ -3,7 +3,7 @@ import argparse
 import json
 import optparse
 import os
-import StringIO
+import io
 import sys
 import unittest
 import signal
@@ -554,7 +554,7 @@ class FormatterTest(unittest.TestCase):
         self.position = 0
         self.logger = structuredlog.StructuredLogger(
             "test_%s" % type(self).__name__)
-        self.output_file = StringIO.StringIO()
+        self.output_file = io.StringIO()
         self.handler = handlers.StreamHandler(
             self.output_file, self.get_formatter())
         self.logger.add_handler(self.handler)
@@ -1018,7 +1018,7 @@ class TestReader(unittest.TestCase):
 
     def to_file_like(self, obj):
         data_str = "\n".join(json.dumps(item) for item in obj)
-        return StringIO.StringIO(data_str)
+        return io.StringIO(data_str)
 
     def test_read(self):
         data = [{"action": "action_0", "data": "data_0"},

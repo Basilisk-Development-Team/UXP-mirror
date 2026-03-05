@@ -11,6 +11,7 @@ python gen-double-encode-table.py > $(topsrcdir)/path/to/DoubleEntryTable.tbl
 """
 
 import operator
+from functools import reduce
 
 def rep(bit, count):
     return reduce(operator.ior, [bit << c for c in range(count)])

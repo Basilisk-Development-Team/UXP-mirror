@@ -5,7 +5,7 @@
 """CounterManager for Mac OSX"""
 
 import subprocess
-from cmanager import CounterManager
+from .cmanager import CounterManager
 import sys
 
 

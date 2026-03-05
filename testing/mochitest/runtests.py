@@ -32,7 +32,7 @@ import sys
 import tempfile
 import time
 import traceback
-import urllib2
+import urllib.request, urllib.error, urllib.parse
 import uuid
 import zipfile
 import bisection
@@ -63,7 +63,7 @@ from mochitest_options import (
 )
 from mozprofile import Profile, Preferences
 from mozprofile.permissions import ServerLocations
-from urllib import quote_plus as encodeURIComponent
+from urllib.parse import quote_plus as encodeURIComponent
 from mozlog.formatters import TbplFormatter
 from mozlog import commandline
 from mozrunner.utils import get_stack_fixer_function, test_environment
@@ -472,7 +472,7 @@ class MochitestServer(object):
 
     def stop(self):
         try:
-            with urllib2.urlopen(self.shutdownURL) as c:
+            with urllib.request.urlopen(self.shutdownURL) as c:
                 c.read()
 
             # TODO: need ProcessHandler.poll()

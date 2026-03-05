@@ -12,7 +12,7 @@ import which
 
 from collections import defaultdict
 
-import ConfigParser
+import configparser
 
 
 def arg_parser():
@@ -277,14 +277,14 @@ class AutoTry(object):
         return os.path.join(self.mach_context.state_dir, "autotry.ini")
 
     def load_config(self, name):
-        config = ConfigParser.RawConfigParser()
+        config = configparser.RawConfigParser()
         success = config.read([self.config_path])
         if not success:
             return None
 
         try:
             data = config.get("try", name)
-        except (ConfigParser.NoSectionError, ConfigParser.NoOptionError):
+        except (configparser.NoSectionError, configparser.NoOptionError):
             return None
 
         kwargs = vars(arg_parser().parse_args(self.split_try_string(data)))
@@ -292,14 +292,14 @@ class AutoTry(object):
         return kwargs
 
     def list_presets(self):
-        config = ConfigParser.RawConfigParser()
+        config = configparser.RawConfigParser()
         success = config.read([self.config_path])
 
         data = []
         if success:
             try:
                 data = config.items("try")
-            except (ConfigParser.NoSectionError, ConfigParser.NoOptionError):
+            except (configparser.NoSectionError, configparser.NoOptionError):
                 pass
 
         if not data:
@@ -315,7 +315,7 @@ class AutoTry(object):
         assert data.startswith("try: ")
         data = data[len("try: "):]
 
-        parser = ConfigParser.RawConfigParser()
+        parser = configparser.RawConfigParser()
         parser.read([self.config_path])
 
         if not parser.has_section("try"):

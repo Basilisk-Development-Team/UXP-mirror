@@ -1393,7 +1393,7 @@ def make_irregexp_tables(version,
         character_range('LineTerminator', line_terminator)
 
 def update_unicode(args):
-    import urllib2
+    import urllib.request, urllib.error, urllib.parse
 
     version = args.version
     if version is not None:
@@ -1417,7 +1417,7 @@ def update_unicode(args):
         if version is not None:
             print('Downloading %s...' % fname)
             unicode_data_url = '%s/%s' % (url, fname)
-            with closing(urllib2.urlopen(unicode_data_url)) as reader:
+            with closing(urllib.request.urlopen(unicode_data_url)) as reader:
                 data = reader.read()
             tfile = io.open(tfile_path, 'w+b')
             tfile.write(data)

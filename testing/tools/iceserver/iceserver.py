@@ -18,6 +18,7 @@ from string import Template
 from twisted.internet import reactor, protocol
 from twisted.internet.task import LoopingCall
 from twisted.internet.address import IPv4Address
+from functools import reduce
 
 MAGIC_COOKIE = 0x2112A442
 

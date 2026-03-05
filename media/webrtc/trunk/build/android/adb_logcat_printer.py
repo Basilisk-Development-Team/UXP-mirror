@@ -18,7 +18,7 @@ will attempt to terminate the contained PID by sending a SIGINT and
 monitoring for the deletion of the aforementioned file.
 """
 
-import cStringIO
+import io
 import logging
 import os
 import re
@@ -150,7 +150,7 @@ def ShutdownLogcatMonitor(base_dir, logger):
 
 
 def main(base_dir, output_file):
-  log_stringio = cStringIO.StringIO()
+  log_stringio = io.StringIO()
   logger = logging.getLogger('LogcatPrinter')
   logger.setLevel(LOG_LEVEL)
   sh = logging.StreamHandler(log_stringio)

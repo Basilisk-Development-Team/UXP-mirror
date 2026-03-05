@@ -79,6 +79,7 @@ from .context import (
 )
 
 from mozbuild.base import ExecutionSummary
+from functools import reduce
 
 
 if sys.version_info.major == 2:

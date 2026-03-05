@@ -7,7 +7,7 @@ from __future__ import print_function
 import os, re, sys
 from subprocess import Popen, PIPE
 
-from tests import RefTestCase
+from .tests import RefTestCase
 
 
 def split_path_into_dirs(path):

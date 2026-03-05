@@ -102,7 +102,7 @@ if sys.version_info >= (3,):
     iteritems = lambda d: list(d.items())
 else:
     from itertools import ifilter
-    import urlparse
+    import urllib.parse
     iteritems = lambda d: iter(d.items())
 
 
@@ -1461,7 +1461,7 @@ class Replace(object):
 
 
 def _url_validation(v):
-    parsed = urlparse.urlparse(v)
+    parsed = urllib.parse.urlparse(v)
     if not parsed.scheme or not parsed.netloc:
         raise UrlInvalid("must have a URL scheme and host")
     return parsed
