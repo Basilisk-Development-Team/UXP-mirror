@@ -60,9 +60,7 @@ def enum(*names, **kw):
         base = object
         start = 0
 
-    class Foo(base):
-        __metaclass__ = M_add_class_attribs(names, start)
-
+    class Foo(base, metaclass=M_add_class_attribs(names, start)):
         def __setattr__(self, name, value):  # this makes it read-only
             raise NotImplementedError
     return Foo()

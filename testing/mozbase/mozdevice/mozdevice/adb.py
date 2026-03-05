@@ -491,13 +491,12 @@ class ADBHost(ADBCommand):
         return devices
 
 
-class ADBDevice(ADBCommand):
+class ADBDevice(ADBCommand, metaclass=ABCMeta):
     """ADBDevice is an abstract base class which provides methods which
     can be used to interact with the associated Android or B2G based
     device. It must be used via one of the concrete implementations in
     :class:`ADBAndroid` or :class:`ADBB2G`.
     """
-    __metaclass__ = ABCMeta
 
     def __init__(self,
                  device=None,

@@ -355,7 +355,7 @@ class PathMeta(type):
                 cls = SourcePath
         return super(PathMeta, cls).__call__(context, value)
 
-class Path(ContextDerivedValue, unicode):
+class Path(ContextDerivedValue, unicode, metaclass=PathMeta):
     """Stores and resolves a source path relative to a given context
 
     This class is used as a backing type for some of the sandbox variables.
@@ -366,7 +366,6 @@ class Path(ContextDerivedValue, unicode):
       - '!objdir/relative/paths'
       - '%/filesystem/absolute/paths'
     """
-    __metaclass__ = PathMeta
 
     def __new__(cls, context, value=None):
         return super(Path, cls).__new__(cls, value)

@@ -63,9 +63,7 @@ def get_default_valgrind_suppression_files():
     return rv
 
 
-class ArgumentContainer():
-    __metaclass__ = ABCMeta
-
+class ArgumentContainer(metaclass=ABCMeta):
     @abstractproperty
     def args(self):
         pass

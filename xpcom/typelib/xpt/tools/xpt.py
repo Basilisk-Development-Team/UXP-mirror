@@ -94,9 +94,7 @@ def M_add_class_attribs(attribs):
 
 
 def enum(*names):
-    class Foo(object):
-        __metaclass__ = M_add_class_attribs(enumerate(names))
-
+    class Foo(object, metaclass=M_add_class_attribs(enumerate(names))):
         def __setattr__(self, name, value):  # this makes it read-only
             raise NotImplementedError
     return Foo()

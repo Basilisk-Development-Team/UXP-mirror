@@ -13,7 +13,7 @@ import version_codes
 from adb import ADBDevice, ADBError
 
 
-class ADBAndroid(ADBDevice):
+class ADBAndroid(ADBDevice, metaclass=ABCMeta):
     """ADBAndroid implements :class:`ADBDevice` providing Android-specific
     functionality.
 
@@ -26,7 +26,6 @@ class ADBAndroid(ADBDevice):
        if adbdevice.process_exist("org.mozilla.fennec"):
            print "Fennec is running"
     """
-    __metaclass__ = ABCMeta
 
     def __init__(self,
                  device=None,

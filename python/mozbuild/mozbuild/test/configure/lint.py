@@ -42,9 +42,7 @@ class LintMeta(type):
         return type.__new__(mcs, name, bases, attrs)
 
 
-class Lint(unittest.TestCase):
-    __metaclass__ = LintMeta
-
+class Lint(unittest.TestCase, metaclass=LintMeta):
     def setUp(self):
         self._curdir = os.getcwd()
         os.chdir(topobjdir)
