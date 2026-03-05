@@ -184,7 +184,7 @@ def indexed_items(itr):
     Generator that allows us to figure out which item is the last one so
     that we can serialize this data properly
     """
-    prev_i, prev_val = 0, itr.next()
+    prev_i, prev_val = 0, next(itr)
     for i, val in enumerate(itr, start=1):
         yield prev_i, prev_val
         prev_i, prev_val = i, val

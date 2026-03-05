@@ -49,10 +49,10 @@ class Rabbit:
         self._buf = 0           # output buffer
         self._buf_bytes = 0     # fill level of buffer
         
-        self.next()
-        self.next()
-        self.next()
-        self.next()
+        next(self)
+        next(self)
+        next(self)
+        next(self)
 
         for j in range(8):
             c[j] ^= x[(j + 4) % 8]
@@ -99,13 +99,13 @@ class Rabbit:
         c[6] ^= i2
         c[7] ^= i3
 
-        self.next()
-        self.next()
-        self.next()
-        self.next()
+        next(self)
+        next(self)
+        next(self)
+        next(self)
         
 
-    def next(self):
+    def __next__(self):
         '''Proceed to the next internal state'''
         
         c = self.c
@@ -165,7 +165,7 @@ class Rabbit:
         res = ""
         b = self._buf
         j = self._buf_bytes
-        next = self.next
+        next = self.__next__
         derive = self.derive
         
         for i in range(n):
@@ -188,7 +188,7 @@ class Rabbit:
         res = ""
         b = self._buf
         j = self._buf_bytes
-        next = self.next
+        next = self.__next__
         derive = self.derive
 
         for c in data:

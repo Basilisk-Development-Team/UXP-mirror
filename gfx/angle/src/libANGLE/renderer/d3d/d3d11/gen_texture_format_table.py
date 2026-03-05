@@ -159,7 +159,7 @@ def get_swizzle_format_id(internal_format, angle_format):
 
     bits = angle_format['bits']
     max_component_bits = max(bits.values())
-    channels_different = not all([component_bits == iter(bits.values()).next() for component_bits in bits.values()])
+    channels_different = not all([component_bits == next(iter(bits.values())) for component_bits in bits.values()])
 
     # The format itself can be used for swizzles if it can be accessed as a render target and
     # sampled and the bit count for all 4 channels is the same.

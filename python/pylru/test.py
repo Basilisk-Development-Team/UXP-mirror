@@ -103,7 +103,7 @@ def testcache():
         z = a.head
         for j in range(len(a.table)):
             q.append([z.key, z.value])
-            z = z.next
+            z = z.__next__
 
         assert q == b.cache[::-1]
 

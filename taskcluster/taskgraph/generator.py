@@ -211,7 +211,7 @@ class TaskGraphGenerator(object):
     def _run_until(self, name):
         while name not in self._run_results:
             try:
-                k, v = self._run.next()
+                k, v = next(self._run)
             except StopIteration:
                 raise AttributeError("No such run result {}".format(name))
             self._run_results[k] = v

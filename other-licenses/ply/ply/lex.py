@@ -401,7 +401,7 @@ class Lexer:
     def __iter__(self):
         return self
 
-    def next(self):
+    def __next__(self):
         t = self.token()
         if t is None:
             raise StopIteration

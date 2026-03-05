@@ -96,7 +96,7 @@ class TryArgumentParser(object):
 
     def consume(self):
         try:
-            self.token = self.tokens.next()
+            self.token = next(self.tokens)
         except StopIteration:
             self.token = (self.EOF, None)
 

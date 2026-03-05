@@ -23,7 +23,7 @@ except NameError:
         def __iter__(self):
             return self
 
-        def next(self):
+        def __next__(self):
             i = self.remaining
             if i > 0:
                 i -= 1

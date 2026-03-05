@@ -228,7 +228,7 @@ try:
     advance_iterator = next
 except NameError:
     def advance_iterator(it):
-        return it.next()
+        return it.__next__()
 next = advance_iterator
 
 
@@ -246,7 +246,7 @@ else:
 
     class Iterator(object):
 
-        def next(self):
+        def __next__(self):
             return type(self).__next__(self)
 
     callable = callable

@@ -125,7 +125,7 @@ def createSSLServerCertificate(build, srcDir):
     iterator = iter(locations)
 
     # Skips the first entry, I don't know why: bug 879740
-    iterator.next()
+    next(iterator)
 
     locationsParam = ""
     firstLocation = ""

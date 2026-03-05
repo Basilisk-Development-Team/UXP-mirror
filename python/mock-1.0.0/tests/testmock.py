@@ -32,7 +32,7 @@ class Iter(object):
     def __iter__(self):
         return self
 
-    def next(self):
+    def __next__(self):
         return next(self.thing)
 
     __next__ = next

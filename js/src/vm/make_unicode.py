@@ -103,12 +103,12 @@ def read_unicode_data(unicode_data):
     reader = csv.reader(unicode_data, delimiter=';')
 
     while True:
-        row = reader.next()
+        row = next(reader)
         name = row[1]
 
         # We need to expand the UAX #44 4.2.3 Code Point Range
         if name.startswith('<') and name.endswith('First>'):
-            next_row = reader.next()
+            next_row = next(reader)
 
             for i in range(int(row[0], 16), int(next_row[0], 16) + 1):
                 row[0] = i

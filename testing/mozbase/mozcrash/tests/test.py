@@ -28,14 +28,14 @@ def popen_factory(stdouts):
     class mock_popen(object):
 
         def __init__(self, args, *args_rest, **kwargs):
-            self.stdout = stdouts.next()
+            self.stdout = next(stdouts)
             self.returncode = 0
 
         def wait(self):
             return 0
 
         def communicate(self):
-            return (self.stdout.next(), "")
+            return (next(self.stdout), "")
 
     return mock_popen
 

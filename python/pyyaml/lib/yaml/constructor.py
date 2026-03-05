@@ -90,7 +90,7 @@ class BaseConstructor(object):
             data = constructor(self, tag_suffix, node)
         if isinstance(data, types.GeneratorType):
             generator = data
-            data = generator.next()
+            data = next(generator)
             if self.deep_construct:
                 for dummy in generator:
                     pass

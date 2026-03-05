@@ -77,7 +77,7 @@ try:
     next
 except NameError:
     def next(obj):
-        return obj.next()
+        return obj.__next__()
 
 
 BaseExceptions = (BaseException,)

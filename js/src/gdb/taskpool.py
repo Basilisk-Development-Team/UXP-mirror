@@ -68,7 +68,7 @@ class TaskPool(object):
     # Set self.next_pending to the next task that has not yet been executed.
     def get_next_pending(self):
         try:
-            return self.pending.next()
+            return next(self.pending)
         except StopIteration:
             return None
 

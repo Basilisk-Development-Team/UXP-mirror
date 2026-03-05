@@ -489,7 +489,7 @@ class MozbuildObject(ProcessExecutionMixin):
             for flag in flags:
                 if flag == '-j':
                     try:
-                        flag = flags.next()
+                        flag = next(flags)
                     except StopIteration:
                         break
                     try:
