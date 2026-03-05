@@ -58,7 +58,7 @@ def _total_seconds(td):
 def _format_value(v):
     if isinstance(v, bool):
         return 'true' if v else 'false'
-    if isinstance(v, int) or isinstance(v, long):
+    if isinstance(v, int) or isinstance(v, int):
         return unicode(v)
     if isinstance(v, float):
         return '{0:.17f}'.format(v)

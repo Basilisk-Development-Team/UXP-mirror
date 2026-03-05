@@ -290,7 +290,7 @@ if not args.nobuild:
     configure = os.path.join(DIR.js_src, 'configure')
     if not os.path.exists(configure):
         shutil.copyfile(configure + ".in", configure)
-        os.chmod(configure, 0755)
+        os.chmod(configure, 0o755)
 
     # Run configure; make
     run_command(['sh', '-c', posixpath.join(PDIR.js_src, 'configure') + ' ' + CONFIGURE_ARGS], check=True)

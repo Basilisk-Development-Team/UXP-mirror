@@ -22,7 +22,7 @@ if PY3:
     def u(s):
         return s
 else:
-    long = long
+    long = int
     xrange = xrange
     unicode = unicode
 

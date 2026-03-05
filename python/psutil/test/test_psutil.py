@@ -53,7 +53,7 @@ except ImportError:
     import mock  # requires "pip install mock"
 
 import psutil
-from psutil._compat import PY3, callable, long, unicode
+from psutil._compat import PY3, callable, int, unicode
 
 if sys.version_info < (2, 7):
     import unittest2 as unittest  # https://pypi.python.org/pypi/unittest2
@@ -664,7 +664,7 @@ class TestSystemAPIs(unittest.TestCase):
         for name in mem._fields:
             value = getattr(mem, name)
             if name != 'percent':
-                self.assertIsInstance(value, (int, long))
+                self.assertIsInstance(value, (int, int))
             if name != 'total':
                 if not value >= 0:
                     self.fail("%r < 0 (%s)" % (name, value))
@@ -1578,7 +1578,7 @@ class TestProcess(unittest.TestCase):
                 elif fname in ('addr', 'perms'):
                     assert value, value
                 else:
-                    self.assertIsInstance(value, (int, long))
+                    self.assertIsInstance(value, (int, int))
                     assert value >= 0, value
 
     def test_memory_percent(self):
@@ -2568,7 +2568,7 @@ class TestFetchAllProcesses(unittest.TestCase):
                 elif fname in ('addr', 'perms'):
                     self.assertTrue(value)
                 else:
-                    self.assertIsInstance(value, (int, long))
+                    self.assertIsInstance(value, (int, int))
                     assert value >= 0, value
 
     def num_handles(self, ret):

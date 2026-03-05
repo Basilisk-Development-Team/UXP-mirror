@@ -27,7 +27,7 @@ except ImportError:
 
 from . import _common
 from ._common import memoize
-from ._compat import callable, long
+from ._compat import callable, int
 from ._compat import PY3 as _PY3
 
 from ._common import (STATUS_RUNNING,  # NOQA
@@ -341,7 +341,7 @@ class Process(object):
         if pid is None:
             pid = os.getpid()
         else:
-            if not _PY3 and not isinstance(pid, (int, long)):
+            if not _PY3 and not isinstance(pid, (int, int)):
                 raise TypeError('pid must be an integer (got %r)' % pid)
             if pid < 0:
                 raise ValueError('pid must be a positive integer (got %s)'

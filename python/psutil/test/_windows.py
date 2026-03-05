@@ -29,7 +29,7 @@ try:
 except ImportError:
     win32api = win32con = None
 
-from psutil._compat import PY3, callable, long
+from psutil._compat import PY3, callable, int
 import psutil
 
 
@@ -317,7 +317,7 @@ class TestDualProcessImplementation(unittest.TestCase):
             if isinstance(obj, tuple):
                 for value in obj:
                     self.assertGreaterEqual(value, 0, msg=obj)
-            elif isinstance(obj, (int, long, float)):
+            elif isinstance(obj, (int, int, float)):
                 self.assertGreaterEqual(obj, 0)
             else:
                 assert 0  # case not handled which needs to be fixed
@@ -326,7 +326,7 @@ class TestDualProcessImplementation(unittest.TestCase):
             if ret1 == ret2:
                 return
             else:
-                if isinstance(ret2, (int, long, float)):
+                if isinstance(ret2, (int, int, float)):
                     diff = abs(ret1 - ret2)
                     self.assertLessEqual(diff, tolerance)
                 elif isinstance(ret2, tuple):

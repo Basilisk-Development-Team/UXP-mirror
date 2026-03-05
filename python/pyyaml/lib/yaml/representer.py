@@ -261,7 +261,7 @@ SafeRepresenter.add_representer(bool,
 SafeRepresenter.add_representer(int,
         SafeRepresenter.represent_int)
 
-SafeRepresenter.add_representer(long,
+SafeRepresenter.add_representer(int,
         SafeRepresenter.represent_long)
 
 SafeRepresenter.add_representer(float,
@@ -452,7 +452,7 @@ Representer.add_representer(str,
 Representer.add_representer(unicode,
         Representer.represent_unicode)
 
-Representer.add_representer(long,
+Representer.add_representer(int,
         Representer.represent_long)
 
 Representer.add_representer(complex,

@@ -146,7 +146,7 @@ class TestResourceMonitor(unittest.TestCase):
         monitor.stop()
 
         v = monitor.min_memory_available()
-        self.assertIsInstance(v, long)
+        self.assertIsInstance(v, int)
 
         v = monitor.max_memory_percent()
         self.assertIsInstance(v, float)

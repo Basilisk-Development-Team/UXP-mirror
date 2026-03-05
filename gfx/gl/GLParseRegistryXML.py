@@ -38,7 +38,7 @@ class GLConstHeader:
     def write(self, arg):
         if isinstance(arg, list):
             self.f.write('\n'.join(arg) + '\n')
-        elif isinstance(arg, (int, long)):
+        elif isinstance(arg, (int, int)):
             self.f.write('\n' * arg)
         else:
             self.f.write(str(arg) + '\n')

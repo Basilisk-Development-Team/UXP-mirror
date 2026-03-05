@@ -75,7 +75,7 @@ def find_files(d):
             yield path.abspath(path.join(root, f))
 
 
-def rchmod(d, mode=0755):
+def rchmod(d, mode=0o755):
     """chmods everything in `d' to `mode', including `d' itself"""
     os.chmod(d, mode)
     for root, dirs, files in os.walk(d):

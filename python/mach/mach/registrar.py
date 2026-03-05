@@ -90,7 +90,7 @@ class MachRegistrar(object):
             result = fn(**kwargs)
 
         result = result or 0
-        assert isinstance(result, (int, long))
+        assert isinstance(result, (int, int))
 
         if context:
             postrun = getattr(context, 'post_dispatch_handler', None)

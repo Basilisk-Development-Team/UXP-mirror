@@ -734,7 +734,7 @@ Did you run with --create-virtualenv? Is mozinstall in virtualenv_modules?""")
 
         if os.path.exists(abs_nodejs_path):
             if self.platform_name() not in ('win32', 'win64'):
-                self.chmod(abs_nodejs_path, 0755)
+                self.chmod(abs_nodejs_path, 0o755)
             self.nodejs_path = abs_nodejs_path
         else:
             self.warning("nodejs path was given but couldn't be found. Tried looking in '%s'" % abs_nodejs_path)
@@ -774,7 +774,7 @@ Did you run with --create-virtualenv? Is mozinstall in virtualenv_modules?""")
             abs_minidump_path = os.path.join(dirs['abs_work_dir'],
                                              minidump_stackwalk_path)
             if os.path.exists(abs_minidump_path):
-                self.chmod(abs_minidump_path, 0755)
+                self.chmod(abs_minidump_path, 0o755)
                 self.minidump_stackwalk_path = abs_minidump_path
             else:
                 self.warning("minidump stackwalk path was given but couldn't be found. "

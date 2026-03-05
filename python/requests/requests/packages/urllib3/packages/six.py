@@ -40,7 +40,7 @@ if PY3:
     MAXSIZE = sys.maxsize
 else:
     string_types = basestring,
-    integer_types = (int, long)
+    integer_types = (int, int)
     class_types = (type, types.ClassType)
     text_type = unicode
     binary_type = str

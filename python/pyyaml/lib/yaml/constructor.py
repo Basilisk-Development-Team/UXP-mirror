@@ -473,7 +473,7 @@ class Constructor(SafeConstructor):
         return self.construct_scalar(node)
 
     def construct_python_long(self, node):
-        return long(self.construct_yaml_int(node))
+        return int(self.construct_yaml_int(node))
 
     def construct_python_complex(self, node):
        return complex(self.construct_scalar(node))

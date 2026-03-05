@@ -668,7 +668,7 @@ def fetch_files(manifest_file, base_urls, filenames=[], cache_folder=None,
                 try:
                     if not os.path.exists(cache_folder):
                         log.info("Creating cache in %s..." % cache_folder)
-                        os.makedirs(cache_folder, 0700)
+                        os.makedirs(cache_folder, 0o700)
                     shutil.copy(os.path.join(os.getcwd(), localfile.filename),
                                 os.path.join(cache_folder, localfile.digest))
                     log.info("Local cache %s updated with %s" % (cache_folder,

@@ -333,7 +333,7 @@ def extended_gcd(a, b):
     oa = a                             #Remember original a/b to remove 
     ob = b                             #negative values from return results
     while b != 0:
-        q = long(a/b)
+        q = int(a/b)
         (a, b)  = (b, a % b)
         (x, lx) = ((lx - (q * x)),x)
         (y, ly) = ((ly - (q * y)),y)
@@ -394,7 +394,7 @@ def encrypt_int(message, ekey, n):
     """Encrypts a message using encryption key 'ekey', working modulo n"""
 
     if type(message) is types.IntType:
-        message = long(message)
+        message = int(message)
 
     if not type(message) is types.LongType:
         raise TypeError("You must pass a long or int")

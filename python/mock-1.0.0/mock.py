@@ -62,7 +62,7 @@ except NameError:
     basestring = unicode = str
 
 try:
-    long
+    int
 except NameError:
     # Python 3
     long = int
@@ -1773,7 +1773,7 @@ _return_values = {
     '__nonzero__': True,
     '__oct__': '1',
     '__hex__': '0x1',
-    '__long__': long(1),
+    '__long__': int(1),
     '__index__': 1,
 }
 

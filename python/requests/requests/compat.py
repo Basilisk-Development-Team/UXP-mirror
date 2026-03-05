@@ -45,7 +45,7 @@ if is_py2:
     bytes = str
     str = unicode
     basestring = basestring
-    numeric_types = (int, long, float)
+    numeric_types = (int, int, float)
 
 elif is_py3:
     from urllib.parse import urlparse, urlunparse, urljoin, urlsplit, urlencode, quote, unquote, quote_plus, unquote_plus, urldefrag

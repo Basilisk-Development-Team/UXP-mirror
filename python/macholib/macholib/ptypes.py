@@ -262,7 +262,7 @@ Structure = _make()
 del _make
 
 try:
-    long
+    int
 except NameError:
     long = int
 
@@ -273,9 +273,9 @@ p_uint8 = pypackable('p_uint8', int, 'B')
 p_int16 = pypackable('p_int16', int, 'h')
 p_uint16 = pypackable('p_uint16', int, 'H')
 p_int32 = pypackable('p_int32', int, 'i')
-p_uint32 = pypackable('p_uint32', long, 'I')
-p_int64 = pypackable('p_int64', long, 'q')
-p_uint64 = pypackable('p_uint64', long, 'Q')
+p_uint32 = pypackable('p_uint32', int, 'I')
+p_int64 = pypackable('p_int64', int, 'q')
+p_uint64 = pypackable('p_uint64', int, 'Q')
 p_float = pypackable('p_float', float, 'f')
 p_double = pypackable('p_double', float, 'd')
 

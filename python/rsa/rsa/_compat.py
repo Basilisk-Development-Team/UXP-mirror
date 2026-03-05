@@ -62,7 +62,7 @@ else:
 
 # ``long`` is no more. Do type detection using this instead.
 try:
-    integer_types = (int, long)
+    integer_types = (int, int)
 except NameError:
     integer_types = (int,)
 

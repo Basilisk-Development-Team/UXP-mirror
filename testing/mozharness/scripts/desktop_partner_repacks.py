@@ -162,7 +162,7 @@ class DesktopPartnerRepacks(ReleaseMixin, BuildbotMixin, PurgeMixin,
                                   error_level=FATAL)
         if not os.path.exists(repo):
             self.fatal("Unable to download repo tool.")
-        self.chmod(repo, 0755)
+        self.chmod(repo, 0o755)
         self.retry(self._repo_init,
                    args=(repo,),
                    error_level=FATAL,

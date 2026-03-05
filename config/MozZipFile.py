@@ -46,7 +46,7 @@ class ZipFile(zipfile.ZipFile):
                               date_time=time.localtime(time.time()))
       zinfo.compress_type = self.compression
       # Add some standard UNIX file access permissions (-rw-r--r--).
-      zinfo.external_attr = (0x81a4 & 0xFFFF) << 16L
+      zinfo.external_attr = (0x81a4 & 0xFFFF) << 16
     else:
       zinfo = zinfo_or_arcname
 

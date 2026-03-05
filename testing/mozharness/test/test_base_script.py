@@ -445,7 +445,7 @@ class TestHelperFunctions(unittest.TestCase):
     def test_chmod(self):
         self._create_temp_file()
         self.s = script.BaseScript(initial_config_file='test/test.json')
-        self.s.chmod(self.temp_file, 0100700)
+        self.s.chmod(self.temp_file, 0o100700)
         self.assertEqual(os.stat(self.temp_file)[0], 33216,
                          msg="chmod unsuccessful")
 

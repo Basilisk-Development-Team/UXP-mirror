@@ -226,7 +226,7 @@ class DataTable(object):
       return bool(value)
 
     elif value_type == "number":
-      if isinstance(value, (int, long, float)):
+      if isinstance(value, (int, int, float)):
         return value
       raise DataTableException("Wrong type %s when expected number" % t_value)
 

@@ -145,13 +145,13 @@ class BaseFile(object):
         # - keep file type (e.g. S_IFREG)
         ret = stat.S_IFMT(mode)
         # - expand user read and execute permissions to everyone
-        if mode & 0400:
-            ret |= 0444
-        if mode & 0100:
-            ret |= 0111
+        if mode & 0o400:
+            ret |= 0o444
+        if mode & 0o100:
+            ret |= 0o111
         # - keep user write permissions
-        if mode & 0200:
-            ret |= 0200
+        if mode & 0o200:
+            ret |= 0o200
         # - leave away sticky bit, setuid, setgid
         return ret
 
