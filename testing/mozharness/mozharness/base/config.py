@@ -156,7 +156,7 @@ def parse_config_file(file_name, quiet=False, search_path=None,
     if file_name.endswith('.py'):
         global_dict = {}
         local_dict = {}
-        execfile(file_path, global_dict, local_dict)
+        exec(compile(open(file_path, "rb").read(), file_path, 'exec'), global_dict, local_dict)
         config = local_dict[config_dict_name]
     elif file_name.endswith('.json'):
         fh = open(file_path)

@@ -40,7 +40,7 @@ def make_hg_url(hgHost, repoPath, protocol='https', revision=None,
 
 def readConfig(configfile, keys=[], required=[]):
     c = {}
-    execfile(configfile, c)
+    exec(compile(open(configfile, "rb").read(), configfile, 'exec'), c)
     for k in keys:
         c = c[k]
     items = list(c.keys())

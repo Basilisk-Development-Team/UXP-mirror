@@ -16,7 +16,7 @@ class BouncerSubmitterMixin(object):
             return self.credentials
         global_dict = {}
         local_dict = {}
-        execfile(self.config["credentials_file"], global_dict, local_dict)
+        exec(compile(open(self.config["credentials_file"], "rb").read(), self.config["credentials_file"], 'exec'), global_dict, local_dict)
         self.credentials = (local_dict["tuxedoUsername"],
                             local_dict["tuxedoPassword"])
         return self.credentials

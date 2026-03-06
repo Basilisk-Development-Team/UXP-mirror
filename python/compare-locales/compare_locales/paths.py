@@ -58,7 +58,7 @@ class L10nConfigParser(object):
         filterurl = urljoin(self.inipath, 'filter.py')
         try:
             l = {}
-            execfile(url2pathname(urlparse(filterurl).path), {}, l)
+            exec(compile(open(url2pathname(urlparse(filterurl).path), "rb").read(), url2pathname(urlparse(filterurl).path), 'exec'), {}, l)
             if 'test' in l and callable(l['test']):
                 filters = [l['test']]
             else:

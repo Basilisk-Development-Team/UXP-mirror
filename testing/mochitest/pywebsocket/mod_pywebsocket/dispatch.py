@@ -143,7 +143,7 @@ def _source_handler_file(handler_definition):
 
     global_dic = {}
     try:
-        exec handler_definition in global_dic
+        exec(handler_definition, global_dic)
     except Exception:
         raise DispatchException('Error in sourcing handler:' +
                                 util.get_stack_trace())

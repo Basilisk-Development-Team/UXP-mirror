@@ -1051,7 +1051,7 @@ class DesktopSingleLocale(LocalesMixin, ReleaseMixin, MockMixin, BuildbotMixin,
     def taskcluster_upload(self):
         auth = os.path.join(os.getcwd(), self.config['taskcluster_credentials_file'])
         credentials = {}
-        execfile(auth, credentials)
+        exec(compile(open(auth, "rb").read(), auth, 'exec'), credentials)
         client_id = credentials.get('taskcluster_clientId')
         access_token = credentials.get('taskcluster_accessToken')
         if not client_id or not access_token:

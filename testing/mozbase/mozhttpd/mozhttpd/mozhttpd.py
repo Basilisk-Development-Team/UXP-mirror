@@ -26,7 +26,7 @@ class EasyServer(ThreadingMixIn, http.server.HTTPServer):
     acceptable_errors = (errno.EPIPE, errno.ECONNABORTED)
 
     def handle_error(self, request, client_address):
-        error = sys.exc_value
+        error = sys.exc_info()[1]
 
         if ((isinstance(error, socket.error) and
              isinstance(error.args, tuple) and

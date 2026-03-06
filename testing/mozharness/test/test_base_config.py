@@ -32,7 +32,7 @@ class TestParseConfigFile(unittest.TestCase):
                            output='dict'):
         global_dict = {}
         local_dict = {}
-        execfile(filename, global_dict, local_dict)
+        exec(compile(open(filename, "rb").read(), filename, 'exec'), global_dict, local_dict)
         return local_dict['config']
 
     def test_json_config(self):

@@ -526,7 +526,7 @@ def read_wpt_manifest(context, paths):
         paths_file = os.path.join(context.config.topsrcdir, "testing",
                                   "web-platform", "tests", "tools", "localpaths.py")
         _globals = {"__file__": paths_file}
-        execfile(paths_file, _globals)
+        exec(compile(open(paths_file, "rb").read(), paths_file, 'exec'), _globals)
         import manifest as wptmanifest
     finally:
         sys.path = old_path

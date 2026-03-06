@@ -40,7 +40,7 @@ def loadEventIDL(parser, includePath, eventname):
 class Configuration:
     def __init__(self, filename):
         config = {}
-        execfile(filename, config)
+        exec(compile(open(filename, "rb").read(), filename, 'exec'), config)
         self.simple_events = config.get('simple_events', [])
 
 def firstCap(str):

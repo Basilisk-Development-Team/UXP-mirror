@@ -1341,7 +1341,7 @@ or run without that action (ie: --no-{action})"
         dirs = self.query_abs_dirs()
         auth = os.path.join(os.getcwd(), self.config['taskcluster_credentials_file'])
         credentials = {}
-        execfile(auth, credentials)
+        exec(compile(open(auth, "rb").read(), auth, 'exec'), credentials)
         self.client_id = credentials.get('taskcluster_clientId')
         self.access_token = credentials.get('taskcluster_accessToken')
 

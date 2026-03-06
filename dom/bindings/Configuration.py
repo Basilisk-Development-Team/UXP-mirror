@@ -28,7 +28,7 @@ class Configuration(DescriptorProvider):
 
         # Read the configuration file.
         glbl = {}
-        execfile(filename, glbl)
+        exec(compile(open(filename, "rb").read(), filename, 'exec'), glbl)
         config = glbl['DOMInterfaces']
 
         # Build descriptors for all the interfaces we have in the parse data.

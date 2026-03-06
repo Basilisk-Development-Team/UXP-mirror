@@ -224,7 +224,7 @@ args = parser.parse_args()
 
 for default in defaults:
     try:
-        execfile(default, config)
+        exec(compile(open(default, "rb").read(), default, 'exec'), config)
         if args.verbose:
             print(("Loaded %s" % default))
     except:

@@ -161,7 +161,7 @@ class UptakeMonitoring(BaseScript, VirtualenvMixin, BuildbotMixin):
         credentials_file = os.path.join(os.getcwd(),
                                         self.config["credentials_file"])
         credentials = {}
-        execfile(credentials_file, credentials)
+        exec(compile(open(credentials_file, "rb").read(), credentials_file, 'exec'), credentials)
         auth = (credentials['tuxedoUsername'], credentials['tuxedoPassword'])
         self.info("Starting the loop to determine the uptake monitoring ...")
 

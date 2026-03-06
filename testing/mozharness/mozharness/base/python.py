@@ -434,7 +434,7 @@ class VirtualenvMixin(object):
         """Import the virtualenv's packages into this Python interpreter."""
         bin_dir = os.path.dirname(self.query_python_path())
         activate = os.path.join(bin_dir, 'activate_this.py')
-        execfile(activate, dict(__file__=activate))
+        exec(compile(open(activate, "rb").read(), activate, 'exec'), dict(__file__=activate))
 
 
 # This is (sadly) a mixin for logging methods.

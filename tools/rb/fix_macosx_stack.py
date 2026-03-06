@@ -56,13 +56,13 @@ def address_adjustment(file):
             if line == "  segname __TEXT\n":
                 line = otool.stdout.readline()
                 if not line.startswith("   vmaddr "):
-                    raise StandardError("unexpected otool output")
+                    raise Exception("unexpected otool output")
                 result = int(line[10:], 16)
                 break
         otool.stdout.close()
 
         if result is None:
-            raise StandardError("unexpected otool output")
+            raise Exception("unexpected otool output")
 
         address_adjustments[file] = result
 

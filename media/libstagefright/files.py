@@ -20,7 +20,7 @@ UNIFIED_SOURCES=[]
 LOCAL_INCLUDES=[]
 
 try:
-    execfile('moz.build')
+    exec(compile(open('moz.build', "rb").read(), 'moz.build', 'exec'))
 except:
     sys.exit(1)
 

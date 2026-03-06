@@ -461,7 +461,7 @@ class VirtualenvManager(object):
         and call .ensure() and .activate() to make the virtualenv active.
         """
 
-        execfile(self.activate_path, dict(__file__=self.activate_path))
+        exec(compile(open(self.activate_path, "rb").read(), self.activate_path, 'exec'), dict(__file__=self.activate_path))
         if isinstance(os.environ['PATH'], str):
             os.environ['PATH'] = os.environ['PATH'].encode('utf-8')
 

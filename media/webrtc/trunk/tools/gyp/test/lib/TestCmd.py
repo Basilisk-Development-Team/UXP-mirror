@@ -226,6 +226,7 @@ import shutil
 import stat
 import string
 import sys
+import atexit
 import tempfile
 import time
 import traceback
@@ -298,7 +299,7 @@ except ImportError:
         _chain_to_exitfunc = sys.exitfunc
     except AttributeError:
         pass
-    sys.exitfunc = _clean
+    atexit.register(_clean)
 else:
     atexit.register(_clean)
 

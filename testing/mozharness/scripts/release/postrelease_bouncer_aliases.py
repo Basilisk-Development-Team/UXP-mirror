@@ -91,7 +91,7 @@ class PostReleaseBouncerAliases(BaseScript, VirtualenvMixin, BuildbotMixin):
         credentials_file = os.path.join(os.getcwd(),
                                         self.config['credentials_file'])
         credentials = {}
-        execfile(credentials_file, credentials)
+        exec(compile(open(credentials_file, "rb").read(), credentials_file, 'exec'), credentials)
         auth = (credentials['tuxedoUsername'], credentials['tuxedoPassword'])
         version = self.config['version']
         for product, info in self.config["products"].items():

@@ -153,7 +153,7 @@ def main():
 
     # Activate tps environment
     tps_env = os.path.join(target, activate_env)
-    execfile(tps_env, dict(__file__=tps_env))
+    exec(compile(open(tps_env, "rb").read(), tps_env, 'exec'), dict(__file__=tps_env))
 
     # Install TPS in environment
     subprocess.check_call([os.path.join(target, python_env),
