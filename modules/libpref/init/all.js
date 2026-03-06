@@ -842,6 +842,7 @@ pref("accessibility.ipc_architecture.enabled", true);
 
 pref("accessibility.AOM.enabled", false);
 
+#ifdef MOZ_ENABLE_NPAPI
 #ifdef XP_WIN
 // Some accessibility tools poke at windows in the plugin process during setup
 // which can cause hangs.  To hack around this set accessibility.delay_plugins
@@ -850,6 +851,7 @@ pref("accessibility.AOM.enabled", false);
 // See bug 781791.
 pref("accessibility.delay_plugins", false);
 pref("accessibility.delay_plugin_time", 10000);
+#endif
 #endif
 
 pref("focusmanager.testmode", false);
@@ -1199,11 +1201,13 @@ pref("content.cors.disable", false);
 // Should preflight requests be bypassed when CORS is disabled?
 pref("content.cors.bypass_preflight_request", false);
 
+#ifdef MOZ_ENABLE_NPAPI
 // Disable popups from plugins by default
 //   0 = openAllowed
 //   1 = openControlled
 //   2 = openAbused
 pref("privacy.popups.disable_from_plugins", 2);
+#endif
 
 // Send "Sec-GPC" HTTP header, disabled by default
 pref("privacy.GPCheader.enabled",    false);
