@@ -733,7 +733,7 @@ class Preprocessor:
         args can either be a file name, or a file-like object.
         Files should be opened, and will be closed after processing.
         """
-        isName = type(args) == str or type(args) == unicode
+        isName = type(args) == str or type(args) == str
         oldCheckLineNumbers = self.checkLineNumbers
         self.checkLineNumbers = False
         if isName:

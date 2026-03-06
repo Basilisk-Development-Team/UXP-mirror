@@ -501,7 +501,7 @@ class Stream(StreamBase):
             raise BadOperationException(
                 'Requested send_message after sending out a closing handshake')
 
-        if binary and isinstance(message, unicode):
+        if binary and isinstance(message, str):
             raise BadOperationException(
                 'Message for binary frame must be instance of str')
 
@@ -837,7 +837,7 @@ class Stream(StreamBase):
                     'close reason must not be specified if code is None')
             reason = ''
         else:
-            if not isinstance(reason, str) and not isinstance(reason, unicode):
+            if not isinstance(reason, str) and not isinstance(reason, str):
                 raise BadOperationException(
                     'close reason must be an instance of str or unicode')
 

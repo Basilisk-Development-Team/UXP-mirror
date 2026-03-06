@@ -20,9 +20,9 @@ from mock import (
 
 
 try:
-    unicode
+    str
 except NameError:
-    unicode = str
+    str = str
 
 
 class Iter(object):
@@ -87,7 +87,7 @@ class MockTest(unittest2.TestCase):
 
     def test_unicode_not_broken(self):
         # This used to raise an exception with Python 2.5 and Mock 0.4
-        unicode(Mock())
+        str(Mock())
 
 
     def test_return_value_in_constructor(self):

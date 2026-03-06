@@ -96,7 +96,7 @@ from functools import wraps
 if sys.version_info >= (3,):
     import urllib.parse as urlparse
     long = int
-    unicode = str
+    str = str
     basestring = str
     ifilter = filter
     iteritems = lambda d: list(d.items())
@@ -376,7 +376,7 @@ class Schema(object):
         type_ = type(schema)
         if type_ is type:
             type_ = schema
-        if type_ in (bool, int, int, str, unicode, float, complex, object,
+        if type_ in (bool, int, int, str, str, float, complex, object,
                      list, dict, type(None)) or callable(schema):
             return _compile_scalar(schema)
         raise SchemaError('unsupported schema data type %r' %

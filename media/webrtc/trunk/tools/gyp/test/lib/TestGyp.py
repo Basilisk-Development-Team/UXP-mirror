@@ -887,9 +887,9 @@ class TestGypMSVS(TestGypOnMSToolchain):
     Verifies that a build of the specified Visual Studio target is up to date.
 
     Beware that VS2010 will behave strangely if you build under
-    C:\USERS\yourname\AppData\Local. It will cause needless work.  The ouptut
+    C:\\USERS\yourname\AppData\Local. It will cause needless work.  The ouptut
     will be "1 succeeded and 0 up to date".  MSBuild tracing reveals that:
-    "Project 'C:\Users\...\AppData\Local\...vcxproj' not up to date because
+    "Project 'C:\\Users\...\AppData\Local\...vcxproj' not up to date because
     'C:\PROGRAM FILES (X86)\MICROSOFT VISUAL STUDIO 10.0\VC\BIN\1033\CLUI.DLL'
     was modified at 02/21/2011 17:03:30, which is newer than '' which was
     modified at 01/01/0001 00:00:00.

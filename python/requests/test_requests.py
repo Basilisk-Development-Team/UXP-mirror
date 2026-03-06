@@ -159,7 +159,7 @@ class TestRequests(object):
 
     def test_binary_put(self):
         request = requests.Request('PUT', 'http://example.com',
-                                   data=u"ööö".encode("utf-8")).prepare()
+                                   data="ööö".encode("utf-8")).prepare()
         assert isinstance(request.body, bytes)
 
     def test_mixed_case_scheme_acceptable(self, httpbin):
@@ -1731,7 +1731,7 @@ def test_urllib3_pool_connection_closed(httpbin):
     try:
         s.get(httpbin('status/200'))
     except ConnectionError as e:
-        assert u"Pool is closed." in str(e)
+        assert "Pool is closed." in str(e)
 
 
 def test_vendor_aliases():

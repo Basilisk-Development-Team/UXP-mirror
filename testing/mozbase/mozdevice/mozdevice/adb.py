@@ -644,7 +644,7 @@ class ADBDevice(ADBCommand, metaclass=ABCMeta):
         def is_valid_serial(serial):
             return ":" not in serial or serial.startswith("usb:")
 
-        if isinstance(device, (str, unicode)):
+        if isinstance(device, (str, str)):
             # Treat this as a device serial
             if not is_valid_serial(device):
                 raise ValueError("Device serials containing ':' characters are "

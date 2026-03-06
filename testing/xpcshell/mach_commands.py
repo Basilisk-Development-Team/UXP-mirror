@@ -29,7 +29,7 @@ from xpcshellcommandline import parser_desktop, parser_remote
 here = os.path.abspath(os.path.dirname(__file__))
 
 if sys.version_info[0] < 3:
-    unicode_type = unicode
+    unicode_type = str
 else:
     unicode_type = str
 

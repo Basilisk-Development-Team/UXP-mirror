@@ -18,16 +18,16 @@ MAGIC_LEN = 4
 STRIPCMD = ['/usr/bin/strip', '-x', '-S', '-']
 
 try:
-    unicode
+    str
 except NameError:
-    unicode = str
+    str = str
 
 
 def fsencoding(s, encoding=sys.getfilesystemencoding()):
     """
     Ensure the given argument is in filesystem encoding (not unicode)
     """
-    if isinstance(s, unicode):
+    if isinstance(s, str):
         s = s.encode(encoding)
     return s
 

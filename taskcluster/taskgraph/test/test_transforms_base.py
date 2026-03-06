@@ -41,8 +41,8 @@ class TestTransformSequence(unittest.TestCase):
         tests = [{}, {'two': 1, 'second': True}]
         res = list(transforms({}, tests))
         self.assertEqual(res, [
-            {u'two': 2, u'one': 1},
-            {u'second': True, u'two': 2, u'one': 1},
+            {'two': 2, 'one': 1},
+            {'second': True, 'two': 2, 'one': 1},
         ])
 
 

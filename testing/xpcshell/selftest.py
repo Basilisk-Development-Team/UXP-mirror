@@ -149,7 +149,7 @@ PASSING_TEST_UNICODE = '''
 function run_test () { run_next_test(); }
 
 add_test(function test_unicode_print () {
-  do_check_eq("\u201c\u201d", "\u201c\u201d");
+  do_check_eq("\\u201c\\u201d", "\\u201c\\u201d");
   run_next_test();
 });
 '''

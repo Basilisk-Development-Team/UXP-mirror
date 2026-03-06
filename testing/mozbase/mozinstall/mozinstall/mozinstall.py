@@ -201,13 +201,13 @@ def uninstall(install_folder):
     # On Windows we have to use the uninstaller. If it's not available fallback
     # to the directory removal code
     if mozinfo.isWin:
-        uninstall_folder = '%s\uninstall' % install_folder
-        log_file = '%s\uninstall.log' % uninstall_folder
+        uninstall_folder = '%s\\uninstall' % install_folder
+        log_file = '%s\\uninstall.log' % uninstall_folder
 
         if os.path.isfile(log_file):
             trbk = None
             try:
-                cmdArgs = ['%s\uninstall\helper.exe' % install_folder, '/S']
+                cmdArgs = ['%s\\uninstall\helper.exe' % install_folder, '/S']
                 result = subprocess.call(cmdArgs)
                 if result is not 0:
                     raise Exception('Execution of uninstaller failed.')

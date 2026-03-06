@@ -524,7 +524,7 @@ class TestStrictOrderingOnAppendListWithFlagsFactory(unittest.TestCase):
 
     def test_strict_ordering_on_append_list_with_flags_factory_extend(self):
         FooList = StrictOrderingOnAppendListWithFlagsFactory({
-            'foo': bool, 'bar': unicode
+            'foo': bool, 'bar': str
         })
         foo = FooList(['a', 'b', 'c'])
         foo['a'].foo = True
@@ -532,7 +532,7 @@ class TestStrictOrderingOnAppendListWithFlagsFactory(unittest.TestCase):
 
         # Don't allow extending lists with different flag definitions.
         BarList = StrictOrderingOnAppendListWithFlagsFactory({
-            'foo': unicode, 'baz': bool
+            'foo': str, 'baz': bool
         })
         bar = BarList(['d', 'e', 'f'])
         bar['d'].foo = 'foo'
@@ -752,9 +752,9 @@ class TestTypedList(unittest.TestCase):
 
 class TypedTestStrictOrderingOnAppendList(unittest.TestCase):
     def test_init(self):
-        class Unicode(unicode):
+        class Unicode(str):
             def __init__(self, other):
-                if not isinstance(other, unicode):
+                if not isinstance(other, str):
                     raise ValueError()
                 super(Unicode, self).__init__(other)
 
@@ -776,7 +776,7 @@ class TypedTestStrictOrderingOnAppendList(unittest.TestCase):
 
 class TestTypedNamedTuple(unittest.TestCase):
     def test_simple(self):
-        FooBar = TypedNamedTuple('FooBar', [('foo', unicode), ('bar', int)])
+        FooBar = TypedNamedTuple('FooBar', [('foo', str), ('bar', int)])
 
         t = FooBar(foo='foo', bar=2)
         self.assertEqual(type(t), FooBar)

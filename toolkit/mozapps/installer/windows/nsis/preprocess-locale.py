@@ -84,12 +84,12 @@ def preprocess_locale_files(config_dir, l10ndirs):
                                         "LangString ^",
                                         " 0 ",
                                         False)
-    fp.write(unicode(locale_strings, "utf-8").encode("utf-16-le"))
+    fp.write(str(locale_strings, "utf-8").encode("utf-16-le"))
     fp.close()
 
     # Create the Modern User Interface language file
     fp = open_utf16le_file(join(config_dir, "baseLocale.nsh"))
-    fp.write((u""";NSIS Modern User Interface - Language File
+    fp.write((""";NSIS Modern User Interface - Language File
 ;Compatible with Modern UI 1.68
 ;Language: baseLocale (0)
 !insertmacro MOZ_MUI_LANGUAGEFILE_BEGIN \"baseLocale\"
@@ -97,8 +97,8 @@ def preprocess_locale_files(config_dir, l10ndirs):
 """).encode("utf-16-le"))
     locale_strings = get_locale_strings(lookup("mui.properties", l10ndirs),
                                         "!define ", " ", True)
-    fp.write(unicode(locale_strings, "utf-8").encode("utf-16-le"))
-    fp.write(u"!insertmacro MOZ_MUI_LANGUAGEFILE_END\n".encode("utf-16-le"))
+    fp.write(str(locale_strings, "utf-8").encode("utf-16-le"))
+    fp.write("!insertmacro MOZ_MUI_LANGUAGEFILE_END\n".encode("utf-16-le"))
     fp.close()
 
     # Create the custom language file for our custom strings
@@ -108,7 +108,7 @@ def preprocess_locale_files(config_dir, l10ndirs):
                                         "LangString ",
                                         " 0 ",
                                         True)
-    fp.write(unicode(locale_strings, "utf-8").encode("utf-16-le"))
+    fp.write(str(locale_strings, "utf-8").encode("utf-16-le"))
     fp.close()
 
 def create_nlf_file(moz_dir, ab_cd, config_dir):
@@ -138,7 +138,7 @@ def create_nlf_file(moz_dir, ab_cd, config_dir):
     # along with the default codepage, font name, and font size represented
     # by the '-' character.
     fp = open_utf16le_file(join(config_dir, "baseLocale.nlf"))
-    fp.write((u"""# Header, don't edit
+    fp.write(("""# Header, don't edit
 NLF v6
 # Start editing here
 # Language ID
@@ -175,7 +175,7 @@ def preprocess_locale_file(config_dir,
                                         "LangString ",
                                         " 0 ",
                                         True)
-    fp.write(unicode(locale_strings, "utf-8").encode("utf-16-le"))
+    fp.write(str(locale_strings, "utf-8").encode("utf-16-le"))
     fp.close()
 
 
@@ -189,7 +189,7 @@ def convert_utf8_utf16le(in_file_path, out_file_path):
     """
     in_fp = open(in_file_path, "r")
     out_fp = open_utf16le_file(out_file_path)
-    out_fp.write(unicode(in_fp.read(), "utf-8").encode("utf-16-le"))
+    out_fp.write(str(in_fp.read(), "utf-8").encode("utf-16-le"))
     in_fp.close()
     out_fp.close()
 

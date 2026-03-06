@@ -1502,7 +1502,7 @@ class ConfigObj(Section):
             # NOTE: Could raise a ``UnicodeDecodeError``
             return infile.decode(encoding).splitlines(True)
         for i, line in enumerate(infile):
-            if not isinstance(line, unicode):
+            if not isinstance(line, str):
                 # NOTE: The isinstance test here handles mixed lists of unicode/string
                 # NOTE: But the decode will break on any non-string values
                 # NOTE: Or could raise a ``UnicodeDecodeError``

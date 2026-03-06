@@ -46,23 +46,23 @@ whitespace = [
     0x9, # CHARACTER TABULATION
     0xb, # LINE TABULATION
     0xc, # FORM FEED
-    ord(u'\N{SPACE}'),
-    ord(u'\N{NO-BREAK SPACE}'),
-    ord(u'\N{ZERO WIDTH NO-BREAK SPACE}'), # also BOM
+    ord('\N{SPACE}'),
+    ord('\N{NO-BREAK SPACE}'),
+    ord('\N{ZERO WIDTH NO-BREAK SPACE}'), # also BOM
 ]
 
 # §11.3 Line Terminators
 line_terminator = [
     0xa, # LINE FEED
     0xd, # CARRIAGE RETURN
-    ord(u'\N{LINE SEPARATOR}'),
-    ord(u'\N{PARAGRAPH SEPARATOR}'),
+    ord('\N{LINE SEPARATOR}'),
+    ord('\N{PARAGRAPH SEPARATOR}'),
 ]
 
 # These are also part of IdentifierPart §11.6 Names and Keywords
 compatibility_identifier_part = [
-    ord(u'\N{ZERO WIDTH NON-JOINER}'),
-    ord(u'\N{ZERO WIDTH JOINER}'),
+    ord('\N{ZERO WIDTH NON-JOINER}'),
+    ord('\N{ZERO WIDTH JOINER}'),
 ]
 
 FLAG_SPACE = 1 << 0
@@ -825,7 +825,7 @@ def write_special_casing_methods(unconditional_toupper, codepoint_table, println
 
 def make_bmp_mapping_test(version, codepoint_table, unconditional_tolower, unconditional_toupper):
     def unicodeEsc(n):
-        return '\u{:04X}'.format(n)
+        return '\\u{:04X}'.format(n)
 
     file_name = '../tests/ecma_5/String/string-upper-lower-mapping.js'
     with io.open(file_name, mode='wb') as output:

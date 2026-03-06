@@ -165,16 +165,16 @@ if sys.version_info >= (3, 0):
 
 else:
     import builtins as builtins
-    _totext = unicode
+    _totext = str
     _basestring = basestring
-    text = unicode
+    text = str
     bytes = str
     execfile = execfile
     callable = callable
     def _isbytes(x):
         return isinstance(x, str)
     def _istext(x):
-        return isinstance(x, unicode)
+        return isinstance(x, str)
 
     def _getimself(function):
         return getattr(function, 'im_self', None)

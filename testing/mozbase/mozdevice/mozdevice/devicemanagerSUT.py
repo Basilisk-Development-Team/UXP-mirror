@@ -239,7 +239,7 @@ class DeviceManagerSUT(DeviceManager):
                         # Wait up to a second for socket to become ready for reading...
                         if select.select([self._sock], [], [], select_timeout)[0]:
                             temp = self._sock.recv(1024)
-                            self._logger.debug(u"response: %s" % temp.decode('utf8', 'replace'))
+                            self._logger.debug("response: %s" % temp.decode('utf8', 'replace'))
                             timer = 0
                             if not temp:
                                 socketClosed = True

@@ -81,7 +81,7 @@ eff = effVal""")
              'details': {
                  'children': [
                      ('l10n.properties',
-                         {'value': {'missingEntity': [u'eff', u'foo']}}
+                         {'value': {'missingEntity': ['eff', 'foo']}}
                       )
                  ]}
              }
@@ -115,9 +115,9 @@ eff = leffVal
                  'children': [
                      ('l10n.properties',
                          {'value': {
-                          'error': [u'argument 1 `S` should be `d` '
-                                    u'at line 1, column 6 for bar'],
-                          'missingEntity': [u'foo']}}
+                          'error': ['argument 1 `S` should be `d` '
+                                    'at line 1, column 6 for bar'],
+                          'missingEntity': ['foo']}}
                       )
                  ]}
              }
@@ -151,7 +151,7 @@ eff = leffVal
              'details': {
                  'children': [
                      ('l10n.properties',
-                         {'value': {'obsoleteEntity': [u'other']}})]},
+                         {'value': {'obsoleteEntity': ['other']}})]},
              }
         )
 
@@ -212,7 +212,7 @@ class TestDTD(unittest.TestCase, ContentMixin):
              'details': {
                  'children': [
                      ('l10n.dtd',
-                         {'value': {'missingEntity': [u'eff', u'foo']}}
+                         {'value': {'missingEntity': ['eff', 'foo']}}
                       )
                  ]}
              }
@@ -247,9 +247,9 @@ class TestDTD(unittest.TestCase, ContentMixin):
                  'children': [
                      ('l10n.dtd',
                          {'value': {
-                             'error': [u'Unparsed content "<!ENTY bar '
-                                       u'\'gimmick\'>" at 23-44'],
-                             'missingEntity': [u'bar']}}
+                             'error': ['Unparsed content "<!ENTY bar '
+                                       '\'gimmick\'>" at 23-44'],
+                             'missingEntity': ['bar']}}
                       )
                  ]}
              }

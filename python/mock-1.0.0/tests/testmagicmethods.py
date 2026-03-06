@@ -5,10 +5,10 @@
 from tests.support import unittest2, inPy3k
 
 try:
-    unicode
+    str
 except NameError:
     # Python 3
-    unicode = str
+    str = str
     long = int
 
 import inspect
@@ -83,10 +83,10 @@ class TestMockingMagicMethods(unittest2.TestCase):
     @unittest2.skipIf(inPy3k, "no unicode in Python 3")
     def test_unicode(self):
         mock = Mock()
-        self.assertEqual(unicode(mock), unicode(str(mock)))
+        self.assertEqual(str(mock), str(str(mock)))
 
-        mock.__unicode__ = lambda s: unicode('foo')
-        self.assertEqual(unicode(mock), unicode('foo'))
+        mock.__unicode__ = lambda s: str('foo')
+        self.assertEqual(str(mock), str('foo'))
 
 
     def test_dict_methods(self):
@@ -321,8 +321,8 @@ class TestMockingMagicMethods(unittest2.TestCase):
         self.assertEqual(list(mock), [])
         self.assertEqual(hash(mock), object.__hash__(mock))
         self.assertEqual(str(mock), object.__str__(mock))
-        self.assertEqual(unicode(mock), object.__str__(mock))
-        self.assertIsInstance(unicode(mock), unicode)
+        self.assertEqual(str(mock), object.__str__(mock))
+        self.assertIsInstance(str(mock), str)
         self.assertTrue(bool(mock))
         if not inPy3k:
             self.assertEqual(oct(mock), '1')

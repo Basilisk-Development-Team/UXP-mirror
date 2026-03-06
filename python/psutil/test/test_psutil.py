@@ -53,7 +53,7 @@ except ImportError:
     import mock  # requires "pip install mock"
 
 import psutil
-from psutil._compat import PY3, callable, int, unicode
+from psutil._compat import PY3, callable, int, str
 
 if sys.version_info < (2, 7):
     import unittest2 as unittest  # https://pypi.python.org/pypi/unittest2
@@ -85,7 +85,7 @@ TESTFN_UNICODE = TESTFN + "ƒőő"
 TESTFILE_PREFIX = 'psutil-test-suite-'
 if not PY3:
     try:
-        TESTFN_UNICODE = unicode(TESTFN_UNICODE, sys.getfilesystemencoding())
+        TESTFN_UNICODE = str(TESTFN_UNICODE, sys.getfilesystemencoding())
     except UnicodeDecodeError:
         TESTFN_UNICODE = TESTFN + "???"
 
@@ -325,13 +325,13 @@ def check_ip_address(addr, family):
             assert 0 <= num <= 255, addr
         if ipaddress:
             if not PY3:
-                addr = unicode(addr)
+                addr = str(addr)
             ipaddress.IPv4Address(addr)
     elif family == AF_INET6:
         assert isinstance(addr, str), addr
         if ipaddress:
             if not PY3:
-                addr = unicode(addr)
+                addr = str(addr)
             ipaddress.IPv6Address(addr)
     elif family == psutil.AF_LINK:
         assert re.match('([a-fA-F0-9]{2}[:|\-]?){6}', addr) is not None, addr
@@ -2434,7 +2434,7 @@ class TestFetchAllProcesses(unittest.TestCase):
         self.assertTrue(ret >= 0)
 
     def name(self, ret):
-        self.assertIsInstance(ret, (str, unicode))
+        self.assertIsInstance(ret, (str, str))
         self.assertTrue(ret)
 
     def create_time(self, ret):

@@ -631,7 +631,7 @@ class TestPaths(unittest.TestCase):
 class TestTypedRecord(unittest.TestCase):
 
     def test_fields(self):
-        T = ContextDerivedTypedRecord(('field1', unicode),
+        T = ContextDerivedTypedRecord(('field1', str),
                                       ('field2', list))
         inst = T(None)
         self.assertEqual(inst.field1, '')
@@ -647,7 +647,7 @@ class TestTypedRecord(unittest.TestCase):
             inst.field3 = []
 
     def test_coercion(self):
-        T = ContextDerivedTypedRecord(('field1', unicode),
+        T = ContextDerivedTypedRecord(('field1', str),
                                       ('field2', list))
         inst = T(None)
         inst.field1 = 3
@@ -673,45 +673,45 @@ class TestFiles(unittest.TestCase):
     def test_single_bug_component(self):
         c = Context({})
         f = Files(c, pattern='**')
-        f['BUG_COMPONENT'] = (u'Product1', u'Component1')
+        f['BUG_COMPONENT'] = ('Product1', 'Component1')
 
         files = {'moz.build': f}
         self.assertEqual(Files.aggregate(files), {
-            'bug_component_counts': [((u'Product1', u'Component1'), 1)],
-            'recommended_bug_component': (u'Product1', u'Component1'),
+            'bug_component_counts': [(('Product1', 'Component1'), 1)],
+            'recommended_bug_component': ('Product1', 'Component1'),
         })
 
     def test_multiple_bug_components(self):
         c = Context({})
         f1 = Files(c, pattern='**')
-        f1['BUG_COMPONENT'] = (u'Product1', u'Component1')
+        f1['BUG_COMPONENT'] = ('Product1', 'Component1')
 
         f2 = Files(c, pattern='**')
-        f2['BUG_COMPONENT'] = (u'Product2', u'Component2')
+        f2['BUG_COMPONENT'] = ('Product2', 'Component2')
 
         files = {'a': f1, 'b': f2, 'c': f1}
         self.assertEqual(Files.aggregate(files), {
             'bug_component_counts': [
-                ((u'Product1', u'Component1'), 2),
-                ((u'Product2', u'Component2'), 1),
+                (('Product1', 'Component1'), 2),
+                (('Product2', 'Component2'), 1),
             ],
-            'recommended_bug_component': (u'Product1', u'Component1'),
+            'recommended_bug_component': ('Product1', 'Component1'),
         })
 
     def test_no_recommended_bug_component(self):
         """If there is no clear count winner, we don't recommend a bug component."""
         c = Context({})
         f1 = Files(c, pattern='**')
-        f1['BUG_COMPONENT'] = (u'Product1', u'Component1')
+        f1['BUG_COMPONENT'] = ('Product1', 'Component1')
 
         f2 = Files(c, pattern='**')
-        f2['BUG_COMPONENT'] = (u'Product2', u'Component2')
+        f2['BUG_COMPONENT'] = ('Product2', 'Component2')
 
         files = {'a': f1, 'b': f2}
         self.assertEqual(Files.aggregate(files), {
             'bug_component_counts': [
-                ((u'Product1', u'Component1'), 1),
-                ((u'Product2', u'Component2'), 1),
+                (('Product1', 'Component1'), 1),
+                (('Product2', 'Component2'), 1),
             ],
             'recommended_bug_component': None,
         })

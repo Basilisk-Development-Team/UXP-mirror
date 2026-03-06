@@ -425,7 +425,7 @@ class ExceptionInfo(object):
     def __unicode__(self):
         entry = self.traceback[-1]
         loc = ReprFileLocation(entry.path, entry.lineno + 1, self.exconly())
-        return unicode(loc)
+        return str(loc)
 
 
 class FormattedExcinfo(object):

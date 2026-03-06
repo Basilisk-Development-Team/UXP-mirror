@@ -17,7 +17,7 @@ from mozbuild.shellutil import quote as shell_quote
 
 
 if sys.version_info.major == 2:
-    text_type = unicode
+    text_type = str
 else:
     text_type = str
 

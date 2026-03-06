@@ -126,17 +126,17 @@ class DataType(object):
 class Unicode(DataType):
 
     def convert(self, data):
-        if isinstance(data, unicode):
+        if isinstance(data, str):
             return data
         if isinstance(data, str):
             return data.decode("utf8", "replace")
-        return unicode(data)
+        return str(data)
 
 
 class TestId(DataType):
 
     def convert(self, data):
-        if isinstance(data, unicode):
+        if isinstance(data, str):
             return data
         elif isinstance(data, bytes):
             return data.decode("utf-8", "replace")

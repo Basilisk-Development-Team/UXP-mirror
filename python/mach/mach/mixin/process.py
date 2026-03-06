@@ -109,10 +109,10 @@ class ProcessExecutionMixin(LoggingMixin):
         # want UTF-8, they shouldn't pass in a unicode instance.
         normalized_env = {}
         for k, v in list(use_env.items()):
-            if isinstance(k, unicode):
+            if isinstance(k, str):
                 k = k.encode('utf-8', 'strict')
 
-            if isinstance(v, unicode):
+            if isinstance(v, str):
                 v = v.encode('utf-8', 'strict')
 
             normalized_env[k] = v

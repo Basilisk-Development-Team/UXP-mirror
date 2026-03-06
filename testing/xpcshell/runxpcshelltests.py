@@ -81,7 +81,7 @@ from mozrunner.utils import get_stack_fixer_function
 # (U+0000 through U+001F; U+007F; U+0080 through U+009F),
 # except TAB (U+0009), CR (U+000D), LF (U+000A) and backslash (U+005C).
 # A raw string is deliberately not used.
-_cleanup_encoding_re = re.compile(u'[\x00-\x08\x0b\x0c\x0e-\x1f\x7f-\x9f\\\\]')
+_cleanup_encoding_re = re.compile('[\x00-\x08\x0b\x0c\x0e-\x1f\x7f-\x9f\\\\]')
 def _cleanup_encoding_repl(m):
     c = m.group(0)
     return '\\\\' if c == '\\' else '\\x{0:02X}'.format(ord(c))
@@ -92,8 +92,8 @@ def cleanup_encoding(s):
        UTF-8, but it may not be *correct* UTF-8.  Return a
        sanitized unicode object."""
     if not isinstance(s, basestring):
-        return unicode(s)
-    if not isinstance(s, unicode):
+        return str(s)
+    if not isinstance(s, str):
         s = s.decode('utf-8', 'replace')
     # Replace all C0 and C1 control characters with \xNN escapes.
     return _cleanup_encoding_re.sub(_cleanup_encoding_repl, s)
@@ -1220,7 +1220,7 @@ class XPCShellTests(object):
         # All of the keys in question should be ASCII.
         fixedInfo = {}
         for k, v in list(self.mozInfo.items()):
-            if isinstance(k, unicode):
+            if isinstance(k, str):
                 k = k.encode('ascii')
             fixedInfo[k] = v
         self.mozInfo = fixedInfo

@@ -331,7 +331,7 @@ class PreparedRequest(RequestEncodingMixin, RequestHooksMixin):
         if isinstance(url, bytes):
             url = url.decode('utf8')
         else:
-            url = unicode(url) if is_py2 else str(url)
+            url = str(url) if is_py2 else str(url)
 
         # Don't do any URL preparation for non-HTTP schemes like `mailto`,
         # `data` etc to work around exceptions from `url_parse`, which

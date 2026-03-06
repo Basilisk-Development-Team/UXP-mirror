@@ -135,7 +135,7 @@ class MessageLogger(object):
     """File-like object for logging messages (structured logs)"""
     BUFFERING_THRESHOLD = 100
     # This is a delimiter used by the JS side to avoid logs interleaving
-    DELIMITER = u'\ue175\uee31\u2c32\uacbf'
+    DELIMITER = '\ue175\uee31\u2c32\uacbf'
     BUFFERED_ACTIONS = set(['test_status', 'log'])
     VALID_ACTIONS = set(['suite_start', 'suite_end', 'test_start', 'test_end',
                          'test_status', 'log',
@@ -179,8 +179,8 @@ class MessageLogger(object):
         if 'message' in message:
             if isinstance(message['message'], bytes):
                 message['message'] = message['message'].decode('utf-8', 'replace')
-            elif not isinstance(message['message'], unicode):
-                message['message'] = unicode(message['message'])
+            elif not isinstance(message['message'], str):
+                message['message'] = str(message['message'])
 
     def parse_line(self, line):
         """Takes a given line of input (structured or not) and

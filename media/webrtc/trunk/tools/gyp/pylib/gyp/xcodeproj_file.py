@@ -324,7 +324,7 @@ class XCObject(object):
           that._properties[key] = new_value
         else:
           that._properties[key] = value
-      elif isinstance(value, str) or isinstance(value, unicode) or \
+      elif isinstance(value, str) or isinstance(value, str) or \
            isinstance(value, int):
         that._properties[key] = value
       elif isinstance(value, list):
@@ -603,7 +603,7 @@ class XCObject(object):
       comment = value.Comment()
     elif isinstance(value, str):
       printable += self._EncodeString(value)
-    elif isinstance(value, unicode):
+    elif isinstance(value, str):
       printable += self._EncodeString(value.encode('utf-8'))
     elif isinstance(value, int):
       printable += str(value)
@@ -766,7 +766,7 @@ class XCObject(object):
                 ' must be list, not ' + value.__class__.__name__)
         for item in value:
           if not isinstance(item, property_type) and \
-             not (item.__class__ == unicode and property_type == str):
+             not (item.__class__ == str and property_type == str):
             # Accept unicode where str is specified.  str is treated as
             # UTF-8-encoded.
             raise TypeError(
@@ -774,7 +774,7 @@ class XCObject(object):
                   ' must be ' + property_type.__name__ + ', not ' + \
                   item.__class__.__name__)
       elif not isinstance(value, property_type) and \
-           not (value.__class__ == unicode and property_type == str):
+           not (value.__class__ == str and property_type == str):
         # Accept unicode where str is specified.  str is treated as
         # UTF-8-encoded.
         raise TypeError(
@@ -788,7 +788,7 @@ class XCObject(object):
             self._properties[property] = value.Copy()
           else:
             self._properties[property] = value
-        elif isinstance(value, str) or isinstance(value, unicode) or \
+        elif isinstance(value, str) or isinstance(value, str) or \
              isinstance(value, int):
           self._properties[property] = value
         elif isinstance(value, list):

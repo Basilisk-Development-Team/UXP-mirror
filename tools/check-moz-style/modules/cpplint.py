@@ -948,7 +948,7 @@ def check_for_unicode_replacement_characters(filename, lines, error):
       error: The function to call with any errors found.
     """
     for line_number, line in enumerate(lines):
-        if u'\ufffd' in line:
+        if '\ufffd' in line:
             error(filename, line_number, 'readability/utf8', 5,
                   'Line contains invalid UTF-8 (or Unicode replacement character).')
 
@@ -2085,7 +2085,7 @@ def get_line_width(line):
       The width of the line in column positions, accounting for Unicode
       combining characters and wide characters.
     """
-    if isinstance(line, unicode):
+    if isinstance(line, str):
         width = 0
         for c in unicodedata.normalize('NFC', line):
             if unicodedata.east_asian_width(c) in ('W', 'F'):

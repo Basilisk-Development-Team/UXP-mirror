@@ -968,7 +968,7 @@ def path_locations(home_dir):
             size = max(len(home_dir)+1, 256)
             buf = ctypes.create_unicode_buffer(size)
             try:
-                u = unicode
+                u = str
             except NameError:
                 u = str
             ret = GetShortPathName(u(home_dir), buf, size)

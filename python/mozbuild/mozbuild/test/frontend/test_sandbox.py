@@ -345,7 +345,7 @@ class TestMozbuildSandbox(unittest.TestCase):
         sandbox = MozbuildSandbox(Context(VARIABLES, config))
 
         self.assertEqual(sandbox['CONFIG']['BAD_UTF8'],
-            u'\ufffd\ufffd\ufffd\ufffd:')
+            '\ufffd\ufffd\ufffd\ufffd:')
 
     def test_invalid_exports_set_base(self):
         sandbox = self.sandbox()

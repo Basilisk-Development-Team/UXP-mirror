@@ -117,7 +117,7 @@ class TreeMetadataEmitter(LoggingMixin):
         # rid ourselves of 2.6.
         self.info = {}
         for k, v in list(mozinfo.info.items()):
-            if isinstance(k, unicode):
+            if isinstance(k, str):
                 k = k.encode('ascii')
             self.info[k] = v
 
@@ -378,7 +378,7 @@ class TreeMetadataEmitter(LoggingMixin):
         """Verify that a crate's dependencies all specify local paths."""
         for dep_crate_name, values in dependencies.items():
             # A simple version number.
-            if isinstance(values, (str, unicode)):
+            if isinstance(values, (str, str)):
                 raise SandboxValidationError(
                     '%s %s of crate %s does not list a path' % (description, dep_crate_name, crate_name),
                     context)
@@ -1033,7 +1033,7 @@ class TreeMetadataEmitter(LoggingMixin):
             script = mozpath.join(mozpath.dirname(mozpath.dirname(__file__)),
                                   'action', 'process_define_files.py')
             yield GeneratedFile(context, script, 'process_define_file',
-                                unicode(path),
+                                str(path),
                                 [Path(context, path + '.in')])
 
         generated_files = context.get('GENERATED_FILES')

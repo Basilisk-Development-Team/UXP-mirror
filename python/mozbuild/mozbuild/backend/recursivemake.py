@@ -201,7 +201,7 @@ class BackendMakeFile(object):
         self.fh.write(buf)
 
     def write_once(self, buf):
-        if isinstance(buf, unicode):
+        if isinstance(buf, str):
             buf = buf.encode('utf-8')
         if b'\n' + buf not in self.fh.getvalue():
             self.write(buf)

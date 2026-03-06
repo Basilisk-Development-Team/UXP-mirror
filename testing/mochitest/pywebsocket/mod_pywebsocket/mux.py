@@ -960,7 +960,7 @@ class _LogicalStream(Stream):
             raise BadOperationException(
                 'Requested send_message after sending out a closing handshake')
 
-        if binary and isinstance(message, unicode):
+        if binary and isinstance(message, str):
             raise BadOperationException(
                 'Message for binary frame must be instance of str')
 

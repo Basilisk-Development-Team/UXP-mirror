@@ -78,7 +78,7 @@ def hash_file(path, hasher=None):
     return h.hexdigest()
 
 
-class EmptyValue(unicode):
+class EmptyValue(str):
     """A dummy type that behaves like an empty string and sequence.
 
     This type exists in order to support
@@ -224,7 +224,7 @@ class FileAvoidWrite(BytesIO):
         self.mode = mode
 
     def write(self, buf):
-        if isinstance(buf, unicode):
+        if isinstance(buf, str):
             buf = buf.encode('utf-8')
         BytesIO.write(self, buf)
 
@@ -1149,7 +1149,7 @@ class EnumStringComparisonError(Exception):
     pass
 
 
-class EnumString(unicode):
+class EnumString(str):
     '''A string type that only can have a limited set of values, similarly to
     an Enum, and can only be compared against that set of values.
 
@@ -1185,13 +1185,13 @@ def _escape_char(c):
     # quoting could be done with either ' or ".
     if c == "'":
         return "\\'"
-    return unicode(c.encode('unicode_escape'))
+    return str(c.encode('unicode_escape'))
 
 # Mapping table between raw characters below \x80 and their escaped
 # counterpart, when they differ
 _INDENTED_REPR_TABLE = {
     c: e
-    for c, e in [(x, _escape_char(x)) for x in list(map(unichr, list(range(128))))]
+    for c, e in [(x, _escape_char(x)) for x in list(map(chr, list(range(128))))]
     if c != e
 }
 # Regexp matching all characters to escape.
@@ -1222,7 +1222,7 @@ def indented_repr(o, indent=4):
         elif isinstance(o, bytes):
             yield 'b'
             yield repr(o)
-        elif isinstance(o, unicode):
+        elif isinstance(o, str):
             yield "'"
             # We want a readable string (non escaped unicode), but some
             # special characters need escaping (e.g. \n, \t, etc.)
@@ -1256,7 +1256,7 @@ def encode(obj, encoding='utf-8'):
         }
     if isinstance(obj, bytes):
         return obj
-    if isinstance(obj, unicode):
+    if isinstance(obj, str):
         return obj.encode(encoding)
     if isinstance(obj, Iterable):
         return [encode(i, encoding) for i in obj]

@@ -462,7 +462,7 @@ class VirtualenvManager(object):
         """
 
         execfile(self.activate_path, dict(__file__=self.activate_path))
-        if isinstance(os.environ['PATH'], unicode):
+        if isinstance(os.environ['PATH'], str):
             os.environ['PATH'] = os.environ['PATH'].encode('utf-8')
 
     def install_pip_package(self, package):

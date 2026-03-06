@@ -57,7 +57,7 @@ else:
 
     def _copyfile(src, dest):
         # False indicates `dest` should be overwritten if it exists already.
-        if isinstance(src, unicode) and isinstance(dest, unicode):
+        if isinstance(src, str) and isinstance(dest, str):
             _CopyFileW(src, dest, False)
         elif isinstance(src, str) and isinstance(dest, str):
             _CopyFileA(src, dest, False)

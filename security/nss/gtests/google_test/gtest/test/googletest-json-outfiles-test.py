@@ -40,89 +40,89 @@ GTEST_OUTPUT_1_TEST = 'gtest_xml_outfile1_test_'
 GTEST_OUTPUT_2_TEST = 'gtest_xml_outfile2_test_'
 
 EXPECTED_1 = {
-    u'tests':
+    'tests':
         1,
-    u'failures':
+    'failures':
         0,
-    u'disabled':
+    'disabled':
         0,
-    u'errors':
+    'errors':
         0,
-    u'time':
-        u'*',
-    u'timestamp':
-        u'*',
-    u'name':
-        u'AllTests',
-    u'testsuites': [{
-        u'name':
-            u'PropertyOne',
-        u'tests':
+    'time':
+        '*',
+    'timestamp':
+        '*',
+    'name':
+        'AllTests',
+    'testsuites': [{
+        'name':
+            'PropertyOne',
+        'tests':
             1,
-        u'failures':
+        'failures':
             0,
-        u'disabled':
+        'disabled':
             0,
-        u'errors':
+        'errors':
             0,
-        u'time':
-            u'*',
-        u'timestamp':
-            u'*',
-        u'testsuite': [{
-            u'name': u'TestSomeProperties',
-            u'status': u'RUN',
-            u'result': u'COMPLETED',
-            u'time': u'*',
-            u'timestamp': u'*',
-            u'classname': u'PropertyOne',
-            u'SetUpProp': u'1',
-            u'TestSomeProperty': u'1',
-            u'TearDownProp': u'1',
+        'time':
+            '*',
+        'timestamp':
+            '*',
+        'testsuite': [{
+            'name': 'TestSomeProperties',
+            'status': 'RUN',
+            'result': 'COMPLETED',
+            'time': '*',
+            'timestamp': '*',
+            'classname': 'PropertyOne',
+            'SetUpProp': '1',
+            'TestSomeProperty': '1',
+            'TearDownProp': '1',
         }],
     }],
 }
 
 EXPECTED_2 = {
-    u'tests':
+    'tests':
         1,
-    u'failures':
+    'failures':
         0,
-    u'disabled':
+    'disabled':
         0,
-    u'errors':
+    'errors':
         0,
-    u'time':
-        u'*',
-    u'timestamp':
-        u'*',
-    u'name':
-        u'AllTests',
-    u'testsuites': [{
-        u'name':
-            u'PropertyTwo',
-        u'tests':
+    'time':
+        '*',
+    'timestamp':
+        '*',
+    'name':
+        'AllTests',
+    'testsuites': [{
+        'name':
+            'PropertyTwo',
+        'tests':
             1,
-        u'failures':
+        'failures':
             0,
-        u'disabled':
+        'disabled':
             0,
-        u'errors':
+        'errors':
             0,
-        u'time':
-            u'*',
-        u'timestamp':
-            u'*',
-        u'testsuite': [{
-            u'name': u'TestSomeProperties',
-            u'status': u'RUN',
-            u'result': u'COMPLETED',
-            u'timestamp': u'*',
-            u'time': u'*',
-            u'classname': u'PropertyTwo',
-            u'SetUpProp': u'2',
-            u'TestSomeProperty': u'2',
-            u'TearDownProp': u'2',
+        'time':
+            '*',
+        'timestamp':
+            '*',
+        'testsuite': [{
+            'name': 'TestSomeProperties',
+            'status': 'RUN',
+            'result': 'COMPLETED',
+            'timestamp': '*',
+            'time': '*',
+            'classname': 'PropertyTwo',
+            'SetUpProp': '2',
+            'TestSomeProperty': '2',
+            'TearDownProp': '2',
         }],
     }],
 }

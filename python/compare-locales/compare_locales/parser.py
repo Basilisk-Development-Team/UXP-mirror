@@ -125,7 +125,7 @@ class Parser:
         except UnicodeDecodeError as e:
             (logging.getLogger('locales')
                     .error("Can't read file: " + file + '; ' + str(e)))
-            self.contents = u''
+            self.contents = ''
         f.close()
 
     def readContents(self, contents):
@@ -219,16 +219,16 @@ class DTDParser(Parser):
     # | [#x200C-#x200D] | [#x2070-#x218F] | [#x2C00-#x2FEF] |
     # [#x3001-#xD7FF] | [#xF900-#xFDCF] | [#xFDF0-#xFFFD] |
     # [#x10000-#xEFFFF]
-    CharMinusDash = u'\x09\x0A\x0D\u0020-\u002C\u002E-\uD7FF\uE000-\uFFFD'
+    CharMinusDash = '\x09\x0A\x0D\u0020-\u002C\u002E-\uD7FF\uE000-\uFFFD'
     XmlComment = '<!--(?:-?[%s])*?-->' % CharMinusDash
-    NameStartChar = u':A-Z_a-z\xC0-\xD6\xD8-\xF6\xF8-\u02FF' + \
-        u'\u0370-\u037D\u037F-\u1FFF\u200C-\u200D\u2070-\u218F' + \
-        u'\u2C00-\u2FEF\u3001-\uD7FF\uF900-\uFDCF\uFDF0-\uFFFD'
+    NameStartChar = ':A-Z_a-z\xC0-\xD6\xD8-\xF6\xF8-\u02FF' + \
+        '\u0370-\u037D\u037F-\u1FFF\u200C-\u200D\u2070-\u218F' + \
+        '\u2C00-\u2FEF\u3001-\uD7FF\uF900-\uFDCF\uFDF0-\uFFFD'
     # + \U00010000-\U000EFFFF seems to be unsupported in python
 
     # NameChar ::= NameStartChar | "-" | "." | [0-9] | #xB7 |
     #     [#x0300-#x036F] | [#x203F-#x2040]
-    NameChar = NameStartChar + ur'\-\.0-9' + u'\xB7\u0300-\u036F\u203F-\u2040'
+    NameChar = NameStartChar + r'\-\.0-9' + '\xB7\u0300-\u036F\u203F-\u2040'
     Name = '[' + NameStartChar + '][' + NameChar + ']*'
     reKey = re.compile('(?:(?P<pre>\s*)(?P<precomment>(?:' + XmlComment +
                        '\s*)*)(?P<entity><!ENTITY\s+(?P<key>' + Name +
@@ -236,9 +236,9 @@ class DTDParser(Parser):
                        '(?P<post>[ \t]*(?:' + XmlComment + '\s*)*\n?)?)',
                        re.DOTALL)
     # add BOM to DTDs, details in bug 435002
-    reHeader = re.compile(u'^\ufeff?'
-                          u'(\s*<!--.*(http://mozilla.org/MPL/2.0/|'
-                          u'LICENSE BLOCK)([^-]+-)*[^-]+-->)?', re.S)
+    reHeader = re.compile('^\ufeff?'
+                          '(\s*<!--.*(http://mozilla.org/MPL/2.0/|'
+                          'LICENSE BLOCK)([^-]+-)*[^-]+-->)?', re.S)
     reFooter = re.compile('\s*(<!--([^-]+-)*[^-]+-->\s*)*$')
     rePE = re.compile('(?:(\s*)((?:' + XmlComment + '\s*)*)'
                       '(<!ENTITY\s+%\s+(' + Name +
@@ -341,7 +341,7 @@ class PropertiesParser(Parser):
         def unescape(m):
             found = m.groupdict()
             if found['uni']:
-                return unichr(int(found['uni'][1:], 16))
+                return chr(int(found['uni'][1:], 16))
             if found['nl']:
                 return ''
             return self.known_escapes.get(found['single'], found['single'])

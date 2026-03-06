@@ -194,7 +194,7 @@ class ConfigureSandbox(dict):
                   'list', 'tuple', 'set', 'dict', 'isinstance', 'getattr',
                   'hasattr', 'enumerate', 'range', 'zip', '__build_class__')
         if b in __builtins__},
-    __import__=forbidden_import, str=unicode)
+    __import__=forbidden_import, str=str)
 
     # Expose a limited set of functions from os.path
     OS = ReadOnlyNamespace(path=ReadOnlyNamespace(**{

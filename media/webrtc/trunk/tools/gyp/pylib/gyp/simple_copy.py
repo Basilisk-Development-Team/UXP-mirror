@@ -29,7 +29,7 @@ def _deepcopy_atomic(x):
   return x
 
 for x in (type(None), int, int, float,
-          bool, str, unicode, type):
+          bool, str, str, type):
   d[x] = _deepcopy_atomic
 
 def _deepcopy_list(x):

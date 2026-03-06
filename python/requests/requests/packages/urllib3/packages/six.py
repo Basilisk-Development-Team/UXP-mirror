@@ -42,7 +42,7 @@ else:
     string_types = basestring,
     integer_types = (int, int)
     class_types = (type, types.ClassType)
-    text_type = unicode
+    text_type = str
     binary_type = str
 
     if sys.platform.startswith("java"):
@@ -291,7 +291,7 @@ else:
     def b(s):
         return s
     def u(s):
-        return unicode(s, "unicode_escape")
+        return str(s, "unicode_escape")
     int2byte = chr
     import io
     StringIO = BytesIO = io.StringIO
@@ -344,13 +344,13 @@ else:
         want_unicode = False
         sep = kwargs.pop("sep", None)
         if sep is not None:
-            if isinstance(sep, unicode):
+            if isinstance(sep, str):
                 want_unicode = True
             elif not isinstance(sep, str):
                 raise TypeError("sep must be None or a string")
         end = kwargs.pop("end", None)
         if end is not None:
-            if isinstance(end, unicode):
+            if isinstance(end, str):
                 want_unicode = True
             elif not isinstance(end, str):
                 raise TypeError("end must be None or a string")
@@ -358,12 +358,12 @@ else:
             raise TypeError("invalid keyword arguments to print()")
         if not want_unicode:
             for arg in args:
-                if isinstance(arg, unicode):
+                if isinstance(arg, str):
                     want_unicode = True
                     break
         if want_unicode:
-            newline = unicode("\n")
-            space = unicode(" ")
+            newline = str("\n")
+            space = str(" ")
         else:
             newline = "\n"
             space = " "

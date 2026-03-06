@@ -260,8 +260,8 @@ var  foo    =  "hey";
         assert output == "function foo(''){}"
     
     def testUnicode(self):
-        instr = u'\u4000 //foo'
-        expected = u'\u4000'
+        instr = '\u4000 //foo'
+        expected = '\u4000'
         output = jsmin.jsmin(instr)
         self.assertEqual(output, expected)
 

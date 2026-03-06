@@ -14,15 +14,15 @@ except ImportError:
 
 class NullTerminal(object):
     """Replacement for `blessings.Terminal()` that does no formatting."""
-    class NullCallableString(unicode):
+    class NullCallableString(str):
         """A dummy callable Unicode stolen from blessings"""
         def __new__(cls):
-            new = unicode.__new__(cls, u'')
+            new = str.__new__(cls, '')
             return new
 
         def __call__(self, *args):
             if len(args) != 1 or isinstance(args[0], int):
-                return u''
+                return ''
             return args[0]
 
     def __getattr__(self, attr):

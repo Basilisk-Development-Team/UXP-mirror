@@ -13,7 +13,7 @@ class StatusHandler(reader.LogHandler):
             lambda: defaultdict(lambda: defaultdict(int))))
 
     def test_id(self, test):
-        if type(test) in (str, unicode):
+        if type(test) in (str, str):
             return test
         else:
             return tuple(test)

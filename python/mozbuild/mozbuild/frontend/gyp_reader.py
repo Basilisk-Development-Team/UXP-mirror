@@ -42,7 +42,7 @@ script_dir = mozpath.join(chrome_src, 'build')
 
 
 def encode(value):
-    if isinstance(value, unicode):
+    if isinstance(value, str):
         return value.encode('utf-8')
     return value
 

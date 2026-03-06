@@ -45,7 +45,7 @@ else:
 
 try:
     # < Python3
-    unicode_type = unicode
+    unicode_type = str
     have_python3 = False
 except NameError:
     # Python3.

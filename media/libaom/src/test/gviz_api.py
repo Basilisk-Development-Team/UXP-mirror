@@ -231,7 +231,7 @@ class DataTable(object):
       raise DataTableException("Wrong type %s when expected number" % t_value)
 
     elif value_type == "string":
-      if isinstance(value, unicode):
+      if isinstance(value, str):
         return value
       else:
         return str(value).decode("utf-8")
@@ -296,7 +296,7 @@ class DataTable(object):
                             datetime.date,
                             datetime.time)):
       return str(value)
-    elif isinstance(value, unicode):
+    elif isinstance(value, str):
       return value
     elif isinstance(value, bool):
       return str(value).lower()

@@ -83,7 +83,7 @@ from functools import reduce
 
 
 if sys.version_info.major == 2:
-    text_type = unicode
+    text_type = str
     type_type = types.TypeType
 else:
     text_type = str
@@ -483,7 +483,7 @@ class TemplateFunction(object):
         def visit_Str(self, node):
             # String nodes we got from the AST parser are str, but we want
             # unicode literals everywhere, so transform them.
-            node.s = unicode(node.s)
+            node.s = str(node.s)
             return node
 
         def visit_Name(self, node):
@@ -616,7 +616,7 @@ class BuildReaderError(Exception):
 
             for l in traceback.format_exception(type(self.other), self.other,
                 self.trace):
-                s.write(unicode(l))
+                s.write(str(l))
 
         return s.getvalue()
 

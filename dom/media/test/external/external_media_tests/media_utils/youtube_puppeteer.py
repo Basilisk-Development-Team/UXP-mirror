@@ -489,7 +489,7 @@ class YouTubePuppeteer(VideoPuppeteer):
         for field in self._last_seen_player_state._fields:
             # For compatibility with different test environments we force ascii
             field_ascii = (
-                unicode(getattr(self._last_seen_player_state, field))
+                str(getattr(self._last_seen_player_state, field))
                         .encode('ascii', 'replace'))
             messages += [('\t{}: {}'.format(field, field_ascii))]
         messages += '}'

@@ -293,7 +293,7 @@ class DTDChecker(Checker):
                     col -= len("<!DOCTYPE elem [")  # first line is DOCTYPE
             yield ('error', (lnr, col), ' '.join(e.args), 'xmlparse')
 
-        warntmpl = u'Referencing unknown entity `%s`'
+        warntmpl = 'Referencing unknown entity `%s`'
         if reflist:
             if inContext:
                 elsewhere = reflist - inContext

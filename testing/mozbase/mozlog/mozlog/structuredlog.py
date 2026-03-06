@@ -433,7 +433,7 @@ def _log_func(level_name):
                 exc_info = sys.exc_info()
             if exc_info != (None, None, None):
                 bt = traceback.format_exception(*exc_info)
-                data["stack"] = u"\n".join(bt)
+                data["stack"] = "\n".join(bt)
 
         data["level"] = level_name
         self._log_data("log", data)

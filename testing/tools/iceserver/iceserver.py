@@ -322,7 +322,7 @@ class StunMessage(object):
         digest_buf = self.build(MESSAGE_INTEGRITY)
         # Trim off the MESSAGE-INTEGRITY attr
         digest_buf = digest_buf[:len(digest_buf) - 24]
-        password = passlib.utils.saslprep(unicode(password))
+        password = passlib.utils.saslprep(str(password))
         key_string = "{}:{}:{}".format(username, realm, password)
         md5 = hashlib.md5()
         md5.update(key_string)

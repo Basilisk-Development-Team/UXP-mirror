@@ -28,9 +28,9 @@ class TestNsinstall(unittest.TestCase):
         # Unicode strings means non-ASCII children can be deleted properly on
         # Windows
         if sys.stdin.encoding is None:
-            tmpdir = unicode(self.tmpdir)
+            tmpdir = str(self.tmpdir)
         else:
-            tmpdir = unicode(self.tmpdir, sys.stdin.encoding)
+            tmpdir = str(self.tmpdir, sys.stdin.encoding)
         rmtree(tmpdir)
 
     # utility methods for tests
@@ -141,9 +141,9 @@ class TestNsinstall(unittest.TestCase):
     if RUN_NON_ASCII_TESTS:
         def test_nsinstall_non_ascii(self):
             "Test that nsinstall handles non-ASCII files"
-            filename = u"\u2325\u3452\u2415\u5081"
+            filename = "\u2325\u3452\u2415\u5081"
             testfile = self.touch(filename)
-            testdir = self.mkdirs(u"\u4241\u1D04\u1414")
+            testdir = self.mkdirs("\u4241\u1D04\u1414")
             self.assertEqual(nsinstall([testfile.encode("utf-8"),
                                         testdir.encode("utf-8")]), 0)
 
@@ -152,9 +152,9 @@ class TestNsinstall(unittest.TestCase):
 
         def test_nsinstall_non_ascii_subprocess(self):
             "Test that nsinstall as a subprocess handles non-ASCII files"
-            filename = u"\u2325\u3452\u2415\u5081"
+            filename = "\u2325\u3452\u2415\u5081"
             testfile = self.touch(filename)
-            testdir = self.mkdirs(u"\u4241\u1D04\u1414")
+            testdir = self.mkdirs("\u4241\u1D04\u1414")
             # We don't use subprocess because it can't handle Unicode on
             # Windows <http://bugs.python.org/issue1759845>. mozprocess calls
             # CreateProcessW directly so it's perfect.

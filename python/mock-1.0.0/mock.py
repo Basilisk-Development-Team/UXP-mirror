@@ -56,10 +56,10 @@ except ImportError:
         return inner
 
 try:
-    unicode
+    str
 except NameError:
     # Python 3
-    basestring = unicode = str
+    basestring = str = str
 
 try:
     int
@@ -1454,7 +1454,7 @@ def _patch_multiple(target, spec=None, create=False, spec_set=None,
     When used as a class decorator `patch.multiple` honours `patch.TEST_PREFIX`
     for choosing which methods to wrap.
     """
-    if type(target) in (unicode, str):
+    if type(target) in (str, str):
         getter = lambda: _importer(target)
     else:
         getter = lambda: target
@@ -1755,7 +1755,7 @@ _calculate_return_value = {
     '__hash__': lambda self: object.__hash__(self),
     '__str__': lambda self: object.__str__(self),
     '__sizeof__': lambda self: object.__sizeof__(self),
-    '__unicode__': lambda self: unicode(object.__str__(self)),
+    '__unicode__': lambda self: str(object.__str__(self)),
 }
 
 _return_values = {

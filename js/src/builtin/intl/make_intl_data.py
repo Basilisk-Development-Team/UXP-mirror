@@ -50,9 +50,9 @@ def writeMappingHeader(println, description, source, url):
     if type(description) is not list:
         description = [description]
     for desc in description:
-        println(u"// {0}".format(desc))
-    println(u"// Derived from {0}.".format(source))
-    println(u"// {0}".format(url))
+        println("// {0}".format(desc))
+    println("// Derived from {0}.".format(source))
+    println("// {0}".format(url))
 
 def writeMappingsVar(println, mapping, name, description, source, url):
     """ Writes a variable definition with a mapping table.
@@ -61,12 +61,12 @@ def writeMappingsVar(println, mapping, name, description, source, url):
         function with the given variable name and a comment with description,
         source, and URL.
     """
-    println(u"")
+    println("")
     writeMappingHeader(println, description, source, url)
-    println(u"var {0} = {{".format(name))
+    println("var {0} = {{".format(name))
     for (key, value) in sorted(list(mapping.items()), key=itemgetter(0)):
-        println(u'    "{0}": "{1}",'.format(key, value))
-    println(u"};")
+        println('    "{0}": "{1}",'.format(key, value))
+    println("};")
 
 def writeMappingsBinarySearch(println, fn_name, type_name, name, validate_fn, validate_case_fn,
                               mappings, tag_maxlength, description, source, url):
@@ -75,9 +75,9 @@ def writeMappingsBinarySearch(println, fn_name, type_name, name, validate_fn, va
         Uses the contents of |mapping|, which can either be a dictionary or set,
         to emit a mapping function to find subtag replacements.
     """
-    println(u"")
+    println("")
     writeMappingHeader(println, description, source, url)
-    println(u"""
+    println("""
 bool js::intl::LanguageTag::{0}({1} {2}) {{
   MOZ_ASSERT({3}({2}.span()));
   MOZ_ASSERT({4}({2}.span()));
@@ -85,18 +85,18 @@ bool js::intl::LanguageTag::{0}({1} {2}) {{
 
     def write_array(subtags, name, length, fixed):
         if fixed:
-            println(u"    static const char {}[{}][{}] = {{".format(name, len(subtags),
+            println("    static const char {}[{}][{}] = {{".format(name, len(subtags),
                                                                     length + 1))
         else:
-            println(u"    static const char* {}[{}] = {{".format(name, len(subtags)))
+            println("    static const char* {}[{}] = {{".format(name, len(subtags)))
 
         # Group in pairs of ten to not exceed the 80 line column limit.
         for entries in grouper(subtags, 10):
-            entries = (u"\"{}\"".format(tag).rjust(length + 2)
+            entries = ("\"{}\"".format(tag).rjust(length + 2)
                        for tag in entries if tag is not None)
-            println(u"      {},".format(u", ".join(entries)))
+            println("      {},".format(", ".join(entries)))
 
-        println(u"    };")
+        println("    };")
 
     trailing_return = True
 
@@ -107,12 +107,12 @@ bool js::intl::LanguageTag::{0}({1} {2}) {{
     for (length, subtags) in groupby(sorted(mappings_keys, key=len), len):
         # Omit the length check if the current length is the maximum length.
         if length != tag_maxlength:
-            println(u"""
+            println("""
   if ({}.length() == {}) {{
 """.format(name, length).rstrip("\n"))
         else:
             trailing_return = False
-            println(u"""
+            println("""
   {
 """.rstrip("\n"))
 
@@ -120,12 +120,12 @@ bool js::intl::LanguageTag::{0}({1} {2}) {{
         subtags = sorted(subtags)
 
         def equals(subtag):
-            return u"""{}.equalTo("{}")""".format(name, subtag)
+            return """{}.equalTo("{}")""".format(name, subtag)
 
         # Don't emit a binary search for short lists.
         if len(subtags) == 1:
             if type(mappings) == dict:
-                println(u"""
+                println("""
     if ({}) {{
       {}.set("{}");
       return true;
@@ -133,35 +133,35 @@ bool js::intl::LanguageTag::{0}({1} {2}) {{
     return false;
 """.format(equals(subtags[0]), name, mappings[subtags[0]]).strip("\n"))
             else:
-                println(u"""
+                println("""
     return {};
 """.format(equals(subtags[0])).strip("\n"))
         elif len(subtags) <= 4:
             if type(mappings) == dict:
                 for subtag in subtags:
-                    println(u"""
+                    println("""
     if ({}) {{
       {}.set("{}");
       return true;
     }}
 """.format(equals(subtag), name, mappings[subtag]).strip("\n"))
 
-                println(u"""
+                println("""
     return false;
 """.strip("\n"))
             else:
                 cond = (equals(subtag) for subtag in subtags)
-                cond = (u" ||\n" + u" " * (4 + len("return "))).join(cond)
-                println(u"""
+                cond = (" ||\n" + " " * (4 + len("return "))).join(cond)
+                println("""
     return {};
 """.format(cond).strip("\n"))
         else:
             write_array(subtags, name + "s", length, True)
 
             if type(mappings) == dict:
-                write_array([mappings[k] for k in subtags], u"aliases", length, False)
+                write_array([mappings[k] for k in subtags], "aliases", length, False)
 
-                println(u"""
+                println("""
     if (const char* replacement = SearchReplacement({0}s, aliases, {0})) {{
       {0}.set(mozilla::MakeCStringSpan(replacement));
       return true;
@@ -169,27 +169,27 @@ bool js::intl::LanguageTag::{0}({1} {2}) {{
     return false;
 """.format(name).rstrip())
             else:
-                println(u"""
+                println("""
     return HasReplacement({0}s, {0});
 """.format(name).rstrip())
 
-        println(u"""
+        println("""
   }
 """.strip("\n"))
 
     if trailing_return:
-        println(u"""
+        println("""
   return false;""")
 
-    println(u"""
+    println("""
 }""".lstrip("\n"))
 
 
 def writeComplexLanguageTagMappings(println, complex_language_mappings,
                                     description, source, url):
-    println(u"")
+    println("")
     writeMappingHeader(println, description, source, url)
-    println(u"""
+    println("""
 void js::intl::LanguageTag::performComplexLanguageMappings() {
   MOZ_ASSERT(IsStructurallyValidLanguageTag(language().span()));
   MOZ_ASSERT(IsCanonicallyCasedLanguageTag(language().span()));
@@ -214,42 +214,42 @@ void js::intl::LanguageTag::performComplexLanguageMappings() {
         if deprecated_language in language_aliases[key]:
             continue
 
-        if_kind = u"if" if first_language else u"else if"
+        if_kind = "if" if first_language else "else if"
         first_language = False
 
-        cond = (u"language().equalTo(\"{}\")".format(lang)
+        cond = ("language().equalTo(\"{}\")".format(lang)
                 for lang in [deprecated_language] + language_aliases[key])
-        cond = (u" ||\n" + u" " * (2 + len(if_kind) + 2)).join(cond)
+        cond = (" ||\n" + " " * (2 + len(if_kind) + 2)).join(cond)
 
-        println(u"""
+        println("""
   {} ({}) {{""".format(if_kind, cond).strip("\n"))
 
-        println(u"""
+        println("""
     setLanguage("{}");""".format(language).strip("\n"))
 
         if script is not None:
-            println(u"""
+            println("""
     if (script().missing()) {{
       setScript("{}");
     }}""".format(script).strip("\n"))
         if region is not None:
-            println(u"""
+            println("""
     if (region().missing()) {{
       setRegion("{}");
     }}""".format(region).strip("\n"))
-        println(u"""
+        println("""
   }""".strip("\n"))
 
-    println(u"""
+    println("""
 }
 """.strip("\n"))
 
 
 def writeComplexRegionTagMappings(println, complex_region_mappings,
                                   description, source, url):
-    println(u"")
+    println("")
     writeMappingHeader(println, description, source, url)
-    println(u"""
+    println("""
 void js::intl::LanguageTag::performComplexRegionMappings() {
   MOZ_ASSERT(IsStructurallyValidLanguageTag(language().span()));
   MOZ_ASSERT(IsCanonicallyCasedLanguageTag(language().span()));
@@ -281,14 +281,14 @@ void js::intl::LanguageTag::performComplexRegionMappings() {
         if deprecated_region in region_aliases[key]:
             continue
 
-        if_kind = u"if" if first_region else u"else if"
+        if_kind = "if" if first_region else "else if"
         first_region = False
 
-        cond = (u"region().equalTo(\"{}\")".format(region)
+        cond = ("region().equalTo(\"{}\")".format(region)
                 for region in [deprecated_region] + region_aliases[key])
-        cond = (u" ||\n" + u" " * (2 + len(if_kind) + 2)).join(cond)
+        cond = (" ||\n" + " " * (2 + len(if_kind) + 2)).join(cond)
 
-        println(u"""
+        println("""
   {} ({}) {{""".format(if_kind, cond).strip("\n"))
 
         replacement_regions = sorted({region for (_, _, region) in non_default_replacements})
@@ -301,31 +301,31 @@ void js::intl::LanguageTag::performComplexRegionMappings() {
                                                  )
                                                  if region == replacement_region)
 
-            if_kind = u"if" if first_case else u"else if"
+            if_kind = "if" if first_case else "else if"
             first_case = False
 
             def compare_tags(language, script):
                 if script is None:
-                    return u"language().equalTo(\"{}\")".format(language)
-                return u"(language().equalTo(\"{}\") && script().equalTo(\"{}\"))".format(
+                    return "language().equalTo(\"{}\")".format(language)
+                return "(language().equalTo(\"{}\") && script().equalTo(\"{}\"))".format(
                     language, script)
 
             cond = (compare_tags(language, script)
                     for (language, script) in replacement_language_script)
-            cond = (u" ||\n" + u" " * (4 + len(if_kind) + 2)).join(cond)
+            cond = (" ||\n" + " " * (4 + len(if_kind) + 2)).join(cond)
 
-            println(u"""
+            println("""
     {} ({}) {{
       setRegion("{}");
     }}""".format(if_kind, cond, replacement_region).rstrip().strip("\n"))
 
-        println(u"""
+        println("""
     else {{
       setRegion("{}");
     }}
   }}""".format(default).rstrip().strip("\n"))
 
-    println(u"""
+    println("""
 }
 """.strip("\n"))
 
@@ -333,7 +333,7 @@ void js::intl::LanguageTag::performComplexRegionMappings() {
 def writeVariantTagMappings(println, variant_mappings, description, source,
                             url):
     """ Writes a function definition that maps variant subtags. """
-    println(u"""
+    println("""
 static const char* ToCharPointer(const char* str) {
   return str;
 }
@@ -348,7 +348,7 @@ static bool IsLessThan(const T& a, const U& b) {
 }
 """)
     writeMappingHeader(println, description, source, url)
-    println(u"""
+    println("""
 bool js::intl::LanguageTag::performVariantMappings(JSContext* cx) {
   // The variant subtags need to be sorted for binary search.
   MOZ_ASSERT(std::is_sorted(variants_.begin(), variants_.end(),
@@ -382,35 +382,35 @@ bool js::intl::LanguageTag::performVariantMappings(JSContext* cx) {
     for (deprecated_variant, (type, replacement)) in (
         sorted(list(variant_mappings.items()), key=itemgetter(0))
     ):
-        if_kind = u"if" if first_variant else u"else if"
+        if_kind = "if" if first_variant else "else if"
         first_variant = False
 
-        println(u"""
+        println("""
     {} (strcmp(variant.get(), "{}") == 0) {{
       variants_.erase(variants_.begin() + i);
 """.format(if_kind, deprecated_variant).strip("\n"))
 
         if type == "language":
-            println(u"""
+            println("""
       setLanguage("{}");
 """.format(replacement).strip("\n"))
         elif type == "region":
-            println(u"""
+            println("""
       setRegion("{}");
 """.format(replacement).strip("\n"))
         else:
             assert type == "variant"
-            println(u"""
+            println("""
       if (!insertVariantSortedIfNotPresent("{}")) {{
         return false;
       }}
 """.format(replacement).strip("\n"))
 
-        println(u"""
+        println("""
     }
 """.strip("\n"))
 
-    println(u"""
+    println("""
     else {
       i++;
     }
@@ -423,9 +423,9 @@ bool js::intl::LanguageTag::performVariantMappings(JSContext* cx) {
 def writeGrandfatheredMappingsFunction(println, grandfathered_mappings,
                                        description, source, url):
     """ Writes a function definition that maps grandfathered language tags. """
-    println(u"")
+    println("")
     writeMappingHeader(println, description, source, url)
-    println(u"""\
+    println("""\
 bool js::intl::LanguageTag::updateGrandfatheredMappings(JSContext* cx) {
   // We're mapping regular grandfathered tags to non-grandfathered form here.
   // Other tags remain unchanged.
@@ -526,11 +526,11 @@ bool js::intl::LanguageTag::updateGrandfatheredMappings(JSContext* cx) {
         modern_variants = modern_match.group("variants")
         modern_privateuse = modern_match.group("privateuse")
 
-        println(u"""
+        println("""
   // {} -> {}
 """.format(tag, modern).rstrip())
 
-        println(u"""
+        println("""
   {}if (language().equalTo("{}") && variantEqualTo("{}")) {{
         """.format("" if is_first else "else ",
                    tag_language,
@@ -538,29 +538,29 @@ bool js::intl::LanguageTag::updateGrandfatheredMappings(JSContext* cx) {
 
         is_first = False
 
-        println(u"""
+        println("""
     setLanguage("{}");
         """.format(modern_language).rstrip().strip("\n"))
 
         if modern_script is not None:
-            println(u"""
+            println("""
     setScript("{}");
             """.format(modern_script).rstrip().strip("\n"))
 
         if modern_region is not None:
-            println(u"""
+            println("""
     setRegion("{}");
             """.format(modern_region).rstrip().strip("\n"))
 
         assert modern_variants is None, (
             "all regular grandfathered tags' modern forms do not contain variant subtags")
 
-        println(u"""
+        println("""
     clearVariants();
         """.rstrip().strip("\n"))
 
         if modern_privateuse is not None:
-            println(u"""
+            println("""
     auto privateuse = DuplicateString(cx, "{}");
     if (!privateuse) {{
       return false;
@@ -568,11 +568,11 @@ bool js::intl::LanguageTag::updateGrandfatheredMappings(JSContext* cx) {
     setPrivateuse(std::move(privateuse));
         """.format(modern_privateuse).rstrip().rstrip("\n"))
 
-        println(u"""
+        println("""
     return true;
   }""".rstrip().strip("\n"))
 
-    println(u"""
+    println("""
   return true;
 }""")
 
@@ -1022,10 +1022,10 @@ def writeCLDRLanguageTagData(println, data, url):
     """ Writes the language tag data to the Intl data file. """
 
     println(generatedFileWarning)
-    println(u"// Version: CLDR-{}".format(data["version"]))
-    println(u"// URL: {}".format(url))
+    println("// Version: CLDR-{}".format(data["version"]))
+    println("// URL: {}".format(url))
 
-    println(u"""
+    println("""
 #include "mozilla/Assertions.h"
 #include "mozilla/Span.h"
 #include "mozilla/TextUtils.h"
@@ -1126,7 +1126,7 @@ static bool IsCanonicallyCasedTransformType(mozilla::Span<const char> type) {
 #endif
 """.rstrip())
 
-    source = u"CLDR Supplemental Data, version {}".format(data["version"])
+    source = "CLDR Supplemental Data, version {}".format(data["version"])
     grandfathered_mappings = data["grandfatheredMappings"]
     language_mappings = data["languageMappings"]
     complex_language_mappings = data["complexLanguageMappings"]
@@ -1188,7 +1188,7 @@ def writeCLDRLanguageTagLikelySubtagsTest(println, data, url):
 
     println(generatedFileWarning)
 
-    source = u"CLDR Supplemental Data, version {}".format(data["version"])
+    source = "CLDR Supplemental Data, version {}".format(data["version"])
     language_mappings = data["languageMappings"]
     complex_language_mappings = data["complexLanguageMappings"]
     region_mappings = data["regionMappings"]
@@ -1295,17 +1295,17 @@ def writeCLDRLanguageTagLikelySubtagsTest(println, data, url):
     writeMappingsVar(println, {bcp47(k): bcp47(v) for (k, v) in list(minimized.items())},
                      "minLikelySubtags", "Extracted from likelySubtags.xml.", source, url)
 
-    println(u"""
+    println("""
 for (let [tag, maximal] of Object.entries(maxLikelySubtags)) {
     assertEq(new Intl.Locale(tag).maximize().toString(), maximal);
 }""")
 
-    println(u"""
+    println("""
 for (let [tag, minimal] of Object.entries(minLikelySubtags)) {
     assertEq(new Intl.Locale(tag).minimize().toString(), minimal);
 }""")
 
-    println(u"""
+    println("""
 if (typeof reportCompare === "function")
     reportCompare(0, 0);""")
 
@@ -1375,7 +1375,7 @@ def updateCLDRLangTags(args):
     with io.open(test_file, mode="w", encoding="utf-8", newline="") as f:
         println = partial(print, file=f)
 
-        println(u"// |reftest| skip-if(!this.hasOwnProperty('Intl'))")
+        println("// |reftest| skip-if(!this.hasOwnProperty('Intl'))")
         writeCLDRLanguageTagLikelySubtagsTest(println, data, url)
 
 
@@ -1838,8 +1838,8 @@ def findIncorrectICULinks(ianaZones, ianaLinks, icuZones, icuLinks):
 
     return sorted(result, key=itemgetter(0))
 
-generatedFileWarning = u"// Generated by make_intl_data.py. DO NOT EDIT."
-tzdataVersionComment = u"// tzdata version = {0}"
+generatedFileWarning = "// Generated by make_intl_data.py. DO NOT EDIT."
+tzdataVersionComment = "// tzdata version = {0}"
 
 def processTimeZones(tzdataDir, icuDir, icuTzDir, version, ignoreBackzone, ignoreFactory, out):
     """ Read the time zone info and create a new time zone cpp file. """
@@ -1870,51 +1870,51 @@ def processTimeZones(tzdataDir, icuDir, icuTzDir, version, ignoreBackzone, ignor
 
         println(generatedFileWarning)
         println(tzdataVersionComment.format(version))
-        println(u"")
+        println("")
 
-        println(u"#ifndef builtin_intl_TimeZoneDataGenerated_h")
-        println(u"#define builtin_intl_TimeZoneDataGenerated_h")
-        println(u"")
+        println("#ifndef builtin_intl_TimeZoneDataGenerated_h")
+        println("#define builtin_intl_TimeZoneDataGenerated_h")
+        println("")
 
-        println(u"namespace js {")
-        println(u"namespace timezone {")
-        println(u"")
+        println("namespace js {")
+        println("namespace timezone {")
+        println("")
 
-        println(u"// Format:")
-        println(u'// "ZoneName" // ICU-Name [time zone file]')
-        println(u"const char* const ianaZonesTreatedAsLinksByICU[] = {")
+        println("// Format:")
+        println('// "ZoneName" // ICU-Name [time zone file]')
+        println("const char* const ianaZonesTreatedAsLinksByICU[] = {")
         for (zone, icuZone) in incorrectZones:
-            println(u'    "%s", // %s [%s]' % (zone, icuZone, zone.filename))
-        println(u"};")
-        println(u"")
+            println('    "%s", // %s [%s]' % (zone, icuZone, zone.filename))
+        println("};")
+        println("")
 
-        println(u"// Format:")
-        println(u'// "LinkName", "Target" // ICU-Target [time zone file]')
-        println(u"struct LinkAndTarget")
-        println(u"{")
-        println(u"    const char* const link;")
-        println(u"    const char* const target;")
-        println(u"};")
-        println(u"")
-        println(u"const LinkAndTarget ianaLinksCanonicalizedDifferentlyByICU[] = {")
+        println("// Format:")
+        println('// "LinkName", "Target" // ICU-Target [time zone file]')
+        println("struct LinkAndTarget")
+        println("{")
+        println("    const char* const link;")
+        println("    const char* const target;")
+        println("};")
+        println("")
+        println("const LinkAndTarget ianaLinksCanonicalizedDifferentlyByICU[] = {")
         for (zone, target, icuTarget) in incorrectLinks:
-            println(u'    { "%s", "%s" }, // %s [%s]' % (zone, target, icuTarget, zone.filename))
-        println(u"};")
-        println(u"")
+            println('    { "%s", "%s" }, // %s [%s]' % (zone, target, icuTarget, zone.filename))
+        println("};")
+        println("")
 
-        println(u"// Legacy ICU time zones, these are not valid IANA time zone names. We also")
-        println(u"// disallow the old and deprecated System V time zones.")
-        println(u"// https://ssl.icu-project.org/repos/icu/trunk/icu4c/source/tools/tzcode/icuzones")
-        println(u"const char* const legacyICUTimeZones[] = {")
+        println("// Legacy ICU time zones, these are not valid IANA time zone names. We also")
+        println("// disallow the old and deprecated System V time zones.")
+        println("// https://ssl.icu-project.org/repos/icu/trunk/icu4c/source/tools/tzcode/icuzones")
+        println("const char* const legacyICUTimeZones[] = {")
         for zone in chain(sorted(legacyLinks.keys()), sorted(legacyZones)):
-            println(u'    "%s",' % zone)
-        println(u"};")
-        println(u"")
+            println('    "%s",' % zone)
+        println("};")
+        println("")
 
-        println(u"} // namespace timezone")
-        println(u"} // namespace js")
-        println(u"")
-        println(u"#endif /* builtin_intl_TimeZoneDataGenerated_h */")
+        println("} // namespace timezone")
+        println("} // namespace js")
+        println("")
+        println("#endif /* builtin_intl_TimeZoneDataGenerated_h */")
 
 def updateBackzoneLinks(tzdataDir, links):
     (backzoneZones, backzoneLinks) = readIANAFiles(tzdataDir, ["backzone"])
@@ -1935,11 +1935,11 @@ def generateTzDataLinkTestContent(testDir, version, fileName, description, links
     with io.open(os.path.join(testDir, fileName), mode="w", encoding="utf-8", newline="") as f:
         println = partial(print, file=f)
 
-        println(u'// |reftest| skip-if(!this.hasOwnProperty("Intl"))')
-        println(u"")
+        println('// |reftest| skip-if(!this.hasOwnProperty("Intl"))')
+        println("")
         println(generatedFileWarning)
         println(tzdataVersionComment.format(version))
-        println(u"""
+        println("""
 const tzMapper = [
     x => x,
     x => x.toUpperCase(),
@@ -1948,12 +1948,12 @@ const tzMapper = [
 """)
 
         println(description)
-        println(u"const links = {")
+        println("const links = {")
         for (zone, target) in sorted(links, key=itemgetter(0)):
-            println(u'    "%s": "%s",' % (zone, target))
-        println(u"};")
+            println('    "%s": "%s",' % (zone, target))
+        println("};")
 
-        println(u"""
+        println("""
 for (let [linkName, target] of Object.entries(links)) {
     if (target === "Etc/UTC" || target === "Etc/GMT")
         target = "UTC";
@@ -1965,7 +1965,7 @@ for (let [linkName, target] of Object.entries(links)) {
     }
 }
 """)
-        println(u"""
+        println("""
 if (typeof reportCompare === "function")
     reportCompare(0, 0, "ok");
 """)
@@ -1980,7 +1980,7 @@ def generateTzDataTestBackwardLinks(tzdataDir, version, ignoreBackzone, testDir)
     generateTzDataLinkTestContent(
         testDir, version,
         "timeZone_backward_links.js",
-        u"// Link names derived from IANA Time Zone Database, backward file.",
+        "// Link names derived from IANA Time Zone Database, backward file.",
         iter(links.items())
     )
 
@@ -1994,7 +1994,7 @@ def generateTzDataTestNotBackwardLinks(tzdataDir, version, ignoreBackzone, testD
     generateTzDataLinkTestContent(
         testDir, version,
         "timeZone_notbackward_links.js",
-        u"// Link names derived from IANA Time Zone Database, excluding backward file.",
+        "// Link names derived from IANA Time Zone Database, excluding backward file.",
         iter(links.items())
     )
 
@@ -2007,14 +2007,14 @@ def generateTzDataTestBackzone(tzdataDir, version, ignoreBackzone, testDir):
     (backzones, backlinks) = readIANAFiles(tzdataDir, bkfiles)
 
     if not ignoreBackzone:
-        comment=u"""\
+        comment="""\
 // This file was generated with historical, pre-1970 backzone information
 // respected. Therefore, every zone key listed below is its own Zone, not
 // a Link to a modern-day target as IANA ignoring backzones would say.
 
 """
     else:
-        comment=u"""\
+        comment="""\
 // This file was generated while ignoring historical, pre-1970 backzone
 // information. Therefore, every zone key listed below is part of a Link
 // whose target is the corresponding value.
@@ -2024,7 +2024,7 @@ def generateTzDataTestBackzone(tzdataDir, version, ignoreBackzone, testDir):
     generateTzDataLinkTestContent(
         testDir, version,
         "timeZone_backzone.js",
-        comment + u"// Backzone zones derived from IANA Time Zone Database.",
+        comment + "// Backzone zones derived from IANA Time Zone Database.",
         ((zone, zone if not ignoreBackzone else links[zone]) for zone in backzones if zone in links)
     )
 
@@ -2037,7 +2037,7 @@ def generateTzDataTestBackzoneLinks(tzdataDir, version, ignoreBackzone, testDir)
     (backzones, backlinks) = readIANAFiles(tzdataDir, bkfiles)
 
     if not ignoreBackzone:
-        comment=u"""\
+        comment="""\
 // This file was generated with historical, pre-1970 backzone information
 // respected. Therefore, every zone key listed below points to a target
 // in the backzone file and not to its modern-day target as IANA ignoring
@@ -2045,7 +2045,7 @@ def generateTzDataTestBackzoneLinks(tzdataDir, version, ignoreBackzone, testDir)
 
 """
     else:
-        comment=u"""\
+        comment="""\
 // This file was generated while ignoring historical, pre-1970 backzone
 // information. Therefore, every zone key listed below is part of a Link
 // whose target is the corresponding value ignoring any backzone entries.
@@ -2055,7 +2055,7 @@ def generateTzDataTestBackzoneLinks(tzdataDir, version, ignoreBackzone, testDir)
     generateTzDataLinkTestContent(
         testDir, version,
         "timeZone_backzone_links.js",
-        comment +  u"// Backzone links derived from IANA Time Zone Database.",
+        comment +  "// Backzone links derived from IANA Time Zone Database.",
         ((zone, target if not ignoreBackzone else links[zone]) for (zone, target) in backlinks.items())
     )
 
@@ -2125,7 +2125,7 @@ def updateTzdata(topsrcdir, args):
         updateFrom(tzDir)
 
 def writeUnicodeExtensionsMappings(println, mapping, extension):
-    println(u"""
+    println("""
 template <size_t Length>
 static inline bool Is{0}Key(
   mozilla::Span<const char> key, const char (&str)[Length]) {{
@@ -2150,7 +2150,7 @@ static inline bool Is{0}Type(
                               for replacements in list(mapping.values()))
 
     if needs_binary_search:
-        println(u"""
+        println("""
 static int32_t Compare{0}Type(const char* a, mozilla::Span<const char> b) {{
   MOZ_ASSERT(!std::char_traits<char>::find(b.data(), b.size(), '\\0'),
              "unexpected null-character in string");
@@ -2186,7 +2186,7 @@ static inline const char* Search{0}Replacement(
 }}
 """.format(extension).rstrip("\n"))
 
-    println(u"""
+    println("""
 /**
  * Mapping from deprecated BCP 47 {0} extension types to their preferred
  * values.
@@ -2209,14 +2209,14 @@ const char* js::intl::LanguageTag::replace{0}ExtensionType(
     def write_array(subtags, name, length):
         max_entries = (80 - len("    ")) // (length + len('"", '))
 
-        println(u"    static const char* {}[{}] = {{".format(name, len(subtags)))
+        println("    static const char* {}[{}] = {{".format(name, len(subtags)))
 
         for entries in grouper(subtags, max_entries):
-            entries = (u"\"{}\"".format(tag).rjust(length + 2)
+            entries = ("\"{}\"".format(tag).rjust(length + 2)
                        for tag in entries if tag is not None)
-            println(u"      {},".format(u", ".join(entries)))
+            println("      {},".format(", ".join(entries)))
 
-        println(u"    };")
+        println("    };")
 
     # Merge duplicate keys.
     key_aliases = {}
@@ -2233,12 +2233,12 @@ const char* js::intl::LanguageTag::replace{0}ExtensionType(
         if key in key_aliases[hash_key]:
             continue
 
-        cond = (u"Is{}Key(key, \"{}\")".format(extension, k)
+        cond = ("Is{}Key(key, \"{}\")".format(extension, k)
                 for k in [key] + key_aliases[hash_key])
 
-        if_kind = u"if" if first_key else u"else if"
-        cond = (u" ||\n" + u" " * (2 + len(if_kind) + 2)).join(cond)
-        println(u"""
+        if_kind = "if" if first_key else "else if"
+        cond = (" ||\n" + " " * (2 + len(if_kind) + 2)).join(cond)
+        println("""
   {} ({}) {{""".format(if_kind, cond).strip("\n"))
         first_key = False
 
@@ -2251,20 +2251,20 @@ const char* js::intl::LanguageTag::replace{0}ExtensionType(
 
             write_array(types, "types", max_len)
             write_array(preferred, "aliases", max_len)
-            println(u"""
+            println("""
     return Search{}Replacement(types, aliases, type);
 """.format(extension).strip("\n"))
         else:
             for (type, replacement) in replacements:
-                println(u"""
+                println("""
     if (Is{}Type(type, "{}")) {{
       return "{}";
     }}""".format(extension, type, replacement).strip("\n"))
 
-        println(u"""
+        println("""
   }""".lstrip("\n"))
 
-    println(u"""
+    println("""
   return nullptr;
 }
 """.strip("\n"))

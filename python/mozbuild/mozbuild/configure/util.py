@@ -52,7 +52,7 @@ class Version(LooseVersion):
 
     def __cmp__(self, other):
         # LooseVersion checks isinstance(StringType), so work around it.
-        if isinstance(other, unicode):
+        if isinstance(other, str):
             other = other.encode('ascii')
         return LooseVersion.__cmp__(self, other)
 

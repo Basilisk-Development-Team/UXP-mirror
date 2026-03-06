@@ -297,7 +297,7 @@ class InitializedDefines(ContextDerivedValue, OrderedDict):
             self.update(value)
 
 
-class FinalTargetValue(ContextDerivedValue, unicode):
+class FinalTargetValue(ContextDerivedValue, str):
     def __new__(cls, context, value=""):
         if not value:
             value = 'dist/'
@@ -307,7 +307,7 @@ class FinalTargetValue(ContextDerivedValue, unicode):
                 value += 'bin'
             if context['DIST_SUBDIR']:
                 value += '/' + context['DIST_SUBDIR']
-        return unicode.__new__(cls, value)
+        return str.__new__(cls, value)
 
 
 def Enum(*values):
@@ -355,7 +355,7 @@ class PathMeta(type):
                 cls = SourcePath
         return super(PathMeta, cls).__call__(context, value)
 
-class Path(ContextDerivedValue, unicode, metaclass=PathMeta):
+class Path(ContextDerivedValue, str, metaclass=PathMeta):
     """Stores and resolves a source path relative to a given context
 
     This class is used as a backing type for some of the sandbox variables.
@@ -385,7 +385,7 @@ class Path(ContextDerivedValue, unicode, metaclass=PathMeta):
     def __cmp__(self, other):
         if isinstance(other, Path) and self.srcdir != other.srcdir:
             return cmp(self.full_path, other.full_path)
-        return cmp(unicode(self), other)
+        return cmp(str(self), other)
 
     # __cmp__ is not enough because unicode has __eq__, __ne__, etc. defined
     # and __cmp__ is only used for those when they don't exist.
@@ -613,8 +613,8 @@ def TypedListWithAction(typ, action):
     return _TypedListWithAction
 
 WebPlatformTestManifest = TypedNamedTuple("WebPlatformTestManifest",
-                                          [("manifest_path", unicode),
-                                           ("test_root", unicode)])
+                                          [("manifest_path", str),
+                                           ("test_root", str)])
 ManifestparserManifestList = OrderedListWithAction(read_manifestparser_manifest)
 ReftestManifestList = OrderedListWithAction(read_reftest_manifest)
 WptManifestList = TypedListWithAction(WebPlatformTestManifest, read_wpt_manifest)
@@ -622,12 +622,12 @@ WptManifestList = TypedListWithAction(WebPlatformTestManifest, read_wpt_manifest
 OrderedSourceList = ContextDerivedTypedList(SourcePath, StrictOrderingOnAppendList)
 OrderedTestFlavorList = TypedList(Enum(*all_test_flavors()),
                                   StrictOrderingOnAppendList)
-OrderedStringList = TypedList(unicode, StrictOrderingOnAppendList)
+OrderedStringList = TypedList(str, StrictOrderingOnAppendList)
 DependentTestsEntry = ContextDerivedTypedRecord(('files', OrderedSourceList),
                                                 ('tags', OrderedStringList),
                                                 ('flavors', OrderedTestFlavorList))
 BugzillaComponent = TypedNamedTuple('BugzillaComponent',
-                        [('product', unicode), ('component', unicode)])
+                        [('product', str), ('component', str)])
 
 
 class Files(SubContext):
@@ -908,7 +908,7 @@ VARIABLES = {
         """),
 
     'GENERATED_FILES': (StrictOrderingOnAppendListWithFlagsFactory({
-                'script': unicode,
+                'script': str,
                 'inputs': list }), list,
         """Generic generated files.
 
@@ -1053,7 +1053,7 @@ VARIABLES = {
         """Like ``OBJDIR_FILES``, with preprocessing. Use sparingly.
         """),
 
-    'FINAL_LIBRARY': (unicode, unicode,
+    'FINAL_LIBRARY': (str, str,
         """Library in which the objects of the current directory will be linked.
 
         This variable contains the name of a library, defined elsewhere with
@@ -1104,7 +1104,7 @@ VARIABLES = {
         """A list of python unit tests.
         """),
 
-    'HOST_LIBRARY_NAME': (unicode, unicode,
+    'HOST_LIBRARY_NAME': (str, str,
         """Name of target library generated when cross compiling.
         """),
 
@@ -1122,7 +1122,7 @@ VARIABLES = {
         libraries that link into this library via FINAL_LIBRARY.
         """),
 
-    'LIBRARY_NAME': (unicode, unicode,
+    'LIBRARY_NAME': (str, str,
         """The code name of the library generated for a directory.
 
         By default STATIC_LIBRARY_NAME and SHARED_LIBRARY_NAME take this name.
@@ -1134,7 +1134,7 @@ VARIABLES = {
         ``example/components/xpcomsample.lib`` on Windows.
         """),
 
-    'SHARED_LIBRARY_NAME': (unicode, unicode,
+    'SHARED_LIBRARY_NAME': (str, str,
         """The name of the static library generated for a directory, if it needs to
         differ from the library code name.
 
@@ -1148,7 +1148,7 @@ VARIABLES = {
         Implies FORCE_SHARED_LIB.
         """),
 
-    'STATIC_LIBRARY_NAME': (unicode, unicode,
+    'STATIC_LIBRARY_NAME': (str, str,
         """The name of the static library generated for a directory, if it needs to
         differ from the library code name.
 
@@ -1184,37 +1184,37 @@ VARIABLES = {
 
         This variable contains a list of system libaries to link against.
         """),
-    'RCFILE': (unicode, unicode,
+    'RCFILE': (str, str,
         """The program .rc file.
 
         This variable can only be used on Windows.
         """),
 
-    'RESFILE': (unicode, unicode,
+    'RESFILE': (str, str,
         """The program .res file.
 
         This variable can only be used on Windows.
         """),
 
-    'RCINCLUDE': (unicode, unicode,
+    'RCINCLUDE': (str, str,
         """The resource script file to be included in the default .res file.
 
         This variable can only be used on Windows.
         """),
 
-    'DEFFILE': (unicode, unicode,
+    'DEFFILE': (str, str,
         """The program .def (module definition) file.
 
         This variable can only be used on Windows.
         """),
 
-    'LD_VERSION_SCRIPT': (unicode, unicode,
+    'LD_VERSION_SCRIPT': (str, str,
         """The linker version script for shared libraries.
 
         This variable can only be used on Linux.
         """),
 
-    'SYMBOLS_FILE': (Path, unicode,
+    'SYMBOLS_FILE': (Path, str,
         """A file containing a list of symbols to export from a shared library.
 
         The given file contains a list of symbols to be exported, and is
@@ -1269,7 +1269,7 @@ VARIABLES = {
         ``BIN_SUFFIX``, the name will remain unchanged.
         """),
 
-    'SONAME': (unicode, unicode,
+    'SONAME': (str, str,
         """The soname of the shared object currently being linked
 
         soname is the "logical name" of a shared object, often used to provide
@@ -1325,7 +1325,7 @@ VARIABLES = {
         ``GENERATED_FILES``.
         """),
 
-    'PROGRAM' : (unicode, unicode,
+    'PROGRAM' : (str, str,
         """Compiled executable name.
 
         If the configuration token ``BIN_SUFFIX`` is set, its value will be
@@ -1333,7 +1333,7 @@ VARIABLES = {
         ``BIN_SUFFIX``, ``PROGRAM`` will remain unchanged.
         """),
 
-    'HOST_PROGRAM' : (unicode, unicode,
+    'HOST_PROGRAM' : (str, str,
         """Compiled host executable name.
 
         If the configuration token ``HOST_BIN_SUFFIX`` is set, its value will be
@@ -1371,7 +1371,7 @@ VARIABLES = {
         files.
         """),
 
-    'XPIDL_MODULE': (unicode, unicode,
+    'XPIDL_MODULE': (str, str,
         """XPCOM Interface Definition Module Name.
 
         This is the name of the ``.xpt`` file that is created by linking
@@ -1525,14 +1525,14 @@ VARIABLES = {
         """),
 
     # The following variables are used to control the target of installed files.
-    'XPI_NAME': (unicode, unicode,
+    'XPI_NAME': (str, str,
         """The name of an extension XPI to generate.
 
         When this variable is present, the results of this directory will end up
         being packaged into an extension instead of the main dist/bin results.
         """),
 
-    'DIST_SUBDIR': (unicode, unicode,
+    'DIST_SUBDIR': (str, str,
         """The name of an alternate directory to install files to.
 
         When this variable is present, the results of this directory will end up
@@ -1540,7 +1540,7 @@ VARIABLES = {
         otherwise be placed.
         """),
 
-    'FINAL_TARGET': (FinalTargetValue, unicode,
+    'FINAL_TARGET': (FinalTargetValue, str,
         """The name of the directory to install targets to.
 
         The directory is relative to the top of the object directory. The
@@ -1571,7 +1571,7 @@ VARIABLES = {
 
     'GYP_DIRS': (StrictOrderingOnAppendListWithFlagsFactory({
             'variables': dict,
-            'input': unicode,
+            'input': str,
             'sandbox_vars': dict,
             'no_chromium': bool,
             'no_unified': bool,

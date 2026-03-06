@@ -2,7 +2,7 @@ import string, re, sys, datetime
 from .core import TomlError
 
 if sys.version_info[0] == 2:
-    _chr = unichr
+    _chr = chr
 else:
     _chr = chr
 

@@ -45,7 +45,7 @@ def jsmin(js, **kwargs):
     returns a minified version of the javascript string
     """
     if not is_3:        
-        if cStringIO and not isinstance(js, unicode):
+        if cStringIO and not isinstance(js, str):
             # strings can use cStringIO for a 3x performance
             # improvement, but unicode (in python2) cannot
             klass = io.StringIO

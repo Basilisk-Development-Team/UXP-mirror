@@ -1127,7 +1127,7 @@ def _idval(val, argname, idx, idfn):
         return str(val)
     elif isclass(val) and hasattr(val, '__name__'):
         return val.__name__
-    elif _PY2 and isinstance(val, unicode):
+    elif _PY2 and isinstance(val, str):
         # special case for python 2: if a unicode string is
         # convertible to ascii, return it as an str() object instead
         try:
