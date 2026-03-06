@@ -7,7 +7,7 @@ XXX: need to rewrite this based on altgraph.Dot
 from collections import deque
 
 try:
-    from itertools import imap
+    
 except ImportError:
     imap = map
 
@@ -37,7 +37,7 @@ def itergraphreport(nodes, describe_edge, name='G'):
     # create sets for subgraph, write out descriptions
     for (node, data, outgoing, incoming) in nodes:
         # update edges
-        for edge in imap(describe_edge, outgoing):
+        for edge in map(describe_edge, outgoing):
             edges.append(edge)
 
         # describe node

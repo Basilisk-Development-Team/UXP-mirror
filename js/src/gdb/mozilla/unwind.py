@@ -17,7 +17,7 @@ except NameError:
 # The Python 3 |map| built-in works lazily, but in Python 2 we need
 # itertools.imap to get this.
 try:
-    from itertools import imap
+    
 except ImportError:
     imap = map
 
@@ -263,7 +263,7 @@ class SpiderMonkeyFrameFilter(object):
         return JitFrameDecorator(frame, info, self.cache)
 
     def filter(self, frame_iter):
-        return imap(self.maybe_wrap_frame, frame_iter)
+        return map(self.maybe_wrap_frame, frame_iter)
 
 # A frame id class, as specified by the gdb unwinder API.
 class SpiderMonkeyFrameId(object):

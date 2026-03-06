@@ -27,7 +27,7 @@ import os
 import sys
 from contextlib import closing
 from functools import partial
-from itertools import chain, groupby, ifilter, imap, izip_longest, tee
+from itertools import chain, groupby, zip_longest, tee
 from operator import is_not, itemgetter
 
 class codepoint_dict(dict):
@@ -172,7 +172,7 @@ def int_ranges(ints):
     """ Yields consecutive ranges (inclusive) from integer values. """
     (a, b) = tee(sorted(ints))
     start = next(b)
-    for (curr, succ) in izip_longest(a, b):
+    for (curr, succ) in zip_longest(a, b):
         if curr + 1 != succ:
             yield (start, curr)
             start = succ
@@ -527,16 +527,16 @@ def process_special_casing(special_casing, table, index):
         return upper
 
     def ascii(char_dict):
-        return ifilter(lambda ch: ch <= 0x7f, iter(char_dict.keys()))
+        return filter(lambda ch: ch <= 0x7f, iter(char_dict.keys()))
 
     def latin1(char_dict):
-        return ifilter(lambda ch: ch <= 0xff, iter(char_dict.keys()))
+        return filter(lambda ch: ch <= 0xff, iter(char_dict.keys()))
 
     def is_empty(iterable):
         return not any(True for _ in iterable)
 
     def is_equals(iter1, iter2):
-        return all(x == y for (x, y) in izip_longest(iter1, iter2))
+        return all(x == y for (x, y) in zip_longest(iter1, iter2))
 
     # Ensure no ASCII characters have special case mappings.
     assert is_empty(ascii(unconditional_tolower))
@@ -572,23 +572,23 @@ def process_special_casing(special_casing, table, index):
 
     # Maximum case mapping length is three characters.
     itervals = lambda d: iter(d.values())
-    assert max(imap(len, chain(
+    assert max(map(len, chain(
         itervals(unconditional_tolower),
         itervals(unconditional_toupper),
-        imap(itemgetter(0), itervals(conditional_tolower)),
-        imap(itemgetter(0), itervals(conditional_toupper)),
-        imap(itemgetter(0), chain.from_iterable(imap(itervals, itervals(lang_conditional_tolower)))),
-        imap(itemgetter(0), chain.from_iterable(imap(itervals, itervals(lang_conditional_toupper)))),
+        map(itemgetter(0), itervals(conditional_tolower)),
+        map(itemgetter(0), itervals(conditional_toupper)),
+        map(itemgetter(0), chain.from_iterable(map(itervals, itervals(lang_conditional_tolower)))),
+        map(itemgetter(0), chain.from_iterable(map(itervals, itervals(lang_conditional_toupper)))),
     ))) <= 3
 
     # Ensure all case mapping contexts are known (see Unicode 9.0, §3.13 Default Case Algorithms).
     assert set([
         'After_I', 'After_Soft_Dotted', 'Final_Sigma', 'More_Above', 'Not_Before_Dot',
-    ]).issuperset(set(ifilter(partial(is_not, None), chain(
-        imap(itemgetter(1), itervals(conditional_tolower)),
-        imap(itemgetter(1), itervals(conditional_toupper)),
-        imap(itemgetter(1), chain.from_iterable(imap(itervals, itervals(lang_conditional_tolower)))),
-        imap(itemgetter(1), chain.from_iterable(imap(itervals, itervals(lang_conditional_toupper)))),
+    ]).issuperset(set(filter(partial(is_not, None), chain(
+        map(itemgetter(1), itervals(conditional_tolower)),
+        map(itemgetter(1), itervals(conditional_toupper)),
+        map(itemgetter(1), chain.from_iterable(map(itervals, itervals(lang_conditional_tolower)))),
+        map(itemgetter(1), chain.from_iterable(map(itervals, itervals(lang_conditional_toupper)))),
     ))))
 
     # Special casing for U+00DF (LATIN SMALL LETTER SHARP S).
@@ -677,7 +677,7 @@ def write_special_casing_methods(unconditional_toupper, codepoint_table, println
                 lines[-1].append(expr)
             else:
                 lines.append([expr])
-        return ' ||\n{}'.format(spaces).join(imap(lambda t: ' || '.join(t), lines))
+        return ' ||\n{}'.format(spaces).join(map(lambda t: ' || '.join(t), lines))
 
     def write_range_accept(parent_list, child_list, depth):
         """ Accepts the input character if it matches any code unit in |child_list|. """
@@ -843,8 +843,8 @@ def make_bmp_mapping_test(version, codepoint_table, unconditional_tolower, uncon
                 (upper, lower, _, _) = entry
                 upper = unconditional_toupper[code] if code in unconditional_toupper else [upper]
                 lower = unconditional_tolower[code] if code in unconditional_tolower else [lower]
-                println('  ["{}", "{}"], /* {} */'.format("".join(imap(unicodeEsc, upper)),
-                                                          "".join(imap(unicodeEsc, lower)),
+                println('  ["{}", "{}"], /* {} */'.format("".join(map(unicodeEsc, upper)),
+                                                          "".join(map(unicodeEsc, lower)),
                                                           codepoint_table.name(code)))
             else:
                 println('  ["{0}", "{0}"],'.format(unicodeEsc(code)))
@@ -1277,7 +1277,7 @@ def make_irregexp_tables(version,
         # Latin1 characters which, when case-mapped through
         # String.prototype.toUpperCase(), canonicalize to a non-Latin1 character.
         # ES2017, §21.2.2.8.2 Runtime Semantics: Canonicalize
-        casemapped_to_nonlatin1 = ifilter(casemaps_to_nonlatin1, range(0, MAX_LATIN1 + 1))
+        casemapped_to_nonlatin1 = filter(casemaps_to_nonlatin1, range(0, MAX_LATIN1 + 1))
 
         def casemap_closure(ch):
             upper = to_upper(ch)
@@ -1285,12 +1285,12 @@ def make_irregexp_tables(version,
 
         # Mapping from Latin1 characters to the list of case map equivalent
         # non-Latin1 characters.
-        casemap_for_latin1 = dict(chain(imap(casemap_closure, casemapped_to_nonlatin1)))
+        casemap_for_latin1 = dict(chain(map(casemap_closure, casemapped_to_nonlatin1)))
 
         # Non-latin1 characters which, when Unicode case-folded, canonicalize to
         # a Latin1 character.
         # ES2017, §21.2.2.8.2 Runtime Semantics: Canonicalize
-        casefolded_to_latin1 = ifilter(casefolds_to_latin1, range(MAX_LATIN1 + 1, MAX_BMP + 1))
+        casefolded_to_latin1 = filter(casefolds_to_latin1, range(MAX_LATIN1 + 1, MAX_BMP + 1))
 
         println('    if (unicode) {')
         for ch in casefolded_to_latin1:
@@ -1308,7 +1308,7 @@ def make_irregexp_tables(version,
             for casemapped in casemapped_chars:
                 println('    // "{}" case maps to "{}".'.format(char_name(casemapped),
                                                                 char_name(ch)))
-            println('    if ({})'.format(' || '.join(imap(test, casemapped_chars))))
+            println('    if ({})'.format(' || '.join(map(test, casemapped_chars))))
             println('        return {};'.format(consequent(ch)))
         println('    return {};'.format(default))
 

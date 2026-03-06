@@ -34,7 +34,7 @@ import tempfile
 import urllib.request, urllib.error, urllib.parse
 from contextlib import closing
 from functools import partial
-from itertools import chain, ifilter, ifilterfalse, imap, izip_longest, groupby, tee
+from itertools import chain, filterfalse, zip_longest, groupby, tee
 from operator import attrgetter, itemgetter
 from urllib.parse import urlsplit
 from zipfile import ZipFile
@@ -44,7 +44,7 @@ def grouper(iterable, n, fillvalue=None):
     "Collect data into fixed-length chunks or blocks"
     # grouper('ABCDEFG', 3, 'x') --> ABC DEF Gxx"
     args = [iter(iterable)] * n
-    return izip_longest(*args, fillvalue=fillvalue)
+    return zip_longest(*args, fillvalue=fillvalue)
 
 def writeMappingHeader(println, description, source, url):
     if type(description) is not list:
@@ -1448,7 +1448,7 @@ def validateTimeZones(zones, links):
 def partition(iterable, *predicates):
     def innerPartition(pred, it):
         it1, it2 = tee(it)
-        return (ifilter(pred, it1), ifilterfalse(pred, it2))
+        return (filter(pred, it1), filterfalse(pred, it2))
     if len(predicates) == 0:
         return iterable
     (left, right) = innerPartition(predicates[0], iterable)
@@ -1459,7 +1459,7 @@ def partition(iterable, *predicates):
 def listIANAFiles(tzdataDir):
     def isTzFile(d, m, f):
         return m(f) and d.isfile(d.resolve(f))
-    return ifilter(partial(isTzFile, tzdataDir, re.compile("^[a-z0-9]+$").match), tzdataDir.listdir())
+    return filter(partial(isTzFile, tzdataDir, re.compile("^[a-z0-9]+$").match), tzdataDir.listdir())
 
 def readIANAFiles(tzdataDir, files):
     """ Read all IANA time zone files from the given iterable. """
@@ -1801,7 +1801,7 @@ def findIncorrectICUZones(ianaZones, ianaLinks, icuZones, icuLinks, ignoreBackzo
 
     # Remove unnecessary UTC mappings.
     utcnames = ["Etc/UTC", "Etc/UCT", "Etc/GMT"]
-    result = ifilterfalse(lambda zone_target1: zone_target1[0].name in utcnames, result)
+    result = filterfalse(lambda zone_target1: zone_target1[0].name in utcnames, result)
 
     return sorted(result, key=itemgetter(0))
 
@@ -1834,7 +1834,7 @@ def findIncorrectICULinks(ianaZones, ianaLinks, icuZones, icuLinks):
 
     # Remove unnecessary UTC mappings.
     utcnames = ["Etc/UTC", "Etc/UCT", "Etc/GMT"]
-    result = ifilterfalse(lambda zone_target_icuTarget: zone_target_icuTarget[1] in utcnames and zone_target_icuTarget[2] in utcnames, result)
+    result = filterfalse(lambda zone_target_icuTarget: zone_target_icuTarget[1] in utcnames and zone_target_icuTarget[2] in utcnames, result)
 
     return sorted(result, key=itemgetter(0))
 
@@ -1928,7 +1928,7 @@ def updateBackzoneLinks(tzdataDir, links):
     # Keep stable zones and links with updated target.
     return dict(chain(
                 stableZones,
-                imap(lambda zone_target: (zone_target[0], backzoneLinks[zone_target[0]]), updatedLinks)
+                map(lambda zone_target: (zone_target[0], backzoneLinks[zone_target[0]]), updatedLinks)
            ))
 
 def generateTzDataLinkTestContent(testDir, version, fileName, description, links):
@@ -1985,7 +1985,7 @@ def generateTzDataTestBackwardLinks(tzdataDir, version, ignoreBackzone, testDir)
     )
 
 def generateTzDataTestNotBackwardLinks(tzdataDir, version, ignoreBackzone, testDir):
-    tzfiles = ifilterfalse({"backward", "backzone"}.__contains__, listIANAFiles(tzdataDir))
+    tzfiles = filterfalse({"backward", "backzone"}.__contains__, listIANAFiles(tzdataDir))
     (zones, links) = readIANAFiles(tzdataDir, tzfiles)
 
     if not ignoreBackzone:

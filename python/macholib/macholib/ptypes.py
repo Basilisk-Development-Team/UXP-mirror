@@ -6,7 +6,7 @@ import struct
 import sys
 
 try:
-    from itertools import izip, imap
+    
 except ImportError:
     izip, imap = zip, map
 from itertools import chain, starmap
@@ -183,18 +183,18 @@ def _make():
             kwargs = args[0]._objects_
             args = ()
         self._objects_ = {}
-        iargs = chain(izip(self._names_, args), list(kwargs.items()))
+        iargs = chain(zip(self._names_, args), list(kwargs.items()))
         for key, value in iargs:
             if key not in self._names_ and key != "_endian_":
                 raise TypeError
             setattr(self, key, value)
-        for key, typ in izip(self._names_, self._types_):
+        for key, typ in zip(self._names_, self._types_):
             if key not in self._objects_:
                 self._objects_[key] = typ()
 
     @as_method
     def _get_packables(self):
-        for obj in imap(self._objects_.__getitem__, self._names_):
+        for obj in map(self._objects_.__getitem__, self._names_):
             if obj._items_ == 1:
                 yield obj
             else:
@@ -222,7 +222,7 @@ def _make():
                 else:
                     raise TypeError()
 
-        for cmpval in starmap(_cmp, izip(self._get_packables(), other._get_packables())):
+        for cmpval in starmap(_cmp, zip(self._get_packables(), other._get_packables())):
             if cmpval != 0:
                 return cmpval
         return 0

@@ -27,7 +27,7 @@ class Pool(object):
             return super(Pool, cls).__new__(cls)
 
     def imap_unordered(self, fn, iterable):
-        return itertools.imap(fn, iterable)
+        return map(fn, iterable)
 
     def close(self):
         pass

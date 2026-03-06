@@ -1080,14 +1080,14 @@ def group_unified_files(files, unified_prefix, unified_suffix,
     # issue.  So we do a little dance to filter it out ourselves.
     dummy_fill_value = ("dummy",)
     def filter_out_dummy(iterable):
-        return itertools.ifilter(lambda x: x != dummy_fill_value,
+        return filter(lambda x: x != dummy_fill_value,
                                  iterable)
 
     # From the itertools documentation, slightly modified:
     def grouper(n, iterable):
         "grouper(3, 'ABCDEFG', 'x') --> ABC DEF Gxx"
         args = [iter(iterable)] * n
-        return itertools.izip_longest(fillvalue=dummy_fill_value, *args)
+        return itertools.zip_longest(fillvalue=dummy_fill_value, *args)
 
     for i, unified_group in enumerate(grouper(files_per_unified_file,
                                               files)):
@@ -1104,7 +1104,7 @@ def pair(iterable):
         [(1,2), (3,4), (5,6)]
     '''
     i = iter(iterable)
-    return itertools.izip_longest(i, i)
+    return itertools.zip_longest(i, i)
 
 
 VARIABLES_RE = re.compile('\$\((\w+)\)')

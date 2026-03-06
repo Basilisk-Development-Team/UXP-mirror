@@ -101,7 +101,7 @@ if sys.version_info >= (3,):
     ifilter = filter
     iteritems = lambda d: list(d.items())
 else:
-    from itertools import ifilter
+    
     import urllib.parse
     iteritems = lambda d: iter(d.items())
 
@@ -519,7 +519,7 @@ class Schema(object):
                     and not isinstance(data, schema.cls)):
                 raise ObjectInvalid('expected a {0!r}'.format(schema.cls), path)
             iterable = _iterate_object(data)
-            iterable = ifilter(lambda item: item[1] is not None, iterable)
+            iterable = filter(lambda item: item[1] is not None, iterable)
             out = base_validate(path, iterable, {})
             return type(data)(**out)
 
