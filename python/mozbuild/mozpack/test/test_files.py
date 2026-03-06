@@ -268,7 +268,7 @@ class TestAbsoluteSymlinkFile(TestWithTmpDir):
     def test_absolute_relative(self):
         AbsoluteSymlinkFile('/foo')
 
-        with self.assertRaisesRegexp(ValueError, 'Symlink target not absolute'):
+        with self.assertRaisesRegex(ValueError, 'Symlink target not absolute'):
             AbsoluteSymlinkFile('./foo')
 
     def test_symlink_file(self):
@@ -477,7 +477,7 @@ class TestPreprocessedFile(TestWithTmpDir):
 
 class TestExistingFile(TestWithTmpDir):
     def test_required_missing_dest(self):
-        with self.assertRaisesRegexp(ErrorMessage, 'Required existing file'):
+        with self.assertRaisesRegex(ErrorMessage, 'Required existing file'):
             f = ExistingFile(required=True)
             f.copy(self.tmppath('dest'))
 

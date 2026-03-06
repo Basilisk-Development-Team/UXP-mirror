@@ -64,7 +64,7 @@ and an end''', (('bar', 'one line with a # part that looks like a comment '
 
 foo=value
 ''', (('foo', 'value'),))
-        self.assert_('MPL' in self.parser.header)
+        self.assertTrue('MPL' in self.parser.header)
 
     def test_escapes(self):
         self.parser.readContents(r'''

@@ -291,9 +291,9 @@ class BaseToolchainTest(BaseConfigureTest):
                 compiler = sandbox._value_for(sandbox[var])
                 # Add var on both ends to make it clear which of the
                 # variables is failing the test when that happens.
-                self.assertEquals((var, compiler), (var, result))
+                self.assertEqual((var, compiler), (var, result))
             except SystemExit:
-                self.assertEquals((var, result),
+                self.assertEqual((var, result),
                                   (var, self.out.getvalue().strip()))
                 return
 

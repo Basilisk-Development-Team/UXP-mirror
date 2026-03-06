@@ -307,7 +307,7 @@ yellow = submarine"""  # noqa
         parser.read(manifest)
         self.assertEqual(len(parser.tests), 0)
         self.assertTrue(manifest in parser.manifest_defaults)
-        self.assertEquals(parser.manifest_defaults[manifest]['foo'], 'bar')
+        self.assertEqual(parser.manifest_defaults[manifest]['foo'], 'bar')
 
     def test_manifest_list(self):
         """

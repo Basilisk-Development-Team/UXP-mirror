@@ -399,7 +399,7 @@ class TestMockingMagicMethods(unittest2.TestCase):
         mock = MagicMock()
         def set_setattr():
             mock.__setattr__ = lambda self, name: None
-        self.assertRaisesRegexp(AttributeError,
+        self.assertRaisesRegex(AttributeError,
             "Attempting to set unsupported magic method '__setattr__'.",
             set_setattr
         )

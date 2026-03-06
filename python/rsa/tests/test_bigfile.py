@@ -31,7 +31,7 @@ class BigfileTest(unittest2.TestCase):
         clearfile = BytesIO()
 
         bigfile.decrypt_bigfile(cryptfile, clearfile, priv_key)
-        self.assertEquals(clearfile.getvalue(), message)
+        self.assertEqual(clearfile.getvalue(), message)
         
         # We have 2x6 bytes in the message, so that should result in two
         # bigfile.

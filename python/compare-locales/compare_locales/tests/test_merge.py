@@ -58,7 +58,7 @@ eff = lEff
              'details': {}
              }
         )
-        self.assert_(not os.path.exists(os.path.join(cc.merge_stage,
+        self.assertTrue(not os.path.exists(os.path.join(cc.merge_stage,
                                                      'l10n.properties')))
 
     def testMissing(self):
@@ -189,7 +189,7 @@ class TestDTD(unittest.TestCase, ContentMixin):
              'details': {}
              }
         )
-        self.assert_(
+        self.assertTrue(
             not os.path.exists(os.path.join(cc.merge_stage, 'l10n.dtd')))
 
     def testMissing(self):

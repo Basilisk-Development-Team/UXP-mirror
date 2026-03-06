@@ -434,11 +434,11 @@ class TestLogSubprocessOutput(unittest.TestCase):
         except SystemExit as e:
             status = e.code
 
-        self.assertEquals(status, 0)
+        self.assertEqual(status, 0)
         quote_char = "'"
         if getpreferredencoding().lower() == 'utf-8':
             quote_char = '\u00B4'.encode('utf-8')
-        self.assertEquals(out.getvalue().strip(), quote_char)
+        self.assertEqual(out.getvalue().strip(), quote_char)
 
 
 class TestVersion(unittest.TestCase):

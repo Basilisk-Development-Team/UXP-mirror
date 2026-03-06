@@ -61,7 +61,7 @@ class BaseStructuredTest(unittest.TestCase):
         for key, value in all_expected.items():
             self.assertEqual(actual[key], value)
 
-        self.assertEquals(set(all_expected.keys()) |
+        self.assertEqual(set(all_expected.keys()) |
                           specials, set(actual.keys()))
 
 
@@ -253,8 +253,8 @@ class TestStructuredLog(BaseStructuredTest):
                                 "test": "test2"})
         self.logger.test_end("test2", "PASS", expected="PASS")
         last_item = self.pop_last_item()
-        self.assertEquals(last_item["action"], "log")
-        self.assertEquals(last_item["level"], "ERROR")
+        self.assertEqual(last_item["action"], "log")
+        self.assertEqual(last_item["level"], "ERROR")
         self.assertTrue(last_item["message"].startswith(
             "test_end for test2 logged while not in progress. Logged with data: {"))
         self.logger.suite_end()
@@ -265,8 +265,8 @@ class TestStructuredLog(BaseStructuredTest):
                                 "tests": []})
         self.logger.suite_start([])
         last_item = self.pop_last_item()
-        self.assertEquals(last_item["action"], "log")
-        self.assertEquals(last_item["level"], "ERROR")
+        self.assertEqual(last_item["action"], "log")
+        self.assertEqual(last_item["level"], "ERROR")
         self.logger.suite_end()
 
     def test_suite_end_no_start(self):
@@ -277,16 +277,16 @@ class TestStructuredLog(BaseStructuredTest):
         self.assert_log_equals({"action": "suite_end"})
         self.logger.suite_end()
         last_item = self.pop_last_item()
-        self.assertEquals(last_item["action"], "log")
-        self.assertEquals(last_item["level"], "ERROR")
+        self.assertEqual(last_item["action"], "log")
+        self.assertEqual(last_item["level"], "ERROR")
 
     def test_multiple_loggers_suite_start(self):
         logger1 = structuredlog.StructuredLogger("test")
         self.logger.suite_start([])
         logger1.suite_start([])
         last_item = self.pop_last_item()
-        self.assertEquals(last_item["action"], "log")
-        self.assertEquals(last_item["level"], "ERROR")
+        self.assertEqual(last_item["action"], "log")
+        self.assertEqual(last_item["level"], "ERROR")
 
     def test_multiple_loggers_test_start(self):
         logger1 = structuredlog.StructuredLogger("test")
@@ -294,8 +294,8 @@ class TestStructuredLog(BaseStructuredTest):
         self.logger.test_start("test")
         logger1.test_start("test")
         last_item = self.pop_last_item()
-        self.assertEquals(last_item["action"], "log")
-        self.assertEquals(last_item["level"], "ERROR")
+        self.assertEqual(last_item["action"], "log")
+        self.assertEqual(last_item["level"], "ERROR")
 
     def test_process(self):
         self.logger.process_output(1234, "test output")
@@ -434,7 +434,7 @@ class TestTypeConversions(BaseStructuredTest):
             self.logger.info("☺")
             logfile.seek(0)
             data = logfile.readlines()[-1].strip()
-            self.assertEquals(data, "☺")
+            self.assertEqual(data, "☺")
             self.logger.suite_end()
 
     def test_arguments(self):
@@ -784,7 +784,7 @@ class TestXUnitFormatter(FormatterTest):
         self.logger.suite_end()
 
         root = self.log_as_xml()
-        self.assertEquals('Expected OK, got FAIL', root.find(
+        self.assertEqual('Expected OK, got FAIL', root.find(
             'testcase/failure').get('message'))
 
     def test_suite_attrs(self):
@@ -930,7 +930,7 @@ class TestBuffer(BaseStructuredTest):
         for key, value in all_expected.items():
             self.assertEqual(actual[key], value)
 
-        self.assertEquals(set(all_expected.keys()) |
+        self.assertEqual(set(all_expected.keys()) |
                           specials, set(actual.keys()))
 
     def setUp(self):
@@ -985,11 +985,11 @@ class TestBuffer(BaseStructuredTest):
                                 "test": "test1"})
 
         # The buffer's actual size never grows beyond the specified limit.
-        self.assertEquals(len(self.handler._buffer), 4)
+        self.assertEqual(len(self.handler._buffer), 4)
 
         self.logger.test_status("test1", "sub8", status="FAIL")
         # The number of messages deleted comes back in a list.
-        self.assertEquals([4], self.logger.send_message("buffer", "flush"))
+        self.assertEqual([4], self.logger.send_message("buffer", "flush"))
 
         # When the buffer is dumped, the failure is the last thing logged
         self.assert_log_equals({"action": "test_status",
@@ -1025,7 +1025,7 @@ class TestReader(unittest.TestCase):
                 {"action": "action_1", "data": "data_1"}]
 
         f = self.to_file_like(data)
-        self.assertEquals(data, list(reader.read(f)))
+        self.assertEqual(data, list(reader.read(f)))
 
     def test_imap_log(self):
         data = [{"action": "action_0", "data": "data_0"},
@@ -1042,7 +1042,7 @@ class TestReader(unittest.TestCase):
         res_iter = reader.imap_log(reader.read(f),
                                    {"action_0": f_action_0,
                                     "action_1": f_action_1})
-        self.assertEquals([("action_0", "data_0"), ("action_1", "data_1")],
+        self.assertEqual([("action_0", "data_0"), ("action_1", "data_1")],
                           list(res_iter))
 
     def test_each_log(self):
@@ -1064,7 +1064,7 @@ class TestReader(unittest.TestCase):
                         {"action_0": f_action_0,
                          "action_1": f_action_1})
 
-        self.assertEquals({"action_0": 1, "action_1": 2}, count)
+        self.assertEqual({"action_0": 1, "action_1": 2}, count)
 
     def test_handler(self):
         data = [{"action": "action_0", "data": "data_0"},
@@ -1081,18 +1081,18 @@ class TestReader(unittest.TestCase):
                 self.action_1_count = 0
 
             def action_0(self, item):
-                test.assertEquals(item["action"], "action_0")
+                test.assertEqual(item["action"], "action_0")
                 self.action_0_count += 1
 
             def action_1(self, item):
-                test.assertEquals(item["action"], "action_1")
+                test.assertEqual(item["action"], "action_1")
                 self.action_1_count += 1
 
         handler = ReaderTestHandler()
         reader.handle_log(reader.read(f), handler)
 
-        self.assertEquals(handler.action_0_count, 1)
-        self.assertEquals(handler.action_1_count, 1)
+        self.assertEqual(handler.action_0_count, 1)
+        self.assertEqual(handler.action_1_count, 1)
 
 if __name__ == "__main__":
     unittest.main()

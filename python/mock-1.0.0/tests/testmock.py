@@ -396,7 +396,7 @@ class MockTest(unittest2.TestCase):
 
                 # this should be allowed
                 mock.something
-                self.assertRaisesRegexp(
+                self.assertRaisesRegex(
                     AttributeError,
                     "Mock object has no attribute 'something_else'",
                     getattr, mock, 'something_else'
@@ -415,12 +415,12 @@ class MockTest(unittest2.TestCase):
             mock.x
             mock.y
             mock.__something__
-            self.assertRaisesRegexp(
+            self.assertRaisesRegex(
                 AttributeError,
                 "Mock object has no attribute 'z'",
                 getattr, mock, 'z'
             )
-            self.assertRaisesRegexp(
+            self.assertRaisesRegex(
                 AttributeError,
                 "Mock object has no attribute '__foobar__'",
                 getattr, mock, '__foobar__'
@@ -486,7 +486,7 @@ class MockTest(unittest2.TestCase):
 
     def test_assert_called_with_message(self):
         mock = Mock()
-        self.assertRaisesRegexp(AssertionError, 'Not called',
+        self.assertRaisesRegex(AssertionError, 'Not called',
                                 mock.assert_called_with)
 
 

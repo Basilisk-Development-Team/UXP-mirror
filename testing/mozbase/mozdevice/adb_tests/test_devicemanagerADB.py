@@ -173,16 +173,16 @@ class TestFileOperations(DeviceManagerADBTestCase):
 class TestOther(DeviceManagerADBTestCase):
 
     def test_get_list_of_processes(self):
-        self.assertEquals(type(self.dm.getProcessList()), list)
+        self.assertEqual(type(self.dm.getProcessList()), list)
 
     def test_get_current_time(self):
-        self.assertEquals(type(self.dm.getCurrentTime()), int)
+        self.assertEqual(type(self.dm.getCurrentTime()), int)
 
     def test_get_info(self):
-        self.assertEquals(type(self.dm.getInfo()), dict)
+        self.assertEqual(type(self.dm.getInfo()), dict)
 
     def test_list_devices(self):
-        self.assertEquals(len(list(self.dm.devices())), 1)
+        self.assertEqual(len(list(self.dm.devices())), 1)
 
     def test_shell(self):
         out = StringIO()
@@ -190,7 +190,7 @@ class TestOther(DeviceManagerADBTestCase):
                       env={"COMPANY": "Mozilla"}, cwd="/", timeout=4, root=True)
         output = str(out.getvalue()).rstrip().splitlines()
         out.close()
-        self.assertEquals(output, ['Mozilla', '/'])
+        self.assertEqual(output, ['Mozilla', '/'])
 
     def test_port_forwarding(self):
         s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)

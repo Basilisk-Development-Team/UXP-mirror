@@ -29,13 +29,13 @@ class TestWriteConfig(unittest.TestCase):
     def test_writeConfigFile(self):
         obj = dict(some=123, thing='456', other=789)
 
-        self.assertEquals(
+        self.assertEqual(
             json.loads(talosconfig.writeConfigFile(obj, ('some', 'thing'))),
             dict(some=123, thing='456')
         )
 
         # test without keys
-        self.assertEquals(
+        self.assertEqual(
             json.loads(talosconfig.writeConfigFile(obj, None)),
             obj
         )
