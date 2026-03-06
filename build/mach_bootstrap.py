@@ -170,11 +170,16 @@ def bootstrap(topsrcdir, mozilla_dir=None):
     if mozilla_dir is None:
         mozilla_dir = topsrcdir
 
-    # Ensure we are running Python 2.7+. We put this check here so we generate a
-    # user-friendly error message rather than a cryptic stack trace on module
-    # import.
-    if sys.version_info[0] != 2 or sys.version_info[1] < 7:
-        print('Python 2.7 or above (but not Python 3) is required to run mach.')
+    # Ensure we are not running Python 2.
+    # We put this check here so we generate a user-friendly error message
+    # rather than a cryptic stack trace on module import.
+    if sys.version_info[0] < 3 or sys.version_info[1] < 3:
+        print('Python 3.3 or above is required to run mach.')
+        print('You are running Python', platform.python_version())
+        sys.exit(1)
+    # This sanity check is overkill, but why not?
+    if sys.version_info[0] > 3:
+        print('Python 4.x or higher not supported. Use Python 3 instead.')
         print('You are running Python', platform.python_version())
         sys.exit(1)
 

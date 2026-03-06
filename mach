@@ -6,7 +6,7 @@
 # The beginning of this script is both valid shell and valid python,
 # such that the script starts with the shell and is reexecuted with
 # the right python.
-'''which' python2.7 > /dev/null && exec python2.7 "$0" "$@" || exec python "$0" "$@"
+'''which' python3 > /dev/null && exec python3 "$0" "$@" || exec python "$0" "$@"
 '''
 
 from __future__ import print_function, unicode_literals
@@ -83,7 +83,7 @@ def main(args):
 
 
 if __name__ == '__main__':
-    if sys.platform == 'win32':
+    if sys.platform == 'win32' and sys.version_info < (3, 4):
         # This is a complete hack to work around the fact that Windows
         # multiprocessing needs to import the original module (ie: this
         # file), but only works if it has a .py extension.
