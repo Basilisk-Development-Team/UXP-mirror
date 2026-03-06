@@ -7,20 +7,6 @@ import re
 import platform
 from mozilla.ExecutableAllocator import jsjitExecutableAllocatorCache, jsjitExecutableAllocator
 
-# For ease of use in Python 2, we use "long" instead of "int"
-# everywhere.
-try:
-    int
-except NameError:
-    long = int
-
-# The Python 3 |map| built-in works lazily, but in Python 2 we need
-# itertools.imap to get this.
-try:
-    
-except ImportError:
-    imap = map
-
 _have_unwinder = True
 try:
     from gdb.unwinder import Unwinder

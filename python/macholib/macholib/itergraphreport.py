@@ -6,11 +6,6 @@ XXX: need to rewrite this based on altgraph.Dot
 
 from collections import deque
 
-try:
-    
-except ImportError:
-    imap = map
-
 __all__ = ['itergraphreport']
 
 def itergraphreport(nodes, describe_edge, name='G'):

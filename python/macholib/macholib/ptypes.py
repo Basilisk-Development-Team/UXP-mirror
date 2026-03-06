@@ -5,10 +5,6 @@ as used in MachO headers.
 import struct
 import sys
 
-try:
-    
-except ImportError:
-    izip, imap = zip, map
 from itertools import chain, starmap
 import warnings
 
