@@ -377,7 +377,7 @@ if __name__ == "__main__":
         extra_cflags2 = ["-fPIC"]
         extra_cxxflags2 = ["-fPIC", "-static-libstdc++"]
 
-        if os.environ.has_key('LD_LIBRARY_PATH'):
+        if 'LD_LIBRARY_PATH' in os.environ:
             os.environ['LD_LIBRARY_PATH'] = '%s/lib64/:%s' % (gcc_dir, os.environ['LD_LIBRARY_PATH']);
         else:
             os.environ['LD_LIBRARY_PATH'] = '%s/lib64/' % gcc_dir

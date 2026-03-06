@@ -1185,7 +1185,7 @@ class Bits(object):
         return h % 1442968193
 
     # This is only used in Python 2.x...
-    def __nonzero__(self):
+    def __bool__(self):
         """Return True if any bits are set to 1, otherwise return False."""
         return self.any(True)
 

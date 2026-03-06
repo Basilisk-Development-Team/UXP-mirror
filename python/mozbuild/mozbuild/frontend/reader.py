@@ -84,7 +84,7 @@ from functools import reduce
 
 if sys.version_info.major == 2:
     text_type = str
-    type_type = types.TypeType
+    type_type = type
 else:
     text_type = str
     type_type = type
@@ -310,7 +310,7 @@ class MozbuildSandbox(Sandbox):
             raise Exception('`template` is a function decorator. You must '
                 'use it as `@template` preceding a function declaration.')
 
-        name = func.func_name
+        name = func.__name__
 
         if name in self.templates:
             raise KeyError(
@@ -406,10 +406,10 @@ class MozbuildSandbox(Sandbox):
 
 class TemplateFunction(object):
     def __init__(self, func, sandbox):
-        self.path = func.func_code.co_filename
-        self.name = func.func_name
+        self.path = func.__code__.co_filename
+        self.name = func.__name__
 
-        code = func.func_code
+        code = func.__code__
         firstlineno = code.co_firstlineno
         lines = sandbox._current_source.splitlines(True)
         lines = inspect.getblock(lines[firstlineno - 1:])
@@ -448,8 +448,8 @@ class TemplateFunction(object):
             compile(func_ast, self.path, 'exec'),
             glob,
             self.name,
-            func.func_defaults,
-            func.func_closure,
+            func.__defaults__,
+            func.__closure__,
         )
         func()
 
@@ -463,11 +463,11 @@ class TemplateFunction(object):
             '__builtins__': sandbox._builtins
         }
         func = types.FunctionType(
-            self._func.func_code,
+            self._func.__code__,
             glob,
             self.name,
-            self._func.func_defaults,
-            self._func.func_closure
+            self._func.__defaults__,
+            self._func.__closure__
         )
         sandbox.exec_function(func, args, kwargs, self.path,
                               becomes_current_path=False)

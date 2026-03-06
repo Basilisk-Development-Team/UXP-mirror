@@ -12,7 +12,7 @@ from collections import OrderedDict
 
 def istupleofstrings(obj):
     return isinstance(obj, tuple) and len(obj) and all(
-        isinstance(o, types.StringTypes) for o in obj)
+        isinstance(o, (str,)) for o in obj)
 
 
 class OptionValue(tuple):
@@ -71,7 +71,7 @@ class PositiveOptionValue(OptionValue):
     in the form of a tuple for when values are given to the option (in the form
     --option=value[,value2...].
     '''
-    def __nonzero__(self):
+    def __bool__(self):
         return True
 
 
@@ -132,7 +132,7 @@ class Option(object):
                 'At least an option name or an environment variable name must '
                 'be given')
         if name:
-            if not isinstance(name, types.StringTypes):
+            if not isinstance(name, (str,)):
                 raise InvalidOptionError('Option must be a string')
             if not name.startswith('--'):
                 raise InvalidOptionError('Option must start with `--`')
@@ -141,7 +141,7 @@ class Option(object):
             if not name.islower():
                 raise InvalidOptionError('Option must be all lowercase')
         if env:
-            if not isinstance(env, types.StringTypes):
+            if not isinstance(env, (str,)):
                 raise InvalidOptionError(
                     'Environment variable name must be a string')
             if not env.isupper():
@@ -151,8 +151,8 @@ class Option(object):
                 isinstance(nargs, int) and nargs >= 0):
             raise InvalidOptionError(
                 "nargs must be a positive integer, '?', '*' or '+'")
-        if (not isinstance(default, types.StringTypes) and
-                not isinstance(default, (bool, types.NoneType)) and
+        if (not isinstance(default, (str,)) and
+                not isinstance(default, (bool, type(None))) and
                 not istupleofstrings(default)):
             raise InvalidOptionError(
                 'default must be a bool, a string or a tuple of strings')
@@ -224,7 +224,7 @@ class Option(object):
                     ', '.join("'%s'" % c for c in choices))
         elif has_choices:
             maxargs = self.maxargs
-            if len(choices) < maxargs and maxargs != sys.maxint:
+            if len(choices) < maxargs and maxargs != sys.maxsize:
                 raise InvalidOptionError('Not enough `choices` for `nargs`')
         self.choices = choices
         self.help = help
@@ -238,7 +238,7 @@ class Option(object):
         where prefix is one of 'with', 'without', 'enable' or 'disable'.
         The '=values' part is optional. Values are separated with commas.
         '''
-        if not isinstance(option, types.StringTypes):
+        if not isinstance(option, (str,)):
             raise InvalidOptionError('Option must be a string')
 
         elements = option.split('=', 1)
@@ -291,7 +291,7 @@ class Option(object):
     def maxargs(self):
         if isinstance(self.nargs, int):
             return self.nargs
-        return 1 if self.nargs == '?' else sys.maxint
+        return 1 if self.nargs == '?' else sys.maxsize
 
     def _validate_nargs(self, num):
         minargs, maxargs = self.minargs, self.maxargs

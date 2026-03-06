@@ -55,14 +55,14 @@ def bytes2int(bytes):
     8405007
     """
 
-    if not (type(bytes) is types.ListType or type(bytes) is types.StringType):
+    if not (type(bytes) is list or type(bytes) is bytes):
         raise TypeError("You must pass a string or a list")
 
     # Convert byte stream to integer
     integer = 0
     for byte in bytes:
         integer *= 256
-        if type(byte) is types.StringType: byte = ord(byte)
+        if type(byte) is bytes: byte = ord(byte)
         integer += byte
 
     return integer
@@ -74,7 +74,7 @@ def int2bytes(number):
     123456789
     """
 
-    if not (type(number) is types.LongType or type(number) is types.IntType):
+    if not (type(number) is int or type(number) is int):
         raise TypeError("You must pass a long or an int")
 
     string = ""
@@ -330,10 +330,10 @@ def encrypt_int(message, ekey, n):
     """Encrypts a message using encryption key 'ekey', working modulo
     n"""
 
-    if type(message) is types.IntType:
+    if type(message) is int:
         return encrypt_int(int(message), ekey, n)
 
-    if not type(message) is types.LongType:
+    if not type(message) is int:
         raise TypeError("You must pass a long or an int")
 
     if message > 0 and \

@@ -168,7 +168,7 @@ def _GetTestClassesFromModule(test_module):
 
 
 def _IsTestClass(test_class):
-  return (type(test_class) is types.TypeType and
+  return (type(test_class) is type and
           issubclass(test_class, python_test_base.PythonTestBase) and
           test_class is not python_test_base.PythonTestBase)
 

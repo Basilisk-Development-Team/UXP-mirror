@@ -122,7 +122,7 @@ def raises(exc, msg=None, regex=None):
 
 
 class Undefined(object):
-    def __nonzero__(self):
+    def __bool__(self):
         return False
 
     def __repr__(self):

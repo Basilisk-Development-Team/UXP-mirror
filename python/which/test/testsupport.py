@@ -37,7 +37,7 @@ def run(argv):
     results.  Returns (<stdout lines>, <stderr lines>, <return value>).
     Note: 'argv' may also just be the command string.
     """
-    if type(argv) in (types.ListType, types.TupleType):
+    if type(argv) in (list, tuple):
         cmd = _joinArgv(argv)
     else:
         cmd = argv

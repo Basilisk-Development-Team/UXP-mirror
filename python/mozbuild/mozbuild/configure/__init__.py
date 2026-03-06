@@ -438,7 +438,7 @@ class ConfigureSandbox(dict):
                     value = PositiveOptionValue()
                 elif value is False or value == ():
                     value = NegativeOptionValue()
-                elif isinstance(value, types.StringTypes):
+                elif isinstance(value, (str,)):
                     value = PositiveOptionValue((value,))
                 elif isinstance(value, tuple):
                     value = PositiveOptionValue(value)
@@ -478,7 +478,7 @@ class ConfigureSandbox(dict):
         return value
 
     def _dependency(self, arg, callee_name, arg_name=None):
-        if isinstance(arg, types.StringTypes):
+        if isinstance(arg, (str,)):
             prefix, name, values = Option.split_option(arg)
             if values != ():
                 raise ConfigureError("Option must not contain an '='")
@@ -623,7 +623,7 @@ class ConfigureSandbox(dict):
         with self.only_when_impl(when):
             what = self._resolve(what)
             if what:
-                if not isinstance(what, types.StringTypes):
+                if not isinstance(what, (str,)):
                     raise TypeError("Unexpected type: '%s'" % type(what).__name__)
                 self.include_file(what)
 
@@ -697,7 +697,7 @@ class ConfigureSandbox(dict):
         for value, required in (
                 (_import, True), (_from, False), (_as, False)):
 
-            if not isinstance(value, types.StringTypes) and (
+            if not isinstance(value, (str,)) and (
                     required or value is not None):
                 raise TypeError("Unexpected type: '%s'" % type(value).__name__)
             if value is not None and not self.RE_MODULE.match(value):
@@ -760,7 +760,7 @@ class ConfigureSandbox(dict):
         name = self._resolve(name, need_help_dependency=False)
         if name is None:
             return
-        if not isinstance(name, types.StringTypes):
+        if not isinstance(name, (str,)):
             raise TypeError("Unexpected type: '%s'" % type(name).__name__)
         if name in data:
             raise ConfigureError(
@@ -850,7 +850,7 @@ class ConfigureSandbox(dict):
                 if isinstance(possible_reasons[0], Option):
                     reason = possible_reasons[0]
         if not reason and (isinstance(value, (bool, tuple)) or
-                           isinstance(value, types.StringTypes)):
+                           isinstance(value, (str,))):
             # A reason can be provided automatically when imply_option
             # is called with an immediate value.
             _, filename, line, _, _, _ = inspect.stack()[1]
@@ -885,10 +885,10 @@ class ConfigureSandbox(dict):
         if not inspect.isfunction(func):
             raise TypeError("Unexpected type: '%s'" % type(func).__name__)
         if func in self._prepared_functions:
-            return func, func.func_globals
+            return func, func.__globals__
 
         glob = SandboxedGlobal(
-            (k, v) for k, v in func.func_globals.items()
+            (k, v) for k, v in func.__globals__.items()
             if (inspect.isfunction(v) and v not in self._templates) or (
                 inspect.isclass(v) and issubclass(v, Exception))
         )
@@ -909,20 +909,20 @@ class ConfigureSandbox(dict):
         # Note this is not entirely bullet proof (if the value is e.g. a list,
         # the list contents could have changed), but covers the bases.
         closure = None
-        if func.func_closure:
+        if func.__closure__:
             def makecell(content):
                 def f():
                     content
-                return f.func_closure[0]
+                return f.__closure__[0]
 
             closure = tuple(makecell(cell.cell_contents)
-                            for cell in func.func_closure)
+                            for cell in func.__closure__)
 
         new_func = wraps(func)(types.FunctionType(
-            func.func_code,
+            func.__code__,
             glob,
             func.__name__,
-            func.func_defaults,
+            func.__defaults__,
             closure
         ))
         @wraps(new_func)

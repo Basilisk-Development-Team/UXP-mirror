@@ -121,14 +121,14 @@ class ProcessHandlerMixin(object):
             thread = threading.current_thread().name
             print(("DBG::MOZPROC PID:{} ({}) | {}".format(self.pid, thread, msg)))
 
-        def __del__(self, _maxint=sys.maxint):
+        def __del__(self, _maxint=sys.maxsize):
             if isWin:
                 handle = getattr(self, '_handle', None)
                 if handle:
                     if hasattr(self, '_internal_poll'):
                         self._internal_poll(_deadstate=_maxint)
                     else:
-                        self.poll(_deadstate=sys.maxint)
+                        self.poll(_deadstate=sys.maxsize)
                 if handle or self._job or self._io_port:
                     self._cleanup()
             else:

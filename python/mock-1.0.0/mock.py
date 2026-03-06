@@ -209,7 +209,7 @@ def _copy_func_details(func, funcopy):
     #funcopy.__dict__.update(func.__dict__)
     funcopy.__module__ = func.__module__
     if not inPy3k:
-        funcopy.func_defaults = func.func_defaults
+        funcopy.__defaults__ = func.__defaults__
         return
     funcopy.__defaults__ = func.__defaults__
     funcopy.__kwdefaults__ = func.__kwdefaults__
@@ -1207,7 +1207,7 @@ class _patch(object):
             # not in Python 3
             patched.compat_co_firstlineno = getattr(
                 func, "compat_co_firstlineno",
-                func.func_code.co_firstlineno
+                func.__code__.co_firstlineno
             )
         return patched
 

@@ -464,7 +464,7 @@ Representer.add_representer(tuple,
 Representer.add_representer(type,
         Representer.represent_name)
 
-Representer.add_representer(types.ClassType,
+Representer.add_representer(type,
         Representer.represent_name)
 
 Representer.add_representer(types.FunctionType,

@@ -12,9 +12,9 @@ import inspect
 # returns an iterator.
 def disassemble_as_iter(co):
     if inspect.ismethod(co):
-        co = co.im_func
+        co = co.__func__
     if inspect.isfunction(co):
-        co = co.func_code
+        co = co.__code__
     code = co.co_code
     n = len(code)
     i = 0

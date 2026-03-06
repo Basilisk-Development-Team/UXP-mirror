@@ -326,7 +326,7 @@ class TestGypBase(TestCommon.TestCommon):
     the tool-specific subclasses or clutter the tests themselves
     with platform-specific code.
     """
-    if kw.has_key('SYMROOT'):
+    if 'SYMROOT' in kw:
       del kw['SYMROOT']
     super(TestGypBase, self).run(*args, **kw)
 

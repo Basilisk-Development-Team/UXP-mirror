@@ -2760,7 +2760,7 @@ def _GetMSBuildPropertySheets(configurations):
   props_specified = False
   for name, settings in sorted(configurations.items()):
     configuration = _GetConfigurationCondition(name, settings)
-    if settings.has_key('msbuild_props'):
+    if 'msbuild_props' in settings:
       additional_props[configuration] = _FixPaths(settings['msbuild_props'])
       props_specified = True
     else:

@@ -7,7 +7,7 @@ from . import base
 def format_test_id(test_id):
     """Take a test id and return something that looks a bit like
     a class path"""
-    if type(test_id) not in types.StringTypes:
+    if type(test_id) not in (str,):
         # Not sure how to deal with reftests yet
         raise NotImplementedError
 

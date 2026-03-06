@@ -42,7 +42,7 @@ class LintSandbox(ConfigureSandbox):
             # - don't use @imports
             # - don't have a closure
             # - don't use global variables
-            if func in self._imports or func.func_closure:
+            if func in self._imports or func.__closure__:
                 return True
             for op, arg in disassemble_as_iter(func):
                 if op in ('LOAD_GLOBAL', 'STORE_GLOBAL'):

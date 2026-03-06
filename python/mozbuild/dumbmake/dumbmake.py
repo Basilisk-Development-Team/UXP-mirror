@@ -36,7 +36,7 @@ def dependency_map(lines):
     deps = {}
 
     for i, (indent, target) in enumerate(pairs):
-        if not deps.has_key(target):
+        if target not in deps:
             deps[target] = []
 
         for j in range(i+1, len(pairs)):

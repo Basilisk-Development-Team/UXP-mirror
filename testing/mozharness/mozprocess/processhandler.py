@@ -98,13 +98,13 @@ class ProcessHandlerMixin(object):
                 print(args, file=sys.stderr)
                 raise
 
-        def __del__(self, _maxint=sys.maxint):
+        def __del__(self, _maxint=sys.maxsize):
             if isWin:
                 if self._handle:
                     if hasattr(self, '_internal_poll'):
                         self._internal_poll(_deadstate=_maxint)
                     else:
-                        self.poll(_deadstate=sys.maxint)
+                        self.poll(_deadstate=sys.maxsize)
                 if self._handle or self._job or self._io_port:
                     self._cleanup()
             else:

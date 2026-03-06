@@ -51,7 +51,7 @@ class Struct:
         print('  Created struct: %s' % name, file=sys.stderr)
 
     def AddEntry(self, entry):
-        if self._tags.has_key(entry.Tag()):
+        if entry.Tag() in self._tags:
             raise RpcGenError(
                 'Entry "%s" duplicates tag number %d from "%s" '
                 'around line %d' % (entry.Name(), entry.Tag(),

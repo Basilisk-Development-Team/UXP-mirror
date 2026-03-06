@@ -22,7 +22,7 @@ class TaskFinishedMarker:
 
 def _do_work(qTasks, qResults, qWatch, prefix, run_skipped, timeout, show_cmd):
     while True:
-        test = qTasks.get(block=True, timeout=sys.maxint)
+        test = qTasks.get(block=True, timeout=sys.maxsize)
         if test is EndMarker:
             qWatch.put(EndMarker)
             qResults.put(EndMarker)
@@ -73,7 +73,7 @@ def _do_watch(qWatch, timeout):
                 # ignore this.
                 if ex.winerror != 5:
                     raise
-            fin = qWatch.get(block=True, timeout=sys.maxint)
+            fin = qWatch.get(block=True, timeout=sys.maxsize)
             assert fin is TaskFinishedMarker, "invalid finish marker"
 
 

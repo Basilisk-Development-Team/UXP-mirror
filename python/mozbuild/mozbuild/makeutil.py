@@ -66,7 +66,7 @@ class _SimpleOrderedSet(object):
         self._list = []
         self._set = set()
 
-    def __nonzero__(self):
+    def __bool__(self):
         return bool(self._set)
 
     def __iter__(self):

@@ -112,7 +112,7 @@ class MarkEvaluator:
         try:
             d.update(func.__globals__)
         except AttributeError:
-            d.update(func.func_globals)
+            d.update(func.__globals__)
         return d
 
     def _istrue(self):

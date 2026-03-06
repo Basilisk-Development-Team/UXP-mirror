@@ -52,7 +52,7 @@ if  sys.version_info[:2] == (2, 6):
         something on __getattr__ calls (see #1035).
         Backport of https://hg.python.org/cpython/rev/35bf8f7a8edc
         """
-        return isinstance(object, (type, types.ClassType))
+        return isinstance(object, (type, type))
 
 def _has_positional_arg(func):
     return func.__code__.co_argcount
@@ -96,7 +96,7 @@ def getimfunc(func):
         return func.__func__
     except AttributeError:
         try:
-            return func.im_func
+            return func.__func__
         except AttributeError:
             return func
 

@@ -41,7 +41,7 @@ if PY3:
 else:
     string_types = basestring,
     integer_types = (int, int)
-    class_types = (type, types.ClassType)
+    class_types = (type, type)
     text_type = str
     binary_type = str
 
@@ -242,7 +242,7 @@ if PY3:
         return any("__call__" in klass.__dict__ for klass in type(obj).__mro__)
 else:
     def get_unbound_function(unbound):
-        return unbound.im_func
+        return unbound.__func__
 
     class Iterator(object):
 

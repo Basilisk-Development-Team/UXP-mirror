@@ -184,7 +184,7 @@ else:
     module_suffix = '.so'
 
 def is_List(e):
-    return type(e) is types.ListType \
+    return type(e) is list \
         or isinstance(e, collections.UserList)
 
 def is_writable(f):

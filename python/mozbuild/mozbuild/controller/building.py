@@ -643,7 +643,7 @@ class CCacheStats(object):
 
         return '\n'.join(lines)
 
-    def __nonzero__(self):
+    def __bool__(self):
         relative_values = [v for k, v in list(self._values.items())
                            if k not in self.ABSOLUTE_KEYS]
         return (all(v >= 0 for v in relative_values) and

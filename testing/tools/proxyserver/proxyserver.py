@@ -176,7 +176,7 @@ class Cache(object):
     self.sem.acquire()
     self.semlock.release()
     try:
-      if not self.db.has_key(key):
+      if key not in self.db:
         return None
       # returns status, headers, content
       return self.db[key]

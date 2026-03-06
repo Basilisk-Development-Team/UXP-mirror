@@ -27,8 +27,8 @@ class DMError(Exception):
 
 
 def abstractmethod(method):
-    line = method.func_code.co_firstlineno
-    filename = method.func_code.co_filename
+    line = method.__code__.co_firstlineno
+    filename = method.__code__.co_filename
 
     @wraps(method)
     def not_implemented(*args, **kwargs):

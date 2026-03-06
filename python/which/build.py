@@ -409,13 +409,13 @@ def build(targets=[]):
     log.debug("build(targets=%r)" % targets)
     available = _getTargets()
     if not targets:
-        if available.has_key('default'):
+        if 'default' in available:
             return available['default']()
         else:   
             log.warn("No default target available. Doing nothing.")
     else:
         for target in targets:
-            if available.has_key(target):
+            if target in available:
                 retval = available[target]()
                 if retval:
                     raise Error("Error running '%s' target: retval=%s"\

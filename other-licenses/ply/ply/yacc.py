@@ -89,14 +89,14 @@ import re, types, sys, os.path
 # Compatibility function for python 2.6/3.0
 if sys.version_info[0] < 3:
     def func_code(f):
-        return f.func_code
+        return f.__code__
 else:
     def func_code(f):
         return f.__code__
 
 # Compatibility
 try:
-    MAXINT = sys.maxint
+    MAXINT = sys.maxsize
 except AttributeError:
     MAXINT = sys.maxsize
 
@@ -1190,7 +1190,7 @@ class Production(object):
     def __len__(self):
         return len(self.prod)
 
-    def __nonzero__(self):
+    def __bool__(self):
         return 1
 
     def __getitem__(self,index):

@@ -251,7 +251,7 @@ except ImportError:
     __all__.append('simple_diff')
 
 def is_List(e):
-    return type(e) is types.ListType \
+    return type(e) is list \
         or isinstance(e, collections.UserList)
 
 try:
@@ -262,12 +262,12 @@ except ImportError:
 
 if hasattr(types, 'UnicodeType'):
     def is_String(e):
-        return type(e) is types.StringType \
-            or type(e) is types.UnicodeType \
+        return type(e) is bytes \
+            or type(e) is str \
             or isinstance(e, UserString)
 else:
     def is_String(e):
-        return type(e) is types.StringType or isinstance(e, UserString)
+        return type(e) is bytes or isinstance(e, UserString)
 
 tempfile.template = 'testcmd.'
 if os.name in ('posix', 'nt'):
@@ -882,7 +882,7 @@ class TestCmd(object):
                 #self.diff_function = difflib.unified_diff
         self._dirlist = []
         self._preserve = {'pass_test': 0, 'fail_test': 0, 'no_result': 0}
-        if os.environ.has_key('PRESERVE') and not os.environ['PRESERVE'] is '':
+        if 'PRESERVE' in os.environ and not os.environ['PRESERVE'] is '':
             self._preserve['pass_test'] = os.environ['PRESERVE']
             self._preserve['fail_test'] = os.environ['PRESERVE']
             self._preserve['no_result'] = os.environ['PRESERVE']

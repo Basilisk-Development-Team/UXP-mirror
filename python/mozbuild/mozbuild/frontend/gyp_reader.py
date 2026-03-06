@@ -343,7 +343,7 @@ def read_from_gyp(config, path, output, vars, no_chromium, no_unified, action_ov
                         if not f:
                             continue
                         # the result may be a string or a list.
-                        if isinstance(f, types.StringTypes):
+                        if isinstance(f, (str,)):
                             context[var].append(f)
                         else:
                             context[var].extend(f)

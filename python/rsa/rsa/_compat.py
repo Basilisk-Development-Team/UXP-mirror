@@ -25,7 +25,7 @@ from struct import pack
 try:
     MAX_INT = sys.maxsize
 except AttributeError:
-    MAX_INT = sys.maxint
+    MAX_INT = sys.maxsize
 
 MAX_INT64 = (1 << 63) - 1
 MAX_INT32 = (1 << 31) - 1
