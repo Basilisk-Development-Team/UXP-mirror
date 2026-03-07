@@ -256,11 +256,11 @@ To see more help for a specific command, run:
         if module_name is None:
             # Ensure parent module is present otherwise we'll (likely) get
             # an error due to unknown parent.
-            if b'mach.commands' not in sys.modules:
-                mod = imp.new_module(b'mach.commands')
-                sys.modules[b'mach.commands'] = mod
+            if 'mach.commands' not in sys.modules:
+                mod = imp.new_module('mach.commands')
+                sys.modules['mach.commands'] = mod
 
-            module_name = 'mach.commands.%s' % uuid.uuid1().get_hex()
+            module_name = 'mach.commands.%s' % uuid.uuid1().hex
 
         imp.load_source(module_name, path)
 
@@ -347,7 +347,7 @@ To see more help for a specific command, run:
             # is a TTY. This provides a mechanism to allow said processes to
             # enable emitting code codes, for example.
             if os.isatty(orig_stdout.fileno()):
-                os.environ[b'MACH_STDOUT_ISATTY'] = b'1'
+                os.environ['MACH_STDOUT_ISATTY'] = '1'
 
             return self._run(argv)
         except KeyboardInterrupt:
@@ -528,7 +528,7 @@ To see more help for a specific command, run:
 
             machrc, .machrc
         """
-        if isinstance(paths, basestring):
+        if isinstance(paths, str):
             paths = [paths]
 
         valid_names = ('machrc', '.machrc')
@@ -541,7 +541,7 @@ To see more help for a specific command, run:
                 if os.path.isfile(path):
                     return path
 
-        files = list(map(find_in_dir, self.settings_paths))
+        files = list(map(find_in_dir, paths))
         files = list(filter(bool, files))
 
         self.settings.load_files(files)

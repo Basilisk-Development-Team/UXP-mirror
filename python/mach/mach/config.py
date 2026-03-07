@@ -31,14 +31,7 @@ import gettext
 import os
 import sys
 from functools import wraps
-
-if sys.version_info[0] == 3:
-    from configparser import RawConfigParser, NoSectionError
-    str_type = str
-else:
-    from configparser import RawConfigParser, NoSectionError
-    str_type = basestring
-
+from configparser import RawConfigParser, NoSectionError
 
 TRANSLATION_NOT_FOUND = """
 No translation files detected for {section}, there must at least be a
@@ -85,7 +78,7 @@ class ConfigType(object):
 class StringType(ConfigType):
     @staticmethod
     def validate(value):
-        if not isinstance(value, str_type):
+        if not isinstance(value, str):
             raise TypeError()
 
     @staticmethod
@@ -132,7 +125,7 @@ class PositiveIntegerType(IntegerType):
 class PathType(StringType):
     @staticmethod
     def validate(value):
-        if not isinstance(value, str_type):
+        if not isinstance(value, str):
             raise TypeError()
 
     @staticmethod
@@ -357,7 +350,7 @@ class ConfigSettings(collections.Mapping):
             extra -- A dict of additional key/value pairs to add to the
                 setting metadata.
         """
-        if isinstance(type_cls, basestring):
+        if isinstance(type_cls, str):
             type_cls = TYPE_CLASSES[type_cls]
 
         meta = {
