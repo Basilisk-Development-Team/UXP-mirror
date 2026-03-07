@@ -11,7 +11,7 @@ class StringVersion(str):
     """
 
     def __init__(self, vstring):
-        str.__init__(self, vstring)
+        super().__init__()
         self.version = LooseVersion(vstring)
 
     def __repr__(self):

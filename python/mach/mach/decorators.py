@@ -110,7 +110,7 @@ def CommandProvider(cls):
     # Tell mach driver whether to pass context argument to __init__.
     pass_context = False
 
-    if inspect.ismethod(cls.__init__):
+    if inspect.isfunction(cls.__init__):
         spec = inspect.getargspec(cls.__init__)
 
         if len(spec.args) > 2:
