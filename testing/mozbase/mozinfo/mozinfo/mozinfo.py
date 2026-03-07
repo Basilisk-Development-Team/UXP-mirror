@@ -184,7 +184,7 @@ def update(new_info):
                      to a json file containing the new info.
     """
 
-    if isinstance(new_info, basestring):
+    if isinstance(new_info, str):
         # lazy import
         import mozfile
         import json

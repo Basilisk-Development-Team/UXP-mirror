@@ -8,19 +8,12 @@ import os
 import sys
 
 from collections import Iterable
-from types import StringTypes, ModuleType
+from types import ModuleType
 
 import mozpack.path as mozpath
 
 from mozbuild.util import ReadOnlyDict
 from mozbuild.shellutil import quote as shell_quote
-
-
-if sys.version_info.major == 2:
-    text_type = str
-else:
-    text_type = str
-
 
 class BuildConfig(object):
     """Represents the output of configure."""
@@ -170,7 +163,7 @@ class ConfigEnvironment(object):
         self.substs_unicode = {}
 
         def decode(v):
-            if not isinstance(v, text_type):
+            if not isinstance(v, str):
                 try:
                     return v.decode('utf-8')
                 except UnicodeDecodeError:
@@ -180,7 +173,7 @@ class ConfigEnvironment(object):
             if not isinstance(v, StringTypes):
                 if isinstance(v, Iterable):
                     type(v)(decode(i) for i in v)
-            elif not isinstance(v, text_type):
+            elif not isinstance(v, str):
                 v = decode(v)
 
             self.substs_unicode[k] = v
