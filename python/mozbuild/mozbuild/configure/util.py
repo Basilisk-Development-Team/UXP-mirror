@@ -20,7 +20,7 @@ def getpreferredencoding():
     # 'ANSI_X3.4-1968' when it uses nl_langinfo.
     encoding = None
     try:
-        encoding = locale.getpreferredencoding()
+        encoding = 'utf-8'
     except ValueError:
         # On english OSX, LC_ALL is UTF-8 (not en-US.UTF-8), and
         # that throws off locale._parse_localename, which ends up
@@ -75,22 +75,8 @@ class ConfigureOutputHandler(logging.Handler):
     def __init__(self, stdout=sys.stdout, stderr=sys.stderr, maxlen=20):
         super(ConfigureOutputHandler, self).__init__()
 
-        # Python has this feature where it sets the encoding of pipes to
-        # ascii, which blatantly fails when trying to print out non-ascii.
-        def fix_encoding(fh):
-            try:
-                isatty = fh.isatty()
-            except AttributeError:
-                isatty = True
-
-            if not isatty:
-                encoding = getpreferredencoding()
-                if encoding:
-                    return codecs.getwriter(encoding)(fh)
-            return fh
-
-        self._stdout = fix_encoding(stdout)
-        self._stderr = fix_encoding(stderr) if stdout != stderr else self._stdout
+        self._stdout = stdout
+        self._stderr = stderr if stdout != stderr else self._stdout
         try:
             fd1 = self._stdout.fileno()
             fd2 = self._stderr.fileno()
@@ -148,6 +134,8 @@ class ConfigureOutputHandler(logging.Handler):
                     self._stdout.flush()
                 stream = self._stderr
                 msg = '%s\n' % self.format(record)
+            if not isinstance(msg, str):
+                msg = str(msg)
             stream.write(msg)
             stream.flush()
         except (KeyboardInterrupt, SystemExit):
@@ -197,10 +185,10 @@ class LineIO(object):
     def __init__(self, callback):
         self._callback = callback
         self._buf = ''
-        self._encoding = getpreferredencoding()
+        self._encoding = 'utf-8'
 
     def write(self, buf):
-        if self._encoding and isinstance(buf, str):
+        if self._encoding and not isinstance(buf, str):
             buf = buf.decode(self._encoding)
         lines = buf.splitlines()
         if not lines:

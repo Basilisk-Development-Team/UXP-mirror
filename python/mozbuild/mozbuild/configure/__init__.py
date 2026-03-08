@@ -268,7 +268,7 @@ class ConfigureSandbox(dict):
                 return method
             def wrapped(*args, **kwargs):
                 out_args = [
-                    arg.decode(encoding) if isinstance(arg, str) else arg
+                    arg.decode(encoding) if not isinstance(arg, str) else arg
                     for arg in args
                 ]
                 return method(*out_args, **kwargs)
@@ -738,7 +738,7 @@ class ConfigureSandbox(dict):
         # Special case for the open() builtin, because otherwise, using it
         # fails with "IOError: file() constructor not accessible in
         # restricted mode"
-        if what == '__builtin__.open':
+        if what == 'builtins.open':
             return lambda *args, **kwargs: open(*args, **kwargs)
         # Until this proves to be a performance problem, just construct an
         # import statement and execute it.

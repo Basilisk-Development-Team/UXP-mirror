@@ -21,8 +21,8 @@ IS_MSYS2 = (sys.platform == 'win32' and os.sep == '/')
 IS_CYGWIN = (sys.platform == 'cygwin')
 
 # Minimum version of Python required to build.
-MINIMUM_PYTHON_VERSION = LooseVersion('2.7.3')
-MINIMUM_PYTHON_MAJOR = 2
+MINIMUM_PYTHON_VERSION = LooseVersion('3.3.0')
+MINIMUM_PYTHON_MAJOR = 3
 
 
 UPGRADE_WINDOWS = '''
@@ -531,7 +531,7 @@ def verify_python_version(log_handle):
     our = LooseVersion('%d.%d.%d' % (major, minor, micro))
 
     if major != MINIMUM_PYTHON_MAJOR or our < MINIMUM_PYTHON_VERSION:
-        log_handle.write('Python %s or greater (but not Python 3) is '
+        log_handle.write('Python %s or greater (but not Python 4) is '
             'required to build. ' % MINIMUM_PYTHON_VERSION)
         log_handle.write('You are running Python %s.\n' % our)
 

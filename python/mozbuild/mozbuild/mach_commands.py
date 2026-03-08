@@ -412,7 +412,7 @@ class Build(MachCommandBase):
                     status = self._run_make(directory=make_dir, target=make_target,
                         line_handler=output.on_line, log=False, print_directory=False,
                         ensure_exit_code=False, num_jobs=jobs, silent=not verbose,
-                        append_env={b'NO_BUILDSTATUS_MESSAGES': b'1'})
+                        append_env={'NO_BUILDSTATUS_MESSAGES': '1'})
 
                     if status != 0:
                         break
@@ -570,12 +570,12 @@ class Build(MachCommandBase):
         line_handler = line_handler or on_line
 
         options = ' '.join(shell_quote(o) for o in options or ())
-        append_env = {b'CONFIGURE_ARGS': options.encode('utf-8')}
+        append_env = {'CONFIGURE_ARGS': options}
 
         # Only print build status messages when we have an active
         # monitor.
         if not buildstatus_messages:
-            append_env[b'NO_BUILDSTATUS_MESSAGES'] =  b'1'
+            append_env['NO_BUILDSTATUS_MESSAGES'] =  '1'
         status = self._run_make(srcdir=True, filename='client.mk',
             target='configure', line_handler=line_handler, log=False,
             print_directory=False, allow_parallel=False, ensure_exit_code=False,

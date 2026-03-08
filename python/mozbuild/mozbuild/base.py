@@ -534,7 +534,7 @@ class MozbuildObject(ProcessExecutionMixin):
             fn = self._run_command_in_srcdir
 
         append_env = dict(append_env or ())
-        append_env[b'MACH'] = '1'
+        append_env['MACH'] = '1'
 
         params = {
             'args': args,
@@ -732,7 +732,7 @@ class MachCommandBase(MozbuildObject):
             self._ensure_state_subdir_exists('.')
             logfile = self._get_state_filename('last_log.json')
             try:
-                fd = open(logfile, "wb")
+                fd = open(logfile, "w", encoding='utf-8')
                 self.log_manager.add_json_handler(fd)
             except Exception as e:
                 self.log(logging.WARNING, 'mach', {'error': e},
