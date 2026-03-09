@@ -38,6 +38,7 @@ another Python version. Ensure a modern Python can be found in the paths
 defined by the $PATH environment variable and try again.
 '''.lstrip()
 
+here = os.path.abspath(os.path.dirname(__file__))
 
 class VirtualenvManager(object):
     """Contains logic for managing virtualenvs for building the tree."""
@@ -106,7 +107,7 @@ class VirtualenvManager(object):
         on OS X our python path may end up being a different or modified
         executable.
         """
-        ver = subprocess.check_output([python, '-c', 'import sys; print(sys.hexversion)']).rstrip()
+        ver = subprocess.check_output([python, '-c', 'import sys; print(sys.hexversion)'], universal_newlines=True).rstrip()
         with open(self.exe_info_path, 'w') as fh:
             fh.write("%s\n" % ver)
             fh.write("%s\n" % os.path.getsize(python))
@@ -207,7 +208,7 @@ class VirtualenvManager(object):
         return self.virtualenv_root
 
     def packages(self):
-        with file(self.manifest_path, 'rU') as fh:
+        with open(self.manifest_path, 'r') as fh:
             packages = [line.rstrip().split(':')
                         for line in fh]
         return packages
@@ -462,8 +463,6 @@ class VirtualenvManager(object):
         """
 
         exec(compile(open(self.activate_path, "rb").read(), self.activate_path, 'exec'), dict(__file__=self.activate_path))
-        if isinstance(os.environ['PATH'], str):
-            os.environ['PATH'] = os.environ['PATH'].encode('utf-8')
 
     def install_pip_package(self, package):
         """Install a package via pip.
@@ -521,7 +520,7 @@ class VirtualenvManager(object):
         # It /might/ be possible to cheat and set sys.executable to
         # self.python_path. However, this seems more risk than it's worth.
         subprocess.check_call([os.path.join(self.bin_path, 'pip')] + args,
-            stderr=subprocess.STDOUT)
+            stderr=subprocess.STDOUT, universal_newlines=True)
 
 
 def verify_python_version(log_handle):

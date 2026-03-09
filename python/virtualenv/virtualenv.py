@@ -156,13 +156,19 @@ elif majver == 3:
         REQUIRED_FILES.append(platdir)
         REQUIRED_MODULES.extend([
         	'base64', '_dummy_thread', 'hashlib', 'hmac',
-        	'imp', 'importlib', 'rlcompleter'
+        	'imp', 'importlib', 'rlcompleter', 'subprocess',
+                'traceback', 'threading'
         ])
     if minver >= 4:
         REQUIRED_MODULES.extend([
             'operator',
             '_collections_abc',
             '_bootlocale',
+        ])
+    if minver >= 5:
+        REQUIRED_MODULES.extend([
+            'signal',
+            'enum',
         ])
 
 if is_pypy:
