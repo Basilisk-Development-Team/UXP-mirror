@@ -4,6 +4,10 @@
 
 from __future__ import absolute_import
 
+import codecs
+import errno
+import io
+import locale
 import os
 import signal
 import subprocess
@@ -926,12 +930,14 @@ class ProcessReader(object):
         return thread
 
     def _read_stream(self, stream, queue, callback):
+
+        raw_stream = stream if isinstance(stream, io.BufferedReader) else stream.buffer
         while True:
-            line = stream.readline()
-            if not line:
+            raw = raw_stream.readline()
+            if not raw:
                 break
-            if not isinstance(line, str):
-                line = line.decode('utf-8', errors='replace')
+
+            line = raw.decode(locale.getpreferredencoding(False), errors='replace')
             queue.put((line, callback))
         stream.close()
 
