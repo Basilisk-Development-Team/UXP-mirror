@@ -212,7 +212,7 @@ def early_options():
     def early_options():
         return set(
             option.env
-            for option in __sandbox__._options.itervalues()
+            for option in __sandbox__._options.values()
             if option.env
         )
     return early_options
@@ -240,17 +240,17 @@ def mozconfig_options(mozconfig, help):
                 log.info('  %s' % arg)
                 helper.add(arg, origin='mozconfig', args=helper._args)
 
-        for key, value in mozconfig['env']['added'].iteritems():
+        for key, value in mozconfig['env']['added'].items():
             add(key, value)
             os.environ[key] = value
-        for key, (_, value) in mozconfig['env']['modified'].iteritems():
+        for key, (_, value) in mozconfig['env']['modified'].items():
             add(key, value)
             os.environ[key] = value
-        for key, value in mozconfig['vars']['added'].iteritems():
+        for key, value in mozconfig['vars']['added'].items():
             # mozconfig_loader adds _IS_SET variables that are irrelevant
             if not key.endswith('_IS_SET'):
                 add(key, value)
-        for key, (_, value) in mozconfig['vars']['modified'].iteritems():
+        for key, (_, value) in mozconfig['vars']['modified'].items():
             add(key, value)
 
 
@@ -290,6 +290,7 @@ option('--target', nargs=1,
 @imports(_from='mozbuild.configure.constants', _import='Endianness')
 @imports(_from='mozbuild.configure.constants', _import='Kernel')
 @imports(_from='mozbuild.configure.constants', _import='OS')
+@imports(_from='mozbuild.configure.constants', _import='OS_and_Kernel')
 def split_triplet(triplet):
     # The standard triplet is defined as
     #   CPU_TYPE-MANUFACTURER-OPERATING_SYSTEM
@@ -385,8 +386,8 @@ def split_triplet(triplet):
         alias=triplet,
         cpu=CPU(canonical_cpu),
         bitness=CPU_bitness[canonical_cpu],
-        kernel=Kernel(canonical_kernel),
-        os=OS(canonical_os),
+        kernel=OS_and_Kernel(canonical_kernel),
+        os=OS_and_Kernel(canonical_os),
         endianness=Endianness(endianness),
         raw_cpu=cpu,
         raw_os=os,
@@ -400,7 +401,8 @@ def split_triplet(triplet):
 def config_sub(shell, triplet):
     config_sub = os.path.join(os.path.dirname(__file__), '..',
                               'autoconf', 'config.sub')
-    return subprocess.check_output([shell, config_sub, triplet]).strip()
+    return subprocess.check_output([shell, config_sub, triplet],
+                                   universal_newlines=True).strip()
 
 
 @depends('--host', shell)
@@ -761,7 +763,7 @@ def enabled_in_nightly(milestone, _):
 def all_configure_options(_):
     result = []
     previous = None
-    for option in __sandbox__._options.itervalues():
+    for option in __sandbox__._options.values():
         # __sandbox__._options contains items for both option.name and
         # option.env. But it's also an OrderedDict, meaning both are
         # consecutive.
