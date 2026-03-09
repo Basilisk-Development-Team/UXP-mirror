@@ -4,6 +4,7 @@
 
 from __future__ import absolute_import, print_function, unicode_literals
 
+import builtins
 import inspect
 import logging
 import os
@@ -97,6 +98,9 @@ class DependsFunction(object):
             ', '.join(repr(d) for d in self.dependencies),
         )
 
+    def __hash__(self):
+        return id(self)
+
 
 class CombinedDependsFunction(DependsFunction):
     def __init__(self, sandbox, func, dependencies):
@@ -141,6 +145,10 @@ class CombinedDependsFunction(DependsFunction):
 
     def __ne__(self, other):
         return not self == other
+
+    def __hash__(self):
+        return id(self)
+
 
 class SandboxedGlobal(dict):
     '''Identifiable dict type for use as function global'''
@@ -189,11 +197,11 @@ class ConfigureSandbox(dict):
     # The default set of builtins. We expose unicode as str to make sandboxed
     # files more python3-ready.
     BUILTINS = ReadOnlyDict({
-        b: __builtins__[b]
+        b: getattr(builtins, b)
         for b in ('None', 'False', 'True', 'int', 'bool', 'any', 'all', 'len',
-                  'list', 'tuple', 'set', 'dict', 'isinstance', 'getattr',
+                  'list', 'tuple', 'set', 'dict', 'isinstance', 'print', 'getattr',
                   'hasattr', 'enumerate', 'range', 'zip', '__build_class__')
-        if b in __builtins__},
+        if hasattr(builtins, b)},
     __import__=forbidden_import, str=str)
 
     # Expose a limited set of functions from os.path
@@ -206,6 +214,7 @@ class ConfigureSandbox(dict):
     def __init__(self, config, environ=os.environ, argv=sys.argv,
                  stdout=sys.stdout, stderr=sys.stderr, logger=None):
         dict.__setitem__(self, '__builtins__', self.BUILTINS)
+        dict.__setitem__(self, 'builtins', self.BUILTINS)
 
         self._paths = []
         self._all_paths = set()
@@ -267,10 +276,14 @@ class ConfigureSandbox(dict):
             if not encoding:
                 return method
             def wrapped(*args, **kwargs):
-                out_args = [
-                    arg.decode(encoding) if not isinstance(arg, str) else arg
-                    for arg in args
-                ]
+                out_args = []
+                for arg in args:
+                    if isinstance(arg, bytes):
+                        out_args.append(arg.decode(encoding, errors='replace'))
+                    elif isinstance(arg, str):
+                        out_args.append(arg)
+                    else:
+                        out_args.append(str(arg))
                 return method(*out_args, **kwargs)
             return wrapped
 
@@ -376,7 +389,7 @@ class ConfigureSandbox(dict):
         return super(ConfigureSandbox, self).__getitem__(key)
 
     def __setitem__(self, key, value):
-        if (key in self.BUILTINS or key == '__builtins__' or
+        if (key in self.BUILTINS or key == 'builtins' or
                 hasattr(self, '%s_impl' % key)):
             raise KeyError('Cannot reassign builtins')
 
@@ -438,7 +451,7 @@ class ConfigureSandbox(dict):
                     value = PositiveOptionValue()
                 elif value is False or value == ():
                     value = NegativeOptionValue()
-                elif isinstance(value, (str,)):
+                elif isinstance(value, str):
                     value = PositiveOptionValue((value,))
                 elif isinstance(value, tuple):
                     value = PositiveOptionValue(value)
@@ -462,6 +475,8 @@ class ConfigureSandbox(dict):
                 % (e.arg, reason, e.old_arg, e.old_origin))
 
         if option_string:
+            if not isinstance(option_string, str):
+                option_string = option_string.decode('utf-8', errors='replace')
             self._raw_options[option] = option_string
 
         when = self._conditions.get(option)
@@ -478,7 +493,7 @@ class ConfigureSandbox(dict):
         return value
 
     def _dependency(self, arg, callee_name, arg_name=None):
-        if isinstance(arg, (str,)):
+        if isinstance(arg, str):
             prefix, name, values = Option.split_option(arg)
             if values != ():
                 raise ConfigureError("Option must not contain an '='")
@@ -623,7 +638,7 @@ class ConfigureSandbox(dict):
         with self.only_when_impl(when):
             what = self._resolve(what)
             if what:
-                if not isinstance(what, (str,)):
+                if not isinstance(what, str):
                     raise TypeError("Unexpected type: '%s'" % type(what).__name__)
                 self.include_file(what)
 
@@ -697,7 +712,7 @@ class ConfigureSandbox(dict):
         for value, required in (
                 (_import, True), (_from, False), (_as, False)):
 
-            if not isinstance(value, (str,)) and (
+            if not isinstance(value, str) and (
                     required or value is not None):
                 raise TypeError("Unexpected type: '%s'" % type(value).__name__)
             if value is not None and not self.RE_MODULE.match(value):
@@ -745,6 +760,8 @@ class ConfigureSandbox(dict):
         import_line = ''
         if '.' in what:
             _from, what = what.rsplit('.', 1)
+            if _from == '__builtin__':
+                _from = 'builtins'
             import_line += 'from %s ' % _from
         import_line += 'import %s as imported' % what
         glob = {}
@@ -760,7 +777,7 @@ class ConfigureSandbox(dict):
         name = self._resolve(name, need_help_dependency=False)
         if name is None:
             return
-        if not isinstance(name, (str,)):
+        if not isinstance(name, str):
             raise TypeError("Unexpected type: '%s'" % type(name).__name__)
         if name in data:
             raise ConfigureError(
@@ -850,7 +867,7 @@ class ConfigureSandbox(dict):
                 if isinstance(possible_reasons[0], Option):
                     reason = possible_reasons[0]
         if not reason and (isinstance(value, (bool, tuple)) or
-                           isinstance(value, (str,))):
+                           isinstance(value, str)):
             # A reason can be provided automatically when imply_option
             # is called with an immediate value.
             _, filename, line, _, _, _ = inspect.stack()[1]
@@ -892,7 +909,9 @@ class ConfigureSandbox(dict):
             if (inspect.isfunction(v) and v not in self._templates) or (
                 inspect.isclass(v) and issubclass(v, Exception))
         )
+        glob.update(self.BUILTINS)
         glob.update(
+            builtins=self.BUILTINS,
             __builtins__=self.BUILTINS,
             __file__=self._paths[-1] if self._paths else '',
             __name__=self._paths[-1] if self._paths else '',
