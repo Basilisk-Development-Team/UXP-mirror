@@ -976,9 +976,8 @@ def TypedNamedTuple(name, fields):
             if len(args) == 1 and not kwargs and isinstance(args[0], tuple):
                 args = args[0]
 
-            return super(TypedTuple, klass).__new__(klass, *args, **kwargs)
+            self = super(TypedTuple, klass).__new__(klass, *args, **kwargs)
 
-        def __init__(self, *args, **kwargs):
             for i, (fname, ftype) in enumerate(self._fields):
                 value = self[i]
 
@@ -987,7 +986,10 @@ def TypedNamedTuple(name, fields):
                                     'got %s, expected %s' % (fname,
                                     type(value), ftype))
 
-            super(TypedTuple, self).__init__(*args, **kwargs)
+            return self
+
+        def __init__(self, *args, **kwargs):
+            pass
 
     TypedTuple._fields = fields
 
@@ -1173,6 +1175,8 @@ class EnumString(str):
     def __ne__(self, other):
         return not (self == other)
 
+    __hash__ = str.__hash__
+
     @staticmethod
     def subclass(*possible_values):
         class EnumStringSubclass(EnumString):
@@ -1185,23 +1189,22 @@ def _escape_char(c):
     # quoting could be done with either ' or ".
     if c == "'":
         return "\\'"
-    return str(c.encode('unicode_escape'))
+    return c.encode('unicode_escape').decode('ascii')
 
 # Mapping table between raw characters below \x80 and their escaped
 # counterpart, when they differ
 _INDENTED_REPR_TABLE = {
     c: e
-    for c, e in [(x, _escape_char(x)) for x in list(map(chr, list(range(128))))]
+    for c, e in [(x, _escape_char(x)) for x in map(chr, range(128))]
     if c != e
 }
-# Regexp matching all characters to escape.
-_INDENTED_REPR_RE = re.compile(
-    '([' + ''.join(list(_INDENTED_REPR_TABLE.values())) + ']+)')
 
-
+# Build regex from the KEYS (raw special chars), with a CAPTURING group
+# so re.split() returns the matched chars interleaved in the output list.
+pattern = '(' + '|'.join(re.escape(c) for c in _INDENTED_REPR_TABLE.keys()) + ')'
+_INDENTED_REPR_RE = re.compile(pattern)
 def indented_repr(o, indent=4):
     '''Similar to repr(), but returns an indented representation of the object
-
     One notable difference with repr is that the returned representation
     assumes `from __future__ import unicode_literals`.
     '''
@@ -1245,19 +1248,3 @@ def indented_repr(o, indent=4):
         else:
             yield repr(o)
     return ''.join(recurse_indented_repr(o, 0))
-
-
-def encode(obj, encoding='utf-8'):
-    '''Recursively encode unicode strings with the given encoding.'''
-    if isinstance(obj, dict):
-        return {
-            encode(k, encoding): encode(v, encoding)
-            for k, v in obj.items()
-        }
-    if isinstance(obj, bytes):
-        return obj
-    if isinstance(obj, str):
-        return obj.encode(encoding)
-    if isinstance(obj, Iterable):
-        return [encode(i, encoding) for i in obj]
-    return obj

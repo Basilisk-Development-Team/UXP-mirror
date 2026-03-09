@@ -10,13 +10,11 @@ import subprocess
 import sys
 import textwrap
 
-
 base_dir = os.path.abspath(os.path.dirname(__file__))
 sys.path.insert(0, os.path.join(base_dir, 'python', 'mozbuild'))
 from mozbuild.configure import ConfigureSandbox
 from mozbuild.util import (
     indented_repr,
-    encode,
 )
 
 
@@ -60,19 +58,16 @@ def config_status(config):
     # here, when we're able to skip configure tests/use cached results/not rely
     # on autoconf.
     print("Creating config.status", file=sys.stderr)
-    encoding = 'mbcs' if sys.platform == 'win32' else 'utf-8'
-    with codecs.open('config.status', 'w', encoding) as fh:
+    with codecs.open('config.status', 'w', encoding='utf-8', errors='replace') as fh:
         fh.write(textwrap.dedent('''\
             #!%(python)s
             # coding=%(encoding)s
             from __future__ import unicode_literals
-            from mozbuild.util import encode
-            encoding = '%(encoding)s'
-        ''') % {'python': config['PYTHON'], 'encoding': encoding})
+        ''') % {'python': config['PYTHON'], 'encoding': 'utf-8'})
         # A lot of the build backend code is currently expecting byte
         # strings and breaks in subtle ways with unicode strings. (bug 1296508)
         for k, v in sanitized_config.items():
-            fh.write('%s = encode(%s, encoding)\n' % (k, indented_repr(v)))
+            fh.write('%s = %s\n' % (k, indented_repr(v)))
         fh.write("__all__ = ['topobjdir', 'topsrcdir', 'defines', "
                  "'non_global_defines', 'substs', 'mozconfig']")
 
@@ -99,7 +94,7 @@ def config_status(config):
 
         # A lot of the build backend code is currently expecting byte strings
         # and breaks in subtle ways with unicode strings.
-        return config_status(args=[], **encode(sanitized_config, encoding))
+        return config_status(args=[], **sanitized_config)
     return 0
 
 
