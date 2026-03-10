@@ -13,9 +13,11 @@ import re
 import subprocess
 import sys
 import pickle
+from locale import getpreferredencoding
 
 import mozpack.path as mozpath
 
+encoding = getpreferredencoding()
 
 class Pool(object):
     def __new__(cls, size):
@@ -60,7 +62,7 @@ class File(object):
 
         modified = True
         if os.path.exists(self._path):
-            if open(self._path, 'rb').read() == self._content:
+            if open(self._path, 'r', encoding=encoding, errors='replace').read() == self._content:
                 modified = False
         self._modified = modified
         return modified
@@ -160,9 +162,11 @@ def get_config_files(data):
 
     # Scan the config.status output for information about configuration files
     # it generates.
-    config_status_output = subprocess.check_output(
+    raw_output = subprocess.check_output(
         [data['shell'], '-c', '%s --help' % config_status],
         stderr=subprocess.STDOUT).splitlines()
+    config_status_output = raw_output.decode(encoding,
+                                             errors='replace').splitlines()
     state = None
     for line in config_status_output:
         if line.startswith('Configuration') and line.endswith(':'):
@@ -183,6 +187,16 @@ def get_config_files(data):
 
     return config_files, command_files
 
+def normalize(obj):
+    if isinstance(obj, dict):
+        return {normalize(k): normalize(v) for k, v in obj.items()}
+    if isinstance(obj, list):
+        return [normalize(v) for v in obj]
+    if isinstance(obj, tuple):
+        return tuple(normalize(v) for v in obj)
+    if isinstance(obj, bytes):
+        return obj.decode(encoding, 'replace')
+    return obj
 
 def prepare(srcdir, objdir, shell, args):
     parser = argparse.ArgumentParser()
@@ -200,7 +214,7 @@ def prepare(srcdir, objdir, shell, args):
     previous_args = None
     if os.path.exists(data_file):
         with open(data_file, 'rb') as f:
-            data = pickle.load(f)
+            data = normalize(pickle.load(f))
             previous_args = data['args']
 
     # Msys likes to break environment variables and command line arguments,
@@ -263,7 +277,7 @@ def run(objdir):
     output = ''
 
     with open(os.path.join(objdir, CONFIGURE_DATA), 'rb') as f:
-        data = pickle.load(f)
+        data = normalize(pickle.load(f))
 
     data['objdir'] = objdir
 
@@ -337,10 +351,12 @@ def run(objdir):
         print(prefix_lines('running %s' % ' '.join(command[:-1]), relobjdir))
         sys.stdout.flush()
         try:
-            output += subprocess.check_output(command,
+            raw_output = subprocess.check_output(command,
                 stderr=subprocess.STDOUT, cwd=objdir, env=data['env'])
+            output += raw_output.decode(encoding, errors='replace')
         except subprocess.CalledProcessError as e:
-            return relobjdir, e.returncode, e.output
+            err = e.output.decode(encoding, errors='replace')
+            return relobjdir, e.returncode, err
 
         # Leave config.status with a new timestamp if configure is newer than
         # its original mtime.
@@ -371,9 +387,10 @@ def run(objdir):
             print(prefix_lines('running config.status', relobjdir))
             sys.stdout.flush()
         try:
-            output += subprocess.check_output([data['shell'], '-c',
+            raw_output = subprocess.check_output([data['shell'], '-c',
                 './config.status'], stderr=subprocess.STDOUT, cwd=objdir,
                 env=data['env'])
+            output += raw_output.decode(encoding, errors='replace')
         except subprocess.CalledProcessError as e:
             ret = e.returncode
             output += e.output
@@ -395,9 +412,9 @@ def subconfigure(args):
     args, others = parser.parse_known_args(args)
     subconfigures = args.subconfigures
     if args.list:
-        subconfigures.extend(open(args.list, 'rb').read().splitlines())
+        subconfigures.extend(open(args.list, 'r', encoding=encoding, errors='replace').read().splitlines())
     if args.skip:
-        skips = set(open(args.skip, 'rb').read().splitlines())
+        skips = set(open(args.skip, 'r', encoding=encoding, errors='replace').read().splitlines())
         subconfigures = [s for s in subconfigures if s not in skips]
 
     if not subconfigures:

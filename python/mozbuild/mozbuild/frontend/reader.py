@@ -117,13 +117,13 @@ class EmptyConfig(object):
         self.substs = self.PopulateOnGetDict(EmptyValue, {
             # These 2 variables are used semi-frequently and it isn't worth
             # changing all the instances.
-            b'MOZ_APP_NAME': b'empty',
-            b'MOZ_CHILD_PROCESS_NAME': b'empty',
+            'MOZ_APP_NAME': 'empty',
+            'MOZ_CHILD_PROCESS_NAME': 'empty',
             # Set manipulations are performed within the moz.build files. But
             # set() is not an exposed symbol, so we can't create an empty set.
-            b'NECKO_PROTOCOLS': set(),
+            'NECKO_PROTOCOLS': set(),
             # Needed to prevent js/src's config.status from loading.
-            b'JS_STANDALONE': b'1',
+            'JS_STANDALONE': '1',
         })
         udict = {}
         for k, v in list(self.substs.items()):
@@ -429,7 +429,7 @@ class TemplateFunction(object):
         # actually never calls __getitem__ and __setitem__, so we need to
         # modify the AST so that accesses to globals are properly directed
         # to a dict.
-        self._global_name = b'_data' # AST wants str for this, not unicode
+        self._global_name = '_data' # AST wants str for this, not unicode
         # In case '_data' is a name used for a variable in the function code,
         # prepend more underscores until we find an unused name.
         while (self._global_name in code.co_names or
@@ -998,7 +998,7 @@ class BuildReader(object):
             assignments[:] = []
             full = os.path.join(self.config.topsrcdir, p)
 
-            with open(full, 'rb') as fh:
+            with open(full, 'r', encoding='utf-8') as fh:
                 source = fh.read()
 
             tree = ast.parse(source, full)

@@ -21,7 +21,7 @@ from .filters import (
 __all__ = ['ManifestParser', 'TestManifest', 'convert']
 
 relpath = os.path.relpath
-string = (basestring,)
+string = (str,)
 
 
 # path normalization
@@ -385,7 +385,7 @@ class ManifestParser(object):
         """
 
         files = set([])
-        if isinstance(directories, basestring):
+        if isinstance(directories, str):
             directories = [directories]
 
         # get files in directories
@@ -578,7 +578,7 @@ class ManifestParser(object):
         internal function to import directories
         """
 
-        if isinstance(pattern, basestring):
+        if isinstance(pattern, str):
             patterns = [pattern]
         else:
             patterns = pattern

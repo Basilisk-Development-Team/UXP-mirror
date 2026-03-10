@@ -236,7 +236,7 @@ class InstallManifest(object):
 
         It is an error if both are specified.
         """
-        with _auto_fileobj(path, fileobj, 'wb') as fh:
+        with _auto_fileobj(path, fileobj, 'w', encoding='utf-8', errors='replace') as fh:
             fh.write('%d\n' % self.CURRENT_VERSION)
 
             for dest in sorted(self._dests):
@@ -251,12 +251,12 @@ class InstallManifest(object):
                         source = mozpath.join(base, path)
                         parts = ['%d' % type, mozpath.join(dest, path), source]
                         fh.write('%s\n' % self.FIELD_SEPARATOR.join(
-                            p.encode('utf-8') for p in parts))
+                            str(p) for p in parts))
                 else:
                     parts = ['%d' % entry[0], dest]
                     parts.extend(entry[1:])
                     fh.write('%s\n' % self.FIELD_SEPARATOR.join(
-                        p.encode('utf-8') for p in parts))
+                        str(p) for p in parts))
 
     def add_symlink(self, source, dest):
         """Add a symlink to this manifest.

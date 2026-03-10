@@ -444,6 +444,6 @@ def load(resource):
 
     if not is_url(resource):
         # if no scheme is given, it is a file path
-        return file(resource)
+        return open(resource)
 
     return urllib.request.urlopen(resource)

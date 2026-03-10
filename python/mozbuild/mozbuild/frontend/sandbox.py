@@ -153,7 +153,11 @@ class Sandbox(dict):
         assert os.path.isabs(path)
 
         try:
-            source = self._finder.get(path).read()
+            raw = self._finder.get(path).read()
+            if isinstance(raw, bytes):
+                source = raw.decode('utf-8', errors='replace')
+            else:
+                source = raw
         except Exception as e:
             raise SandboxLoadError(self._context.source_stack,
                 sys.exc_info()[2], read_error=path)

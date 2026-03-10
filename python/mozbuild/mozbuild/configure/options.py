@@ -65,6 +65,9 @@ class OptionValue(tuple):
         return '%s%s' % (self.__class__.__name__,
                          super(OptionValue, self).__repr__())
 
+    def __hash__(self):
+        return hash(tuple(self))
+
 
 class PositiveOptionValue(OptionValue):
     '''Represents the value for a positive option (--enable/--with/--foo)

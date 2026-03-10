@@ -368,7 +368,8 @@ class MozbuildObject(ProcessExecutionMixin):
         args = o._normalize_command([p], True)
 
         _config_guess_output.append(
-                subprocess.check_output(args, cwd=self.topsrcdir).strip())
+                subprocess.check_output(args, cwd=self.topsrcdir,
+                                        universal_newlines=True).strip())
         return _config_guess_output[0]
 
     def notify(self, msg):

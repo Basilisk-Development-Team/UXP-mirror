@@ -280,10 +280,8 @@ class ConfigureSandbox(dict):
                 for arg in args:
                     if isinstance(arg, bytes):
                         out_args.append(arg.decode(encoding, errors='replace'))
-                    elif isinstance(arg, str):
-                        out_args.append(arg)
                     else:
-                        out_args.append(str(arg))
+                        out_args.append(arg)
                 return method(*out_args, **kwargs)
             return wrapped
 

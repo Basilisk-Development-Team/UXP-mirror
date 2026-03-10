@@ -49,6 +49,8 @@ from types import FunctionType
 
 import itertools
 
+def cmp(a, b):
+    return (a > b) - (a < b)
 
 class ContextDerivedValue(object):
     """Classes deriving from this one receive a special treatment in a
@@ -1974,7 +1976,7 @@ SPECIAL_VARIABLES = {
         """),
 
     'CONFIG': (lambda context: ReadOnlyKeyedDefaultDict(
-            lambda key: context.config.substs_unicode.get(key)), dict,
+            lambda key: context.config.substs.get(key)), dict,
         """Dictionary containing the current configuration variables.
 
         All the variables defined by the configuration system are available
