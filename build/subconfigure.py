@@ -164,7 +164,7 @@ def get_config_files(data):
     # it generates.
     raw_output = subprocess.check_output(
         [data['shell'], '-c', '%s --help' % config_status],
-        stderr=subprocess.STDOUT).splitlines()
+        stderr=subprocess.STDOUT)
     config_status_output = raw_output.decode(encoding,
                                              errors='replace').splitlines()
     state = None
@@ -275,7 +275,6 @@ def prefix_lines(text, prefix):
 def run(objdir):
     ret = 0
     output = ''
-
     with open(os.path.join(objdir, CONFIGURE_DATA), 'rb') as f:
         data = normalize(pickle.load(f))
 

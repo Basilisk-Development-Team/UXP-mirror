@@ -412,6 +412,8 @@ class TemplateFunction(object):
         code = func.__code__
         firstlineno = code.co_firstlineno
         lines = sandbox._current_source.splitlines(True)
+        if lines and isinstance(lines[0], bytes):
+            lines = [l.decode('utf-8') for l in lines]
         lines = inspect.getblock(lines[firstlineno - 1:])
 
         # The code lines we get out of inspect.getsourcelines look like

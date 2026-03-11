@@ -550,7 +550,8 @@ def create_build_system_manager(topsrcdir, topobjdir, dist_dir):
     src_dir = os.path.join(topsrcdir, 'dom', 'bindings')
     obj_dir = os.path.join(topobjdir, 'dom', 'bindings')
 
-    with open(os.path.join(obj_dir, 'file-lists.json'), 'rb') as fh:
+    with open(os.path.join(obj_dir, 'file-lists.json'), 'r',
+              encoding='utf-8', errors='replace') as fh:
         files = json.load(fh)
 
     inputs = (files['webidls'], files['exported_stems'],

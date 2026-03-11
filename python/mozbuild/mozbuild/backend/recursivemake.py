@@ -126,23 +126,23 @@ MOZBUILD_VARIABLES = [
 ]
 
 DEPRECATED_VARIABLES = [
-    b'EXPORT_LIBRARY',
-    b'EXTRA_LIBS',
-    b'HOST_LIBS',
-    b'LIBXUL_LIBRARY',
-    b'MOCHITEST_A11Y_FILES',
-    b'MOCHITEST_BROWSER_FILES',
-    b'MOCHITEST_BROWSER_FILES_PARTS',
-    b'MOCHITEST_CHROME_FILES',
-    b'MOCHITEST_FILES',
-    b'MOCHITEST_FILES_PARTS',
-    b'MOCHITEST_METRO_FILES',
-    b'MOCHITEST_ROBOCOP_FILES',
-    b'MODULE_OPTIMIZE_FLAGS',
-    b'MOZ_CHROME_FILE_FORMAT',
-    b'SHORT_LIBNAME',
-    b'TESTING_JS_MODULES',
-    b'TESTING_JS_MODULE_DIR',
+    'EXPORT_LIBRARY',
+    'EXTRA_LIBS',
+    'HOST_LIBS',
+    'LIBXUL_LIBRARY',
+    'MOCHITEST_A11Y_FILES',
+    'MOCHITEST_BROWSER_FILES',
+    'MOCHITEST_BROWSER_FILES_PARTS',
+    'MOCHITEST_CHROME_FILES',
+    'MOCHITEST_FILES',
+    'MOCHITEST_FILES_PARTS',
+    'MOCHITEST_METRO_FILES',
+    'MOCHITEST_ROBOCOP_FILES',
+    'MODULE_OPTIMIZE_FLAGS',
+    'MOZ_CHROME_FILE_FORMAT',
+    'SHORT_LIBNAME',
+    'TESTING_JS_MODULES',
+    'TESTING_JS_MODULE_DIR',
 ]
 
 MOZBUILD_VARIABLES_MESSAGE = 'It should only be defined in moz.build files.'
@@ -201,9 +201,9 @@ class BackendMakeFile(object):
         self.fh.write(buf)
 
     def write_once(self, buf):
-        if isinstance(buf, str):
-            buf = buf.encode('utf-8')
-        if b'\n' + buf not in self.fh.getvalue():
+        if isinstance(buf, bytes):
+            buf = buf.decode('utf-8', errors='replace')
+        if '\n' + buf not in self.fh.getvalue():
             self.write(buf)
 
     # For compatibility with makeutil.Makefile
@@ -716,14 +716,14 @@ class RecursiveMakeBackend(CommonBackend):
             rule.add_dependencies(['$(CURDIR)/%: %'])
 
     def _check_blacklisted_variables(self, makefile_in, makefile_content):
-        if b'EXTERNALLY_MANAGED_MAKE_FILE' in makefile_content:
+        if 'EXTERNALLY_MANAGED_MAKE_FILE' in makefile_content:
             # Bypass the variable restrictions for externally managed makefiles.
             return
 
         for l in makefile_content.splitlines():
             l = l.strip()
             # Don't check comments
-            if l.startswith(b'#'):
+            if l.startswith('#'):
                 continue
             for x in chain(MOZBUILD_VARIABLES, DEPRECATED_VARIABLES):
                 if x not in l:
@@ -780,11 +780,11 @@ class RecursiveMakeBackend(CommonBackend):
                     # Skip every directory but those with a Makefile
                     # containing a tools target, or XPI_PKGNAME or
                     # INSTALL_EXTENSION_ID.
-                    for t in (b'XPI_PKGNAME', b'INSTALL_EXTENSION_ID',
-                            b'tools'):
+                    for t in ('XPI_PKGNAME', 'INSTALL_EXTENSION_ID',
+                            'tools'):
                         if t not in content:
                             continue
-                        if t == b'tools' and not re.search('(?:^|\s)tools.*::', content, re.M):
+                        if t == 'tools' and not re.search('(?:^|\s)tools.*::', content, re.M):
                             continue
                         if objdir == self.environment.topobjdir:
                             continue
@@ -1327,20 +1327,20 @@ class RecursiveMakeBackend(CommonBackend):
                 pp.context.update(extra)
             if not pp.context.get('autoconfmk', ''):
                 pp.context['autoconfmk'] = 'autoconf.mk'
-            pp.handleLine(b'# THIS FILE WAS AUTOMATICALLY GENERATED. DO NOT MODIFY BY HAND.\n');
-            pp.handleLine(b'DEPTH := @DEPTH@\n')
-            pp.handleLine(b'topobjdir := @topobjdir@\n')
-            pp.handleLine(b'topsrcdir := @top_srcdir@\n')
-            pp.handleLine(b'srcdir := @srcdir@\n')
-            pp.handleLine(b'VPATH := @srcdir@\n')
-            pp.handleLine(b'relativesrcdir := @relativesrcdir@\n')
-            pp.handleLine(b'include $(DEPTH)/config/@autoconfmk@\n')
+            pp.handleLine('# THIS FILE WAS AUTOMATICALLY GENERATED. DO NOT MODIFY BY HAND.\n');
+            pp.handleLine('DEPTH := @DEPTH@\n')
+            pp.handleLine('topobjdir := @topobjdir@\n')
+            pp.handleLine('topsrcdir := @top_srcdir@\n')
+            pp.handleLine('srcdir := @srcdir@\n')
+            pp.handleLine('VPATH := @srcdir@\n')
+            pp.handleLine('relativesrcdir := @relativesrcdir@\n')
+            pp.handleLine('include $(DEPTH)/config/@autoconfmk@\n')
             if not stub:
                 pp.do_include(obj.input_path)
             # Empty line to avoid failures when last line in Makefile.in ends
             # with a backslash.
-            pp.handleLine(b'\n')
-            pp.handleLine(b'include $(topsrcdir)/config/recurse.mk\n')
+            pp.handleLine('\n')
+            pp.handleLine('include $(topsrcdir)/config/recurse.mk\n')
         if not stub:
             # Adding the Makefile.in here has the desired side-effect
             # that if the Makefile.in disappears, this will force

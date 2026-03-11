@@ -484,5 +484,5 @@ class CommandLineHelper(object):
 
     def __iter__(self):
         for d in (self._args, self._extra_args):
-            for arg, pos in d.values():
+            for arg, pos in list(d.values()):
                 yield arg

@@ -27,12 +27,13 @@ def read_ini(fp, variables=None, default='DEFAULT', defaults_only=False,
     sections = []
     key = value = None
     section_names = set()
-    if isinstance(fp, basestring):
-        fp = file(fp)
+    if isinstance(fp, str):
+        fp = open(fp, 'r', encoding='utf-8', errors='replace')
 
     # read the lines
     for (linenum, line) in enumerate(fp.read().splitlines(), start=1):
-
+        if isinstance(line, bytes):
+            line = line.decode('utf-8', errors='replace')
         stripped = line.strip()
 
         # ignore blank lines

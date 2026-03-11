@@ -22,6 +22,7 @@ from __future__ import absolute_import, unicode_literals
 import os
 import sys
 import weakref
+import functools
 
 from mozbuild.util import (
     exec_,
@@ -39,7 +40,9 @@ def alphabetical_sorted(iterable, cmp=None, key=lambda x: x.lower(),
     """sorted() replacement for the sandbox, ordering alphabetically by
     default.
     """
-    return sorted(iterable, cmp, key, reverse)
+    if cmp is not None:
+        key = functools.cmp_to_key(cmp)
+    return sorted(iterable, key=key, reverse=reverse)
 
 
 class SandboxError(Exception):

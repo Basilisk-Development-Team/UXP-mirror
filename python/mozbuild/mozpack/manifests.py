@@ -20,7 +20,7 @@ import mozpack.path as mozpath
 
 # This probably belongs in a more generic module. Where?
 @contextmanager
-def _auto_fileobj(path, fileobj, mode='r'):
+def _auto_fileobj(path, fileobj, mode='r', **kwargs):
     if path and fileobj:
         raise AssertionError('Only 1 of path or fileobj may be defined.')
 
@@ -28,7 +28,7 @@ def _auto_fileobj(path, fileobj, mode='r'):
         raise AssertionError('Must specified 1 of path or fileobj.')
 
     if path:
-        fileobj = open(path, mode)
+        fileobj = open(path, mode, **kwargs)
 
     try:
         yield fileobj

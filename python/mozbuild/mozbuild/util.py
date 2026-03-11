@@ -16,6 +16,7 @@ import functools
 import hashlib
 import itertools
 import os
+import io
 import re
 import stat
 import sys
@@ -27,11 +28,6 @@ from collections import (
     Iterable,
     OrderedDict,
 )
-from io import (
-    StringIO,
-    BytesIO,
-)
-
 
 if sys.version_info[0] == 3:
     str_type = str
@@ -199,7 +195,7 @@ def simple_diff(filename, old_lines, new_lines):
                                 old_name, new_name, n=4, lineterm='')
 
 
-class FileAvoidWrite(BytesIO):
+class FileAvoidWrite:
     """File-like object that buffers output and only writes if content changed.
 
     We create an instance from an existing filename. New content is written to
@@ -215,18 +211,26 @@ class FileAvoidWrite(BytesIO):
     out, but reports whether the file was existing and would have been updated
     still occur, as well as diff capture if requested.
     """
-    def __init__(self, filename, capture_diff=False, dry_run=False, mode='rU'):
-        BytesIO.__init__(self)
+    def __init__(self, filename, capture_diff=False, dry_run=False, mode='r', encoding='utf-8'):
         self.name = filename
         self._capture_diff = capture_diff
         self._dry_run = dry_run
+        self.encoding = encoding
         self.diff = None
         self.mode = mode
+        self._buffer = io.BytesIO()
 
     def write(self, buf):
         if isinstance(buf, str):
-            buf = buf.encode('utf-8')
-        BytesIO.write(self, buf)
+            buf = buf.encode(self.encoding, errors='replace')
+        self._buffer.write(buf)
+
+    def getvalue(self):
+        buf = self._buffer.getvalue()
+        try:
+            return buf.decode(self.encoding, errors='replace')
+        except Exception:
+            return buf.decode('utf-8', errors='replace')
 
     def close(self):
         """Stop accepting writes, compare file contents, and rewrite if needed.
@@ -239,10 +243,13 @@ class FileAvoidWrite(BytesIO):
         underlying file was changed, ``.diff`` will be populated with the diff
         of the result.
         """
-        buf = self.getvalue()
-        BytesIO.close(self)
+        buf = self._buffer.getvalue()
         existed = False
         old_content = None
+
+        # Newer Python errors on this.
+        if self.mode == 'rU':
+            self.mode = 'r'
 
         try:
             existing = open(self.name, self.mode)
@@ -261,18 +268,25 @@ class FileAvoidWrite(BytesIO):
 
         if not self._dry_run:
             ensureParentDir(self.name)
-            # Maintain 'b' if specified.  'U' only applies to modes starting with
-            # 'r', so it is dropped.
-            writemode = 'w'
-            if 'b' in self.mode:
-                writemode += 'b'
-            with open(self.name, writemode) as file:
+            # Always write in binary mode.
+            with open(self.name, 'wb') as file:
+                if isinstance(buf, str):
+                    buf = buf.encode('utf-8', errors='replace')
                 file.write(buf)
 
         if self._capture_diff:
             try:
-                old_lines = old_content.splitlines() if existed else None
-                new_lines = buf.splitlines()
+                if existed:
+                    if isinstance(old_content, bytes):
+                        old_text = old_content.decode(self.encoding, 
+                                                      errors='replace')
+                    else:
+                        old_text = old_content
+                    old_lines = old_text.splitlines()
+                else:
+                    old_lines = None
+                new_lines = buf.decode(self.encoding, 
+                                       errors='replace').splitlines()
 
                 self.diff = simple_diff(self.name, old_lines, new_lines)
             # FileAvoidWrite isn't unicode/bytes safe. So, files with non-ascii
@@ -421,7 +435,7 @@ class UnsortedError(Exception):
                 break
 
     def __str__(self):
-        s = StringIO()
+        s = io.StringIO()
 
         s.write('An attempt was made to add an unsorted sequence to a list. ')
         s.write('The incoming list is unsorted starting at element %d. ' %
