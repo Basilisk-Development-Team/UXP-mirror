@@ -28,6 +28,8 @@ not be able to find the header file directories described in the generated
 CMakeLists.txt file.
 """
 
+from __future__ import print_function
+
 import multiprocessing
 import os
 import signal
@@ -35,6 +37,12 @@ import string
 import subprocess
 import gyp.common
 import gyp.xcode_emulation
+
+try:
+  # maketrans moved to str in python3.
+  _maketrans = string.maketrans
+except NameError:
+  _maketrans = str.maketrans
 
 generator_default_variables = {
   'EXECUTABLE_PREFIX': '',
@@ -238,7 +246,7 @@ def StringToCMakeTargetName(a):
   Invalid for make: ':'
   Invalid for unknown reasons but cause failures: '.'
   """
-  return a.translate(string.maketrans(' /():."', '_______'))
+  return a.translate(_maketrans(' /():."', '_______'))
 
 
 def WriteActions(target_name, actions, extra_sources, extra_deps,
@@ -273,7 +281,7 @@ def WriteActions(target_name, actions, extra_sources, extra_deps,
     dirs = set(dir for dir in (os.path.dirname(o) for o in outputs) if dir)
 
     if int(action.get('process_outputs_as_sources', False)):
-      extra_sources.extend(list(zip(cmake_outputs, outputs)))
+      extra_sources.extend(zip(cmake_outputs, outputs))
 
     # add_custom_command
     output.write('add_custom_command(OUTPUT ')
@@ -644,8 +652,8 @@ def WriteTarget(namer, qualified_target, target_dicts, build_dir, config_to_use,
 
   cmake_target_type = cmake_target_type_from_gyp_target_type.get(target_type)
   if cmake_target_type is None:
-    print(('Target %s has unknown target type %s, skipping.' %
-          (        target_name,               target_type  ) ))
+    print('Target %s has unknown target type %s, skipping.' %
+          (        target_name,               target_type  ))
     return
 
   SetVariable(output, 'TARGET', target_name)
@@ -979,7 +987,7 @@ def WriteTarget(namer, qualified_target, target_dicts, build_dir, config_to_use,
 
     # XCode settings
     xcode_settings = config.get('xcode_settings', {})
-    for xcode_setting, xcode_value in xcode_settings.items():
+    for xcode_setting, xcode_value in xcode_settings.viewitems():
       SetTargetProperty(output, cmake_target_name,
                         "XCODE_ATTRIBUTE_%s" % xcode_setting, xcode_value,
                         '' if isinstance(xcode_value, str) else ' ')
@@ -1230,7 +1238,7 @@ def GenerateOutput(target_list, target_dicts, data, params):
     GenerateOutputForConfig(target_list, target_dicts, data,
                             params, user_config)
   else:
-    config_names = list(target_dicts[target_list[0]]['configurations'].keys())
+    config_names = target_dicts[target_list[0]]['configurations']
     if params['parallel']:
       try:
         pool = multiprocessing.Pool(len(config_names))

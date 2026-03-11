@@ -2,6 +2,8 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
+from __future__ import print_function
+
 import copy
 import ntpath
 import os
@@ -9,6 +11,7 @@ import posixpath
 import re
 import subprocess
 import sys
+import collections
 
 import gyp.common
 import gyp.easy_xml as easy_xml
@@ -22,16 +25,6 @@ import gyp.MSVSUtil as MSVSUtil
 import gyp.MSVSVersion as MSVSVersion
 from gyp.common import GypError
 from gyp.common import OrderedSet
-
-# TODO: Remove once bots are on 2.7, http://crbug.com/241769
-def _import_OrderedDict():
-  import collections
-  try:
-    return collections.OrderedDict
-  except AttributeError:
-    import gyp.ordered_dict
-    return gyp.ordered_dict.OrderedDict
-OrderedDict = _import_OrderedDict()
 
 
 # Regular expression for validating Visual Studio GUIDs.  If the GUID
@@ -202,7 +195,7 @@ def _ConvertSourcesToFilterHierarchy(sources, prefix=None, excluded=None,
   if not prefix: prefix = []
   result = []
   excluded_result = []
-  folders = OrderedDict()
+  folders = collections.OrderedDict()
   # Gather files into the final result, excluded, or folders.
   for s in sources:
     if len(s) == 1:
@@ -294,19 +287,29 @@ def _ConfigFullName(config_name, config_data):
   return '%s|%s' % (_ConfigBaseName(config_name, platform_name), platform_name)
 
 
-def _ConfigWindowsTargetPlatformVersion(config_data):
-  ver = config_data.get('msvs_windows_sdk_version')
-
-  for key in [r'HKLM\Software\Microsoft\Microsoft SDKs\Windows\%s',
-              r'HKLM\Software\Wow6432Node\Microsoft\Microsoft SDKs\Windows\%s']:
-    sdk_dir = MSVSVersion._RegistryGetValue(key % ver, 'InstallationFolder')
-    if not sdk_dir:
-      continue
-    version = MSVSVersion._RegistryGetValue(key % ver, 'ProductVersion') or ''
-    # Find a matching entry in sdk_dir\include.
-    names = sorted([x for x in os.listdir(r'%s\include' % sdk_dir)
-                    if x.startswith(version)], reverse=True)
-    return names[0]
+def _ConfigWindowsTargetPlatformVersion(config_data, version):
+  config_ver = config_data.get('msvs_windows_sdk_version')
+  vers = [config_ver] if config_ver else version.compatible_sdks
+  for ver in vers:
+    for key in [
+      r'HKLM\Software\Microsoft\Microsoft SDKs\Windows\%s',
+      r'HKLM\Software\Wow6432Node\Microsoft\Microsoft SDKs\Windows\%s']:
+      sdk_dir = MSVSVersion._RegistryGetValue(key % ver, 'InstallationFolder')
+      if not sdk_dir:
+        continue
+      version = MSVSVersion._RegistryGetValue(key % ver, 'ProductVersion') or ''
+      # Find a matching entry in sdk_dir\include.
+      expected_sdk_dir=r'%s\include' % sdk_dir
+      names = sorted([x for x in (os.listdir(expected_sdk_dir)
+                                  if os.path.isdir(expected_sdk_dir)
+                                  else []
+                                  )
+                      if x.startswith(version)], reverse=True)
+      if names:
+        return names[0]
+      else:
+        print('Warning: No include files found for '
+              'detected Windows SDK version %s' % (version))
 
 
 def _BuildCommandLineForRuleRaw(spec, cmd, cygwin_shell, has_input_path,
@@ -878,7 +881,7 @@ def _FilterActionsFromExcluded(excluded_sources, actions_to_add):
   Returns:
     excluded_sources with files that have actions attached removed.
   """
-  must_keep = OrderedSet(_FixPaths(list(actions_to_add.keys())))
+  must_keep = OrderedSet(_FixPaths(actions_to_add.keys()))
   return [s for s in excluded_sources if s not in must_keep]
 
 
@@ -984,8 +987,8 @@ def _ValidateSourcesForMSVSProject(spec, version):
       error += '  %s: %s\n' % (basename, ' '.join(files))
 
   if error:
-    print(('static library %s has several files with the same basename:\n' %
-          spec['target_name'] + error + 'MSVC08 cannot handle that.'))
+    print('static library %s has several files with the same basename:\n' %
+          spec['target_name'] + error + 'MSVC08 cannot handle that.')
     raise GypError('Duplicate basenames in sources section, see list above')
 
 
@@ -1715,14 +1718,17 @@ def _GetCopies(spec):
         src_bare = src[:-1]
         base_dir = posixpath.split(src_bare)[0]
         outer_dir = posixpath.split(src_bare)[1]
-        cmd = 'cd "%s" && xcopy /e /f /y "%s" "%s\\%s\\"' % (
-            _FixPath(base_dir), outer_dir, _FixPath(dst), outer_dir)
+        fixed_dst = _FixPath(dst)
+        full_dst = '"%s\\%s\\"' % (fixed_dst, outer_dir)
+        cmd = 'mkdir %s 2>nul & cd "%s" && xcopy /e /f /y "%s" %s' % (
+            full_dst, _FixPath(base_dir), outer_dir, full_dst)
         copies.append(([src], ['dummy_copies', dst], cmd,
-                       'Copying %s to %s' % (src, dst)))
+                       'Copying %s to %s' % (src, fixed_dst)))
       else:
+        fix_dst = _FixPath(cpy['destination'])
         cmd = 'mkdir "%s" 2>nul & set ERRORLEVEL=0 & copy /Y "%s" "%s"' % (
-            _FixPath(cpy['destination']), _FixPath(src), _FixPath(dst))
-        copies.append(([src], [dst], cmd, 'Copying %s to %s' % (src, dst)))
+            fix_dst, _FixPath(src), _FixPath(dst))
+        copies.append(([src], [dst], cmd, 'Copying %s to %s' % (src, fix_dst)))
   return copies
 
 
@@ -1763,8 +1769,8 @@ def _CollapseSingles(parent, node):
   # such projects up one level.
   if (type(node) == dict and
       len(node) == 1 and
-      list(node.keys())[0] == parent + '.vcproj'):
-    return node[list(node.keys())[0]]
+      next(iter(node)) == parent + '.vcproj'):
+    return node[next(iter(node))]
   if type(node) != dict:
     return node
   for child in node:
@@ -1783,8 +1789,8 @@ def _GatherSolutionFolders(sln_projects, project_objects, flat):
   # Walk down from the top until we hit a folder that has more than one entry.
   # In practice, this strips the top-level "src/" dir from the hierarchy in
   # the solution.
-  while len(root) == 1 and type(root[list(root.keys())[0]]) == dict:
-    root = root[list(root.keys())[0]]
+  while len(root) == 1 and type(root[next(iter(root))]) == dict:
+    root = root[next(iter(root))]
   # Collapse singles.
   root = _CollapseSingles('', root)
   # Merge buckets until everything is a root entry.
@@ -1863,7 +1869,7 @@ def _CreateProjectObjects(target_list, target_dicts, options, msvs_version):
     projects[qualified_target] = obj
   # Set all the dependencies, but not if we are using an external builder like
   # ninja
-  for project in list(projects.values()):
+  for project in projects.values():
     if not project.spec.get('msvs_external_builder'):
       deps = project.spec.get('dependencies', [])
       deps = [projects[d] for d in deps]
@@ -2024,7 +2030,7 @@ def GenerateOutput(target_list, target_dicts, data, params):
 
   # Generate each project.
   missing_sources = []
-  for project in list(project_objects.values()):
+  for project in project_objects.values():
     fixpath_prefix = project.fixpath_prefix
     missing_sources.extend(_GenerateProject(project, options, msvs_version,
                                             generator_flags))
@@ -2057,7 +2063,7 @@ def GenerateOutput(target_list, target_dicts, data, params):
     if generator_flags.get('msvs_error_on_missing_sources', False):
       raise GypError(error_message)
     else:
-      print("Warning: " + error_message, file=sys.stdout)
+      print("Warning: " + error_message)
 
 
 def _GenerateMSBuildFiltersFile(filters_path, source_files,
@@ -2664,7 +2670,7 @@ def _GetMSBuildProjectConfigurations(configurations):
   return [group]
 
 
-def _GetMSBuildGlobalProperties(spec, guid, gyp_file_name):
+def _GetMSBuildGlobalProperties(spec, version, guid, gyp_file_name):
   namespace = os.path.splitext(gyp_file_name)[0]
   properties = [
       ['PropertyGroup', {'Label': 'Globals'},
@@ -2679,6 +2685,18 @@ def _GetMSBuildGlobalProperties(spec, guid, gyp_file_name):
      os.environ.get('PROCESSOR_ARCHITEW6432') == 'AMD64':
     properties[0].append(['PreferredToolArchitecture', 'x64'])
 
+  if spec.get('msvs_target_platform_version'):
+    target_platform_version = spec.get('msvs_target_platform_version')
+    properties[0].append(['WindowsTargetPlatformVersion',
+                          target_platform_version])
+    if spec.get('msvs_target_platform_minversion'):
+      target_platform_minversion = spec.get('msvs_target_platform_minversion')
+      properties[0].append(['WindowsTargetPlatformMinVersion',
+                            target_platform_minversion])
+    else:
+      properties[0].append(['WindowsTargetPlatformMinVersion',
+                            target_platform_version])
+
   if spec.get('msvs_enable_winrt'):
     properties[0].append(['DefaultLanguage', 'en-US'])
     properties[0].append(['AppContainerApplication', 'true'])
@@ -2687,18 +2705,6 @@ def _GetMSBuildGlobalProperties(spec, guid, gyp_file_name):
       properties[0].append(['ApplicationTypeRevision', app_type_revision])
     else:
       properties[0].append(['ApplicationTypeRevision', '8.1'])
-
-    if spec.get('msvs_target_platform_version'):
-      target_platform_version = spec.get('msvs_target_platform_version')
-      properties[0].append(['WindowsTargetPlatformVersion',
-                            target_platform_version])
-      if spec.get('msvs_target_platform_minversion'):
-        target_platform_minversion = spec.get('msvs_target_platform_minversion')
-        properties[0].append(['WindowsTargetPlatformMinVersion',
-                              target_platform_minversion])
-      else:
-        properties[0].append(['WindowsTargetPlatformMinVersion',
-                              target_platform_version])
     if spec.get('msvs_enable_winphone'):
       properties[0].append(['ApplicationType', 'Windows Phone'])
     else:
@@ -2709,15 +2715,18 @@ def _GetMSBuildGlobalProperties(spec, guid, gyp_file_name):
   for configuration in spec['configurations'].values():
     platform_name = platform_name or _ConfigPlatform(configuration)
     msvs_windows_sdk_version = (msvs_windows_sdk_version or
-                    _ConfigWindowsTargetPlatformVersion(configuration))
+                  _ConfigWindowsTargetPlatformVersion(configuration, version))
     if platform_name and msvs_windows_sdk_version:
       break
-
-  if platform_name == 'ARM':
-    properties[0].append(['WindowsSDKDesktopARMSupport', 'true'])
   if msvs_windows_sdk_version:
     properties[0].append(['WindowsTargetPlatformVersion',
                           str(msvs_windows_sdk_version)])
+  elif version.compatible_sdks:
+    raise GypError('%s requires any SDK of %s version, but none were found' %
+                   (version.description, version.compatible_sdks))
+
+  if platform_name == 'ARM':
+    properties[0].append(['WindowsSDKDesktopARMSupport', 'true'])
 
   return properties
 
@@ -2731,6 +2740,10 @@ def _GetMSBuildConfigurationDetails(spec, build_file):
     config_type = msbuild_attributes.get('ConfigurationType')
     _AddConditionalProperty(properties, condition, 'ConfigurationType',
                             config_type)
+    spectre_mitigation = msbuild_attributes.get('SpectreMitigation')
+    if spectre_mitigation:
+      _AddConditionalProperty(properties, condition, 'SpectreMitigation',
+                              spectre_mitigation)
     if config_type == 'Driver':
       _AddConditionalProperty(properties, condition, 'DriverType', 'WDM')
       _AddConditionalProperty(properties, condition, 'TargetVersion',
@@ -2812,6 +2825,8 @@ def _ConvertMSVSBuildAttributes(spec, config, build_file):
       msbuild_attributes[a] = _ConvertMSVSCharacterSet(msvs_attributes[a])
     elif a == 'ConfigurationType':
       msbuild_attributes[a] = _ConvertMSVSConfigurationType(msvs_attributes[a])
+    elif a == 'SpectreMitigation':
+      msbuild_attributes[a] = msvs_attributes[a]
     else:
       print('Warning: Do not know how to convert MSVS attribute ' + a)
   return msbuild_attributes
@@ -2862,6 +2877,9 @@ def _GetMSBuildAttributes(spec, config, build_file):
     product_name = spec.get('product_name', '$(ProjectName)')
     target_name = prefix + product_name
     msbuild_attributes['TargetName'] = target_name
+  if 'TargetExt' not in msbuild_attributes and 'product_extension' in spec:
+    ext = spec.get('product_extension')
+    msbuild_attributes['TargetExt'] = '.' + ext
 
   if spec.get('msvs_external_builder'):
     external_out_dir = spec.get('msvs_external_builder_out_dir', '.')
@@ -2916,6 +2934,9 @@ def _GetMSBuildConfigurationGlobalProperties(spec, configurations, build_file):
                             attributes['OutputDirectory'])
     _AddConditionalProperty(properties, condition, 'TargetName',
                             attributes['TargetName'])
+    if 'TargetExt' in attributes:
+      _AddConditionalProperty(properties, condition, 'TargetExt',
+                              attributes['TargetExt'])
 
     if attributes.get('TargetPath'):
       _AddConditionalProperty(properties, condition, 'TargetPath',
@@ -2990,7 +3011,7 @@ def _GetMSBuildPropertyGroup(spec, label, properties):
                         if v in properties and v != node]))
     return edges
   properties_ordered = gyp.common.TopologicallySorted(
-      list(properties.keys()), GetEdges)
+      properties.keys(), GetEdges)
   # Walk properties in the reverse of a topological sort on
   # user_of_variable -> used_variable as this ensures variables are
   # defined before they are used.
@@ -3054,8 +3075,8 @@ def _FinalizeMSBuildSettings(spec, configuration):
     for ignored_setting in ignored_settings:
       value = configuration.get(ignored_setting)
       if value:
-        print(('Warning: The automatic conversion to MSBuild does not handle '
-               '%s.  Ignoring setting of %s' % (ignored_setting, str(value))))
+        print('Warning: The automatic conversion to MSBuild does not handle '
+              '%s.  Ignoring setting of %s' % (ignored_setting, str(value)))
 
   defines = [_EscapeCppDefineForMSBuild(d) for d in defines]
   disabled_warnings = _GetDisabledWarnings(configuration)
@@ -3268,6 +3289,9 @@ def _GetMSBuildProjectReferences(project):
           ['ReferenceOutputAssembly', 'false']
           ]
       for config in dependency.spec.get('configurations', {}).values():
+        if config.get('msvs_use_library_dependency_inputs', 0):
+          project_ref.append(['UseLibraryDependencyInputs', 'true'])
+          break
         # If it's disabled in any config, turn it off in the reference.
         if config.get('msvs_2010_disable_uldi_when_referenced', 0):
           project_ref.append(['UseLibraryDependencyInputs', 'false'])
@@ -3360,7 +3384,8 @@ def _GenerateMSBuildProject(project, options, version, generator_flags):
       }]
 
   content += _GetMSBuildProjectConfigurations(configurations)
-  content += _GetMSBuildGlobalProperties(spec, project.guid, project_file_name)
+  content += _GetMSBuildGlobalProperties(spec, version, project.guid,
+                                         project_file_name)
   content += import_default_section
   content += _GetMSBuildConfigurationDetails(spec, project.build_file)
   if spec.get('msvs_enable_winphone'):

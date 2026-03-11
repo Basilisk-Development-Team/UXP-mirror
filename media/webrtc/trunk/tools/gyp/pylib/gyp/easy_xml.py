@@ -4,8 +4,14 @@
 
 import re
 import os
-from functools import reduce
+import locale
+import sys
 
+try:
+  # reduce moved to functools in python3.
+  reduce
+except NameError:
+  from functools import reduce
 
 def XmlToString(content, encoding='utf-8', pretty=False):
   """ Writes the XML content to disk, touching the file only if it has changed.
@@ -116,6 +122,12 @@ def WriteXmlIfChanged(content, path, encoding='utf-8', pretty=False,
   xml_string = XmlToString(content, encoding, pretty)
   if win32 and os.linesep != '\r\n':
     xml_string = xml_string.replace('\n', '\r\n')
+    default_encoding = locale.getdefaultlocale()[1]
+    if default_encoding and default_encoding.upper() != encoding.upper():
+      try:
+        xml_string = xml_string.decode(default_encoding).encode(encoding)
+      except AttributeError:
+        pass
 
   # Get the old content
   try:
@@ -144,7 +156,7 @@ _xml_escape_map = {
 
 
 _xml_escape_re = re.compile(
-    "(%s)" % "|".join(map(re.escape, list(_xml_escape_map.keys()))))
+    "(%s)" % "|".join(map(re.escape, _xml_escape_map.keys())))
 
 
 def _XmlEscape(value, attr=False):

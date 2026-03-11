@@ -31,7 +31,7 @@ class Writer(object):
         if value is None:
             return
         if isinstance(value, list):
-            value = ' '.join([_f for _f in value if _f])  # Filter out empty strings.
+            value = ' '.join(filter(None, value))  # Filter out empty strings.
         self._line('%s = %s' % (key, value), indent)
 
     def pool(self, name, depth):
@@ -68,11 +68,11 @@ class Writer(object):
         all_inputs = list(map(escape_path, all_inputs))
 
         if implicit:
-            implicit = list(map(escape_path, self._as_list(implicit)))
+            implicit = map(escape_path, self._as_list(implicit))
             all_inputs.append('|')
             all_inputs.extend(implicit)
         if order_only:
-            order_only = list(map(escape_path, self._as_list(order_only)))
+            order_only = map(escape_path, self._as_list(order_only))
             all_inputs.append('||')
             all_inputs.extend(order_only)
 
@@ -81,7 +81,7 @@ class Writer(object):
 
         if variables:
             if isinstance(variables, dict):
-                iterator = iter(list(variables.items()))
+                iterator = iter(variables.items())
             else:
                 iterator = iter(variables)
 
@@ -149,6 +149,14 @@ class Writer(object):
             return []
         if isinstance(input, list):
             return input
+
+        # map is not a class in Python 2
+        try:
+            if isinstance(input, map):
+                return list(input)
+        except TypeError:
+            pass
+
         return [input]
 
 

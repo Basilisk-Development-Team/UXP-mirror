@@ -52,7 +52,7 @@ generator_default_variables['SHARED_INTERMEDIATE_DIR'] = \
 
 def CalculateVariables(default_variables, params):
   generator_flags = params.get('generator_flags', {})
-  for key, val in list(generator_flags.items()):
+  for key, val in generator_flags.items():
     default_variables.setdefault(key, val)
   flavor = gyp.common.GetFlavor(params)
   default_variables.setdefault('OS', flavor)
@@ -418,7 +418,7 @@ def GenerateOutput(target_list, target_dicts, data, params):
     GenerateOutputForConfig(target_list, target_dicts, data, params,
                             user_config)
   else:
-    config_names = list(target_dicts[target_list[0]]['configurations'].keys())
+    config_names = target_dicts[target_list[0]]['configurations']
     for config_name in config_names:
       GenerateOutputForConfig(target_list, target_dicts, data, params,
                               config_name)

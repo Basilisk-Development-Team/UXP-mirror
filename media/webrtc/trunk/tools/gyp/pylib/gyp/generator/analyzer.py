@@ -62,6 +62,8 @@ directly supplied to gyp. OTOH if both "a.gyp" and "b.gyp" are supplied to gyp
 then the "all" target includes "b1" and "b2".
 """
 
+from __future__ import print_function
+
 import gyp.common
 import gyp.ninja_syntax as ninja_syntax
 import json
@@ -410,7 +412,7 @@ def _GetUnqualifiedToTargetMapping(all_targets, to_find):
   if not to_find:
     return {}, []
   to_find = set(to_find)
-  for target_name in list(all_targets.keys()):
+  for target_name in all_targets.keys():
     extracted = gyp.common.ParseQualifiedTarget(target_name)
     if len(extracted) > 1 and extracted[1] in to_find:
       to_find.remove(extracted[1])
@@ -484,12 +486,13 @@ def _AddCompileTargets(target, roots, add_if_no_ancestor, result):
           (add_if_no_ancestor or target.requires_build)) or
          (target.is_static_library and add_if_no_ancestor and
           not target.is_or_has_linked_ancestor)):
-    print('\t\tadding to compile targets', target.name, 'executable', \
-           target.is_executable, 'added_to_compile_targets', \
-           target.added_to_compile_targets, 'add_if_no_ancestor', \
-           add_if_no_ancestor, 'requires_build', target.requires_build, \
-           'is_static_library', target.is_static_library, \
-           'is_or_has_linked_ancestor', target.is_or_has_linked_ancestor)
+    print('\t\tadding to compile targets', target.name, 'executable',
+           target.is_executable, 'added_to_compile_targets',
+           target.added_to_compile_targets, 'add_if_no_ancestor',
+           add_if_no_ancestor, 'requires_build', target.requires_build,
+           'is_static_library', target.is_static_library,
+           'is_or_has_linked_ancestor', target.is_or_has_linked_ancestor
+           )
     result.add(target)
     target.added_to_compile_targets = True
 

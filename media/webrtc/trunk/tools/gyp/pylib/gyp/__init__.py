@@ -4,6 +4,8 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
+from __future__ import print_function
+
 import copy
 import gyp.input
 import optparse
@@ -14,6 +16,12 @@ import sys
 import traceback
 from gyp.common import GypError
 
+try:
+  # basestring was removed in python3.
+  basestring
+except NameError:
+  basestring = str
+
 # Default debug modes for GYP
 debug = {}
 
@@ -21,7 +29,6 @@ debug = {}
 DEBUG_GENERAL = 'general'
 DEBUG_VARIABLES = 'variables'
 DEBUG_INCLUDES = 'includes'
-
 
 def DebugOutput(mode, message, *args):
   if 'all' in gyp.debug or mode in gyp.debug:
@@ -70,9 +77,6 @@ def Load(build_files, format, default_variables={},
   default_variables['GENERATOR'] = format
   default_variables['GENERATOR_FLAVOR'] = params.get('flavor', '')
 
-  # Provide a PYTHON value to run sub-commands with the same python
-  default_variables['PYTHON'] = sys.executable
-
   # Format can be a custom python file, or by default the name of a module
   # within gyp.generator.
   if format.endswith('.py'):
@@ -92,7 +96,7 @@ def Load(build_files, format, default_variables={},
   # These parameters are passed in order (as opposed to by key)
   # because ActivePython cannot handle key parameters to __import__.
   generator = __import__(generator_name, globals(), locals(), generator_name)
-  for (key, val) in list(generator.generator_default_variables.items()):
+  for (key, val) in generator.generator_default_variables.items():
     default_variables.setdefault(key, val)
 
   # Give the generator the opportunity to set additional variables based on
@@ -231,7 +235,8 @@ def RegenerateFlags(options):
       elif options.use_environment and env_name:
         print(('Warning: environment regeneration unimplemented '
                              'for %s flag %r env_name %r' % (action, opt,
-                                                             env_name)), file=sys.stderr)
+                                                             env_name)),
+                                                             file=sys.stderr)
     else:
       print(('Warning: regeneration unimplemented for action %r '
                            'flag %r' % (action, opt)), file=sys.stderr)
@@ -434,12 +439,11 @@ def gyp_main(args):
     for build_file in build_files:
       build_file_dir = os.path.abspath(os.path.dirname(build_file))
       build_file_dir_components = build_file_dir.split(os.path.sep)
-      components_len = len(build_file_dir_components)
-      for index in range(components_len - 1, -1, -1):
-        if build_file_dir_components[index] == 'src':
+      for component in reversed(build_file_dir_components):
+        if component == 'src':
           options.depth = os.path.sep.join(build_file_dir_components)
           break
-        del build_file_dir_components[index]
+        del build_file_dir_components[-1]
 
       # If the inner loop found something, break without advancing to another
       # build file.
@@ -493,7 +497,7 @@ def gyp_main(args):
   if options.generator_flags:
     gen_flags += options.generator_flags
   generator_flags = NameValueListToDict(gen_flags)
-  if DEBUG_GENERAL in list(gyp.debug.keys()):
+  if DEBUG_GENERAL in gyp.debug:
     DebugOutput(DEBUG_GENERAL, "generator_flags: %s", generator_flags)
 
   # Generate all requested formats (use a set in case we got one format request
@@ -526,7 +530,7 @@ def gyp_main(args):
     generator.GenerateOutput(flat_list, targets, data, params)
 
     if options.configs:
-      valid_configs = list(targets[flat_list[0]]['configurations'].keys())
+      valid_configs = targets[flat_list[0]]['configurations']
       for conf in options.configs:
         if conf not in valid_configs:
           raise GypError('Invalid config specified via --build: %s' % conf)

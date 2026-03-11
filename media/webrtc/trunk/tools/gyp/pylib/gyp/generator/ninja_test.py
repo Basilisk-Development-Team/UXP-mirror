@@ -8,7 +8,6 @@
 
 import gyp.generator.ninja as ninja
 import unittest
-import io
 import sys
 import TestCommon
 

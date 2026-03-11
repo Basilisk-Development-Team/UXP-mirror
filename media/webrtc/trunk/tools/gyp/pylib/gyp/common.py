@@ -4,13 +4,14 @@
 
 from __future__ import with_statement
 
-import collections
 import errno
 import filecmp
 import os.path
 import re
 import tempfile
 import sys
+
+from six.moves import collections_abc
 
 
 # A minimal memoizing decorator. It'll blow up if the args aren't immutable,
@@ -345,7 +346,7 @@ def WriteOnDiff(filename):
           prefix=os.path.split(filename)[1] + '.gyp.',
           dir=os.path.split(filename)[0])
       try:
-        self.tmp_file = os.fdopen(tmp_fd, 'wb')
+        self.tmp_file = os.fdopen(tmp_fd, 'w')
       except Exception:
         # Don't leave turds behind.
         os.unlink(self.tmp_path)
@@ -429,6 +430,10 @@ def GetFlavor(params):
     return 'netbsd'
   if sys.platform.startswith('aix'):
     return 'aix'
+  if sys.platform.startswith('zos'):
+    return 'zos'
+  if sys.platform.startswith('os390'):
+    return 'zos'
 
   return 'linux'
 
@@ -490,7 +495,7 @@ def uniquer(seq, idfun=None):
 
 
 # Based on http://code.activestate.com/recipes/576694/.
-class OrderedSet(collections.MutableSet):
+class OrderedSet(collections_abc.MutableSet):
   def __init__(self, iterable=None):
     self.end = end = []
     end += [None, end, end]         # sentinel node for doubly linked list
@@ -580,7 +585,7 @@ def TopologicallySorted(graph, get_edges):
     graph = {'a': '$(b) $(c)', 'b': 'hi', 'c': '$(b)'}
     def GetEdges(node):
       return re.findall(r'\$\(([^))]\)', graph[node])
-    print TopologicallySorted(graph.keys(), GetEdges)
+    print(TopologicallySorted(graph.keys(), GetEdges))
     ==>
     ['a', 'c', b']
   """

@@ -14,8 +14,16 @@ The MSBuild schemas were also considered.  They are typically found in the
 MSBuild install directory, e.g. c:\Program Files (x86)\MSBuild
 """
 
+from __future__ import print_function
+
 import sys
 import re
+
+try:
+  # basestring was removed in python3.
+  basestring
+except NameError:
+  basestring = str
 
 # Dictionaries of settings validators. The key is the tool name, the value is
 # a dictionary mapping setting names to validation functions.
@@ -463,7 +471,8 @@ def ConvertToMSBuildSettings(msvs_settings, stderr=sys.stderr):
             msvs_tool[msvs_setting](msvs_value, msbuild_settings)
           except ValueError as e:
             print(('Warning: while converting %s/%s to MSBuild, '
-                              '%s' % (msvs_tool_name, msvs_setting, e)), file=stderr)
+                              '%s' % (msvs_tool_name, msvs_setting, e)),
+                              file=stderr)
         else:
           _ValidateExclusionSetting(msvs_setting,
                                     msvs_tool,
