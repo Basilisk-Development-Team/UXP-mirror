@@ -36,7 +36,7 @@ def attlistToIDL(attlist):
         return ''
 
     attlist = list(attlist)
-    attlist.sort(cmp=lambda a, b: cmp(a[0], b[0]))
+    attlist.sort(key=lambda a: a[0])
 
     return '[%s] ' % ','.join(["%s%s" % (name, value is not None and '(%s)' % value or '')
                               for name, value, aloc in attlist])
@@ -1214,7 +1214,13 @@ class IDLParser(object):
 
     def p_interface(self, p):
         """interface : attributes INTERFACE IDENTIFIER ifacebase ifacebody ';'"""
-        atts, INTERFACE, name, base, body, SEMI = p[1:]
+        atts      = p[1]
+        INTERFACE = p[2]
+        name      = p[3]
+        base      = p[4]
+        body      = p[5]
+        SEMI      = p[6]
+
         attlist = atts['attlist']
         doccomments = []
         if 'doccomments' in atts:
