@@ -126,7 +126,7 @@ UNIFIED_SOURCES += [
     'CounterStyleManager.cpp',
     'CSS.cpp',
     'CSSLexer.cpp',
-    'CSSNestingLowerer.cpp',
+    'CSSNestingFlattener.cpp',
     'CSSRuleList.cpp',
     'CSSStyleSheet.cpp',
     'CSSVariableDeclarations.cpp',
