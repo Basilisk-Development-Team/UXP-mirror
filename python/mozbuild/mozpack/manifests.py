@@ -115,7 +115,7 @@ class InstallManifest(object):
         self._source_files = set()
 
         if path or fileobj:
-            with _auto_fileobj(path, fileobj, 'rb') as fh:
+            with _auto_fileobj(path, fileobj, 'r') as fh:
                 self._source_files.add(fh.name)
                 self._load_from_fileobj(fh)
 

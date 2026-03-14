@@ -1189,6 +1189,9 @@ class RecursiveMakeBackend(CommonBackend):
         manifest = path.replace('/', '_')
         install_manifest = self._install_manifests[manifest]
         reltarget = mozpath.relpath(target, path)
+        if not reltarget:
+            reltarget = '.'
+
 
         # Also emit the necessary rules to create $(DIST)/branding during
         # partial tree builds. The locale makefiles rely on this working.
@@ -1213,9 +1216,9 @@ class RecursiveMakeBackend(CommonBackend):
                                 raise Exception("Wildcards are only supported in the filename part of "
                                                 "srcdir-relative or absolute paths.")
 
-                            install_manifest.add_pattern_symlink(basepath, wild, path)
+                            install_manifest.add_pattern_symlink(basepath, wild, mozpath.join(reltarget, path))
                         else:
-                            install_manifest.add_pattern_symlink(f.srcdir, f, path)
+                            install_manifest.add_pattern_symlink(f.srcdir, f, mozpath.join(reltarget, path))
                     else:
                         install_manifest.add_symlink(f.full_path, dest)
                 else:

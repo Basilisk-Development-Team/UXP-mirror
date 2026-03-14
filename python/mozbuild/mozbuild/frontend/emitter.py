@@ -958,6 +958,15 @@ class TreeMetadataEmitter(LoggingMixin):
                     'RESOURCES_FILES cannot be used with DIST_SUBDIR or '
                     'XPI_NAME.', context)
 
+            for base, files in all_files.walk():
+                if isinstance(all_files._children.get(base), list):
+                    new_list = []
+                    for f in files:
+                        if isinstance(f, str):
+                            f = Path(context, f)  # <-- this triggers PathMeta
+                        new_list.append(f)
+                    all_files._children[base] = new_list         
+
             yield cls(context, all_files)
 
         # Check for manifest declarations in EXTRA_{PP_,}COMPONENTS.
