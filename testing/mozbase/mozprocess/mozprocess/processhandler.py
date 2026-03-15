@@ -931,7 +931,11 @@ class ProcessReader(object):
 
     def _read_stream(self, stream, queue, callback):
 
-        raw_stream = stream if isinstance(stream, io.BufferedReader) else stream.buffer
+        try:
+            raw_stream = stream.buffer
+        except AttributeError:
+            raw_stream = stream
+
         while True:
             raw = raw_stream.readline()
             if not raw:

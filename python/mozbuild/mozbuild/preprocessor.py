@@ -444,7 +444,7 @@ class Preprocessor:
                 except OSError as error:
                     if error.errno != errno.EEXIST:
                         raise
-            return open(path, 'wb')
+            return open(path, 'w', encoding='utf-8')
 
         p = self.getCommandLineParser()
         options, args = p.parse_args(args=args)
@@ -471,7 +471,7 @@ class Preprocessor:
 
         if args:
             for f in args:
-                with open(f, 'rU') as input:
+                with open(f, 'r', encoding='utf-8') as input:
                     self.processFile(input=input, output=out)
             if depfile:
                 mk = Makefile()
@@ -743,7 +743,7 @@ class Preprocessor:
                     args = self.applyFilters(args)
                 if not os.path.isabs(args):
                     args = os.path.join(self.context['DIRECTORY'], args)
-                args = open(args, 'rU')
+                args = open(args, 'r', encoding='utf-8')
             except Preprocessor.Error:
                 raise
             except:
@@ -788,7 +788,7 @@ def preprocess(includes=[sys.stdin], defines={},
     pp = Preprocessor(defines=defines,
                       marker=marker)
     for f in includes:
-        with open(f, 'rU') as input:
+        with open(f, 'r', encoding='utf-8') as input:
             pp.processFile(input=input, output=output)
     return pp.includes
 

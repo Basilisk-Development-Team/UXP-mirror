@@ -53,7 +53,7 @@ def ToCAsciiArray(lines):
 def ToCArray(lines):
   result = []
   for chr in lines:
-    result.append(str(ord(chr)))
+    result.append(str(chr))
   return ", ".join(result)
 
 HEADER_TEMPLATE = """\
@@ -87,7 +87,7 @@ def embed(cxx, preprocessorOption, msgs, sources, c_out, js_out, namespace, env)
 
   js_out.write(processed)
   import zlib
-  compressed = zlib.compress(processed)
+  compressed = zlib.compress(processed.encode('utf-8'))
   data = ToCArray(compressed)
   c_out.write(HEADER_TEMPLATE % {
     'sources_type': 'unsigned char',
@@ -107,7 +107,7 @@ def preprocess(cxx, preprocessorOption, source, args = []):
   tmpOut = 'self-hosting-preprocessed.pp';
   outputArg = shlex.split(preprocessorOption + tmpOut)
 
-  with open(tmpIn, 'wb') as input:
+  with open(tmpIn, 'w', encoding='utf-8') as input:
     input.write(source)
   print((' '.join(cxx + outputArg + args + [tmpIn])))
   result = subprocess.Popen(cxx + outputArg + args + [tmpIn]).wait()

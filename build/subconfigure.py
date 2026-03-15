@@ -17,7 +17,7 @@ from locale import getpreferredencoding
 
 import mozpack.path as mozpath
 
-encoding = getpreferredencoding()
+encoding = getpreferredencoding(False)
 
 class Pool(object):
     def __new__(cls, size):

@@ -142,7 +142,15 @@ if __name__ == '__main__':
             # levels of indentation (12 spaces).
             fork_string = ''.join(x[12:] for x in fork_code[1:])
             cmdline = orig_command_line()
-            cmdline[2] = fork_string
+            try:
+                i = cmdline.index('-c')
+                if i + 1 < len(cmdline):
+                    cmdline[i + 1] = fork_string
+                else:
+                    cmdline.append(fork_string)
+            except ValueError:
+                pass
+
             return cmdline
         orig_command_line = forking.get_command_line
         forking.get_command_line = my_get_command_line

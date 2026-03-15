@@ -27,7 +27,7 @@ def configure_error(message):
 @imports(_from='mozbuild.shellutil', _import='quote')
 @imports(_from='locale', _import='getpreferredencoding')
 def check_cmd_output(*args, **kwargs):
-    encoding = getpreferredencoding()
+    encoding = getpreferredencoding(False)
     onerror = kwargs.pop('onerror', None)
 
     with log.queue_debug():

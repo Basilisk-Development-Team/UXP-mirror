@@ -399,7 +399,7 @@ def check_compiler(compiler, language, target):
 @imports('sys')
 @imports(_from='locale', _import='getpreferredencoding')
 def get_vc_paths(topsrcdir):
-    encoding = getpreferredencoding()
+    encoding = getpreferredencoding(False)
     def vswhere(args):
         return json.loads(subprocess.check_output([os.path.join(topsrcdir, 'build/win32/vswhere.exe'), '-format', 'json'] + args).decode(encoding, errors='replace'))
 

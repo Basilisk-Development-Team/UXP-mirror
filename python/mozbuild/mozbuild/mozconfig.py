@@ -362,7 +362,7 @@ class MozconfigLoader(object):
         current = None
         current_type = None
         in_variable = None
-        encoding = locale.getpreferredencoding()
+        encoding = locale.getpreferredencoding(False)
         for line in output.splitlines():
             # This was revisited during the Python 3 port, and
             # is now done cleanly and defensively enough to avoid

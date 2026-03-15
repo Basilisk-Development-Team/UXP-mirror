@@ -431,7 +431,7 @@ class MozbuildObject(ProcessExecutionMixin):
                 FlashWindowEx(params)
         except Exception as e:
             self.log(logging.WARNING, 'notifier-failed', {'error':
-                e.message}, 'Notification center failed: {error}')
+                str(e)}, 'Notification center failed: {error}')
 
     def _ensure_objdir_exists(self):
         if os.path.isdir(self.statedir):
@@ -687,7 +687,7 @@ class MachCommandBase(MozbuildObject):
         except MozconfigLoadException as e:
             print('Error loading mozconfig: ' + e.path)
             print('')
-            print(e.message)
+            print(str(e))
             if e.output:
                 print('')
                 print('mozconfig output:')
@@ -709,13 +709,13 @@ class MachCommandBase(MozbuildObject):
             self.mozconfig
 
         except MozconfigFindException as e:
-            print(e.message)
+            print(str(e))
             sys.exit(1)
 
         except MozconfigLoadException as e:
             print('Error loading mozconfig: ' + e.path)
             print('')
-            print(e.message)
+            print(str(e))
             if e.output:
                 print('')
                 print('mozconfig output:')

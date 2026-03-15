@@ -7,6 +7,7 @@ import string
 import argparse
 import subprocess
 import buildconfig
+import functools
 from mozbuild import shellutil
 
 def get_properties(preprocessorHeader):
@@ -26,7 +27,7 @@ def get_properties(preprocessorHeader):
         property_order = {"longhand": 0, "logical": 0, "shorthand": 1, "alias": 2}
         return property_order[x["proptype"]] - property_order[y["proptype"]]
 
-    properties = sorted(properties, cmp=property_compare)
+    properties = sorted(properties, key=functools.cmp_to_key(property_compare))
 
     for i, p in enumerate(properties):
         p["index"] = i
@@ -69,7 +70,7 @@ def generate_idl_name_positions(properties):
     ps = [p for p in properties if p["proptype"] is not "alias"]
 
     # Sort alphabetically by IDL name.
-    ps = sorted(ps, key=lambda p: p["idlname"])
+    ps = sorted(ps, key=lambda p: p["idlname"] or "")
 
     # Annotate entries with the sorted position.
     ps = [(p, position) for position, p in enumerate(ps)]

@@ -27,7 +27,7 @@ m4 = check_prog(
 @imports(_from='locale', _import='getpreferredencoding')
 def prepare_configure(old_configure, mozconfig, awk, m4, build_env, shell,
                       old_configure_assignments, build_project):
-    encoding = getpreferredencoding()
+    encoding = getpreferredencoding(False)
     # os.path.abspath in the sandbox will ensure forward slashes on Windows,
     # which is actually necessary because this path actually ends up literally
     # as $0, and backslashes there breaks autoconf's detection of the source

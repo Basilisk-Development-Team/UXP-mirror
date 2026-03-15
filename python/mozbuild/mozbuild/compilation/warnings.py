@@ -264,7 +264,7 @@ class WarningsDatabase(object):
 
     def load_from_file(self, filename):
         """Load the database from a file."""
-        with open(filename, 'rb') as fh:
+        with open(filename, 'r', encoding='utf-8') as fh:
             self.deserialize(fh)
 
     def save_to_file(self, filename):
@@ -275,7 +275,7 @@ class WarningsDatabase(object):
         except OSError as e:
             if e.errno != errno.EEXIST:
                 raise
-        with open(filename, 'wb') as fh:
+        with open(filename, 'w') as fh:
             self.serialize(fh)
 
 
