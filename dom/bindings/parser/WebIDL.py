@@ -960,8 +960,7 @@ class IDLInterfaceOrNamespace(IDLObjectWithScope, IDLExposureMixins):
         # self.members.  Sort our consequential interfaces by name
         # just so we have a consistent order.
         for iface in sorted(self.getConsequentialInterfaces(),
-                            cmp=cmp,
-                            key=lambda x: x.identifier.name):
+                            key=lambda x:(x.identifier.name, x.location)):
             # Flag the interface as being someone's consequential interface
             iface.setIsConsequentialInterfaceOf(self)
             # Verify that we're not exposed somewhere where iface is not exposed
@@ -1839,7 +1838,7 @@ class IDLDictionary(IDLObjectWithScope):
                 assert member.type.isComplete()
 
         # Members of a dictionary are sorted in lexicographic order
-        self.members.sort(cmp=cmp, key=lambda x: x.identifier.name)
+        self.members.sort(key=lambda x: (x.identifier.name, x.location))
 
         inheritedMembers = []
         ancestor = self.parent
@@ -2012,6 +2011,9 @@ class IDLType(IDLObject):
 
     def __ne__(self, other):
         return not self == other
+
+    def __hash__(self):
+        return hash((self.__class__, self.name))
 
     def __str__(self):
         return str(self.name)
@@ -2211,8 +2213,20 @@ class IDLParameterizedType(IDLType):
     def unroll(self):
         return self.inner.unroll()
 
+    def key(self):
+        return self.inner
+
     def _getDependentObjects(self):
         return self.inner._getDependentObjects()
+
+    def __hash__(self): 
+        return hash((self.__class__, self.key()))
+
+    def __eq__(self, other):
+        return (
+            self.__class__ is other.__class__ and
+            self.key() == other.key()
+        )
 
 
 class IDLNullableType(IDLParameterizedType):
@@ -2224,9 +2238,6 @@ class IDLNullableType(IDLParameterizedType):
         if innerType.isComplete():
             name += "OrNull"
         IDLParameterizedType.__init__(self, location, name, innerType)
-
-    def __eq__(self, other):
-        return isinstance(other, IDLNullableType) and self.inner == other.inner
 
     def __str__(self):
         return self.inner.__str__() + "OrNull"
@@ -2355,9 +2366,6 @@ class IDLSequenceType(IDLParameterizedType):
         if self.inner.isComplete():
             self.name = self.inner.name + "Sequence"
 
-    def __eq__(self, other):
-        return isinstance(other, IDLSequenceType) and self.inner == other.inner
-
     def __str__(self):
         return self.inner.__str__() + "Sequence"
 
@@ -2430,9 +2438,6 @@ class IDLRecordType(IDLParameterizedType):
         # since in that case our .complete() won't be called.
         if self.inner.isComplete():
             self.name = self.keyType.name + self.inner.name + "Record"
-
-    def __eq__(self, other):
-        return isinstance(other, IDLRecordType) and self.inner == other.inner
 
     def __str__(self):
         return self.keyType.__str__() + self.inner.__str__() + "Record"
@@ -2727,6 +2732,9 @@ class IDLWrapperType(IDLType):
                 self._identifier == other._identifier and
                 self.builtin == other.builtin)
 
+    def __hash__(self):
+        return hash((self.__class__, self._identifier, self.builtin))
+
     def __str__(self):
         return str(self.name) + " (Wrapper)"
 
@@ -2878,9 +2886,8 @@ class IDLPromiseType(IDLParameterizedType):
     def __init__(self, location, innerType):
         IDLParameterizedType.__init__(self, location, "Promise", innerType)
 
-    def __eq__(self, other):
-        return (isinstance(other, IDLPromiseType) and
-                self.promiseInnerType() == other.promiseInnerType())
+    def key(self):
+        return self.promiseInnerType()
 
     def __str__(self):
         return self.inner.__str__() + "Promise"

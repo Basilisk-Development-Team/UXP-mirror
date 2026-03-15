@@ -11,6 +11,7 @@ import errno
 import hashlib
 import json
 import logging
+import io
 import os
 import sys
 
@@ -115,8 +116,8 @@ class WebIDLCodegenManagerState(dict):
             # Convert sets to lists because JSON doesn't support sets.
             normalized['webidls'][k]['outputs'] = sorted(v['outputs'])
             normalized['webidls'][k]['inputs'] = sorted(v['inputs'])
-
-        json.dump(normalized, fh, sort_keys=True)
+        fh_text = io.TextIOWrapper(fh, encoding='utf-8', errors='replace')
+        json.dump(normalized, fh_text, sort_keys=True)
 
 
 class WebIDLCodegenManager(LoggingMixin):
@@ -199,7 +200,7 @@ class WebIDLCodegenManager(LoggingMixin):
         self._state = WebIDLCodegenManagerState()
 
         if os.path.exists(state_path):
-            with open(state_path, 'rb') as fh:
+            with open(state_path, 'r', encoding='utf-8') as fh:
                 try:
                     self._state = WebIDLCodegenManagerState(fh=fh)
                 except Exception as e:
@@ -333,7 +334,7 @@ class WebIDLCodegenManager(LoggingMixin):
             with open(path, 'rb') as fh:
                 data = fh.read()
                 hashes[path] = hashlib.sha1(data).hexdigest()
-                parser.parse(data, path)
+                parser.parse(data.decode('utf-8'), path)
 
         self._parser_results = parser.finish()
         self._config = Configuration(self._config_path, self._parser_results,
