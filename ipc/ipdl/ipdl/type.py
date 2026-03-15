@@ -307,6 +307,7 @@ class ProtocolType(IPDLType):
         self.stateless = stateless
         self.hasDelete = False
         self.hasReentrantDelete = False
+
     def isProtocol(self): return True
 
     def name(self):
@@ -507,7 +508,7 @@ def hasactor(type):
 
 def hasshmem(type):
     """Return true iff |type| is shmem or has it buried within."""
-    class found: pass
+    class found(Exception): pass
     class findShmem(TypeVisitor):
         def visitShmemType(self, s):  raise found()
     try:
@@ -714,9 +715,19 @@ class GatherDecls(TcheckVisitor):
                 fullname = None
             else:
                 fullname = str(qname)
+
+            if (
+                isinstance(p.nestedRange, tuple)
+                and len(p.nestedRange) == 2
+                and isinstance(p.nestedRange[1], dict)
+                and "nested" in p.nestedRange[1]
+            ):
+                nr = (p.nestedRange[0], p.nestedRange[1]["nested"])
+            else:
+                nr = p.nestedRange
             p.decl = self.declare(
                 loc=p.loc,
-                type=ProtocolType(qname, p.nestedRange, p.sendSemantics,
+                type=ProtocolType(qname, nr, p.sendSemantics,
                                   stateless=(0 == len(p.transitionStmts))),
                 shortname=p.name,
                 fullname=fullname)

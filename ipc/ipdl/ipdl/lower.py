@@ -1271,7 +1271,8 @@ with some new IPDL/C++ nodes that are tuned for C++ codegen."""
             ipdl.ast.Visitor.visitTranslationUnit(self, tu)
             if not isinstance(tu, TranslationUnit):
                 TranslationUnit.upgrade(tu)
-            self.typedefs[:] = sorted(list(self.typedefSet))
+            self.typedefs[:] = sorted(self.typedefSet,
+                                      key=lambda t: t.totypename)
 
     def visitInclude(self, inc):
         if inc.tu.filetype == 'header':
