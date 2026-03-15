@@ -1,3 +1,4 @@
+
 # This Source Code Form is subject to the terms of the Mozilla Public
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
@@ -415,20 +416,33 @@ class Preprocessor:
         """
         if not self.out:
             return
-
+        # Python 3 enforces strict typing on bytes and strings, Python 2 did not.
+        # This has... interesting consequences for porting legacy preprocessor code.
+        needs_bytes = getattr(self.out, 'needs_bytes', False)
         next_line, next_file = self.context['LINE'], self.context['FILE']
         if self.checkLineNumbers:
             expected_file, expected_line = self.line_info
             expected_line += 1
             if (expected_line != next_line or
                 expected_file and expected_file != next_file):
-                self.out.write('//@line {line} "{file}"\n'.format(line=next_line,
-                                                                  file=next_file))
+                ln = '//@line {line} "{file}"\n'.format(line=next_line,
+                                                                  file=next_file)
+                if needs_bytes:
+                    ln = ln.encode('utf-8')
+                self.out.write(ln)
         self.noteLineInfo()
 
         filteredLine = self.applyFilters(aLine)
         if filteredLine != aLine:
             self.actionLevel = 2
+
+        if needs_bytes:
+            if isinstance(filteredLine, str):
+                filteredLine = filteredLine.encode('utf-8')
+        else:
+            if isinstance(filteredLine, bytes):
+                filteredLine = filteredLine.decode('utf-8', 'surrogateescape')
+
         self.out.write(filteredLine)
 
     def handleCommandLine(self, args, defaultToStdin = False):
@@ -444,7 +458,7 @@ class Preprocessor:
                 except OSError as error:
                     if error.errno != errno.EEXIST:
                         raise
-            return open(path, 'w', encoding='utf-8')
+            return open(path, 'w', encoding='utf-8', errors='replace')
 
         p = self.getCommandLineParser()
         options, args = p.parse_args(args=args)
@@ -471,7 +485,7 @@ class Preprocessor:
 
         if args:
             for f in args:
-                with open(f, 'r', encoding='utf-8') as input:
+                with open(f, 'r', encoding='utf-8', errors='replace') as input:
                     self.processFile(input=input, output=out)
             if depfile:
                 mk = Makefile()
@@ -743,7 +757,7 @@ class Preprocessor:
                     args = self.applyFilters(args)
                 if not os.path.isabs(args):
                     args = os.path.join(self.context['DIRECTORY'], args)
-                args = open(args, 'r', encoding='utf-8')
+                args = open(args, 'r', encoding='utf-8', errors='replace')
             except Preprocessor.Error:
                 raise
             except:
@@ -788,7 +802,7 @@ def preprocess(includes=[sys.stdin], defines={},
     pp = Preprocessor(defines=defines,
                       marker=marker)
     for f in includes:
-        with open(f, 'r', encoding='utf-8') as input:
+        with open(f, 'r', encoding='utf-8', errors='replace') as input:
             pp.processFile(input=input, output=output)
     return pp.includes
 

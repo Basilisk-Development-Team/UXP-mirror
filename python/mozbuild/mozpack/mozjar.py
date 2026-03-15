@@ -149,7 +149,10 @@ class JarStruct(object):
                     value = self[name]
                 serialized += struct.pack('<' + format, value)
             else:
-                serialized += self[name]
+                value = self[name]
+                if isinstance(value, str):
+                    value = value.encode('utf-8')
+                serialized += value
         return serialized
 
     @property
