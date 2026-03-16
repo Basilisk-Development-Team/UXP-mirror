@@ -550,7 +550,7 @@ class Build(MachCommandBase):
             ppcheck_script = None
         
         if ppcheck_script:
-            ppcheck_cmd = [which.which("python2.7"), ppcheck_script, ppcheck_path]
+            ppcheck_cmd = [which.which("python"), ppcheck_script, ppcheck_path]
             ppcheck_result = subprocess.call(ppcheck_cmd, cwd=self.topsrcdir)
         
         if not ppcheck_script or ppcheck_result: 

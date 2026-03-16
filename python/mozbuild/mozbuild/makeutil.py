@@ -159,6 +159,8 @@ def read_dep_makefile(fh):
 
     rule = ''
     for line in fh.readlines():
+        if isinstance(line, bytes):
+            line = line.decode('utf-8')
         assert not line.startswith('\t')
         line = line.strip()
         if line.endswith('\\'):

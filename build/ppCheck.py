@@ -61,7 +61,6 @@ for file in PP_FILES:
           if line.startswith(directives):
             PP_BAD_DIRECTIVE_FILES += [ file.replace(DIST_PATH + '/', '') ]
     except UnicodeDecodeError:
-        print("Warning")
         PP_BAD_ENCODING_FILES += [ file.replace(DIST_PATH+ '/' , '') ]
 
   fp.close()

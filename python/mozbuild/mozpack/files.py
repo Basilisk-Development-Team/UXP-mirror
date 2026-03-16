@@ -92,6 +92,8 @@ class Dest(object):
         if self.mode != 'w':
             self.file = open(self.path, 'wb')
             self.mode = 'w'
+        if isinstance(data, str):
+            data = data.encode('utf-8')
         return self.file.write(data)
 
     def exists(self):
@@ -185,12 +187,12 @@ class BaseFile(object):
             else:
                 # Ensure the file is always created
                 if not dest.exists():
-                    dest.write('')
+                    dest.write(b'')
                 shutil.copyfileobj(self.open(), dest)
             return True
 
         src = self.open()
-        copy_content = ''
+        copy_content = b''
         while True:
             dest_content = dest.read(32768)
             src_content = src.read(32768)

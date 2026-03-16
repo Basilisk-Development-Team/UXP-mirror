@@ -405,8 +405,8 @@ class MozbuildObject(ProcessExecutionMixin):
                                                 'org.freedesktop.Notifications')
                 method('Mozilla Build System', 0, '', msg, '', [], [], -1)
             elif sys.platform.startswith('win'):
-                from ctypes import Structure, windll, POINTER, sizeof
-                from ctypes.wintypes import DWORD, HANDLE, WINFUNCTYPE, BOOL, UINT
+                from ctypes import Structure, windll, POINTER, sizeof, WINFUNCTYPE
+                from ctypes.wintypes import DWORD, HANDLE, BOOL, UINT
                 class FLASHWINDOW(Structure):
                     _fields_ = [("cbSize", UINT),
                                 ("hwnd", HANDLE),
