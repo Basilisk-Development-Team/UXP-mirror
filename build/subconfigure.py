@@ -187,17 +187,6 @@ def get_config_files(data):
 
     return config_files, command_files
 
-def normalize(obj):
-    if isinstance(obj, dict):
-        return {normalize(k): normalize(v) for k, v in obj.items()}
-    if isinstance(obj, list):
-        return [normalize(v) for v in obj]
-    if isinstance(obj, tuple):
-        return tuple(normalize(v) for v in obj)
-    if isinstance(obj, bytes):
-        return obj.decode(encoding, 'replace')
-    return obj
-
 def prepare(srcdir, objdir, shell, args):
     parser = argparse.ArgumentParser()
     parser.add_argument('--target', type=str)
@@ -214,7 +203,7 @@ def prepare(srcdir, objdir, shell, args):
     previous_args = None
     if os.path.exists(data_file):
         with open(data_file, 'rb') as f:
-            data = normalize(pickle.load(f))
+            data = pickle.load(f)
             previous_args = data['args']
 
     # Msys likes to break environment variables and command line arguments,
@@ -246,7 +235,7 @@ def prepare(srcdir, objdir, shell, args):
         'args': others,
         'shell': shell,
         'srcdir': srcdir,
-        'env': environ,
+        'env': {str(k): str(v) for k, v in environ.items()},
     }
 
     if args.cache_file:
@@ -263,9 +252,9 @@ def prepare(srcdir, objdir, shell, args):
     except OSError as e:
         if e.errno != errno.EEXIST:
             raise
-
-    with open(data_file, 'wb') as f:
-        pickle.dump(data, f)
+    for k, v in data.items():
+        with open(data_file, 'wb') as f:
+            pickle.dump(data, f)
 
 
 def prefix_lines(text, prefix):
@@ -276,7 +265,7 @@ def run(objdir):
     ret = 0
     output = ''
     with open(os.path.join(objdir, CONFIGURE_DATA), 'rb') as f:
-        data = normalize(pickle.load(f))
+        data = pickle.load(f)
 
     data['objdir'] = objdir
 

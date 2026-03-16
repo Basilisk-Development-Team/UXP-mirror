@@ -24,6 +24,8 @@ def main(output, input):
 
     with open(input, 'rb') as f:
         for line in f:
+            if isinstance(line, bytes):
+                line = line.decode('utf-8')
             line = line.rstrip()
             # Remove all lines containing ';-'
             if ';-' in line:

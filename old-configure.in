@@ -113,6 +113,11 @@ else
     *-mingw*)
       # Work around the conftest.exe access problem on Windows
       sleep 2
+
+      # Python 3 ported this problem to Windows somehow.
+      if test -z "$NSDISTMODE"; then
+         NSDISTMODE=copy
+      fi
     esac
     AC_PROG_CXX
     AC_PROG_RANLIB
@@ -130,10 +135,6 @@ else
     fi
     if test -z "$HOST_AR_FLAGS"; then
         HOST_AR_FLAGS="$AR_FLAGS"
-    fi
-    # Python 3 ported this problem to Windows somehow.
-    if test -z "$NSDISTMODE"; then
-       NSDISTMODE=copy
     fi
 fi
 
