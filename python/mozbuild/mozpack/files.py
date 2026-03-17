@@ -645,8 +645,9 @@ class ManifestFile(BaseFile):
         Return a file-like object allowing to read() the serialized content of
         the manifest.
         '''
-        return BytesIO(''.join('%s\n' % e.rebase(self._base)
-                               for e in self._entries))
+        data = ''.join('%s\n' % e.rebase(self._base)
+                               for e in self._entries)
+        return BytesIO(data.encode('utf-8'))
 
     def __iter__(self):
         '''

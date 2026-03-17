@@ -266,7 +266,8 @@ class SimplePackager(object):
             self._file_queue.append(self.formatter.add, path, file)
             if mozpath.basename(path) == 'install.rdf':
                 addon = True
-                install_rdf = file.open().read()
+                raw = file.open().read()
+                install_rdf = raw.decode('utf-8')
                 if self.UNPACK_ADDON_RE.search(install_rdf):
                     addon = 'unpacked'
                 self._addons[mozpath.dirname(path)] = addon
@@ -282,7 +283,11 @@ class SimplePackager(object):
             b = mozpath.normsep(file.path)
             if b.endswith('/' + path) or b == path:
                 base = os.path.normpath(b[:-len(path)])
-        for e in parse_manifest(base, path, file.open()):
+        fh = file.open()
+        data = fh.read()
+
+        text = data.decode('utf-8')
+        for e in parse_manifest(base, path, text.splitlines(True)):
             # ManifestResources need to be given after ManifestChrome, so just
             # put all ManifestChrome in a separate queue to make them first.
             if isinstance(e, ManifestChrome):
