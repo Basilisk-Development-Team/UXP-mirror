@@ -169,9 +169,15 @@ class SandboxCalledError(SandboxError):
     """Represents an error resulting from calling the error() function."""
 
     def __init__(self, file_stack, message):
-        SandboxError.__init__(self, file_stack)
+        super(SandboxCalledError, self).__init__(file_stack)
         self.message = message
+        self.args = (message,)
 
+    def __str__(self):
+        try:
+            return str(self.message)
+        except Exception:
+            return "<unprintable SandboxCalledError message>"
 
 class MozbuildSandbox(Sandbox):
     """Implementation of a Sandbox tailored for mozbuild files.
@@ -525,8 +531,9 @@ class SandboxValidationError(Exception):
         s.write('The error occurred when validating the result of ')
         s.write('the execution. The reported error is:\n')
         s.write('\n')
+        message = self.args[0] if self.args else ""
         s.write(''.join('    %s\n' % l
-                        for l in self.message.splitlines()))
+                        for l in message.splitlines()))
         s.write('\n')
 
         return s.getvalue()

@@ -325,7 +325,7 @@ class TestMozbuildSandbox(unittest.TestCase):
             sandbox.exec_source('error("This is an error.")')
 
         e = sce.exception
-        self.assertEqual(e.message, 'This is an error.')
+        self.assertEqual(e.args[0], 'This is an error.')
 
     def test_substitute_config_files(self):
         sandbox = self.sandbox()
@@ -471,7 +471,7 @@ def foo():
         self.assertIsInstance(e.exc_value, NameError)
 
         e = se.exception.exc_value
-        self.assertEqual(e.message,
+        self.assertEqual(e.args[0],
             'Template function names must be CamelCase.')
 
         # Template names must not already be registered.
@@ -488,7 +488,7 @@ def Template():
         self.assertIsInstance(e.exc_value, KeyError)
 
         e = se.exception.exc_value
-        self.assertEqual(e.message,
+        self.assertEqual(e.args[0],
             'A template named "Template" was already declared in %s.' %
             sandbox.normalize_path('templates.mozbuild'))
 

@@ -482,7 +482,7 @@ class CommonBackend(BuildBackend):
             pp.do_include(obj.path.full_path)
         except DeprecatedJarManifest as e:
             raise DeprecatedJarManifest('Parsing error while processing %s: %s'
-                                        % (obj.path.full_path, e.message))
+                                        % (obj.path.full_path, e.args[0]))
         self.backend_input_files |= pp.includes
 
         for jarinfo in pp.out:

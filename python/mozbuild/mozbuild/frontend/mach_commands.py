@@ -108,7 +108,7 @@ class MozbuildFileCommands(MachCommandBase):
             for p, m in list(self._get_files_info(paths, rev=rev).items()):
                 components[m.get('BUG_COMPONENT')].add(p)
         except InvalidPathException as e:
-            print(e.message)
+            print(str(e))
             return 1
 
         for component, files in sorted(list(components.items()), key=lambda x: (x is None, x)):
@@ -128,7 +128,7 @@ class MozbuildFileCommands(MachCommandBase):
                 if 'BUG_COMPONENT' not in m:
                     print(p)
         except InvalidPathException as e:
-            print(e.message)
+            print(str(e))
             return 1
 
     @SubCommand('file-info', 'dep-tests',
@@ -155,7 +155,7 @@ class MozbuildFileCommands(MachCommandBase):
                         print('\t\t%s' % p)
 
         except InvalidPathException as e:
-            print(e.message)
+            print(str(e))
             return 1
 
 
