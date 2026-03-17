@@ -170,6 +170,10 @@ elif majver == 3:
             'signal',
             'enum',
         ])
+    if minver >= 9:
+        REQUIRED_MODULES.extend([
+            'contextlib',
+        ])
 
 if is_pypy:
     # these are needed to correctly display the exceptions that may happen
