@@ -1105,23 +1105,39 @@ nsStandardURL::ParseURL(const char *spec, int32_t specLen)
 nsresult
 nsStandardURL::ParsePath(const char *spec, uint32_t pathPos, int32_t pathLen)
 {
-// Cloudflare Image Resizing compatibility:
-// Treat everything after /cdn-cgi/image/ as opaque path data.
-nsDependentCSubstring fullPath(spec + pathPos, pathLen);
+// Cloudflare Image Resizing compatibility (pref-controlled)
+// When enabled, we detect the "/cdn-cgi/image/" marker in the URL path
+// and treat everything after it as opaque path data. This matches how
+// Cloudflare expects clients to interpret Image Resizing URLs.
+if (Preferences::GetBool("network.url.cloudflare_image_resizing.enabled", true)) {
 
-nsACString::const_iterator begin, end;
-fullPath.BeginReading(begin);
-fullPath.EndReading(end);
+    // Extract the full path substring from the full URL spec.
+    // 'spec' is the full URL string; pathPos/pathLen define the path portion.
+    nsDependentCSubstring fullPath(spec + pathPos, pathLen);
 
-nsACString::const_iterator cfPos = begin;
-if (FindInReadable(NS_LITERAL_CSTRING("/cdn-cgi/image/"), cfPos, end)) {
-    uint32_t offset = cfPos.get() - begin.get();
+    // Prepare iterators for scanning the path.
+    nsACString::const_iterator begin, end;
+    fullPath.BeginReading(begin);
+    fullPath.EndReading(end);
 
-    mPath.mPos = pathPos + offset;
-    mPath.mLen = pathLen - offset;
+    // Search for the Cloudflare Image Resizing marker.
+    nsACString::const_iterator cfPos = begin;
+    if (FindInReadable(NS_LITERAL_CSTRING("/cdn-cgi/image/"), cfPos, end)) {
 
-    return NS_OK;
+        // Compute how far into the path the marker was found.
+        // cfPos.get() gives the raw pointer into the substring.
+        uint32_t offset = cfPos.get() - begin.get();
+
+        // Rewrite the internal path representation so that the path
+        // begins at the Cloudflare marker. Everything before it is ignored.
+        mPath.mPos = pathPos + offset;
+        mPath.mLen = pathLen - offset;
+
+        // We handled the path; no further parsing needed.
+        return NS_OK;
+    }
 }
+
 
     LOG(("ParsePath: %s pathpos %d len %d\n",spec,pathPos,pathLen));
 
