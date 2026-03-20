@@ -1050,37 +1050,105 @@ def change_prefix(filename, dst_prefix):
     assert False, "Filename %s does not start with any of these prefixes: %s" % \
         (filename, prefixes)
 
+def find_module_info(modname):
+    for finder in sys.meta_path:
+        try:
+            loader = finder.find_module(modname)
+        except Exception:
+            continue
+
+        if loader is None:
+            continue
+
+        # get filename
+        try:
+            filename = loader.get_filename(modname)
+        except Exception:
+            continue
+
+        # detect package
+        is_pkg = False
+        try:
+            is_pkg = loader.is_package(modname)
+        except Exception:
+            pass
+
+        return filename, is_pkg
+
+    raise ImportError("Cannot find module %s" % modname)
+
 def copy_required_modules(dst_prefix, symlink):
-    import imp
+    import importlib
+    import importlib.machinery
+    from shutil import copytree
 
     for modname in REQUIRED_MODULES:
         if modname in sys.builtin_module_names:
             logger.info("Ignoring built-in bootstrap module: %s" % modname)
             continue
-        try:
-            f, filename, _ = imp.find_module(modname)
-        except ImportError:
+
+        filename = None
+        is_pkg = False
+
+        for finder in sys.meta_path:
+            try:
+                loader = finder.find_module(modname)
+            except Exception:
+                continue
+
+            if loader is None:
+                continue
+
+            # get filename (__init__.py for packages)
+            try:
+                filename = loader.get_filename(modname)
+            except Exception:
+                continue
+
+            # detect package
+            try:
+                is_pkg = loader.is_package(modname)
+            except Exception:
+                is_pkg = False
+
+            break
+
+        if filename is None:
             logger.info("Cannot import bootstrap module: %s" % modname)
-        else:
-            if f is not None:
-                f.close()
-            # special-case custom readline.so on OS X, but not for pypy:
-            if modname == 'readline' and sys.platform == 'darwin' and not (
-                    is_pypy or filename.endswith(join('lib-dynload', 'readline.so'))):
-                dst_filename = join(dst_prefix, 'lib', 'python%s' % sys.version[:3], 'readline.so')
-            elif modname == 'readline' and sys.platform == 'win32':
-                # special-case for Windows, where readline is not a
-                # standard module, though it may have been installed in
-                # site-packages by a third-party package
-                pass
-            else:
-                dst_filename = change_prefix(filename, dst_prefix)
+            continue
+
+        # special-case custom readline.so on OS X, but not for pypy:
+        if (modname == 'readline' and sys.platform == 'darwin' and
+            not (is_pypy or filename.endswith(join('lib-dynload', 'readline.so')))):
+            dst_filename = join(dst_prefix, 'lib',
+                                'python%s' % sys.version[:3],
+                                'readline.so')
+
+            # copy single file
             copyfile(filename, dst_filename, symlink)
+            continue
+
+        if modname == 'readline' and sys.platform == 'win32':
+            # special-case for Windows, where readline is not a
+            # standard module, though it may have been installed in
+            # site-packages by a third-party package
+            continue
+
+        if is_pkg:
+            # copy entire package directory
+            pkg_dir = os.path.dirname(filename)
+            dst_dir = change_prefix(pkg_dir, dst_prefix)
+            copytree(pkg_dir, dst_dir, symlink)
+        else:
+            # copy single module file
+            dst_filename = change_prefix(filename, dst_prefix)
+            copyfile(filename, dst_filename, symlink)
+
+            # also copy .py if we got a .pyc
             if filename.endswith('.pyc'):
                 pyfile = filename[:-1]
                 if os.path.exists(pyfile):
                     copyfile(pyfile, dst_filename[:-1], symlink)
-
 
 def subst_path(prefix_path, prefix, home_dir):
     prefix_path = os.path.normpath(prefix_path)

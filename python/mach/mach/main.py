@@ -10,11 +10,13 @@ from collections import Iterable
 
 import argparse
 import codecs
-import imp
+import importlib.util
+import importlib.machinery
 import logging
 import os
 import sys
 import traceback
+import types
 import uuid
 
 from .base import (
@@ -101,6 +103,19 @@ You are seeing this because there is an error in an external module attempting
 to implement a mach command. Please fix the error, or uninstall the module from
 your system.
 '''.lstrip()
+
+def load_source(module_name, path):
+    loader = importlib.machinery.SourceFileLoader(module_name, path)
+    module = types.ModuleType(module_name)
+    module.__loader__ = loader
+    module.__file__ = path
+    module.__package__ = module_name.rpartition('.')[0]
+
+    sys.modules[module_name] = module
+
+    code = loader.get_code(module_name)
+    exec(code, module.__dict__)
+    return module
 
 class ArgumentParser(argparse.ArgumentParser):
     """Custom implementation argument parser to make things look pretty."""
@@ -257,12 +272,12 @@ To see more help for a specific command, run:
             # Ensure parent module is present otherwise we'll (likely) get
             # an error due to unknown parent.
             if 'mach.commands' not in sys.modules:
-                mod = imp.new_module('mach.commands')
+                mod = types.ModuleType('mach.commands')
                 sys.modules['mach.commands'] = mod
 
             module_name = 'mach.commands.%s' % uuid.uuid1().hex
 
-        imp.load_source(module_name, path)
+        load_source(module_name, path)
 
     def load_commands_from_entry_point(self, group='mach.providers'):
         """Scan installed packages for mach command provider entry points. An
