@@ -1105,6 +1105,24 @@ nsStandardURL::ParseURL(const char *spec, int32_t specLen)
 nsresult
 nsStandardURL::ParsePath(const char *spec, uint32_t pathPos, int32_t pathLen)
 {
+// Cloudflare Image Resizing compatibility:
+// Treat everything after /cdn-cgi/image/ as opaque path data.
+nsDependentCSubstring fullPath(spec + pathPos, pathLen);
+
+nsACString::const_iterator begin, end;
+fullPath.BeginReading(begin);
+fullPath.EndReading(end);
+
+nsACString::const_iterator cfPos = begin;
+if (FindInReadable(NS_LITERAL_CSTRING("/cdn-cgi/image/"), cfPos, end)) {
+    uint32_t offset = cfPos.get() - begin.get();
+
+    mPath.mPos = pathPos + offset;
+    mPath.mLen = pathLen - offset;
+
+    return NS_OK;
+}
+
     LOG(("ParsePath: %s pathpos %d len %d\n",spec,pathPos,pathLen));
 
     if (pathLen > net_GetURLMaxLength()) {
