@@ -133,7 +133,7 @@ option(env='PYTHON', nargs=1, help='Python interpreter')
 @imports(_from='mozbuild.configure.util', _import='LineIO')
 @imports(_from='mozbuild.virtualenv', _import='VirtualenvManager')
 @imports(_from='mozbuild.virtualenv', _import='verify_python_version')
-@imports('distutils.sysconfig')
+@imports('sysconfig')
 def virtualenv_python(env_python, build_env, mozconfig, help):
     if help:
         return
@@ -193,7 +193,7 @@ def virtualenv_python(env_python, build_env, mozconfig, help):
         sys.exit(subprocess.call([python] + sys.argv))
 
     # We are now in the virtualenv
-    if not distutils.sysconfig.get_python_lib():
+    if not sysconfig.get_path("purelib"):
         die('Could not determine python site packages directory')
 
     return python

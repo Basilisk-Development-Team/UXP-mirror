@@ -144,8 +144,8 @@ class VirtualenvMixin(object):
         python = self.query_python_path()
         self.site_packages_path = self.get_output_from_command(
             [python, '-c',
-             'from distutils.sysconfig import get_python_lib; ' +
-             'print(get_python_lib())'])
+             'from sysconfig import get_path; ' +
+             'print(get_path("purelib"))'])
         return self.site_packages_path
 
     def package_versions(self, pip_freeze_output=None, error_level=WARNING, log_output=False):

@@ -7,7 +7,7 @@
 
 from __future__ import absolute_import, print_function, unicode_literals
 
-import distutils.sysconfig
+import sysconfig
 import os
 import shutil
 import subprocess
@@ -257,7 +257,7 @@ class VirtualenvManager(object):
         """
 
         packages = self.packages()
-        python_lib = distutils.sysconfig.get_python_lib()
+        python_lib = sysconfig.get_path("purelib")
 
         def handle_package(package):
             if package[0] == 'setup.py':
@@ -352,7 +352,7 @@ class VirtualenvManager(object):
         try:
             old_target = os.environ.get('MACOSX_DEPLOYMENT_TARGET', None)
             sysconfig_target = \
-                distutils.sysconfig.get_config_var('MACOSX_DEPLOYMENT_TARGET')
+                sysconfig.get_config_var('MACOSX_DEPLOYMENT_TARGET')
 
             if sysconfig_target is not None:
                 os.environ['MACOSX_DEPLOYMENT_TARGET'] = sysconfig_target

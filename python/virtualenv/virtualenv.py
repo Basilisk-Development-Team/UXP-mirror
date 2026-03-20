@@ -22,7 +22,7 @@ import logging
 import zlib
 import errno
 import glob
-import distutils.sysconfig
+import sysconfig
 import struct
 import subprocess
 import pkgutil
@@ -939,7 +939,7 @@ def create_environment(home_dir, site_packages=False, clear=False,
         home_dir, lib_dir, inc_dir, bin_dir,
         site_packages=site_packages, clear=clear, symlink=symlink))
 
-    install_distutils(home_dir)
+    #install_distutils(home_dir)
 
     to_install = []
 
@@ -1235,10 +1235,12 @@ def install_python(home_dir, lib_dir, inc_dir, bin_dir, site_packages, clear, sy
     else:
         logger.debug('No include dir %s' % stdinc_dir)
 
-    platinc_dir = distutils.sysconfig.get_python_inc(plat_specific=1)
+    platinc_dir = sysconfig.get_path("platinclude")
     if platinc_dir != stdinc_dir:
-        platinc_dest = distutils.sysconfig.get_python_inc(
-            plat_specific=1, prefix=home_dir)
+        platinc_dest = sysconfig.get_path(
+            "platinclude",
+            vars={"base": home_dir, "platbase": home_dir}
+        )
         if platinc_dir == platinc_dest:
             # Do platinc_dest manually due to a CPython bug;
             # not http://bugs.python.org/issue3386 but a close cousin
@@ -1606,7 +1608,7 @@ def fix_lib64(lib_dir, symlink=True):
         logger.debug('PyPy detected, skipping lib64 symlinking')
         return
     # Check we have a lib64 library path
-    if not [p for p in list(distutils.sysconfig.get_config_vars().values())
+    if not [p for p in list(sysconfig.get_config_vars().values())
             if isinstance(p, basestring) and 'lib64' in p]:
         return
 
