@@ -24,7 +24,7 @@ import traceback
 
 from collections import deque, namedtuple
 from distutils import dir_util
-from distutils.version import LooseVersion
+from mozbuild.version import RichVersion
 from multiprocessing import cpu_count
 from argparse import ArgumentParser
 from subprocess import Popen, PIPE, STDOUT
@@ -997,10 +997,10 @@ class XPCShellTests(object):
                 version_str = subprocess.check_output([localPath, "--version"],
                                                       stderr=subprocess.STDOUT)
                 # nodejs prefixes its version strings with "v"
-                version = LooseVersion(version_str.lstrip('v'))
+                version = RichVersion(version_str.lstrip('v'))
                 # Use node only if node version is >=5.0.0 because
                 # node did not support ALPN until this version.
-                if version >= LooseVersion("5.0.0"):
+                if version >= RichVersion("5.0.0"):
                     nodeBin = localPath
             except (subprocess.CalledProcessError, OSError) as e:
                 self.log.error('Could not retrieve node version: %s' % str(e))

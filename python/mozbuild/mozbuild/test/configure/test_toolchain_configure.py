@@ -12,7 +12,7 @@ from io import StringIO
 from mozunit import main
 
 from common import BaseConfigureTest
-from mozbuild.configure.util import Version
+from mozbuild.version import RichVersion
 from mozbuild.util import memoize
 from mozpack import path as mozpath
 from test_toolchain_helpers import (
@@ -56,11 +56,11 @@ SUPPORTS_CXX14 = {
 
 @memoize
 def GCC_BASE(version):
-    version = Version(version)
+    version = RichVersion(version)
     return FakeCompiler({
-        '__GNUC__': version.major,
-        '__GNUC_MINOR__': version.minor,
-        '__GNUC_PATCHLEVEL__': version.patch,
+        '__GNUC__': version.level.MAJOR,
+        '__GNUC_MINOR__': version.level.MINOR,
+        '__GNUC_PATCHLEVEL__': version.level.PATCH,
         '__STDC__': 1,
         '__ORDER_LITTLE_ENDIAN__': 1234,
         '__ORDER_BIG_ENDIAN__': 4321,
@@ -142,12 +142,12 @@ GCC_PLATFORM_X86_64_WIN = FakeCompiler(GCC_PLATFORM_X86_64, GCC_PLATFORM_WIN)
 
 @memoize
 def CLANG_BASE(version):
-    version = Version(version)
+    version = RichVersion(version)
     return FakeCompiler({
         '__clang__': 1,
-        '__clang_major__': version.major,
-        '__clang_minor__': version.minor,
-        '__clang_patchlevel__': version.patch,
+        '__clang_major__': version.level.MAJOR,
+        '__clang_minor__': version.level.MINOR,
+        '__clang_patchlevel__': version.level.PATCH,
     })
 
 
@@ -197,12 +197,13 @@ CLANG_PLATFORM_X86_64_WIN = CLANG_PLATFORM(GCC_PLATFORM_X86_64_WIN)
 
 @memoize
 def VS(version):
-    version = Version(version)
+    version = RichVersion(version)
     return FakeCompiler({
         None: {
-            '_MSC_VER': '%02d%02d' % (version.major, version.minor),
-            '_MSC_FULL_VER': '%02d%02d%05d' % (version.major, version.minor,
-                                               version.patch),
+            '_MSC_VER': '%02d%02d' % (version.level.MAJOR, version.level.MINOR),
+            '_MSC_FULL_VER': '%02d%02d%05d' % (version.level.MAJOR,
+                                               version.level.MINOR,
+                                               version.level.PATCH),
         },
         '*.cpp': DEFAULT_CXX_97,
     })

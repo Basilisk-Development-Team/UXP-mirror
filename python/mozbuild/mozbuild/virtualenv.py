@@ -14,16 +14,20 @@ import subprocess
 import sys
 import warnings
 
-from distutils.version import LooseVersion
+
+# Thanks to distutils.version being gone, this hack is neeeded
+# to get proper versioning before we finish bootstrapping.
+here = os.path.dirname(__file__)
+
+sys.path.append(os.path.join(here, "."))
+from version import RichVersion
 
 IS_NATIVE_WIN = (sys.platform == 'win32' and os.sep == '\\')
 IS_MSYS2 = (sys.platform == 'win32' and os.sep == '/')
 IS_CYGWIN = (sys.platform == 'cygwin')
 
 # Minimum version of Python required to build.
-MINIMUM_PYTHON_VERSION = LooseVersion('3.3.0')
-MINIMUM_PYTHON_MAJOR = 3
-
+MINIMUM_PYTHON_VERSION = RichVersion('3.3.0')
 
 UPGRADE_WINDOWS = '''
 Please upgrade to the latest MozillaBuild development environment. See
@@ -527,9 +531,10 @@ def verify_python_version(log_handle):
     """Ensure the current version of Python is sufficient."""
     major, minor, micro = sys.version_info[:3]
 
-    our = LooseVersion('%d.%d.%d' % (major, minor, micro))
+    our = RichVersion('%d.%d.%d' % (major, minor, micro))
 
-    if major != MINIMUM_PYTHON_MAJOR or our < MINIMUM_PYTHON_VERSION:
+    if (major != MINIMUM_PYTHON_VERSION.level.MAJOR or
+        our < MINIMUM_PYTHON_VERSION):
         log_handle.write('Python %s or greater (but not Python 4) is '
             'required to build. ' % MINIMUM_PYTHON_VERSION)
         log_handle.write('You are running Python %s.\n' % our)

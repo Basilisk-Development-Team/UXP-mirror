@@ -11,7 +11,7 @@ import sys
 import psutil
 
 from distutils.util import strtobool
-from distutils.version import LooseVersion
+from mozbuild.version import RichVersion
 import mozpack.path as mozpath
 
 # Minimum recommended logical processors in system.
@@ -279,7 +279,7 @@ class Doctor(object):
                 version = fh.readline()
             if not version:
                 raise ValueError()
-            if LooseVersion(version) < LooseVersion(LATEST_MOZILLABUILD_VERSION):
+            if RichVersion(version) < RichVersion(LATEST_MOZILLABUILD_VERSION):
                 status = 'BAD'
                 desc = 'MozillaBuild %s in use, <%s' % (
                     version, LATEST_MOZILLABUILD_VERSION

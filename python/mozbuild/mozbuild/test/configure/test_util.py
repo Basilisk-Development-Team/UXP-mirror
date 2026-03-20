@@ -20,8 +20,9 @@ from mozbuild.configure.util import (
     ConfigureOutputHandler,
     getpreferredencoding,
     LineIO,
-    Version,
 )
+
+from mozbuild.version import Version
 
 from mozbuild.configure import (
     ConfigureSandbox,

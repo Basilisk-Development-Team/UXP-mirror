@@ -302,7 +302,7 @@ def get_registry_values(pattern):
         keys = next_keys
 
 
-@imports(_from='mozbuild.configure.util', _import='Version', _as='_Version')
+@imports(_from='mozbuild.version', _import='RichVersion', _as='_Version')
 def Version(v):
     'A version number that can be compared usefully.'
     return _Version(v)

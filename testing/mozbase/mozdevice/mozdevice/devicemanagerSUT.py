@@ -15,7 +15,7 @@ import subprocess
 import io
 from .devicemanager import DeviceManager, DMError, _pop_last_line
 import errno
-from distutils.version import StrictVersion
+from mozbuild.version import Version
 
 
 class DeviceManagerSUT(DeviceManager):
@@ -320,7 +320,7 @@ class DeviceManagerSUT(DeviceManager):
             raise DMError("Negatus does not support execcwd/execcwdsu")
 
         haveExecSu = (self.agentProductName == 'SUTAgentNegatus' or
-                      StrictVersion(self.agentVersion) >= StrictVersion('1.13'))
+                      Version(self.agentVersion) >= Version('1.13'))
 
         # Depending on agent version we send one of the following commands here:
         # * exec (run as normal user)

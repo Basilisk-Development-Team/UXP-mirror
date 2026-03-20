@@ -12,7 +12,6 @@ import os
 import sys
 from collections import deque
 from contextlib import contextmanager
-from distutils.version import LooseVersion
 
 def getpreferredencoding():
     # locale._parse_localename makes locale.getpreferredencoding
@@ -28,34 +27,6 @@ def getpreferredencoding():
         if os.environ.get('LC_ALL', '').upper() == 'UTF-8':
             encoding = 'utf-8'
     return encoding
-
-class Version(LooseVersion):
-    '''A simple subclass of distutils.version.LooseVersion.
-    Adds attributes for `major`, `minor`, `patch` for the first three
-    version components so users can easily pull out major/minor
-    versions, like:
-
-    v = Version('1.2b')
-    v.major == 1
-    v.minor == 2
-    v.patch == 0
-    '''
-    def __init__(self, version):
-        # Can't use super, LooseVersion's base class is not a new-style class.
-        LooseVersion.__init__(self, version)
-        # Take the first three integer components, stopping at the first
-        # non-integer and padding the rest with zeroes.
-        (self.major, self.minor, self.patch) = list(itertools.chain(
-            itertools.takewhile(lambda x:isinstance(x, int), self.version),
-            (0, 0, 0)))[:3]
-
-
-    def __cmp__(self, other):
-        # LooseVersion checks isinstance(StringType), so work around it.
-        if isinstance(other, str):
-            other = other.encode('ascii')
-        return LooseVersion.__cmp__(self, other)
-
 
 class ConfigureOutputHandler(logging.Handler):
     '''A logging handler class that sends info messages to stdout and other
