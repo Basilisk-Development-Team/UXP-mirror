@@ -28,13 +28,18 @@ import subprocess
 import pkgutil
 import tempfile
 import textwrap
-from distutils.util import strtobool
 from os.path import join
 
 try:
     import configparser
 except ImportError:
     import configparser as ConfigParser
+
+# Thanks to distutils.strtobool being gone, this hack is needed.
+
+here = os.path.dirname(__file__)
+sys.path.append(os.path.join(here, "..", "mozbuild", "mozbuild"))
+from util import strtobool
 
 __version__ = "15.0.1"
 virtualenv_version = __version__  # legacy

@@ -4,7 +4,7 @@
 
 from abc import ABCMeta, abstractmethod, abstractproperty
 from argparse import ArgumentParser, SUPPRESS
-from distutils.util import strtobool
+from mozbuild.util import strtobool
 from urllib.parse import urlparse
 import json
 import os

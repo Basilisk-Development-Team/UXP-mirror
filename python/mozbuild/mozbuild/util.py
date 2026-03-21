@@ -194,6 +194,24 @@ def simple_diff(filename, old_lines, new_lines):
     return difflib.unified_diff(old_lines or [], new_lines or [],
                                 old_name, new_name, n=4, lineterm='')
 
+def strtobool(value: str):
+    # Copied from `mach.util` since this script runs outside of a mach
+    # environment.
+    # Reimplementation of distutils.util.strtobool
+    # https://docs.python.org/3.9/distutils/apiref.html#distutils.util.strtobool
+    true_vals = ("y", "yes", "t", "true", "on", "1")
+    false_vals = ("n", "no", "f", "false", "off", "0")
+
+    value = value.lower()
+    if value in true_vals:
+        return 1
+    if value in false_vals:
+        return 0
+
+    raise ValueError('Expected one of: {}'.format(", ".join(true_vals + false_vals)))
+
+
+
 
 class FileAvoidWrite:
     """File-like object that buffers output and only writes if content changed.

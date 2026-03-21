@@ -10,7 +10,7 @@ import sys
 
 import psutil
 
-from distutils.util import strtobool
+from mozbuild.util import strtobool
 from mozbuild.version import RichVersion
 import mozpack.path as mozpath
 
