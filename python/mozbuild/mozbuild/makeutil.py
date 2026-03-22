@@ -6,7 +6,10 @@ from __future__ import absolute_import
 
 import os
 import re
-from collections import Iterable
+try:
+    from collections.abc import Iterable
+except ImportError:
+    from collections import Iterable
 
 
 class Makefile(object):

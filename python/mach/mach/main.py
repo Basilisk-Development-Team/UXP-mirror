@@ -6,8 +6,10 @@
 # (mach). It is packaged as a module because everything is a library.
 
 from __future__ import absolute_import, print_function, unicode_literals
-from collections import Iterable
-
+try:
+    from collections.abc import Iterable
+except ImportError:
+    from collections import Iterable
 import argparse
 import codecs
 import importlib.util

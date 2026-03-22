@@ -25,9 +25,13 @@ import types
 
 from collections import (
     defaultdict,
-    Iterable,
     OrderedDict,
 )
+
+try:
+    from collections.abc import Iterable, Sequence
+except ImportError:
+    from collections import Iterable, Sequence
 
 if sys.version_info[0] == 3:
     str_type = str
@@ -723,7 +727,7 @@ class HierarchicalStringList(object):
         self._strings = StrictOrderingOnAppendList()
         self._children = {}
 
-    class StringListAdaptor(collections.Sequence):
+    class StringListAdaptor(Sequence):
         def __init__(self, hsl):
             self._hsl = hsl
 

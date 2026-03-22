@@ -26,7 +26,11 @@ command can be used to populate these files.
 
 from __future__ import absolute_import, unicode_literals
 
-import collections
+try:
+    from collections.abc import Mapping, MutableMapping
+except ImportError:
+    from collections import Mapping, MutableMapping
+from collections import defaultdict
 import gettext
 import os
 import sys
@@ -160,7 +164,7 @@ def reraise_attribute_error(func):
     return _
 
 
-class ConfigSettings(collections.Mapping):
+class ConfigSettings(Mapping):
     """Interface for configuration settings.
 
     This is the main interface to the configuration.
@@ -206,7 +210,7 @@ class ConfigSettings(collections.Mapping):
     will result in exceptions being raised.
     """
 
-    class ConfigSection(collections.MutableMapping, object):
+    class ConfigSection(MutableMapping, object):
         """Represents an individual config section."""
         def __init__(self, config, name, settings):
             object.__setattr__(self, '_config', config)
@@ -379,7 +383,7 @@ class ConfigSettings(collections.Mapping):
         if callable(settings):
             settings = settings()
 
-        config_settings = collections.defaultdict(dict)
+        config_settings = defaultdict(dict)
         for setting in settings:
             section, option = setting[0].split('.')
 

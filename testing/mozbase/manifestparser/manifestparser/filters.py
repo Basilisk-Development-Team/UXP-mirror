@@ -8,7 +8,11 @@ dictionary of values, and returns a new iterable of test objects. It is
 possible to define custom filters if the built-in ones are not enough.
 """
 
-from collections import defaultdict, MutableSequence
+from collections import defaultdict
+try:
+    from collections.abc import MutableSequence
+except ImportError:
+    from collections import MutableSequence
 import itertools
 import os
 

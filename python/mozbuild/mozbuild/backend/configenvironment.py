@@ -7,7 +7,10 @@ from __future__ import absolute_import
 import os
 import sys
 
-from collections import Iterable
+try:
+    from collections.abc import Iterable
+except ImportError:
+    from collections import Iterable
 from types import ModuleType
 
 import mozpack.path as mozpath
