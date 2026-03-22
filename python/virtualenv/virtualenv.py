@@ -175,6 +175,10 @@ elif majver == 3:
             'signal',
             'enum',
         ])
+    if minver >= 6:
+        REQUIRED_MODULES.extend([
+            'selectors'
+        ])
     if minver >= 9:
         REQUIRED_MODULES.extend([
             'contextlib',
@@ -727,7 +731,7 @@ def main():
                        search_dirs=options.search_dirs,
                        download=options.download,
                        no_setuptools=options.no_setuptools,
-                       no_pip=options.no_pip,
+                       no_pip=True,
                        no_wheel=options.no_wheel,
                        symlink=options.symlink and hasattr(os, 'symlink')) # MOZ: Make sure we don't use symlink when we don't have it
     if 'after_install' in globals():
@@ -855,7 +859,7 @@ def install_wheel(project_names, py_executable, search_dirs=None,
     if search_dirs is None:
         search_dirs = file_search_dirs()
 
-    wheels = find_wheels(['setuptools', 'pip'], search_dirs)
+    wheels = find_wheels(['setuptools'], search_dirs)
     pythonpath = os.pathsep.join(wheels)
 
     # PIP_FIND_LINKS uses space as the path separator and thus cannot have paths
@@ -878,26 +882,13 @@ def install_wheel(project_names, py_executable, search_dirs=None,
         import tempfile
         import os
 
-        import pip
+        cert_file = None
 
-        cert_data = pkgutil.get_data("pip._vendor.requests", "cacert.pem")
-        if cert_data is not None:
-            cert_file = tempfile.NamedTemporaryFile(delete=False)
-            cert_file.write(cert_data)
-            cert_file.close()
-        else:
-            cert_file = None
-
-        try:
-            args = ["install", "--ignore-installed"]
-            if cert_file is not None:
-                args += ["--cert", cert_file.name]
-            args += sys.argv[1:]
-
-            sys.exit(pip.main(args))
-        finally:
-            if cert_file is not None:
-                os.remove(cert_file.name)
+        args = ["install", "--ignore-installed"]
+        if cert_file is not None:
+            args += ["--cert", cert_file.name]
+        args += sys.argv[1:]
+        sys.exit()
     """).encode("utf8")
 
     cmd = [py_executable, '-'] + project_names
@@ -950,9 +941,6 @@ def create_environment(home_dir, site_packages=False, clear=False,
 
     if not no_setuptools:
         to_install.append('setuptools')
-
-    if not no_pip:
-        to_install.append('pip')
 
     if not no_wheel:
         to_install.append('wheel')
