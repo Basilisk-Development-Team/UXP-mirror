@@ -373,9 +373,18 @@ class CommonBackend(BuildBackend):
 
         # Write out a machine-readable file describing binaries.
         with self._write_file(mozpath.join(topobjdir, 'binaries.json')) as fh:
+            shared = sorted(
+                self._binaries.shared_libraries,
+                key=lambda s: (s.install_target, s.lib_name, s.relobjdir),
+            )
+            progs = sorted(
+                self._binaries.programs,
+                key=lambda p: (p.install_target, p.program, p.relobjdir),
+            )
+
             d = {
-                'shared_libraries': [s.to_dict() for s in self._binaries.shared_libraries],
-                'programs': [p.to_dict() for p in self._binaries.programs],
+                'shared_libraries': [s.to_dict() for s in shared],
+                'programs': [p.to_dict() for p in progs],
             }
             json.dump(d, fh, sort_keys=True, indent=4)
 

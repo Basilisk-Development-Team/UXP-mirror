@@ -274,13 +274,16 @@ class FileAvoidWrite:
             self.mode = 'r'
 
         try:
-            existing = open(self.name, self.mode)
+            existing = open(self.name, 'rb')
             existed = True
         except IOError:
             pass
         else:
             try:
                 old_content = existing.read()
+                if isinstance(old_content, str):
+                    old_content = old_content.encode(self.encoding, errors='replace')
+
                 if old_content == buf:
                     return True, False
             except IOError:

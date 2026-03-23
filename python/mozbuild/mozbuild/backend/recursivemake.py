@@ -660,11 +660,11 @@ class RecursiveMakeBackend(CommonBackend):
         compile_roots = set(self._compile_graph.keys()) - all_compile_deps
 
         rule = root_deps_mk.create_rule(['recurse_compile'])
-        rule.add_dependencies(compile_roots)
+        rule.add_dependencies(sorted(compile_roots))
         for target, deps in sorted(self._compile_graph.items()):
             if deps:
                 rule = root_deps_mk.create_rule([target])
-                rule.add_dependencies(deps)
+                rule.add_dependencies(sorted(deps))
 
         root_mk = Makefile()
 
@@ -794,6 +794,18 @@ class RecursiveMakeBackend(CommonBackend):
                     # Detect any Makefile.ins that contain variables on the
                     # moz.build-only list
                     self._check_blacklisted_variables(makefile_in, content)
+
+        # Normalize traversal ordering for deterministic backend output
+        for node, subdirs in self._traversal._traversal.items():
+            subdirs.dirs[:] = sorted(subdirs.dirs)
+            subdirs.tests[:] = sorted(subdirs.tests)
+
+        # Sort traversal keys deterministically
+        self._traversal._traversal = {
+            k: self._traversal._traversal[k]
+            for k in sorted(self._traversal._traversal)
+        }
+
 
         self._fill_root_mk()
 
