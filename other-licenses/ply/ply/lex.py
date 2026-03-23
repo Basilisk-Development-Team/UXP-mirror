@@ -471,6 +471,31 @@ def _names_to_funcs(namelist,fdict):
               result.append(n)
      return result
 
+import re as _re
+
+# Map inline flag strings to re module constants
+_FLAG_MAP = {
+    'i': _re.IGNORECASE,
+    'l': _re.LOCALE,
+    'm': _re.MULTILINE,
+    's': _re.DOTALL,
+    'u': _re.UNICODE,
+    'x': _re.VERBOSE,
+}
+_GLOBAL_FLAG_RE = _re.compile(r'\(\?([ilmsux]+)\)', _re.ASCII)
+
+def _extract_flags(pattern):
+    """Strip global inline flags from pattern, return (cleaned_pattern, flag_int)."""
+    flags = 0
+    def replacer(m):
+        nonlocal flags
+        for ch in m.group(1):
+            flags |= _FLAG_MAP.get(ch, 0)
+        return ''
+    cleaned = _GLOBAL_FLAG_RE.sub(replacer, pattern)
+    return cleaned, flags
+
+
 # -----------------------------------------------------------------------------
 # _form_master_re()
 #
@@ -481,7 +506,16 @@ def _names_to_funcs(namelist,fdict):
 
 def _form_master_re(relist,reflags,ldict,toknames):
     if not relist: return []
-    regex = "|".join(relist)
+
+    # Strip any global inline flags from individual patterns and fold
+    # them into reflags so the combined pattern stays 3.11-compatible.
+    cleaned = []
+    for pat in relist:
+        pat, fflags = _extract_flags(pat)
+        reflags |= fflags
+        cleaned.append(pat)
+
+    regex = "|".join(cleaned)
     try:
         lexre = re.compile(regex,re.VERBOSE | reflags)
 
