@@ -151,6 +151,12 @@ def config_status(topobjdir='.', topsrcdir='.', defines=None,
     for the_backend in selected_backends:
         the_backend.consume(definitions)
 
+    for b in selected_backends:
+        marker_name = 'backend.%s' % b.__class__.__name__
+        marker_path = os.path.join(topobjdir, marker_name)
+        with open(marker_path, 'wb') as fh:
+            fh.write(b'')
+
     execution_time = 0.0
     for obj in chain((reader, emitter), selected_backends):
         summary = obj.summary()
