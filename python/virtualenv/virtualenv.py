@@ -1569,6 +1569,11 @@ def install_distutils(home_dir):
     writefile(os.path.join(distutils_path, '__init__.py'), DISTUTILS_INIT)
     writefile(os.path.join(distutils_path, 'distutils.cfg'), DISTUTILS_CFG, overwrite=False)
 
+try:
+    get_local_scheme = sysconfig.get_default_scheme
+except AttributeError:
+    get_local_scheme = sysconfig._get_default_scheme
+
 def fix_local_scheme(home_dir, symlink=True):
     """
     Platforms that use the "posix_local" install scheme (like Ubuntu with
@@ -1579,7 +1584,7 @@ def fix_local_scheme(home_dir, symlink=True):
     except ImportError:
         pass
     else:
-        if sysconfig._get_default_scheme() == 'posix_local':
+        if get_local_scheme() == 'posix_local':
             local_path = os.path.join(home_dir, 'local')
             if not os.path.exists(local_path):
                 os.mkdir(local_path)
