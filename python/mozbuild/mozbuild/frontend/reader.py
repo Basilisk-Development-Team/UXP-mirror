@@ -89,6 +89,27 @@ else:
     text_type = str
     type_type = type
 
+def make_str_node(value, c):
+    if hasattr(ast, "Constant"):
+        return c(ast.Constant(value=value))
+    return c(ast.Str(s=value))
+
+def make_slice_node(expr, c):
+    if hasattr(ast, "Index"):
+        return c(ast.Index(value=expr))
+    return expr
+
+def get_str_value(node):
+    if isinstance(node, ast.Constant):
+        return node.value
+    if isinstance(node, ast.Str):
+        return node.s
+    raise TypeError("Unexpected string node type: %s" % (type(node),))
+
+def get_slice_value(subscript):
+    if hasattr(ast, "Index") and isinstance(subscript.slice, ast.Index):
+        return subscript.slice.value
+    return subscript.slice
 
 def log(logger, level, action, params, formatter):
     logger.log(level, formatter, extra={'action': action, 'params': params})
@@ -505,7 +526,7 @@ class TemplateFunction(object):
 
             return c(ast.Subscript(
                 value=c(ast.Name(id=self._global_name, ctx=ast.Load())),
-                slice=c(ast.Index(value=c(ast.Str(s=node.id)))),
+                slice=make_slice_node(make_str_node(node.id, c), c),
                 ctx=node.ctx
             ))
 
@@ -970,9 +991,8 @@ class BuildReader(object):
 
             key = None
             if isinstance(target, ast.Subscript):
-                assert isinstance(target.slice, ast.Index)
-                assert isinstance(target.slice.value, ast.Str)
-                key = target.slice.value.s
+                value_node = get_slice_value(target)
+                key = get_str_value(value_node)
 
             return name, key
 
@@ -980,11 +1000,9 @@ class BuildReader(object):
             value = node.value
             if isinstance(value, ast.List):
                 for v in value.elts:
-                    assert isinstance(v, ast.Str)
-                    yield v.s
+                    yield get_str_value(v)
             else:
-                assert isinstance(value, ast.Str)
-                yield value.s
+                yield get_str_value(value)
 
         assignments = []
 
