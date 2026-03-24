@@ -4,7 +4,7 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
 import base64
-import cgi
+import html
 from datetime import datetime
 import os
 
@@ -177,9 +177,9 @@ class HTMLFormatter(base.BaseFormatter):
                     log.append(line[:80])
                 else:
                     if line.lower().find("error") != -1 or line.lower().find("exception") != -1:
-                        log.append(html.span(raw(cgi.escape(line)), class_='error'))
+                        log.append(html.span(raw(html.escape(line)), class_='error'))
                     else:
-                        log.append(raw(cgi.escape(line)))
+                        log.append(raw(html.escape(line)))
                 log.append(html.br())
             additional_html.append(log)
 
