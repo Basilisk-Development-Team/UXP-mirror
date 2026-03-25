@@ -1071,7 +1071,7 @@ class IDLParser(object):
     t_ignore = ' \t'
 
     def t_multilinecomment(self, t):
-        r'/\*(?s:.*?)\*/'
+        r'/\*[\s\S]*?\*/'
         t.lexer.lineno += t.value.count('\n')
         if t.value.startswith("/**"):
             self._doccomments.append(t.value)
@@ -1089,7 +1089,7 @@ class IDLParser(object):
         return t
 
     def t_LCDATA(self, t):
-        r'%\{[ ]*C\+\+[ ]*\n(?s:(?P<cdata>.*?\n?))%\}[ ]*(C\+\+)?'
+        r'%\{[ ]*C\+\+[ ]*\n(?P<cdata>[\s\S]*?\n?)%\}[ ]*(C\+\+)?'
         t.type = 'CDATA'
         t.value = t.lexer.lexmatch.group('cdata')
         t.lexer.lineno += t.value.count('\n')

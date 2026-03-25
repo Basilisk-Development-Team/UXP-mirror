@@ -39,7 +39,7 @@ import re, sys, types, copy, os
 # This tuple contains known string types
 try:
     # Python 2.6
-    StringTypes = (bytes, str)
+    StringTypes = (types.StringType, types.UnicodeType)
 except AttributeError:
     # Python 3.0
     StringTypes = (str, bytes)
@@ -49,7 +49,7 @@ except AttributeError:
 
 if sys.version_info[0] < 3:
     def func_code(f):
-        return f.__code__
+        return f.func_code
 else:
     def func_code(f):
         return f.__code__
@@ -147,7 +147,7 @@ class Lexer:
 
         if object:
             newtab = { }
-            for key, ritem in list(self.lexstatere.items()):
+            for key, ritem in self.lexstatere.items():
                 newre = []
                 for cre, findex in ritem:
                      newfindex = []
@@ -160,7 +160,7 @@ class Lexer:
                 newtab[key] = newre
             c.lexstatere = newtab
             c.lexstateerrorf = { }
-            for key, ef in list(self.lexstateerrorf.items()):
+            for key, ef in self.lexstateerrorf.items():
                 c.lexstateerrorf[key] = getattr(object,ef.__name__)
             c.lexmodule = object
         return c
@@ -190,7 +190,7 @@ class Lexer:
                 if f and f[0]:
                     initialfuncs.append(f)
 
-        for key, lre in list(self.lexstatere.items()):
+        for key, lre in self.lexstatere.items():
              titem = []
              for i in range(len(lre)):
                   titem.append((self.lexstateretext[key][i],_funcs_to_names(lre[i][1],self.lexstaterenames[key][i])))
@@ -200,7 +200,7 @@ class Lexer:
         tf.write("_lexstateignore = %s\n" % repr(self.lexstateignore))
 
         taberr = { }
-        for key, ef in list(self.lexstateerrorf.items()):
+        for key, ef in self.lexstateerrorf.items():
              if ef:
                   taberr[key] = ef.__name__
              else:
@@ -232,7 +232,7 @@ class Lexer:
         self.lexstateignore = lextab._lexstateignore
         self.lexstatere     = { }
         self.lexstateretext = { }
-        for key,lre in list(lextab._lexstatere.items()):
+        for key,lre in lextab._lexstatere.items():
              titem = []
              txtitem = []
              for i in range(len(lre)):
@@ -241,7 +241,7 @@ class Lexer:
              self.lexstatere[key] = titem
              self.lexstateretext[key] = txtitem
         self.lexstateerrorf = { }
-        for key,ef in list(lextab._lexstateerrorf.items()):
+        for key,ef in lextab._lexstateerrorf.items():
              self.lexstateerrorf[key] = fdict[ef]
         self.begin('INITIAL')
 
@@ -401,7 +401,7 @@ class Lexer:
     def __iter__(self):
         return self
 
-    def __next__(self):
+    def next(self):
         t = self.token()
         if t is None:
             raise StopIteration
@@ -471,31 +471,6 @@ def _names_to_funcs(namelist,fdict):
               result.append(n)
      return result
 
-import re as _re
-
-# Map inline flag strings to re module constants
-_FLAG_MAP = {
-    'i': _re.IGNORECASE,
-    'l': _re.LOCALE,
-    'm': _re.MULTILINE,
-    's': _re.DOTALL,
-    'u': _re.UNICODE,
-    'x': _re.VERBOSE,
-}
-_GLOBAL_FLAG_RE = _re.compile(r'\(\?([ilmsux]+)\)', _re.ASCII)
-
-def _extract_flags(pattern):
-    """Strip global inline flags from pattern, return (cleaned_pattern, flag_int)."""
-    flags = 0
-    def replacer(m):
-        nonlocal flags
-        for ch in m.group(1):
-            flags |= _FLAG_MAP.get(ch, 0)
-        return ''
-    cleaned = _GLOBAL_FLAG_RE.sub(replacer, pattern)
-    return cleaned, flags
-
-
 # -----------------------------------------------------------------------------
 # _form_master_re()
 #
@@ -504,44 +479,45 @@ def _extract_flags(pattern):
 # module, it may be necessary to break the master regex into separate expressions.
 # -----------------------------------------------------------------------------
 
-def _form_master_re(relist,reflags,ldict,toknames):
-    if not relist: return []
+def _form_master_re(relist, reflags, ldict, toknames):
+    # Always split to avoid Python 3.11 regex issues with big alternations.
+    if not relist:
+        return []
 
-    # Strip any global inline flags from individual patterns and fold
-    # them into reflags so the combined pattern stays 3.11-compatible.
-    cleaned = []
-    for pat in relist:
-        pat, fflags = _extract_flags(pat)
-        reflags |= fflags
-        cleaned.append(pat)
+    # If more than one regex, split and recurse.
+    if len(relist) > 1:
+        m = len(relist) // 2
+        if m == 0:
+            m = 1
+        llist, lre, lnames = _form_master_re(relist[:m], reflags, ldict, toknames)
+        rlist, rre, rnames = _form_master_re(relist[m:], reflags, ldict, toknames)
+        return llist + rlist, lre + rre, lnames + rnames
 
-    regex = "|".join(cleaned)
+    # Single regex left: safe to compile on its own.
+    regex = relist[0]
     try:
-        lexre = re.compile(regex,re.VERBOSE | reflags)
+        lexre = re.compile(regex, re.VERBOSE | reflags)
+    except re.error as e:
+        print("BAD TOKEN REGEX:", regex)
+        raise
 
-        # Build the index to function map for the matching engine
-        lexindexfunc = [ None ] * (max(lexre.groupindex.values())+1)
-        lexindexnames = lexindexfunc[:]
+    lexindexfunc = [None] * (max(lexre.groupindex.values()) + 1)
+    lexindexnames = lexindexfunc[:]
 
-        for f,i in list(lexre.groupindex.items()):
-            handle = ldict.get(f,None)
-            if type(handle) in (types.FunctionType, types.MethodType):
-                lexindexfunc[i] = (handle,toknames[f])
-                lexindexnames[i] = f
-            elif handle is not None:
-                lexindexnames[i] = f
-                if f.find("ignore_") > 0:
-                    lexindexfunc[i] = (None,None)
-                else:
-                    lexindexfunc[i] = (None, toknames[f])
-        
-        return [(lexre,lexindexfunc)],[regex],[lexindexnames]
-    except Exception:
-        m = int(len(relist)/2)
-        if m == 0: m = 1
-        llist, lre, lnames = _form_master_re(relist[:m],reflags,ldict,toknames)
-        rlist, rre, rnames = _form_master_re(relist[m:],reflags,ldict,toknames)
-        return llist+rlist, lre+rre, lnames+rnames
+    for f, i in lexre.groupindex.items():
+        handle = ldict.get(f, None)
+        if isinstance(handle, (types.FunctionType, types.MethodType)):
+            lexindexfunc[i] = (handle, toknames[f])
+            lexindexnames[i] = f
+        elif handle is not None:
+            lexindexnames[i] = f
+            if "ignore_" in f:
+                lexindexfunc[i] = (None, None)
+            else:
+                lexindexfunc[i] = (None, toknames[f])
+
+    return [(lexre, lexindexfunc)], [regex], [lexindexnames]
+
 
 # -----------------------------------------------------------------------------
 # def _statetoken(s,names)
@@ -738,7 +714,7 @@ class LexerReflect(object):
                 self.error = 1
 
         # Sort the functions by line number
-        for f in list(self.funcsym.values()):
+        for f in self.funcsym.values():
             if sys.version_info[0] < 3:
                 f.sort(lambda x,y: cmp(func_code(x[1]).co_firstlineno,func_code(y[1]).co_firstlineno))
             else:
@@ -746,7 +722,7 @@ class LexerReflect(object):
                 f.sort(key=lambda x: func_code(x[1]).co_firstlineno)
 
         # Sort the strings by regular expression length
-        for s in list(self.strsym.values()):
+        for s in self.strsym.values():
             if sys.version_info[0] < 3:
                 s.sort(lambda x,y: (len(x[1]) < len(y[1])) - (len(x[1]) > len(y[1])))
             else:
@@ -994,7 +970,7 @@ def lex(module=None,object=None,debug=0,optimize=0,lextab="lextab",reflags=0,now
                 debuglog.info("lex: state '%s' : regex[%d] = '%s'",state, i, re_text[i])
 
     # For inclusive states, we need to add the regular expressions from the INITIAL state
-    for state,stype in list(stateinfo.items()):
+    for state,stype in stateinfo.items():
         if state != "INITIAL" and stype == 'inclusive':
              lexobj.lexstatere[state].extend(lexobj.lexstatere['INITIAL'])
              lexobj.lexstateretext[state].extend(lexobj.lexstateretext['INITIAL'])
@@ -1016,7 +992,7 @@ def lex(module=None,object=None,debug=0,optimize=0,lextab="lextab",reflags=0,now
         errorlog.warning("No t_error rule is defined")
 
     # Check state information for ignore and error rules
-    for s,stype in list(stateinfo.items()):
+    for s,stype in stateinfo.items():
         if stype == 'exclusive':
               if not s in linfo.errorf:
                    errorlog.warning("No error rule is defined for exclusive state '%s'", s)
