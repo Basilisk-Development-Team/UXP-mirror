@@ -499,7 +499,10 @@ class GeneratedFile(BaseFile):
         self.content = content
 
     def open(self):
-        return BytesIO(self.content)
+        open_content = self.content
+        if isinstance(open_content, str):
+            open_content = open_content.encode('utf-8')
+        return BytesIO(open_content)
 
 
 class DeflatedFile(BaseFile):

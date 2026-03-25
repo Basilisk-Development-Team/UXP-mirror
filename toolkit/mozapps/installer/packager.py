@@ -138,6 +138,10 @@ def precompile_cache(registry, source_path, gre_path, app_path):
         jar = JarReader(cache)
         resource = '/resource/%s/' % resource
         for f in jar:
+            if isinstance(resource, bytes):
+                resource = resource.decode('utf-8')
+            if isinstance(f.filename, bytes):
+                f.filename = f.filename.decode('utf-8')
             if resource in f.filename:
                 path = f.filename[f.filename.index(resource) + len(resource):]
                 if registry.contains(path):
