@@ -69,12 +69,6 @@ class VirtualenvManager(object):
         self.manifest_path = manifest_path
 
     @property
-    def virtualenv_script_path(self):
-        """Path to virtualenv's own populator script."""
-        return os.path.join(self.topsrcdir, 'python', 'virtualenv',
-            'virtualenv.py')
-
-    @property
     def bin_path(self):
         # virtualenv.py provides a similar API via path_locations(). However,
         # we have a bit of a chicken-and-egg problem and can't reliably
@@ -92,10 +86,6 @@ class VirtualenvManager(object):
             binary += '.exe'
 
         return os.path.join(self.bin_path, binary)
-
-    @property
-    def activate_path(self):
-        return os.path.join(self.bin_path, 'activate_this.py')
 
     def get_exe_info(self):
         """Returns the version and file size of the python executable that was in
@@ -121,16 +111,18 @@ class VirtualenvManager(object):
 
         deps = [self.manifest_path, __file__]
 
+        marker = os.path.join(self.virtualenv_root, "env_built.stamp")
+
         # check if virtualenv exists
         if not os.path.exists(self.virtualenv_root) or \
-            not os.path.exists(self.activate_path):
+            not os.path.exists(marker):
 
             return False
 
         # check modification times
-        activate_mtime = os.path.getmtime(self.activate_path)
+        marker_mtime = os.path.getmtime(marker)
         dep_mtime = max(os.path.getmtime(p) for p in deps)
-        if dep_mtime > activate_mtime:
+        if dep_mtime > marker_mtime:
             return False
 
         # Verify that the Python we're checking here is either the virutalenv
@@ -190,22 +182,16 @@ class VirtualenvManager(object):
         called out to), the path to create the virtualenv in, and a handle to
         write output to.
         """
+        if os.path.abspath(sys.executable).startswith(
+                os.path.abspath(self.virtualenv_root)):
+            raise RuntimeError("Cannot recreate virtualenv while it is active.")
+        
         env = dict(os.environ)
         env.pop('PYTHONDONTWRITEBYTECODE', None)
 
-        args = [python, self.virtualenv_script_path,
-            # Without this, virtualenv.py may attempt to contact the outside
-            # world and search for or download a newer version of pip,
-            # setuptools, or wheel. This is bad for security, reproducibility,
-            # and speed.
-            '--no-download',
-            self.virtualenv_root]
-
-        result = self._log_process_output(args, env=env)
-
-        if result:
-            raise Exception(
-                'Failed to create virtualenv: %s' % self.virtualenv_root)
+        import venv
+        builder = venv.EnvBuilder(clear=False)
+        builder.create(self.virtualenv_root)
 
         self.write_exe_info(python)
 
@@ -395,8 +381,7 @@ class VirtualenvManager(object):
             for package in packages:
                 handle_package(package)
 
-            sitecustomize = os.path.join(
-                os.path.dirname(os.__file__), 'sitecustomize.py')
+            sitecustomize = os.path.join(python_lib, 'sitecustomize.py')
             with open(sitecustomize, 'w') as f:
                 f.write(
                     '# Importing mach_bootstrap has the side effect of\n'
@@ -454,78 +439,10 @@ class VirtualenvManager(object):
         if result != 0:
             raise Exception('Error populating virtualenv.')
 
-        os.utime(self.activate_path, None)
+        marker = os.path.join(self.virtualenv_root, "env_built.stamp")
+        open(marker, "a").close()
 
         return self.virtualenv_root
-
-    def activate(self):
-        """Activate the virtualenv in this Python context.
-
-        If you run a random Python script and wish to "activate" the
-        virtualenv, you can simply instantiate an instance of this class
-        and call .ensure() and .activate() to make the virtualenv active.
-        """
-
-        exec(compile(open(self.activate_path, "rb").read(), self.activate_path, 'exec'), dict(__file__=self.activate_path))
-
-    def install_pip_package(self, package):
-        """Install a package via pip.
-
-        The supplied package is specified using a pip requirement specifier.
-        e.g. 'foo' or 'foo==1.0'.
-
-        If the package is already installed, this is a no-op.
-        """
-        from pip.req import InstallRequirement
-
-        req = InstallRequirement.from_line(package)
-        if req.check_if_exists():
-            return
-
-        args = [
-            'install',
-            '--use-wheel',
-            package,
-        ]
-
-        return self._run_pip(args)
-
-    def install_pip_requirements(self, path, require_hashes=True):
-        """Install a pip requirements.txt file.
-
-        The supplied path is a text file containing pip requirement
-        specifiers.
-
-        If require_hashes is True, each specifier must contain the
-        expected hash of the downloaded package. See:
-        https://pip.pypa.io/en/stable/reference/pip_install/#hash-checking-mode
-        """
-
-        if not os.path.isabs(path):
-            path = os.path.join(self.topsrcdir, path)
-
-        args = [
-            'install',
-            '--requirement',
-            path,
-        ]
-
-        if require_hashes:
-            args.append('--require-hashes')
-
-        return self._run_pip(args)
-
-    def _run_pip(self, args):
-        # It's tempting to call pip natively via pip.main(). However,
-        # the current Python interpreter may not be the virtualenv python.
-        # This will confuse pip and cause the package to attempt to install
-        # against the executing interpreter. By creating a new process, we
-        # force the virtualenv's interpreter to be used and all is well.
-        # It /might/ be possible to cheat and set sys.executable to
-        # self.python_path. However, this seems more risk than it's worth.
-        subprocess.check_call([os.path.join(self.bin_path, 'pip')] + args,
-            stderr=subprocess.STDOUT, universal_newlines=True)
-
 
 def verify_python_version(log_handle):
     """Ensure the current version of Python is sufficient."""
