@@ -46,15 +46,6 @@ if CONFIG['OS_ARCH'] in ('Linux', 'Bitrig', 'DragonFly', 'FreeBSD', 'NetBSD', 'O
             'xptcstubs_gcc_x86_unix.cpp'
         ]
 
-if CONFIG['OS_ARCH'] in ('Linux', 'FreeBSD'):
-    if 'ia64' in CONFIG['OS_TEST']:
-        SOURCES += [
-            'xptcinvoke_asm_ipf64.s',
-            'xptcinvoke_ipf64.cpp',
-            'xptcstubs_asm_ipf64.s',
-            'xptcstubs_ipf64.cpp'
-        ]
-
 if CONFIG['OS_TEST'] == 'alpha':
     if CONFIG['OS_ARCH'] in ('Linux', 'FreeBSD', 'NetBSD'):
         SOURCES += [
