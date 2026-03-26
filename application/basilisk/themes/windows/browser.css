@@ -6,7 +6,11 @@
 
 @namespace url(http://www.mozilla.org/keymaster/gatekeeper/there.is.only.xul);
 @-moz-document url("chrome://browser/content/browser.xul") {
-  
+
+:root {
+	font-family: 'Segoe UI', sans-serif;
+}
+
   /* MAIN WINDOW & TITLEBAR BUTTONS  */
   #titlebar-min,
   #titlebar-max,

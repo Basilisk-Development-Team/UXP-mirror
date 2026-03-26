@@ -26,7 +26,6 @@ tabpanels {
   -moz-border-right-colors: ThreeDDarkShadow ThreeDShadow;
   -moz-border-bottom-colors: ThreeDDarkShadow ThreeDShadow;
   -moz-border-left-colors: ThreeDHighlight ThreeDLightShadow;
-  padding: 8px;
   background-color: -moz-Dialog;
   color: -moz-DialogText;
 }
