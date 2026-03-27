@@ -3,7 +3,7 @@
 from __future__ import print_function
 import os, sys
 
-if not len(sys.argv) is 2 or not os.path.exists(sys.argv[1]):
+if not len(sys.argv) == 2 or not os.path.exists(sys.argv[1]):
   print("\nYou did not supply a valid path to check.")
   exit(1)
 else:

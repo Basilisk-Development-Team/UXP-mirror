@@ -516,7 +516,7 @@ class Interface(object):
         if self.attributes.function:
             has_method = False
             for member in self.members:
-                if member.kind is 'method':
+                if member.kind == 'method':
                     if has_method:
                         raise IDLError("interface '%s' has multiple methods, but marked 'function'" % self.name, self.location)
                     else:
