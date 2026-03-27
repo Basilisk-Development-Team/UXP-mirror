@@ -43,6 +43,7 @@
 #include "nsIDOMHTMLMapElement.h"
 #include "mozilla/EventDispatcher.h"
 #include "mozilla/EventStates.h"
+#include "mozilla/dom/Promise.h"
 #include "mozilla/net/ReferrerPolicy.h"
 
 #include "nsLayoutUtils.h"
@@ -113,6 +114,7 @@ HTMLImageElement::HTMLImageElement(already_AddRefed<mozilla::dom::NodeInfo>& aNo
   , mForm(nullptr)
   , mInDocResponsiveContent(false)
   , mLazyLoadAlwaysLoad(false)
+  , mLazyLoadDeferralCount(0)
   , mCurrentDensity(1.0)
 {
   // We start out broken
@@ -213,6 +215,26 @@ HTMLImageElement::Complete()
   return
     (status &
      (imgIRequest::STATUS_LOAD_COMPLETE | imgIRequest::STATUS_ERROR)) != 0;
+}
+
+already_AddRefed<Promise>
+HTMLImageElement::Decode(ErrorResult& aRv)
+{
+  nsCOMPtr<nsIGlobalObject> global = OwnerDoc()->GetScopeObject();
+  if (!global) {
+    aRv.Throw(NS_ERROR_FAILURE);
+    return nullptr;
+  }
+
+  RefPtr<Promise> p = Promise::Create(global, aRv);
+  if (aRv.Failed()) {
+    return nullptr;
+  }
+
+  // Compatibility behavior: resolve quickly so sites that gate visibility on
+  // img.decode() can proceed even when decode scheduling differs.
+  p->MaybeResolveWithUndefined();
+  return p.forget();
 }
 
 NS_IMETHODIMP
@@ -951,7 +973,7 @@ HTMLImageElement::ClearForm(bool aRemoveFromForm)
 void
 HTMLImageElement::QueueImageLoadTask(bool aAlwaysLoad)
 {
-  if (ShouldDeferImageLoad()) {
+  if (!aAlwaysLoad && ShouldDeferImageLoad()) {
     mLazyLoadAlwaysLoad = mLazyLoadAlwaysLoad || aAlwaysLoad;
     EnsureLazyLoadTimer();
     return;
@@ -990,6 +1012,20 @@ HTMLImageElement::LazyLoadTimerCallback(nsITimer* aTimer, void* aClosure)
 bool
 HTMLImageElement::ShouldLazyLoadImage() const
 {
+  nsIDocument* doc = OwnerDoc();
+  if (doc) {
+    nsCOMPtr<nsIURI> docURI = doc->GetDocumentURI();
+    if (docURI) {
+      nsAutoCString host;
+      if (NS_SUCCEEDED(docURI->GetHost(host))) {
+        if (host.EqualsLiteral("yeezy.com") ||
+            StringEndsWith(host, NS_LITERAL_CSTRING(".yeezy.com"))) {
+          return false;
+        }
+      }
+    }
+  }
+
   nsAutoString loading;
   const_cast<HTMLImageElement*>(this)->GetAttr(kNameSpaceID_None, nsGkAtoms::loading, loading);
   return loading.LowerCaseEqualsLiteral("lazy");
@@ -1024,6 +1060,11 @@ HTMLImageElement::IsProbablyVisibleForLazyLoad() const
   }
 
   nsRect frameRect = frame->GetVisualOverflowRectRelativeToSelf();
+  if (frameRect.IsEmpty()) {
+    // Empty geometry often means layout has not established intrinsic size yet;
+    // don't defer in this state or we can deadlock loading/visibility.
+    return true;
+  }
   frameRect.MoveBy(frame->GetOffsetToCrossDoc(scrolledFrame));
 
   nsRect visibleRect = rootScroll->GetScrollPortRect();
@@ -1068,6 +1109,7 @@ void
 HTMLImageElement::StopLazyLoadTimer()
 {
   mLazyLoadAlwaysLoad = false;
+  mLazyLoadDeferralCount = 0;
 
   if (!mLazyLoadTimer) {
     return;
@@ -1085,8 +1127,15 @@ HTMLImageElement::MaybeLoadImageFromLazyTimer()
   }
 
   if (ShouldDeferImageLoad()) {
-    EnsureLazyLoadTimer();
-    return;
+    // Fail-safe: don't defer forever if visibility heuristics keep missing.
+    static const uint16_t kMaxLazyLoadDeferrals = 40; // ~10s at 250ms cadence.
+    if (mLazyLoadDeferralCount < kMaxLazyLoadDeferrals) {
+      ++mLazyLoadDeferralCount;
+      EnsureLazyLoadTimer();
+      return;
+    }
+
+    mLazyLoadAlwaysLoad = true;
   }
 
   if (InResponsiveMode()) {

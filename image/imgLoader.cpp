@@ -679,6 +679,22 @@ NewImageChannel(nsIChannel** aResult,
 {
   MOZ_ASSERT(aResult);
 
+  nsCOMPtr<nsIURI> channelURI = aURI;
+  nsAutoCString spec;
+  spec.Assign(aURI->GetSpecOrDefault());
+  if ((spec.Find("://yeezy.com/") != kNotFound ||
+       spec.Find("://www.yeezy.com/") != kNotFound) &&
+      spec.Find("/cdn-cgi/image/") != kNotFound &&
+      spec.Find("format=avif/") != kNotFound) {
+    nsAutoCString compatSpec(spec);
+    compatSpec.ReplaceSubstring("format=avif/", "format=png/");
+    nsCOMPtr<nsIURI> compatURI;
+    if (NS_SUCCEEDED(NS_NewURI(getter_AddRefs(compatURI), compatSpec)) &&
+        compatURI) {
+      channelURI = compatURI;
+    }
+  }
+
   nsresult rv;
   nsCOMPtr<nsIHttpChannel> newHttpChannel;
 
@@ -722,7 +738,7 @@ NewImageChannel(nsIChannel** aResult,
   // the principal is that of the user stylesheet.
   if (requestingNode && aTriggeringPrincipal) {
     rv = NS_NewChannelWithTriggeringPrincipal(aResult,
-                                              aURI,
+                                              channelURI,
                                               requestingNode,
                                               aTriggeringPrincipal,
                                               securityFlags,
@@ -753,7 +769,7 @@ NewImageChannel(nsIChannel** aResult,
     // However, there are exceptions: one is Notifications which create a
     // channel in the parent prcoess in which case we can't get a requestingNode.
     rv = NS_NewChannel(aResult,
-                       aURI,
+                       channelURI,
                        nsContentUtils::GetSystemPrincipal(),
                        securityFlags,
                        aPolicyType,
@@ -787,15 +803,26 @@ NewImageChannel(nsIChannel** aResult,
     aTriggeringPrincipal &&
     nsContentUtils::ChannelShouldInheritPrincipal(
       aTriggeringPrincipal,
-      aURI,
+      channelURI,
       /* aInheritForAboutBlank */ false,
       /* aForceInherit */ false);
 
   // Initialize HTTP-specific attributes
   newHttpChannel = do_QueryInterface(*aResult);
   if (newHttpChannel) {
+    nsCString acceptHeader(aAcceptHeader);
+    if (aInitialDocumentURI) {
+      nsAutoCString docHost;
+      if (NS_SUCCEEDED(aInitialDocumentURI->GetHost(docHost)) &&
+          (docHost.EqualsLiteral("yeezy.com") ||
+           StringEndsWith(docHost, NS_LITERAL_CSTRING(".yeezy.com")))) {
+        // Prefer conservative formats for yeezy product assets.
+        acceptHeader.AssignLiteral("image/png,image/*;q=0.8,*/*;q=0.5");
+      }
+    }
+
     newHttpChannel->SetRequestHeader(NS_LITERAL_CSTRING("Accept"),
-                                     aAcceptHeader,
+                                     acceptHeader,
                                      false);
 
     nsCOMPtr<nsIHttpChannelInternal> httpChannelInternal =

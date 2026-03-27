@@ -982,6 +982,13 @@ nsCSPParser::directiveName()
                NS_ConvertUTF16toUTF8(mCurToken).get(),
                NS_ConvertUTF16toUTF8(mCurValue).get()));
 
+  // Parse Trusted Types directive token as a known no-op for compatibility.
+  // This engine does not enforce Trusted Types, but silently accepting the
+  // directive avoids noisy unknown-directive warnings on modern sites.
+  if (mCurToken.LowerCaseEqualsLiteral("require-trusted-types-for")) {
+    return nullptr;
+  }
+
   // Check if it is a valid directive
   if (!CSP_IsValidDirective(mCurToken) ||
        (!sCSPExperimentalEnabled &&

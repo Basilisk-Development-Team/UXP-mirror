@@ -1293,7 +1293,7 @@ pref("javascript.options.mem.high_water_mark", 128);
 pref("javascript.options.mem.max", -1);
 pref("javascript.options.mem.gc_per_zone", true);
 pref("javascript.options.mem.gc_incremental", true);
-pref("javascript.options.mem.gc_incremental_slice_ms", 20);
+pref("javascript.options.mem.gc_incremental_slice_ms", 25);
 pref("javascript.options.mem.gc_generational", true);
 pref("javascript.options.mem.gc_compacting", true);
 pref("javascript.options.mem.log", false);
@@ -1306,16 +1306,16 @@ pref("javascript.options.compact_on_user_inactive_delay", 15000); // ms
 pref("javascript.options.compact_on_user_inactive_delay", 300000); // ms
 #endif
 
-pref("javascript.options.mem.gc_high_frequency_time_limit_ms", 1000);
+pref("javascript.options.mem.gc_high_frequency_time_limit_ms", 2000);
 pref("javascript.options.mem.gc_high_frequency_low_limit_mb", 100);
 pref("javascript.options.mem.gc_high_frequency_high_limit_mb", 500);
-pref("javascript.options.mem.gc_high_frequency_heap_growth_max", 300);
-pref("javascript.options.mem.gc_high_frequency_heap_growth_min", 150);
+pref("javascript.options.mem.gc_high_frequency_heap_growth_max", 350);
+pref("javascript.options.mem.gc_high_frequency_heap_growth_min", 175);
 pref("javascript.options.mem.gc_low_frequency_heap_growth", 150);
 pref("javascript.options.mem.gc_dynamic_heap_growth", true);
 pref("javascript.options.mem.gc_dynamic_mark_slice", true);
 pref("javascript.options.mem.gc_refresh_frame_slices_enabled", true);
-pref("javascript.options.mem.gc_allocation_threshold_mb", 30);
+pref("javascript.options.mem.gc_allocation_threshold_mb", 40);
 pref("javascript.options.mem.gc_min_empty_chunk_count", 1);
 pref("javascript.options.mem.gc_max_empty_chunk_count", 30);
 
@@ -4293,7 +4293,7 @@ pref("image.downscale-during-decode.enabled", true);
 
 // The default Accept header sent for images loaded over HTTP(S)
 #ifdef MOZ_JXL
-pref("image.http.accept", "image/webp,image/jxl,image/png,image/*;q=0.8,*/*;q=0.5");
+pref("image.http.accept", "image/webp,image/png,image/*;q=0.8,*/*;q=0.5");
 #else
 pref("image.http.accept", "image/webp,image/png,image/*;q=0.8,*/*;q=0.5");
 #endif

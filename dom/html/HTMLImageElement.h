@@ -20,6 +20,7 @@ class EventChainPreVisitor;
 namespace dom {
 
 class ImageLoadTask;
+class Promise;
 
 class ResponsiveImageSelector;
 class HTMLImageElement final : public nsGenericHTMLElement,
@@ -116,6 +117,7 @@ public:
   uint32_t NaturalWidth();
   uint32_t NaturalHeight();
   bool Complete();
+  already_AddRefed<Promise> Decode(ErrorResult& aRv);
   uint32_t Hspace()
   {
     return GetUnsignedIntAttr(nsGkAtoms::hspace, 0);
@@ -412,6 +414,7 @@ private:
   nsCOMPtr<nsIPrincipal> mSrcsetTriggeringPrincipal;
   nsCOMPtr<nsITimer> mLazyLoadTimer;
   bool mLazyLoadAlwaysLoad;
+  uint16_t mLazyLoadDeferralCount;
 
   // Last URL that was attempted to load by this element.
   nsCOMPtr<nsIURI> mLastSelectedSource;
