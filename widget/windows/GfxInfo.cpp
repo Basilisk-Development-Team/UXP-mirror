@@ -1186,10 +1186,12 @@ GfxInfo::GetFeatureStatusImpl(int32_t aFeature,
         !adapterVendorID.Equals(GfxDriverInfo::GetDeviceVendor(VendorAMD), nsCaseInsensitiveStringComparator()) &&
         !adapterVendorID.Equals(GfxDriverInfo::GetDeviceVendor(VendorATI), nsCaseInsensitiveStringComparator()) &&
         !adapterVendorID.Equals(GfxDriverInfo::GetDeviceVendor(VendorMicrosoft), nsCaseInsensitiveStringComparator()) &&
-      // VMware (PCI vendor 0x15ad) and Hyper-V synthetic adapter vendor
-      // ids should be treated as known virtualized vendors.
+      // VMware (PCI vendor 0x15ad), Hyper-V synthetic adapter vendor
+      // ids, and Parallels (PCI vendor 0x1ab8) should be treated as
+      // known virtualized vendors.
       !adapterVendorID.LowerCaseEqualsLiteral("0x15ad") &&
       !adapterVendorID.LowerCaseEqualsLiteral("0x1414") &&
+      !adapterVendorID.LowerCaseEqualsLiteral("0x1ab8") &&
         // FIXME - these special hex values are currently used in xpcshell tests introduced by
         // bug 625160 patch 8/8. Maybe these tests need to be adjusted now that we're only whitelisting
         // intel/ati/nvidia.
