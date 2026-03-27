@@ -548,9 +548,14 @@ class Build(MachCommandBase):
             ppcheck_script = mozpath.join(self.topsrcdir, "platform", "build", "ppCheck.py")
         else:
             ppcheck_script = None
+
+        try:
+            py_exe = which.which("python3")
+        except which.WhichError:
+            py_exe = which.which("python")
         
         if ppcheck_script:
-            ppcheck_cmd = [which.which("python"), ppcheck_script, ppcheck_path]
+            ppcheck_cmd = [py_exe, ppcheck_script, ppcheck_path]
             ppcheck_result = subprocess.call(ppcheck_cmd, cwd=self.topsrcdir)
         
         if not ppcheck_script or ppcheck_result: 
