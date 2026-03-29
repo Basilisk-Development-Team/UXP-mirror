@@ -4247,9 +4247,6 @@ MultiprocessBlockPolicy() {
   }
 #endif
   
-  // We do not support E10S, block by policy.
-  gMultiprocessBlockPolicy = kE10sForceDisabled;
-
   return gMultiprocessBlockPolicy;
 }
 
