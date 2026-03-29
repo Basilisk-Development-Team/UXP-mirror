@@ -489,7 +489,9 @@ EventTargetChainItem::HandleEventTargetChain(
         uint32_t childIndex = j - 1;
         EventTarget* newTarget = aChain[childIndex].GetNewTarget();
         if (newTarget) {
-          aVisitor.mEvent->mTarget = newTarget;
+          if (aVisitor.mEvent->mTarget != newTarget) {
+            aVisitor.mEvent->mTarget = newTarget;
+          }
           break;
         }
       }
@@ -509,13 +511,18 @@ EventTargetChainItem::HandleEventTargetChain(
           aChain[childIndex].GetRetargetedRelatedTarget();
         if (relatedTarget) {
           found = true;
-          aVisitor.mEvent->mRelatedTarget = relatedTarget;
+          if (aVisitor.mEvent->mRelatedTarget != relatedTarget) {
+            aVisitor.mEvent->mRelatedTarget = relatedTarget;
+          }
           break;
         }
       }
       if (!found) {
-        aVisitor.mEvent->mRelatedTarget =
-          aVisitor.mEvent->mOriginalRelatedTarget;
+        if (aVisitor.mEvent->mRelatedTarget !=
+              aVisitor.mEvent->mOriginalRelatedTarget) {
+          aVisitor.mEvent->mRelatedTarget =
+            aVisitor.mEvent->mOriginalRelatedTarget;
+        }
       }
     }
   }
@@ -541,7 +548,9 @@ EventTargetChainItem::HandleEventTargetChain(
     if (newTarget) {
       // Item is at anonymous boundary. Need to retarget for the current item
       // and for parent items.
-      aVisitor.mEvent->mTarget = newTarget;
+      if (aVisitor.mEvent->mTarget != newTarget) {
+        aVisitor.mEvent->mTarget = newTarget;
+      }
     }
 
     // https://dom.spec.whatwg.org/#dispatching-events
@@ -549,7 +558,9 @@ EventTargetChainItem::HandleEventTargetChain(
     // "Set event's relatedTarget to tuple's relatedTarget."
     EventTarget* relatedTarget = item.GetRetargetedRelatedTarget();
     if (relatedTarget) {
-      aVisitor.mEvent->mRelatedTarget = relatedTarget;
+      if (aVisitor.mEvent->mRelatedTarget != relatedTarget) {
+        aVisitor.mEvent->mRelatedTarget = relatedTarget;
+      }
     }
 
     if (aVisitor.mEvent->mFlags.mBubbles || newTarget) {
@@ -570,7 +581,9 @@ EventTargetChainItem::HandleEventTargetChain(
     aVisitor.mEvent->mFlags.mImmediatePropagationStopped = false;
 
     // Setting back the original target of the event.
-    aVisitor.mEvent->mTarget = aVisitor.mEvent->mOriginalTarget;
+    if (aVisitor.mEvent->mTarget != aVisitor.mEvent->mOriginalTarget) {
+      aVisitor.mEvent->mTarget = aVisitor.mEvent->mOriginalTarget;
+    }
 
     // Special handling if PresShell (or some other caller)
     // used a callback object.
@@ -580,8 +593,13 @@ EventTargetChainItem::HandleEventTargetChain(
 
     // Retarget for system event group (which does the default handling too).
     // Setting back the target which was used also for default event group.
-    aVisitor.mEvent->mTarget = firstTarget;
-    aVisitor.mEvent->mRelatedTarget = aVisitor.mEvent->mOriginalRelatedTarget;
+    if (aVisitor.mEvent->mTarget != firstTarget) {
+      aVisitor.mEvent->mTarget = firstTarget;
+    }
+    if (aVisitor.mEvent->mRelatedTarget !=
+          aVisitor.mEvent->mOriginalRelatedTarget) {
+      aVisitor.mEvent->mRelatedTarget = aVisitor.mEvent->mOriginalRelatedTarget;
+    }
     aVisitor.mEvent->mFlags.mInSystemGroup = true;
     HandleEventTargetChain(aChain,
                            aVisitor,
@@ -713,9 +731,11 @@ EventDispatcher::Dispatch(nsISupports* aTarget,
         do_QueryInterface(content->FindFirstNonChromeOnlyAccessContent());
       NS_ENSURE_STATE(newTarget);
 
-      aEvent->mOriginalTarget = target;
-      target = newTarget;
-      retargeted = true;
+      if (target != newTarget) {
+        aEvent->mOriginalTarget = target;
+        target = newTarget;
+        retargeted = true;
+      }
     }
   }
 
@@ -860,12 +880,18 @@ EventDispatcher::Dispatch(nsISupports* aTarget,
         // Need to set the target of the event
         // so that also the next retargeting works.
         preVisitor.mTargetInKnownToBeHandledScope = preVisitor.mEvent->mTarget;
-        preVisitor.mEvent->mTarget = preVisitor.mEventTargetAtParent;
+        if (preVisitor.mEvent->mTarget != preVisitor.mEventTargetAtParent) {
+          preVisitor.mEvent->mTarget = preVisitor.mEventTargetAtParent;
+        }
         parentEtci->SetNewTarget(preVisitor.mEventTargetAtParent);
       }
 
       if (preVisitor.mRetargetedRelatedTarget) {
-        preVisitor.mEvent->mRelatedTarget = preVisitor.mRetargetedRelatedTarget;
+        if (preVisitor.mEvent->mRelatedTarget !=
+              preVisitor.mRetargetedRelatedTarget) {
+          preVisitor.mEvent->mRelatedTarget =
+            preVisitor.mRetargetedRelatedTarget;
+        }
       }
 
       parentEtci->GetEventTargetParent(preVisitor);

@@ -217,7 +217,7 @@ pref("devtools.dom.enabled", false);
 pref("devtools.webaudioeditor.inspectorWidth", 300);
 
 // Default theme ("dark" or "light")
-sticky_pref("devtools.theme", "firebug");
+sticky_pref("devtools.theme", "light");
 
 // Web console filters
 pref("devtools.webconsole.filter.error", true);

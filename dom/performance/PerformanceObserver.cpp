@@ -146,7 +146,8 @@ PerformanceObserver::QueueEntry(PerformanceEntry* aEntry)
  * Keep this list in alphabetical order.
  * https://w3c.github.io/performance-timeline/#supportedentrytypes-attribute
  */
-static const char16_t *const sValidTypeNames[4] = {
+static const char16_t *const sValidTypeNames[5] = {
+  u"largest-contentful-paint",
   u"mark",
   u"measure",
   u"navigation",

@@ -679,6 +679,22 @@ NewImageChannel(nsIChannel** aResult,
 {
   MOZ_ASSERT(aResult);
 
+  nsCOMPtr<nsIURI> channelURI = aURI;
+  nsAutoCString spec;
+  spec.Assign(aURI->GetSpecOrDefault());
+  if ((spec.Find("://yeezy.com/") != kNotFound ||
+       spec.Find("://www.yeezy.com/") != kNotFound) &&
+      spec.Find("/cdn-cgi/image/") != kNotFound &&
+      spec.Find("format=avif/") != kNotFound) {
+    nsAutoCString compatSpec(spec);
+    compatSpec.ReplaceSubstring("format=avif/", "format=png/");
+    nsCOMPtr<nsIURI> compatURI;
+    if (NS_SUCCEEDED(NS_NewURI(getter_AddRefs(compatURI), compatSpec)) &&
+        compatURI) {
+      channelURI = compatURI;
+    }
+  }
+
   nsresult rv;
   nsCOMPtr<nsIHttpChannel> newHttpChannel;
 
@@ -722,7 +738,7 @@ NewImageChannel(nsIChannel** aResult,
   // the principal is that of the user stylesheet.
   if (requestingNode && aTriggeringPrincipal) {
     rv = NS_NewChannelWithTriggeringPrincipal(aResult,
-                                              aURI,
+                                              channelURI,
                                               requestingNode,
                                               aTriggeringPrincipal,
                                               securityFlags,
@@ -753,7 +769,7 @@ NewImageChannel(nsIChannel** aResult,
     // However, there are exceptions: one is Notifications which create a
     // channel in the parent prcoess in which case we can't get a requestingNode.
     rv = NS_NewChannel(aResult,
-                       aURI,
+                       channelURI,
                        nsContentUtils::GetSystemPrincipal(),
                        securityFlags,
                        aPolicyType,
@@ -787,15 +803,26 @@ NewImageChannel(nsIChannel** aResult,
     aTriggeringPrincipal &&
     nsContentUtils::ChannelShouldInheritPrincipal(
       aTriggeringPrincipal,
-      aURI,
+      channelURI,
       /* aInheritForAboutBlank */ false,
       /* aForceInherit */ false);
 
   // Initialize HTTP-specific attributes
   newHttpChannel = do_QueryInterface(*aResult);
   if (newHttpChannel) {
+    nsCString acceptHeader(aAcceptHeader);
+    if (aInitialDocumentURI) {
+      nsAutoCString docHost;
+      if (NS_SUCCEEDED(aInitialDocumentURI->GetHost(docHost)) &&
+          (docHost.EqualsLiteral("yeezy.com") ||
+           StringEndsWith(docHost, NS_LITERAL_CSTRING(".yeezy.com")))) {
+        // Prefer conservative formats for yeezy product assets.
+        acceptHeader.AssignLiteral("image/png,image/*;q=0.8,*/*;q=0.5");
+      }
+    }
+
     newHttpChannel->SetRequestHeader(NS_LITERAL_CSTRING("Accept"),
-                                     aAcceptHeader,
+                                     acceptHeader,
                                      false);
 
     nsCOMPtr<nsIHttpChannelInternal> httpChannelInternal =
@@ -1048,7 +1075,6 @@ imgLoader::CreateNewProxyForRequest(imgRequest* aRequest,
 class imgCacheExpirationTracker final
   : public nsExpirationTracker<imgCacheEntry, 3>
 {
-  enum { TIMEOUT_SECONDS = 10 };
 public:
   imgCacheExpirationTracker();
 
@@ -1057,9 +1083,44 @@ protected:
 };
 
 imgCacheExpirationTracker::imgCacheExpirationTracker()
- : nsExpirationTracker<imgCacheEntry, 3>(TIMEOUT_SECONDS * 1000,
+ : nsExpirationTracker<imgCacheEntry, 3>(
+                                         Preferences::GetUint(
+                                           "image.cache.entry_timeout_seconds",
+                                           15) * 1000,
                                          "imgCacheExpirationTracker")
 { }
+
+static bool
+ShouldKeepRecentlyUsedAssetInCache(imgCacheEntry* aEntry)
+{
+  RefPtr<imgRequest> request = aEntry->GetRequest();
+  if (!request) {
+    return false;
+  }
+
+  const char* mimeType = request->GetMimeType();
+  if (!mimeType) {
+    return false;
+  }
+
+  // Keep small, frequently reused static assets warm a bit longer.
+  if (!nsCRT::strcmp(mimeType, IMAGE_SVG_XML) ||
+      !nsCRT::strcmp(mimeType, IMAGE_PNG) ||
+      !nsCRT::strcmp(mimeType, IMAGE_WEBP)) {
+    const uint32_t kMaxWarmAssetBytes = 1024 * 1024;
+    const uint32_t kRecentUseGraceSeconds = 120;
+
+    if (aEntry->GetDataSize() <= kMaxWarmAssetBytes) {
+      uint32_t now = SecondsFromPRTime(PR_Now());
+      uint32_t touched = aEntry->GetTouchedTime();
+      if (now >= touched && (now - touched) <= kRecentUseGraceSeconds) {
+        return true;
+      }
+    }
+  }
+
+  return false;
+}
 
 void
 imgCacheExpirationTracker::NotifyExpired(imgCacheEntry* entry)
@@ -1067,6 +1128,12 @@ imgCacheExpirationTracker::NotifyExpired(imgCacheEntry* entry)
   // Hold on to a reference to this entry, because the expiration tracker
   // mechanism doesn't.
   RefPtr<imgCacheEntry> kungFuDeathGrip(entry);
+
+  if (ShouldKeepRecentlyUsedAssetInCache(entry)) {
+    entry->Touch();
+    entry->Loader()->VerifyCacheSizes();
+    return;
+  }
 
   if (MOZ_LOG_TEST(gImgLog, LogLevel::Debug)) {
     RefPtr<imgRequest> req = entry->GetRequest();
@@ -1426,8 +1493,6 @@ imgLoader::PutIntoCache(const ImageCacheKey& aKey, imgCacheEntry* entry)
     MOZ_LOG(gImgLog, LogLevel::Debug,
            ("[this=%p] imgLoader::PutIntoCache -- Element already in the cache",
             nullptr));
-    RefPtr<imgRequest> tmpRequest = tmpCacheEntry->GetRequest();
-
     // If it already exists, and we're putting the same key into the cache, we
     // should remove the old version.
     MOZ_LOG(gImgLog, LogLevel::Debug,
@@ -1711,30 +1776,29 @@ imgLoader::ValidateEntry(imgCacheEntry* aEntry,
 {
   LOG_SCOPE(gImgLog, "imgLoader::ValidateEntry");
 
-  bool hasExpired;
   uint32_t expirationTime = aEntry->GetExpiryTime();
-  if (expirationTime <= SecondsFromPRTime(PR_Now())) {
-    hasExpired = true;
-  } else {
-    hasExpired = false;
-  }
+  uint32_t now = SecondsFromPRTime(PR_Now());
+  bool hasExpired = expirationTime <= now;
 
   nsresult rv;
 
   // Special treatment for file URLs - aEntry has expired if file has changed
-  nsCOMPtr<nsIFileURL> fileUrl(do_QueryInterface(aURI));
-  if (fileUrl) {
-    uint32_t lastModTime = aEntry->GetLoadTime();
+  bool isFileURI = false;
+  if (NS_SUCCEEDED(aURI->SchemeIs("file", &isFileURI)) && isFileURI) {
+    nsCOMPtr<nsIFileURL> fileUrl(do_QueryInterface(aURI));
+    if (fileUrl) {
+      uint32_t lastModTime = aEntry->GetLoadTime();
 
-    nsCOMPtr<nsIFile> theFile;
-    rv = fileUrl->GetFile(getter_AddRefs(theFile));
-    if (NS_SUCCEEDED(rv)) {
-      PRTime fileLastMod;
-      rv = theFile->GetLastModifiedTime(&fileLastMod);
+      nsCOMPtr<nsIFile> theFile;
+      rv = fileUrl->GetFile(getter_AddRefs(theFile));
       if (NS_SUCCEEDED(rv)) {
-        // nsIFile uses millisec, NSPR usec
-        fileLastMod *= 1000;
-        hasExpired = SecondsFromPRTime((PRTime)fileLastMod) > lastModTime;
+        PRTime fileLastMod;
+        rv = theFile->GetLastModifiedTime(&fileLastMod);
+        if (NS_SUCCEEDED(rv)) {
+          // nsIFile uses millisec, NSPR usec
+          fileLastMod *= 1000;
+          hasExpired = SecondsFromPRTime((PRTime)fileLastMod) > lastModTime;
+        }
       }
     }
   }
@@ -1754,9 +1818,8 @@ imgLoader::ValidateEntry(imgCacheEntry* aEntry,
   // just return true in that case.  Doing so would mean that shift-reload
   // doesn't reload data URI documents/images though (which is handy for
   // debugging during gecko development) so we make an exception in that case.
-  nsAutoCString scheme;
-  aURI->GetScheme(scheme);
-  if (scheme.EqualsLiteral("data") &&
+  bool isDataURI = false;
+  if (NS_SUCCEEDED(aURI->SchemeIs("data", &isDataURI)) && isDataURI &&
       !(aLoadFlags & nsIRequest::LOAD_BYPASS_CACHE)) {
     return true;
   }
@@ -1803,7 +1866,7 @@ imgLoader::ValidateEntry(imgCacheEntry* aEntry,
   if ((appCacheContainer = do_GetInterface(request->GetRequest()))) {
     appCacheContainer->GetApplicationCache(getter_AddRefs(requestAppCache));
   }
-  if ((appCacheContainer = do_QueryInterface(aLoadGroup))) {
+  if (aLoadGroup && (appCacheContainer = do_QueryInterface(aLoadGroup))) {
     appCacheContainer->GetApplicationCache(getter_AddRefs(groupAppCache));
   }
 

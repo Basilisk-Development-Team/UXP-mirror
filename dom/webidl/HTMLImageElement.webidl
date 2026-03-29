@@ -29,6 +29,8 @@ interface HTMLImageElement : HTMLElement {
            attribute DOMString? crossOrigin;
            [CEReactions, SetterThrows]
            attribute DOMString useMap;
+           [CEReactions, SetterThrows]
+           attribute DOMString loading;
            [CEReactions, SetterThrows, Pref="network.http.enablePerElementReferrer"]
            attribute DOMString referrerPolicy;
            [CEReactions, SetterThrows]
@@ -40,6 +42,8 @@ interface HTMLImageElement : HTMLElement {
   readonly attribute unsigned long naturalWidth;
   readonly attribute unsigned long naturalHeight;
   readonly attribute boolean complete;
+  [Throws]
+  Promise<void> decode();
 };
 
 // http://www.whatwg.org/specs/web-apps/current-work/#other-elements,-attributes-and-apis

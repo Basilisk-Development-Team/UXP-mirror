@@ -47,8 +47,12 @@ OptimizationInfo::initNormalOptimizationInfo()
     scalarReplacement_ = true;
     smallFunctionMaxInlineDepth_ = 10;
     compilerWarmUpThreshold_ = CompilerWarmupThreshold;
-    compilerSmallFunctionWarmUpThreshold_ = CompilerSmallFunctionWarmupThreshold;
-    inliningWarmUpThresholdFactor_ = 0.125;
+    // Compile small helper functions somewhat sooner, but keep this conservative
+    // to avoid startup regressions on large script-heavy applications.
+    compilerSmallFunctionWarmUpThreshold_ = 36;
+    // Keep inlining warm-up close to default to avoid excessive early
+    // compilation work during page startup.
+    inliningWarmUpThresholdFactor_ = 0.10;
     inliningRecompileThresholdFactor_ = 4;
 }
 
@@ -95,12 +99,31 @@ OptimizationInfo::compilerWarmUpThreshold(JSScript* script, jsbytecode* pc) cons
     // threshold to improve the compilation's type information and hopefully
     // avoid later recompilation.
 
-    if (script->length() > MAX_MAIN_THREAD_SCRIPT_SIZE)
-        warmUpThreshold *= (script->length() / (double) MAX_MAIN_THREAD_SCRIPT_SIZE);
+    if (script->length() > MAX_MAIN_THREAD_SCRIPT_SIZE) {
+        // Avoid pathological thresholds on very large scripts: large warm-up
+        // counts delay optimization too much for hot UI/update code.
+        double ratio = script->length() / (double) MAX_MAIN_THREAD_SCRIPT_SIZE;
+        if (ratio > 4.0)
+            ratio = 4.0;
+        warmUpThreshold *= ratio;
+    }
 
     uint32_t numLocalsAndArgs = NumLocalsAndArgs(script);
-    if (numLocalsAndArgs > MAX_MAIN_THREAD_LOCALS_AND_ARGS)
-        warmUpThreshold *= (numLocalsAndArgs / (double) MAX_MAIN_THREAD_LOCALS_AND_ARGS);
+    if (numLocalsAndArgs > MAX_MAIN_THREAD_LOCALS_AND_ARGS) {
+        double ratio = numLocalsAndArgs / (double) MAX_MAIN_THREAD_LOCALS_AND_ARGS;
+        if (ratio > 4.0)
+            ratio = 4.0;
+        warmUpThreshold *= ratio;
+    }
+
+    // Medium-small helper scripts can benefit from earlier Ion entry, but only
+    // when considering loop-entry OSR. Applying this at function entry can hurt
+    // large app startup latency (for example, video sites with many wrappers).
+    if (pc && script->length() <= 400 && numLocalsAndArgs <= 48) {
+        warmUpThreshold = (warmUpThreshold * 4) / 5;
+        if (warmUpThreshold < 40)
+            warmUpThreshold = 40;
+    }
 
     if (!pc || JitOptions.eagerCompilation)
         return warmUpThreshold;
@@ -110,7 +133,21 @@ OptimizationInfo::compilerWarmUpThreshold(JSScript* script, jsbytecode* pc) cons
     // Note that the loop depth is always > 0 so we will prefer non-OSR over OSR.
     uint32_t loopDepth = LoopEntryDepthHint(pc);
     MOZ_ASSERT(loopDepth > 0);
-    return warmUpThreshold + loopDepth * 100;
+
+    // jQuery-style code often executes many small hot loops. A fixed +100
+    // per depth can over-delay OSR entry for these scripts, so use a
+    // script-size-aware loop penalty.
+    uint32_t perDepthPenalty;
+    if (JitOptions.isSmallFunction(script)) {
+        perDepthPenalty = 25;
+    } else {
+        perDepthPenalty = warmUpThreshold / 8;
+        if (perDepthPenalty < 50)
+            perDepthPenalty = 50;
+        if (perDepthPenalty > 200)
+            perDepthPenalty = 200;
+    }
+    return warmUpThreshold + loopDepth * perDepthPenalty;
 }
 
 OptimizationLevelInfo::OptimizationLevelInfo()

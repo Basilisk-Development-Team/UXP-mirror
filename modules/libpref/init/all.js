@@ -56,7 +56,7 @@ pref("browser.cache.disk.smart_size.enabled", true);
 // Which max value should we use for smart-sizing?
 pref("browser.cache.disk.smart_size.use_old_max", true);
 // Size (in KB) explicitly set by the user. Used when smart_size.enabled == false
-pref("browser.cache.disk.capacity",         256000);
+pref("browser.cache.disk.capacity",         2097152);
 // When smartsizing is disabled we could potentially fill all disk space by
 // cache data when the disk capacity is not set correctly. To avoid that we
 // check the free space every time we write some data to the cache. The free
@@ -67,13 +67,13 @@ pref("browser.cache.disk.free_space_soft_limit", 5120); // 5MB
 pref("browser.cache.disk.free_space_hard_limit", 1024); // 1MB
 // Max-size (in KB) for entries in disk cache. Set to -1 for no limit.
 // (Note: entries bigger than 1/8 of disk-cache are never cached)
-pref("browser.cache.disk.max_entry_size",    51200);  // 50 MB
+pref("browser.cache.disk.max_entry_size",   102400);  // 100 MB
 pref("browser.cache.memory.enable",         true);
 // -1 = determine dynamically, 0 = none, n = memory capacity in kilobytes
 //pref("browser.cache.memory.capacity",     -1);
 // Max-size (in KB) for entries in memory cache. Set to -1 for no limit.
 // (Note: entries bigger than than 90% of the mem-cache are never cached)
-pref("browser.cache.memory.max_entry_size",  5120);
+pref("browser.cache.memory.max_entry_size",  8192);
 // Memory limit (in kB) for new cache data not yet written to disk. Writes to
 // the cache are buffered and written to disk on background with low priority.
 // With a slow persistent storage these buffers may grow when data is coming
@@ -82,16 +82,16 @@ pref("browser.cache.memory.max_entry_size",  5120);
 // (priority) like html, css, fonts and js, and one for other data like images,
 // video, etc.
 // Note: 0 means no limit.
-pref("browser.cache.disk.max_chunks_memory_usage", 10240);
-pref("browser.cache.disk.max_priority_chunks_memory_usage", 10240);
+pref("browser.cache.disk.max_chunks_memory_usage", 20480);
+pref("browser.cache.disk.max_priority_chunks_memory_usage", 20480);
 
 pref("browser.cache.disk_cache_ssl",        true);
 // 0 = once-per-session, 1 = each-time, 2 = never, 3 = when-appropriate/automatically
 pref("browser.cache.check_doc_frequency",   3);
 // Limit of recent metadata we keep in memory for faster access, in Kb
-pref("browser.cache.disk.metadata_memory_limit", 250); // 0.25 MB
+pref("browser.cache.disk.metadata_memory_limit", 1024); // 1 MB
 // The number of chunks we preload ahead of read.  One chunk has currently 256kB.
-pref("browser.cache.disk.preload_chunk_count", 4); // 1 MB of read ahead
+pref("browser.cache.disk.preload_chunk_count", 8); // 2 MB of read ahead
 // The half life used to re-compute cache entries frecency in hours.
 pref("browser.cache.frecency_half_life_hours", 6);
 
@@ -252,7 +252,7 @@ pref("dom.compartment_per_addon", true);
 
 // Fastback caching - if this pref is negative, then we calculate the number
 // of content viewers to cache based on the amount of available memory.
-pref("browser.sessionhistory.max_total_viewers", -1);
+pref("browser.sessionhistory.max_total_viewers", 8);
 
 // Whether to store 'about:newtab' in the session history, disabled by default.
 // See https://github.com/MoonchildProductions/UXP/issues/719
@@ -1170,9 +1170,9 @@ pref("dom.send_after_paint_to_content", false);
 pref("dom.link.disabled_attribute.enabled", true);
 
 // Timeout clamp in ms for timeouts we clamp
-pref("dom.min_timeout_value", 4);
+pref("dom.min_timeout_value", 2);
 // And for background windows
-pref("dom.min_background_timeout_value", 1000);
+pref("dom.min_background_timeout_value", 1500);
 
 // Don't use new input types
 pref("dom.experimental_forms", false);
@@ -1265,6 +1265,11 @@ pref("javascript.options.unboxed_objects",  false);
 pref("javascript.options.baselinejit",      true);
 pref("javascript.options.ion",              true);
 pref("javascript.options.ion.inlining",     true);
+// JIT warm-up thresholds (-1 keeps engine defaults).
+// Lower values can improve sustained throughput on large script bundles
+// (e.g. React/jQuery-heavy apps) at some startup compile cost.
+pref("javascript.options.baselinejit.threshold", 6);
+pref("javascript.options.ion.threshold", 50);
 pref("javascript.options.asmjs",            true);
 pref("javascript.options.wasm",             true);
 // wasm jit crashes in 32bit builds because of 64bit casts so
@@ -1293,7 +1298,7 @@ pref("javascript.options.mem.high_water_mark", 128);
 pref("javascript.options.mem.max", -1);
 pref("javascript.options.mem.gc_per_zone", true);
 pref("javascript.options.mem.gc_incremental", true);
-pref("javascript.options.mem.gc_incremental_slice_ms", 20);
+pref("javascript.options.mem.gc_incremental_slice_ms", 10);
 pref("javascript.options.mem.gc_generational", true);
 pref("javascript.options.mem.gc_compacting", true);
 pref("javascript.options.mem.log", false);
@@ -1306,16 +1311,16 @@ pref("javascript.options.compact_on_user_inactive_delay", 15000); // ms
 pref("javascript.options.compact_on_user_inactive_delay", 300000); // ms
 #endif
 
-pref("javascript.options.mem.gc_high_frequency_time_limit_ms", 1000);
+pref("javascript.options.mem.gc_high_frequency_time_limit_ms", 2000);
 pref("javascript.options.mem.gc_high_frequency_low_limit_mb", 100);
 pref("javascript.options.mem.gc_high_frequency_high_limit_mb", 500);
-pref("javascript.options.mem.gc_high_frequency_heap_growth_max", 300);
-pref("javascript.options.mem.gc_high_frequency_heap_growth_min", 150);
+pref("javascript.options.mem.gc_high_frequency_heap_growth_max", 350);
+pref("javascript.options.mem.gc_high_frequency_heap_growth_min", 175);
 pref("javascript.options.mem.gc_low_frequency_heap_growth", 150);
 pref("javascript.options.mem.gc_dynamic_heap_growth", true);
 pref("javascript.options.mem.gc_dynamic_mark_slice", true);
 pref("javascript.options.mem.gc_refresh_frame_slices_enabled", true);
-pref("javascript.options.mem.gc_allocation_threshold_mb", 30);
+pref("javascript.options.mem.gc_allocation_threshold_mb", 20);
 pref("javascript.options.mem.gc_min_empty_chunk_count", 1);
 pref("javascript.options.mem.gc_max_empty_chunk_count", 30);
 
@@ -2803,7 +2808,7 @@ pref("editor.positioning.offset",            0);
 
 pref("dom.use_watchdog", true);
 pref("dom.max_chrome_script_run_time", 30);
-pref("dom.max_script_run_time", 15);
+pref("dom.max_script_run_time", 10);
 
 // Automatically terminate non-responsive scripts if script_run_time expires.
 pref("dom.always_stop_slow_scripts", false);
@@ -2826,7 +2831,7 @@ pref("idle_queue.long_period", 50);
 // period, which makes the point in time that we expect to become busy
 // again be:
 // now + idle_queue.min_period + layout.idle_period.time_limit
-pref("idle_queue.min_period", 3);
+pref("idle_queue.min_period", 1);
 
 // Hang monitor timeout after which we kill the browser, in seconds
 // (0 is disabled)
@@ -4275,11 +4280,15 @@ pref("image.animated.decode-on-demand.batch-size", 6);
 pref("image.animated.resume-from-last-displayed", true);
 
 // The maximum size, in bytes, of the decoded images we cache
-pref("image.cache.size", 5242880);
+pref("image.cache.size", 67108864);
 
 // A weight, from 0-1000, to place on time when comparing to size.
 // Size is given a weight of 1000 - timeweight.
-pref("image.cache.timeweight", 500);
+pref("image.cache.timeweight", 650);
+
+// Time in seconds before unproxied entries in the in-memory image cache are
+// considered for eviction by the expiration tracker.
+pref("image.cache.entry_timeout_seconds", 30);
 
 // Decode all images automatically on load, ignoring our normal heuristics.
 pref("image.decode-immediately.enabled", false);
@@ -4289,9 +4298,9 @@ pref("image.downscale-during-decode.enabled", true);
 
 // The default Accept header sent for images loaded over HTTP(S)
 #ifdef MOZ_JXL
-pref("image.http.accept", "image/webp,image/jxl,image/png,image/*;q=0.8,*/*;q=0.5");
+pref("image.http.accept", "image/webp,image/png,image/svg+xml,image/*;q=0.8,*/*;q=0.5");
 #else
-pref("image.http.accept", "image/webp,image/png,image/*;q=0.8,*/*;q=0.5");
+pref("image.http.accept", "image/webp,image/png,image/svg+xml,image/*;q=0.8,*/*;q=0.5");
 #endif
 
 // The threshold for inferring that changes to an <img> element's |src|
@@ -4326,7 +4335,7 @@ pref("image.mem.decode_bytes_at_a_time", 16384);
 
 // Minimum timeout for expiring unused images from the surface cache, in
 // milliseconds. This controls how long we store cached temporary surfaces.
-pref("image.mem.surfacecache.min_expiration_ms", 60000); // 60s
+pref("image.mem.surfacecache.min_expiration_ms", 180000); // 180s
 
 // Maximum size for the surface cache, in kilobytes.
 pref("image.mem.surfacecache.max_size_kb", 1048576); // 1GB
@@ -4343,7 +4352,7 @@ pref("image.mem.surfacecache.size_factor", 4);
 // surface cache on memory pressure, a discard factor of 2 means to discard half
 // of the data, and so forth. The default should be a good balance for desktop
 // and laptop systems, where we never discard visible images.
-pref("image.mem.surfacecache.discard_factor", 1);
+pref("image.mem.surfacecache.discard_factor", 2);
 
 // How many threads we'll use for multithreaded decoding. If < 0, will be
 // automatically determined based on the system's number of cores.
@@ -4665,7 +4674,7 @@ pref("dom.idle-observers-api.enabled", true);
 
 // Time limit, in milliseconds, for EventStateManager::IsHandlingUserInput().
 // Used to detect long running handlers of user-generated events.
-pref("dom.event.handling-user-input-time-limit", 1000);
+pref("dom.event.handling-user-input-time-limit", 500);
 
 // Whether we should layerize all animated images (if otherwise possible).
 pref("layout.animated-image-layers.enabled", false);
