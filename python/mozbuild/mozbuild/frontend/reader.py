@@ -39,6 +39,7 @@ from mozbuild.util import (
     HierarchicalStringList,
     memoize,
     ReadOnlyDefaultDict,
+    EnumStringComparisonError,
 )
 
 from mozbuild.testing import (
@@ -613,6 +614,16 @@ class BuildReaderError(Exception):
             self.sandbox_called_error
 
     def __str__(self):
+        try:
+            return self._render()
+        except Exception as e:
+            return (
+            "ERROR PROCESSING MOZBUILD FILE\n"
+            "An internal error occurred while formatting the exception:\n"
+                "    %s: %s\n" % (type(e).__name__, e)
+            )
+
+    def _render(self):
         s = StringIO()
 
         delim = '=' * 30
@@ -660,7 +671,10 @@ class BuildReaderError(Exception):
         trace = getattr(self.sandbox_error, 'trace', None)
         frames = []
         if trace:
-            frames = traceback.extract_tb(trace)
+            try:
+                frames = traceback.extract_tb(trace)
+            except Exception:
+                frames = []
         for frame in frames:
             if frame[0] == self.actual_file:
                 script_frame = frame
@@ -743,6 +757,15 @@ class BuildReaderError(Exception):
         assert self.sandbox_exec is not None
 
         inner = self.sandbox_exec.exc_value
+
+        if isinstance(inner, EnumStringComparisonError):
+            s.write("The underlying problem is an invalid EnumString comparison.\n")
+            s.write("\n")
+            s.write("The error as reported by Python is:\n")
+            s.write("\n")
+            s.write("    %r\n" % inner)
+            s.write("\n")
+            return
 
         if isinstance(inner, SyntaxError):
             s.write('The underlying problem is a Python syntax error ')

@@ -1215,6 +1215,9 @@ class EnumString(str):
 
     __hash__ = str.__hash__
 
+    def __repr__(self):
+        return "%s(%r)" % (self.__class__.__name__, str(self))
+
     @staticmethod
     def subclass(*possible_values):
         class EnumStringSubclass(EnumString):

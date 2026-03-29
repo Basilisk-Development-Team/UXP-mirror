@@ -44,6 +44,8 @@ script_dir = mozpath.join(chrome_src, 'build')
 def decode(value):
     if isinstance(value, bytes):
         return value.decode('utf-8')
+    if isinstance(value, str):
+        return str(value)
     return value
 
 
