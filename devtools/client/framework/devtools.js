@@ -307,11 +307,11 @@ DevTools.prototype = {
     if (!Services.startup.shuttingDown &&
         !isCoreTheme &&
         theme.id == currTheme) {
-      Services.prefs.setCharPref("devtools.theme", "firebug");
+      Services.prefs.setCharPref("devtools.theme", "light");
 
       let data = {
         pref: "devtools.theme",
-        newValue: "firebug",
+        newValue: "light",
         oldValue: currTheme
       };
 
