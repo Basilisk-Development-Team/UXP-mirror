@@ -4203,12 +4203,6 @@ MultiprocessBlockPolicy() {
   }
   gMultiprocessBlockPolicyInitialized = true;
 
-  // Allow downstream applications to bypass legacy e10s block policies.
-  // This is evaluated at startup and requires restart to take effect.
-  if (Preferences::GetBool("browser.tabs.remote.ignoreBlockPolicy", false)) {
-    return gMultiprocessBlockPolicy;
-  }
-
   /**
    * Avoids enabling e10s if there are add-ons installed.
    */
@@ -4252,6 +4246,9 @@ MultiprocessBlockPolicy() {
     gMultiprocessBlockPolicy = kE10sDisabledForAccessibility;
   }
 #endif
+
+  // We do not support E10S, block by policy.
+  gMultiprocessBlockPolicy = kE10sForceDisabled;
   
   return gMultiprocessBlockPolicy;
 }

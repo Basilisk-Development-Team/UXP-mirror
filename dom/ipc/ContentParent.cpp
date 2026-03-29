@@ -574,7 +574,6 @@ ContentParent::GetNewOrUsedBrowserProcess(bool aForBrowserElement,
 {
   nsTArray<ContentParent*>* contentParents;
   int32_t maxContentParents;
-  bool preferDedicatedProcess = false;
 
   // Decide which pool of content parents we are going to be pulling from based
   // on the aLargeAllocationProcess flag.
@@ -592,20 +591,13 @@ ContentParent::GetNewOrUsedBrowserProcess(bool aForBrowserElement,
     contentParents = sBrowserContentParents;
 
     maxContentParents = Preferences::GetInt("dom.ipc.processCount", 1);
-    if (maxContentParents == -1) {
-      // Automatic mode: create a dedicated content process per new tab until
-      // a safety ceiling is reached, then reuse existing processes.
-      preferDedicatedProcess = true;
-      maxContentParents = Preferences::GetInt("dom.ipc.processCount.webIsolatedMax", 64);
-    }
   }
 
   if (maxContentParents < 1) {
     maxContentParents = 1;
   }
 
-  if (!preferDedicatedProcess ||
-      contentParents->Length() >= uint32_t(maxContentParents)) {
+  if (contentParents->Length() >= uint32_t(maxContentParents)) {
     uint32_t maxSelectable = std::min(static_cast<uint32_t>(contentParents->Length()),
                                       static_cast<uint32_t>(maxContentParents));
     uint32_t startIdx = rand() % maxSelectable;
