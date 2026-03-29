@@ -923,6 +923,11 @@ pref("dom.ipc.shims.enabledWarnings", false);
 // Start the browser in e10s mode
 pref("browser.tabs.remote.autostart", true);
 pref("browser.tabs.remote.desktopbehavior", true);
+pref("browser.tabs.remote.ignoreBlockPolicy", true);
+// -1 means automatic tab-isolation mode: try one process per tab.
+pref("dom.ipc.processCount", -1);
+// Safety ceiling used by automatic tab-isolation mode.
+pref("dom.ipc.processCount.webIsolatedMax", 64);
 
 // This pref governs whether we attempt to work around problems caused by
 // plugins using OS calls to manipulate the cursor while running out-of-
@@ -1245,10 +1250,8 @@ pref("browser.tabs.remote.autostart.2", true);
 pref("extensions.interposition.enabled", true);
 pref("extensions.interposition.prefetching", true);
 
-// Enable blocking of e10s for add-on users on beta/release.
-#ifdef RELEASE_OR_BETA
-pref("extensions.e10sBlocksEnabling", true);
-#endif
+// Keep e10s enabled even when legacy add-ons are present.
+pref("extensions.e10sBlocksEnabling", false);
 
 // How often to check for CPOW timeouts. CPOWs are only timed out by
 // the hang monitor.
