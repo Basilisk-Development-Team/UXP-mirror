@@ -923,10 +923,8 @@ pref("browser.tabs.remote.force-disable", false);
 pref("browser.tabs.remote.desktopbehavior", true);
 pref("browser.tabs.remote.ignoreBlockPolicy", true);
 // Number of web content processes used by e10s.
-// -1 means automatic tab-isolation mode: try one process per tab.
-pref("dom.ipc.processCount", -1);
-// Safety ceiling used by automatic tab-isolation mode.
-pref("dom.ipc.processCount.webIsolatedMax", 64);
+// Keep this at a fixed value in this tree; automatic -1 mode is not supported.
+pref("dom.ipc.processCount", 4);
 
 // This pref governs whether we attempt to work around problems caused by
 // plugins using OS calls to manipulate the cursor while running out-of-
