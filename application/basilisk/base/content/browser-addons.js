@@ -334,6 +334,12 @@ const gXPInstallObserver = {
 
         messageString = gNavigatorBundle.getFormattedString(error, args);
 
+        if (install.error == AddonManager.ERROR_CORRUPT_FILE &&
+            install.errorDetail &&
+            typeof install.errorDetail == "string") {
+          messageString += "\n" + "Details: " + install.errorDetail;
+        }
+
         PopupNotifications.show(browser, notificationID, messageString, anchorID,
                                 action, null, options);
 

@@ -5533,9 +5533,11 @@ class AddonInstall {
               this.certName = this.certificate.organization;
             }
           } else {
-            zipreader.close();
-            return Promise.reject([AddonManager.ERROR_CORRUPT_FILE,
-                                   "XPI is incorrectly signed"]);
+            // In non-required-signing mode, allow installation to proceed
+            // when signature verification fails instead of treating it as a
+            // corrupt XPI. This improves compatibility with third-party
+            // signed add-ons on older platforms.
+            logger.warn("XPI signature verification failed; continuing because signatures are not required");
           }
         }
       }
@@ -6321,6 +6323,17 @@ class DownloadAddonInstall extends AddonInstall {
     logger.warn("Download of " + this.sourceURI.spec + " failed", aError);
     this.state = AddonManager.STATE_DOWNLOAD_FAILED;
     this.error = aReason;
+    if (aError !== undefined && aError !== null) {
+      if (typeof aError == "string") {
+        this.errorDetail = aError;
+      } else if (aError && typeof aError.message == "string" && aError.message) {
+        this.errorDetail = aError.message;
+      } else {
+        this.errorDetail = String(aError);
+      }
+    } else {
+      this.errorDetail = null;
+    }
     XPIProvider.removeActiveInstall(this);
     AddonManagerPrivate.callInstallListeners("onDownloadFailed", this.listeners,
                                              this.wrapper);
@@ -6655,7 +6668,7 @@ AddonInstallWrapper.prototype = {
   },
 };
 
-["name", "version", "icons", "releaseNotesURI", "file", "state", "error",
+["name", "version", "icons", "releaseNotesURI", "file", "state", "error", "errorDetail",
  "progress", "maxProgress", "certificate", "certName"].forEach(function(aProp) {
   Object.defineProperty(AddonInstallWrapper.prototype, aProp, {
     get: function() {

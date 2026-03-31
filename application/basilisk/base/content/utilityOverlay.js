@@ -88,6 +88,7 @@ function getBoolPref(prefname, def)
  */
 function openUILink(url, event, aIgnoreButton, aIgnoreAlt, aAllowThirdPartyFixup,
                     aPostData, aReferrerURI) {
+  event = getRootEvent(event);
   let params;
 
   if (aIgnoreButton && typeof aIgnoreButton == "object") {
@@ -110,6 +111,26 @@ function openUILink(url, event, aIgnoreButton, aIgnoreAlt, aAllowThirdPartyFixup
 
   let where = whereToOpenLink(event, aIgnoreButton, aIgnoreAlt);
   openUILinkIn(url, where, params);
+}
+
+// Utility function to inspect command events for wrapped middle-click events
+// and return the originating event when available.
+function getRootEvent(aEvent)
+{
+  if (!aEvent) {
+    return aEvent;
+  }
+
+  let tempEvent = aEvent;
+  while (tempEvent.sourceEvent) {
+    if (tempEvent.sourceEvent.button == 1) {
+      aEvent = tempEvent.sourceEvent;
+      break;
+    }
+    tempEvent = tempEvent.sourceEvent;
+  }
+
+  return aEvent;
 }
 
 

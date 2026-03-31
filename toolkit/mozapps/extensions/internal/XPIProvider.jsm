@@ -5275,8 +5275,10 @@ AddonInstall.prototype = {
           this.certName = this.certificate.organization;
         }
       } else {
-        zipreader.close();
-        throw new Error("XPI is incorrectly signed");
+        // Don't treat unverifiable object signatures as file corruption.
+        // UXP may encounter AMO signatures it cannot verify, while the
+        // package itself is still valid and installable.
+        logger.warn("XPI signature verification failed; continuing install");
       }
     }
 
@@ -5598,6 +5600,17 @@ AddonInstall.prototype = {
     logger.warn("Download of " + this.sourceURI.spec + " failed", aError);
     this.state = AddonManager.STATE_DOWNLOAD_FAILED;
     this.error = aReason;
+    if (aError !== undefined && aError !== null) {
+      if (typeof aError == "string") {
+        this.errorDetail = aError;
+      } else if (aError && typeof aError.message == "string" && aError.message) {
+        this.errorDetail = aError.message;
+      } else {
+        this.errorDetail = String(aError);
+      }
+    } else {
+      this.errorDetail = null;
+    }
     XPIProvider.removeActiveInstall(this);
     AddonManagerPrivate.callInstallListeners("onDownloadFailed", this.listeners,
                                              this.wrapper);
@@ -6007,7 +6020,7 @@ function AddonInstallWrapper(aInstall) {
   });
 #endif
 
-  ["name", "type", "version", "icons", "releaseNotesURI", "file", "state", "error",
+  ["name", "type", "version", "icons", "releaseNotesURI", "file", "state", "error", "errorDetail",
    "progress", "maxProgress", "certificate", "certName"].forEach(function(aProp) {
     this.__defineGetter__(aProp, function AIW_propertyGetter() aInstall[aProp]);
   }, this);
