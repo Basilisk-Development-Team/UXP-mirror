@@ -511,6 +511,14 @@ HttpBaseChannel::SetContentCharset(const nsACString& aContentCharset)
 NS_IMETHODIMP
 HttpBaseChannel::GetContentDisposition(uint32_t *aContentDisposition)
 {
+  // DISPOSITION_FORCE_INLINE is used to explicitly set inline, used by
+  // the pdf reader when loading an attachment pdf without downloading it.
+  if (mContentDispositionHint == nsIChannel::DISPOSITION_ATTACHMENT ||
+      mContentDispositionHint == nsIChannel::DISPOSITION_FORCE_INLINE) {
+    *aContentDisposition = mContentDispositionHint;
+    return NS_OK;
+  }
+
   nsresult rv;
   nsCString header;
 

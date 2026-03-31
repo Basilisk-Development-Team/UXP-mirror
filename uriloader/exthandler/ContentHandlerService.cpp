@@ -104,7 +104,9 @@ NS_IMETHODIMP RemoteHandlerApp::LaunchWithURI(nsIURI *aURI, nsIInterfaceRequesto
 
 NS_IMPL_ISUPPORTS(RemoteHandlerApp, nsIHandlerApp)
 
-static inline void CopyHanderInfoTonsIHandlerInfo(HandlerInfo info, nsIHandlerInfo* aHandlerInfo)
+static inline void
+CopyHandlerInfoTonsIHandlerInfo(const HandlerInfo& info,
+                                nsIHandlerInfo* aHandlerInfo)
 {
   HandlerApp preferredApplicationHandler = info.preferredApplicationHandler();
   nsCOMPtr<nsIHandlerApp> preferredApp(new RemoteHandlerApp(preferredApplicationHandler));
@@ -112,6 +114,8 @@ static inline void CopyHanderInfoTonsIHandlerInfo(HandlerInfo info, nsIHandlerIn
   nsCOMPtr<nsIMutableArray> possibleHandlers;
   aHandlerInfo->GetPossibleApplicationHandlers(getter_AddRefs(possibleHandlers));
   possibleHandlers->AppendElement(preferredApp, false);
+  aHandlerInfo->SetPreferredAction(info.preferredAction());
+  aHandlerInfo->SetAlwaysAskBeforeHandling(info.alwaysAskBeforeHandling());
 }
 ContentHandlerService::~ContentHandlerService()
 {
@@ -127,7 +131,7 @@ NS_IMETHODIMP ContentHandlerService::FillHandlerInfo(nsIHandlerInfo *aHandlerInf
   HandlerInfo info;
   nsIHandlerInfoToHandlerInfo(aHandlerInfo, &info);
   mHandlerServiceChild->SendFillHandlerInfo(info, nsCString(aOverrideType), &info);
-  CopyHanderInfoTonsIHandlerInfo(info, aHandlerInfo);
+  CopyHandlerInfoTonsIHandlerInfo(info, aHandlerInfo);
   return NS_OK;
 }
 

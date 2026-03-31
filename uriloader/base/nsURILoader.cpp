@@ -41,6 +41,10 @@
 #include "nsCExternalHandlerService.h" // contains contractids for the helper app service
 
 #include "nsIMIMEHeaderParam.h"
+#include "nsIMIMEInfo.h"
+#include "nsIMIMEService.h"
+#include "nsILoadInfo.h"
+#include "nsIContentPolicy.h"
 #include "nsNetCID.h"
 
 #include "nsMimeTypes.h"
@@ -387,6 +391,36 @@ nsresult nsDocumentOpenInfo::DispatchContent(nsIRequest *request, nsISupports * 
   if (NS_SUCCEEDED(rv) && (disposition == nsIChannel::DISPOSITION_ATTACHMENT) &&
       allowContentDispositionToForceExternalHandling) {
     forceExternalHandling = true;
+  }
+
+  // For a PDF, check if it will be handled internally. If so, don't force
+  // external handling for top-level document loads.
+  if (forceExternalHandling &&
+      mContentType.LowerCaseEqualsASCII(APPLICATION_PDF)) {
+    nsCOMPtr<nsILoadInfo> loadInfo;
+    aChannel->GetLoadInfo(getter_AddRefs(loadInfo));
+    if (loadInfo &&
+        loadInfo->GetExternalContentPolicyType() ==
+          nsIContentPolicy::TYPE_DOCUMENT) {
+      nsCOMPtr<nsIMIMEInfo> mimeInfo;
+      nsCOMPtr<nsIMIMEService> mimeSvc(
+        do_GetService(NS_MIMESERVICE_CONTRACTID));
+      if (mimeSvc) {
+        mimeSvc->GetFromTypeAndExtension(nsLiteralCString(APPLICATION_PDF),
+                                         EmptyCString(),
+                                         getter_AddRefs(mimeInfo));
+      }
+
+      if (mimeInfo) {
+        int32_t action = nsIHandlerInfo::saveToDisk;
+        mimeInfo->GetPreferredAction(&action);
+
+        bool alwaysAsk = true;
+        mimeInfo->GetAlwaysAskBeforeHandling(&alwaysAsk);
+        forceExternalHandling =
+          alwaysAsk || action != nsIHandlerInfo::handleInternally;
+      }
+    }
   }
 
   LOG(("  forceExternalHandling: %s", forceExternalHandling ? "yes" : "no"));

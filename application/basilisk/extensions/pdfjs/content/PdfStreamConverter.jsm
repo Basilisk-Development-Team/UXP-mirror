@@ -871,6 +871,11 @@ PdfStreamConverter.prototype = {
       aRequest.setResponseHeader("Refresh", "", false);
     }
 
+    // The document will be loaded via the stream converter as html, but we
+    // may have come here via a download/attachment path. Force inline so we
+    // don't get redirected back to the external helper service.
+    aRequest.contentDisposition = Ci.nsIChannel.DISPOSITION_FORCE_INLINE;
+
     // Creating storage for PDF data
     var contentLength = aRequest.contentLength;
     this.dataListener = new PdfDataListener(contentLength);

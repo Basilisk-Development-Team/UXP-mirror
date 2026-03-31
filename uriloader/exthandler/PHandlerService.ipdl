@@ -19,7 +19,7 @@ struct HandlerInfo {
   bool alwaysAskBeforeHandling;
   HandlerApp preferredApplicationHandler;
   HandlerApp[] possibleApplicationHandlers;
-  long preferredAction;
+  int32_t preferredAction;
 };
 
 sync protocol PHandlerService
