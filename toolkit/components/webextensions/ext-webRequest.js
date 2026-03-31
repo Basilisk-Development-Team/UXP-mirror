@@ -96,6 +96,42 @@ function WebRequestEventManager(context, eventName) {
 
 WebRequestEventManager.prototype = Object.create(SingletonEventManager.prototype);
 
+// StreamFilter stub for response data filtering
+// Modern extensions may use filterResponseData(), we provide a basic stub
+function StreamFilterStub(requestId) {
+  this.requestId = requestId;
+  this.status = "unattached";
+  this.onstart = null;
+  this.ondata = null;
+  this.onstop = null;
+  this.onerror = null;
+}
+
+StreamFilterStub.prototype = {
+  write: function(data) {
+    // Stub: no-op - just accept the data without modification
+  },
+  close: function() {
+    this.status = "closed";
+    if (this.onstop) {
+      try {
+        this.onstop();
+      } catch (e) {}
+    }
+  },
+  error: function(error) {
+    this.status = "errored";
+    if (this.onerror) {
+      try {
+        this.onerror(error);
+      } catch (e) {}
+    }
+  },
+  disconnect: function() {
+    this.status = "closed";
+  }
+};
+
 extensions.registerSchemaAPI("webRequest", "addon_parent", context => {
   return {
     webRequest: {
@@ -110,6 +146,35 @@ extensions.registerSchemaAPI("webRequest", "addon_parent", context => {
       handlerBehaviorChanged: function() {
         // TODO: Flush all caches.
       },
+      // Resource type constants for feature detection and filtering
+      ResourceType: Object.freeze({
+        MAIN_FRAME: "main_frame",
+        SUB_FRAME: "sub_frame",
+        STYLESHEET: "stylesheet",
+        SCRIPT: "script",
+        IMAGE: "image",
+        OBJECT: "object",
+        XMLHTTPREQUEST: "xmlhttprequest",
+        XBL: "xbl",
+        XSLT: "xslt",
+        PING: "ping",
+        BEACON: "beacon",
+        XML_DTD: "xml_dtd",
+        FONT: "font",
+        MEDIA: "media",
+        WEBSOCKET: "websocket",
+        CSP_REPORT: "csp_report",
+        IMAGESET: "imageset",
+        WEB_MANIFEST: "web_manifest",
+        OTHER: "other"
+      }),
+      // Stub implementation of filterResponseData for extensions that need it
+      // Returns a StreamFilter-like object that extensions can use to intercept responses
+      filterResponseData: function(requestId) {
+        return new StreamFilterStub(requestId);
+      },
+      // Maximum handler behavior change calls per 10 minutes (per MDN spec)
+      MAX_HANDLER_BEHAVIOR_CHANGED_CALLS_PER_10_MINUTES: 20,
     },
   };
 });

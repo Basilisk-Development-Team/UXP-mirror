@@ -26,7 +26,8 @@
                 "$ref": "FirefoxSpecificProperties",
                 "optional": true
               }
-            }
+            },
+            "additionalProperties": { "$ref": "UnrecognizedProperty" }
           },
 
           "browser_specific_settings": {
@@ -36,8 +37,13 @@
               "gecko": {
                 "$ref": "FirefoxSpecificProperties",
                 "optional": true
+              },
+              "gecko_android": {
+                "$ref": "FirefoxSpecificProperties",
+                "optional": true
               }
-            }
+            },
+            "additionalProperties": { "$ref": "UnrecognizedProperty" }
           },
 
           "name": {
@@ -261,8 +267,16 @@
           "strict_max_version": {
             "type": "string",
             "optional": true
+          },
+
+          "data_collection_permissions": {
+            "type": "object",
+            "optional": true,
+            "onError": "warn",
+            "additionalProperties": { "type": "any" }
           }
-        }
+        },
+        "additionalProperties": { "$ref": "UnrecognizedProperty" }
       },
       {
         "id": "MatchPattern",
