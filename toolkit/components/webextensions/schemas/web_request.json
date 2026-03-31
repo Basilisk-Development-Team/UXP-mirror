@@ -111,7 +111,8 @@
             "items": { "$ref": "ResourceType" }
           },
           "tabId": { "type": "integer", "optional": true },
-          "windowId": { "type": "integer", "optional": true }
+          "windowId": { "type": "integer", "optional": true },
+          "incognito": { "type": "boolean", "optional": true }
         }
       },
       {
@@ -198,6 +199,50 @@
             "name": "callback",
             "optional": true,
             "parameters": []
+          }
+        ]
+      },
+      {
+        "name": "filterResponseData",
+        "permissions": ["webRequestBlocking"],
+        "type": "function",
+        "description": "Creates a response stream filter for a request.",
+        "parameters": [
+          {
+            "name": "requestId",
+            "type": "string"
+          }
+        ],
+        "returns": {
+          "type": "object",
+          "additionalProperties": {"type": "any"},
+          "isInstanceOf": "StreamFilter"
+        }
+      },
+      {
+        "name": "getSecurityInfo",
+        "type": "function",
+        "async": true,
+        "description": "Retrieves security information for the request.",
+        "parameters": [
+          {
+            "name": "requestId",
+            "type": "string"
+          },
+          {
+            "name": "options",
+            "optional": true,
+            "type": "object",
+            "properties": {
+              "certificateChain": {
+                "type": "boolean",
+                "optional": true
+              },
+              "rawDER": {
+                "type": "boolean",
+                "optional": true
+              }
+            }
           }
         ]
       }

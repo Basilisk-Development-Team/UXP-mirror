@@ -1,0 +1,53 @@
+/* This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this
+ * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
+
+#include "WebRequestService.h"
+
+#include "mozilla/extensions/ChannelWrapper.h"
+
+#include "mozilla/Assertions.h"
+#include "mozilla/ClearOnShutdown.h"
+
+using namespace mozilla;
+using namespace mozilla::dom;
+using namespace mozilla::extensions;
+
+static StaticRefPtr<WebRequestService> sWebRequestService;
+
+/* static */ WebRequestService& WebRequestService::GetSingleton() {
+  if (!sWebRequestService) {
+    sWebRequestService = new WebRequestService();
+    ClearOnShutdown(&sWebRequestService);
+  }
+  return *sWebRequestService;
+}
+
+UniquePtr<WebRequestChannelEntry> WebRequestService::RegisterChannel(
+    ChannelWrapper* aChannel) {
+  UniquePtr<ChannelEntry> entry(new ChannelEntry(aChannel));
+
+  MOZ_DIAGNOSTIC_ASSERT(!mChannelEntries.Get(entry->mChannelId));
+  mChannelEntries.Put(entry->mChannelId, entry.get());
+
+  return entry;
+}
+
+already_AddRefed<nsITraceableChannel> WebRequestService::GetTraceableChannel(
+  uint64_t aChannelId, nsIAtom* aAddonId, nsIContentParent* aContentParent) {
+  if (auto entry = mChannelEntries.Get(aChannelId)) {
+    if (entry->mChannel) {
+      return entry->mChannel->GetTraceableChannel(aAddonId, aContentParent);
+    }
+  }
+  return nullptr;
+}
+
+WebRequestChannelEntry::WebRequestChannelEntry(ChannelWrapper* aChannel)
+    : mChannelId(aChannel->Id()), mChannel(aChannel) {}
+
+WebRequestChannelEntry::~WebRequestChannelEntry() {
+  if (sWebRequestService) {
+    sWebRequestService->mChannelEntries.Remove(mChannelId);
+  }
+}

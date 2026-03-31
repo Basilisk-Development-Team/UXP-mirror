@@ -116,20 +116,50 @@ function WebRequestEventManager(context, eventName) {
 
 WebRequestEventManager.prototype = Object.create(SingletonEventManager.prototype);
 
+function makeWebRequestEvent(context, eventName) {
+  if (!(eventName in WebRequest) || !WebRequest[eventName]) {
+    let name = `webRequest.${eventName}`;
+    return new SingletonEventManager(context, name, () => {
+      Cu.reportError(`webRequest.${eventName} is not supported by this runtime.`);
+      return () => {};
+    }).api();
+  }
+
+  return new WebRequestEventManager(context, eventName).api();
+}
+
 extensions.registerSchemaAPI("webRequest", "addon_parent", context => {
   return {
     webRequest: {
-      onBeforeRequest: new WebRequestEventManager(context, "onBeforeRequest").api(),
-      onBeforeSendHeaders: new WebRequestEventManager(context, "onBeforeSendHeaders").api(),
-      onSendHeaders: new WebRequestEventManager(context, "onSendHeaders").api(),
-      onHeadersReceived: new WebRequestEventManager(context, "onHeadersReceived").api(),
-      onBeforeRedirect: new WebRequestEventManager(context, "onBeforeRedirect").api(),
-      onResponseStarted: new WebRequestEventManager(context, "onResponseStarted").api(),
-      onErrorOccurred: new WebRequestEventManager(context, "onErrorOccurred").api(),
-      onCompleted: new WebRequestEventManager(context, "onCompleted").api(),
+      onBeforeRequest: makeWebRequestEvent(context, "onBeforeRequest"),
+      onBeforeSendHeaders: makeWebRequestEvent(context, "onBeforeSendHeaders"),
+      onSendHeaders: makeWebRequestEvent(context, "onSendHeaders"),
+      onHeadersReceived: makeWebRequestEvent(context, "onHeadersReceived"),
+      onAuthRequired: makeWebRequestEvent(context, "onAuthRequired"),
+      onBeforeRedirect: makeWebRequestEvent(context, "onBeforeRedirect"),
+      onResponseStarted: makeWebRequestEvent(context, "onResponseStarted"),
+      onErrorOccurred: makeWebRequestEvent(context, "onErrorOccurred"),
+      onCompleted: makeWebRequestEvent(context, "onCompleted"),
       handlerBehaviorChanged: function() {
         // TODO: Flush all caches.
         return Promise.resolve();
+      },
+      filterResponseData: function(requestId) {
+        requestId = parseInt(requestId, 10);
+        return context.cloneScope.StreamFilter.create(requestId, context.extension.id);
+      },
+      getSecurityInfo: function(requestId, options = {}) {
+        let remoteTab = null;
+        if (context.xulBrowser && context.xulBrowser.frameLoader) {
+          remoteTab = context.xulBrowser.frameLoader.remoteTab;
+        }
+
+        return WebRequest.getSecurityInfo({
+          id: requestId,
+          policy: context.extension.policy,
+          remoteTab,
+          options,
+        });
       },
       // Resource type constants for feature detection and filtering
       ResourceType: Object.freeze({
