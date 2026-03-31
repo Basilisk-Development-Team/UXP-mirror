@@ -48,10 +48,27 @@ function WebRequestEventManager(context, eventName) {
         data2.ip = data.ip;
       }
 
+      if ("incognito" in data) {
+        data2.incognito = data.incognito;
+      }
+
       extensions.emit("fill-browser-data", data.browser, data2);
 
+      if ("tabId" in filter && data2.tabId !== filter.tabId) {
+        return;
+      }
+
+      if ("windowId" in filter && data2.windowId !== filter.windowId) {
+        return;
+      }
+
+      if ("incognito" in filter && !!data2.incognito !== filter.incognito) {
+        return;
+      }
+
       let optional = ["requestHeaders", "responseHeaders", "statusCode", "statusLine", "error", "redirectUrl",
-                      "requestBody"];
+                      "requestBody", "documentUrl", "scheme", "realm", "isProxy", "challenger",
+                      "proxyInfo", "frameAncestors"];
       for (let opt of optional) {
         if (opt in data) {
           data2[opt] = data[opt];
@@ -66,11 +83,14 @@ function WebRequestEventManager(context, eventName) {
     if (filter.types) {
       filter2.types = filter.types;
     }
-    if (filter.tabId) {
+    if ("tabId" in filter) {
       filter2.tabId = filter.tabId;
     }
-    if (filter.windowId) {
+    if ("windowId" in filter) {
       filter2.windowId = filter.windowId;
+    }
+    if ("incognito" in filter) {
+      filter2.incognito = filter.incognito;
     }
 
     let info2 = [];
@@ -96,42 +116,6 @@ function WebRequestEventManager(context, eventName) {
 
 WebRequestEventManager.prototype = Object.create(SingletonEventManager.prototype);
 
-// StreamFilter stub for response data filtering
-// Modern extensions may use filterResponseData(), we provide a basic stub
-function StreamFilterStub(requestId) {
-  this.requestId = requestId;
-  this.status = "unattached";
-  this.onstart = null;
-  this.ondata = null;
-  this.onstop = null;
-  this.onerror = null;
-}
-
-StreamFilterStub.prototype = {
-  write: function(data) {
-    // Stub: no-op - just accept the data without modification
-  },
-  close: function() {
-    this.status = "closed";
-    if (this.onstop) {
-      try {
-        this.onstop();
-      } catch (e) {}
-    }
-  },
-  error: function(error) {
-    this.status = "errored";
-    if (this.onerror) {
-      try {
-        this.onerror(error);
-      } catch (e) {}
-    }
-  },
-  disconnect: function() {
-    this.status = "closed";
-  }
-};
-
 extensions.registerSchemaAPI("webRequest", "addon_parent", context => {
   return {
     webRequest: {
@@ -145,6 +129,7 @@ extensions.registerSchemaAPI("webRequest", "addon_parent", context => {
       onCompleted: new WebRequestEventManager(context, "onCompleted").api(),
       handlerBehaviorChanged: function() {
         // TODO: Flush all caches.
+        return Promise.resolve();
       },
       // Resource type constants for feature detection and filtering
       ResourceType: Object.freeze({
@@ -168,11 +153,6 @@ extensions.registerSchemaAPI("webRequest", "addon_parent", context => {
         WEB_MANIFEST: "web_manifest",
         OTHER: "other"
       }),
-      // Stub implementation of filterResponseData for extensions that need it
-      // Returns a StreamFilter-like object that extensions can use to intercept responses
-      filterResponseData: function(requestId) {
-        return new StreamFilterStub(requestId);
-      },
       // Maximum handler behavior change calls per 10 minutes (per MDN spec)
       MAX_HANDLER_BEHAVIOR_CHANGED_CALLS_PER_10_MINUTES: 20,
     },

@@ -75,8 +75,13 @@ function parseFilter(filter) {
     filter = {};
   }
 
-  // FIXME: Support windowId filtering.
-  return {urls: filter.urls || null, types: filter.types || null};
+  return {
+    urls: filter.urls || null,
+    types: filter.types || null,
+    tabId: filter.tabId === undefined ? null : filter.tabId,
+    windowId: filter.windowId === undefined ? null : filter.windowId,
+    incognito: filter.incognito === undefined ? null : filter.incognito,
+  };
 }
 
 function parseExtra(extra, allowed = []) {

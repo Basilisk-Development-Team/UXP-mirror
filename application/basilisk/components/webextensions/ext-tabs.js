@@ -77,6 +77,8 @@ extensions.on("page-shutdown", (type, context) => {
 
 extensions.on("fill-browser-data", (type, browser, data) => {
   data.tabId = browser ? TabManager.getBrowserId(browser) : -1;
+  data.windowId = browser && browser.ownerGlobal ? WindowManager.getId(browser.ownerGlobal) : -1;
+  data.incognito = !!(browser && PrivateBrowsingUtils.isBrowserPrivate(browser));
 });
 /* eslint-enable mozilla/balanced-listeners */
 
