@@ -121,6 +121,13 @@
     margin-top: -1px !important;
     margin-left: -1px !important;
   }
+
+  @media (-moz-os-version: windows-win10) {
+    #main-window[sizemode="normal"] #TabsToolbar,
+    #main-window[sizemode="maximized"] #TabsToolbar {
+      margin-top: 2px !important;
+    }
+  }
   
   #titlebar-buttonbox {
     -moz-appearance: none !important;
