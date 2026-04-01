@@ -7,7 +7,7 @@
 #include "nsISupports.idl"
 
 
-[scriptable, uuid(aa8a0ecf-96a1-418c-b80e-f24ae18bbedc)]
+[scriptable, uuid(8eb5da7b-ec94-4cf4-9f2e-9d2b8f8bc763)]
 interface nsIWindowsUIUtils : nsISupports
 {
   /**
@@ -20,5 +20,31 @@ interface nsIWindowsUIUtils : nsISupports
    * Update the tablet mode state
    */
   void updateTabletModeState();
+
+  /**
+   * Update native Windows System Media Transport Controls playback state.
+   * No-op on unsupported Windows versions.
+   */
+  void setSMTCPlaybackState(in boolean aPlaying);
+
+  /**
+   * Publish media metadata to native Windows System Media Transport Controls.
+   * No-op on unsupported Windows versions.
+   */
+  void setSMTCMetadata(in AString aTitle,
+                       in AString aArtist,
+                       in AString aAlbum);
+
+  /**
+   * Publish artwork URL to native Windows System Media Transport Controls.
+   * No-op on unsupported Windows versions.
+   */
+  void setSMTCThumbnailURL(in AString aThumbnailURL);
+
+  /**
+   * Clear native Windows System Media Transport Controls metadata.
+   * No-op on unsupported Windows versions.
+   */
+  void clearSMTCMetadata();
 };
 

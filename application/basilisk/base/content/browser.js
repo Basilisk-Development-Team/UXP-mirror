@@ -967,6 +967,10 @@ var gBrowserInit = {
     Services.obs.addObserver(gPluginHandler.NPAPIPluginCrashed, "plugin-crashed", false);
 
     window.addEventListener("AppCommand", HandleAppCommandEvent, true);
+    gBrowser.addEventListener("DOMAudioPlaybackStarted", HandleWindowsSMTCAudioPlaybackEvent, true);
+    gBrowser.addEventListener("DOMAudioPlaybackStopped", HandleWindowsSMTCAudioPlaybackEvent, true);
+    gBrowser.tabContainer.addEventListener("TabAttrModified", HandleWindowsSMTCTabAttrModified, false);
+    Services.obs.addObserver(HandleSMTCControlCommand, "smtc-control-command", false);
 
     // These routines add message listeners. They must run before
     // loading the frame script to ensure that we don't miss any
@@ -1453,6 +1457,11 @@ var gBrowserInit = {
     FullScreen.uninit();
 
     Services.obs.removeObserver(gPluginHandler.NPAPIPluginCrashed, "plugin-crashed");
+    window.removeEventListener("AppCommand", HandleAppCommandEvent, true);
+    gBrowser.removeEventListener("DOMAudioPlaybackStarted", HandleWindowsSMTCAudioPlaybackEvent, true);
+    gBrowser.removeEventListener("DOMAudioPlaybackStopped", HandleWindowsSMTCAudioPlaybackEvent, true);
+    gBrowser.tabContainer.removeEventListener("TabAttrModified", HandleWindowsSMTCTabAttrModified, false);
+    Services.obs.removeObserver(HandleSMTCControlCommand, "smtc-control-command");
 
     try {
       gBrowser.removeProgressListener(window.XULBrowserWindow);
@@ -1690,11 +1699,218 @@ function HandleAppCommandEvent(evt) {
   case "SendMail":
     MailIntegration.sendLinkForBrowser(gBrowser.selectedBrowser);
     break;
+  case "MediaPlayPause":
+    if (!HandleMediaControlAppCommand("playpause"))
+      return;
+    break;
+  case "MediaStop":
+    if (!HandleMediaControlAppCommand("stop"))
+      return;
+    break;
+  case "MediaNextTrack":
+    if (!HandleMediaControlAppCommand("next"))
+      return;
+    break;
+  case "MediaPrevTrack":
+    if (!HandleMediaControlAppCommand("previous"))
+      return;
+    break;
   default:
     return;
   }
   evt.stopPropagation();
   evt.preventDefault();
+}
+
+function GetActiveMediaTab() {
+  if (gBrowser.selectedTab &&
+      (gBrowser.selectedTab.soundPlaying || gBrowser.selectedTab.linkedBrowser.audioBlocked)) {
+    return gBrowser.selectedTab;
+  }
+
+  for (let tab of gBrowser.visibleTabs) {
+    if (tab.soundPlaying || tab.linkedBrowser.audioBlocked) {
+      return tab;
+    }
+  }
+
+  return gBrowser.selectedTab || null;
+}
+
+function HandleMediaControlAppCommand(action) {
+  let tab = GetActiveMediaTab();
+  if (!tab || !tab.linkedBrowser) {
+    return false;
+  }
+
+  let browser = tab.linkedBrowser;
+  switch (action) {
+    case "playpause":
+      if (tab.soundPlaying && !browser.audioBlocked) {
+        browser.pauseMedia(true);
+      } else {
+        browser.resumeMedia();
+      }
+      return true;
+    case "stop":
+      browser.stopMedia();
+      return true;
+    case "next":
+      browser.messageManager.sendAsyncMessage("MediaControl:Key", { key: "MediaTrackNext" });
+      return true;
+    case "previous":
+      browser.messageManager.sendAsyncMessage("MediaControl:Key", { key: "MediaTrackPrevious" });
+      return true;
+    default:
+      return false;
+  }
+}
+
+function getWindowsUIUtils() {
+  if (AppConstants.platform != "win") {
+    return null;
+  }
+  try {
+    return Cc["@mozilla.org/windows-ui-utils;1"]
+             .getService(Ci.nsIWindowsUIUtils);
+  } catch (e) {
+    return null;
+  }
+}
+
+var gLastSMTCMediaTab = null;
+
+function isSMTCTabOpen(aTab) {
+  if (!aTab || !gBrowser || !gBrowser.tabs) {
+    return false;
+  }
+  for (let tab of gBrowser.tabs) {
+    if (tab == aTab) {
+      return true;
+    }
+  }
+  return false;
+}
+
+function updateWindowsSMTCMetadataFromTab(aTab, aPlaying) {
+  let uiUtils = getWindowsUIUtils();
+  if (!uiUtils) {
+    return;
+  }
+
+  let tab = aTab;
+  if (!tab && isSMTCTabOpen(gLastSMTCMediaTab)) {
+    tab = gLastSMTCMediaTab;
+  }
+
+  if (!tab) {
+    gLastSMTCMediaTab = null;
+    uiUtils.clearSMTCMetadata();
+    return;
+  }
+
+  let title = tab.label || "";
+  let artist = "";
+  let album = "";
+  let thumbnailURL = "";
+
+  try {
+    let browser = tab.linkedBrowser;
+    if (browser && browser.currentURI) {
+      album = browser.currentURI.host || browser.currentURI.spec || "";
+
+      let spec = browser.currentURI.spec || "";
+      let host = (browser.currentURI.host || "").toLowerCase();
+      if (host == "www.youtube.com" || host == "youtube.com" || host == "m.youtube.com") {
+        let match = spec.match(/[?&]v=([^&]+)/);
+        if (match && match[1]) {
+          thumbnailURL = "https://i.ytimg.com/vi/" + match[1] + "/hqdefault.jpg";
+        }
+      } else if (host == "youtu.be") {
+        let path = browser.currentURI.pathQueryRef || "";
+        let id = path.replace(/^\//, "").split(/[?#]/)[0];
+        if (id) {
+          thumbnailURL = "https://i.ytimg.com/vi/" + id + "/hqdefault.jpg";
+        }
+      }
+    }
+  } catch (e) {
+    // Best-effort metadata extraction.
+  }
+
+  uiUtils.setSMTCMetadata(title, artist, album);
+  if (thumbnailURL) {
+    uiUtils.setSMTCThumbnailURL(thumbnailURL);
+  }
+  uiUtils.setSMTCPlaybackState(!!aPlaying);
+  gLastSMTCMediaTab = tab;
+}
+
+function HandleWindowsSMTCAudioPlaybackEvent(aEvent) {
+  let tab = gBrowser.getTabForBrowser(aEvent.target);
+  if (!tab) {
+    return;
+  }
+
+  if (aEvent.type == "DOMAudioPlaybackStarted") {
+    updateWindowsSMTCMetadataFromTab(tab, true);
+    return;
+  }
+
+  if (aEvent.type == "DOMAudioPlaybackStopped") {
+    let activeTab = GetActiveMediaTab();
+    if (activeTab && activeTab.soundPlaying) {
+      updateWindowsSMTCMetadataFromTab(activeTab, true);
+    } else {
+      updateWindowsSMTCMetadataFromTab(null, false);
+    }
+  }
+}
+
+function HandleWindowsSMTCTabAttrModified(aEvent) {
+  let changed = aEvent.detail && aEvent.detail.changed;
+  if (!changed || (changed.indexOf("soundplaying") < 0 &&
+                   changed.indexOf("blocked") < 0 &&
+                   changed.indexOf("muted") < 0 &&
+                   changed.indexOf("label") < 0)) {
+    return;
+  }
+
+  let activeTab = GetActiveMediaTab();
+  if (activeTab && activeTab.soundPlaying) {
+    updateWindowsSMTCMetadataFromTab(activeTab, true);
+  } else {
+    updateWindowsSMTCMetadataFromTab(null, false);
+  }
+}
+
+function HandleSMTCControlCommand(subject, topic, data) {
+  if (topic != "smtc-control-command") {
+    return;
+  }
+
+  let tab = (GetActiveMediaTab() && GetActiveMediaTab().soundPlaying) ?
+            GetActiveMediaTab() :
+            (isSMTCTabOpen(gLastSMTCMediaTab) ? gLastSMTCMediaTab : null);
+  if (!tab || !tab.linkedBrowser) {
+    return;
+  }
+
+  let browser = tab.linkedBrowser;
+  switch (data) {
+    case "play":
+      browser.resumeMedia();
+      updateWindowsSMTCMetadataFromTab(tab, true);
+      break;
+    case "pause":
+      browser.pauseMedia(true);
+      updateWindowsSMTCMetadataFromTab(tab, false);
+      break;
+    case "stop":
+      browser.stopMedia();
+      updateWindowsSMTCMetadataFromTab(tab, false);
+      break;
+  }
 }
 
 function gotoHistoryIndex(aEvent) {

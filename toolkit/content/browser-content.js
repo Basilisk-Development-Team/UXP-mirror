@@ -1017,6 +1017,31 @@ var AudioPlaybackListener = {
 };
 AudioPlaybackListener.init();
 
+addMessageListener("MediaControl:Key", function(msg) {
+  let targetWindow = content;
+  if (!targetWindow || !targetWindow.document) {
+    return;
+  }
+
+  let key = msg.data && msg.data.key;
+  if (!key) {
+    return;
+  }
+
+  let eventInit = {
+    key,
+    code: key,
+    bubbles: true,
+    cancelable: true,
+  };
+
+  let downEvent = new targetWindow.KeyboardEvent("keydown", eventInit);
+  targetWindow.document.dispatchEvent(downEvent);
+
+  let upEvent = new targetWindow.KeyboardEvent("keyup", eventInit);
+  targetWindow.document.dispatchEvent(upEvent);
+});
+
 addMessageListener("Browser:PurgeSessionHistory", function BrowserPurgeHistory() {
   let sessionHistory = docShell.QueryInterface(Ci.nsIWebNavigation).sessionHistory;
   if (!sessionHistory) {
