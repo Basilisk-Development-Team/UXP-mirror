@@ -1,3 +1,4 @@
+
 # This Source Code Form is subject to the terms of the Mozilla Public
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
@@ -27,7 +28,8 @@ import os
 import re
 from optparse import OptionParser
 import errno
-from makeutil import Makefile
+from .makeutil import Makefile
+from functools import reduce
 
 # hack around win32 mangling our line endings
 # http://aspn.activestate.com/ASPN/Cookbook/Python/Recipe/65443
@@ -56,7 +58,7 @@ class Expression:
         self.__ignore_whitespace()
         self.e = self.__get_logical_or()
         if self.content:
-            raise Expression.ParseError, self
+            raise Expression.ParseError(self)
 
     def __get_logical_or(self):
         """
@@ -157,7 +159,7 @@ class Expression:
                 if word_len:
                     rv = Expression.__ASTLeaf('string', self.content[:word_len])
                 else:
-                    raise Expression.ParseError, self
+                    raise Expression.ParseError(self)
         self.__strip(word_len)
         self.__ignore_whitespace()
         return rv
@@ -196,7 +198,7 @@ class Expression:
                 return left and right
             elif tok[1].value == '||':
                 return left or right
-            raise Expression.ParseError, self
+            raise Expression.ParseError(self)
 
         # Mapping from token types to evaluator functions
         # Apart from (non-)equality, all these can be simple lambda forms.
@@ -230,7 +232,7 @@ class Expression:
         def __repr__(self):
             return self.value.__repr__()
 
-    class ParseError(StandardError):
+    class ParseError(Exception):
         """
         Error raised when parsing fails.
         It has two members, offset and content, which give the offset of the
@@ -278,7 +280,7 @@ class Preprocessor:
         self.context = Context()
         for k,v in {'FILE': '',
                     'LINE': 0,
-                    'DIRECTORY': os.path.abspath('.')}.iteritems():
+                    'DIRECTORY': os.path.abspath('.')}.items():
             self.context[k] = v
         self.actionLevel = 0
         self.disableLevel = 0
@@ -292,21 +294,21 @@ class Preprocessor:
         self.cmds = {}
         for cmd, level in {'define': 0,
                            'undef': 0,
-                           'if': sys.maxint,
-                           'ifdef': sys.maxint,
-                           'ifndef': sys.maxint,
+                           'if': sys.maxsize,
+                           'ifdef': sys.maxsize,
+                           'ifndef': sys.maxsize,
                            'else': 1,
                            'elif': 1,
                            'elifdef': 1,
                            'elifndef': 1,
-                           'endif': sys.maxint,
+                           'endif': sys.maxsize,
                            'expand': 0,
                            'literal': 0,
                            'filter': 0,
                            'unfilter': 0,
                            'include': 0,
                            'includesubst': 0,
-                           'error': 0}.iteritems():
+                           'error': 0}.items():
             self.cmds[cmd] = (level, getattr(self, 'do_' + cmd))
         self.out = sys.stdout
         self.setMarker(marker)
@@ -414,20 +416,33 @@ class Preprocessor:
         """
         if not self.out:
             return
-
+        # Python 3 enforces strict typing on bytes and strings, Python 2 did not.
+        # This has... interesting consequences for porting legacy preprocessor code.
+        needs_bytes = getattr(self.out, 'needs_bytes', False)
         next_line, next_file = self.context['LINE'], self.context['FILE']
         if self.checkLineNumbers:
             expected_file, expected_line = self.line_info
             expected_line += 1
             if (expected_line != next_line or
                 expected_file and expected_file != next_file):
-                self.out.write('//@line {line} "{file}"\n'.format(line=next_line,
-                                                                  file=next_file))
+                ln = '//@line {line} "{file}"\n'.format(line=next_line,
+                                                                  file=next_file)
+                if needs_bytes:
+                    ln = ln.encode('utf-8')
+                self.out.write(ln)
         self.noteLineInfo()
 
         filteredLine = self.applyFilters(aLine)
         if filteredLine != aLine:
             self.actionLevel = 2
+
+        if needs_bytes:
+            if isinstance(filteredLine, str):
+                filteredLine = filteredLine.encode('utf-8')
+        else:
+            if isinstance(filteredLine, bytes):
+                filteredLine = filteredLine.decode('utf-8', 'surrogateescape')
+
         self.out.write(filteredLine)
 
     def handleCommandLine(self, args, defaultToStdin = False):
@@ -443,7 +458,7 @@ class Preprocessor:
                 except OSError as error:
                     if error.errno != errno.EEXIST:
                         raise
-            return open(path, 'wb')
+            return open(path, 'w', encoding='utf-8', errors='replace')
 
         p = self.getCommandLineParser()
         options, args = p.parse_args(args=args)
@@ -462,7 +477,7 @@ class Preprocessor:
                 raise Preprocessor.Error(self, "--depend doesn't work with stdout",
                                          None)
             try:
-                from makeutil import Makefile
+                from .makeutil import Makefile
             except:
                 raise Preprocessor.Error(self, "--depend requires the "
                                                "mozbuild.makeutil module", None)
@@ -470,7 +485,7 @@ class Preprocessor:
 
         if args:
             for f in args:
-                with open(f, 'rU') as input:
+                with open(f, 'r', encoding='utf-8', errors='replace') as input:
                     self.processFile(input=input, output=out)
             if depfile:
                 mk = Makefile()
@@ -677,7 +692,7 @@ class Preprocessor:
         current = dict(self.filters)
         for f in filters:
             current[f] = getattr(self, 'filter_' + f)
-        filterNames = current.keys()
+        filterNames = list(current.keys())
         filterNames.sort()
         self.filters = [(fn, current[fn]) for fn in filterNames]
         return
@@ -687,7 +702,7 @@ class Preprocessor:
         for f in filters:
             if f in current:
                 del current[f]
-        filterNames = current.keys()
+        filterNames = list(current.keys())
         filterNames.sort()
         self.filters = [(fn, current[fn]) for fn in filterNames]
         return
@@ -732,7 +747,7 @@ class Preprocessor:
         args can either be a file name, or a file-like object.
         Files should be opened, and will be closed after processing.
         """
-        isName = type(args) == str or type(args) == unicode
+        isName = type(args) == str or type(args) == str
         oldCheckLineNumbers = self.checkLineNumbers
         self.checkLineNumbers = False
         if isName:
@@ -742,7 +757,7 @@ class Preprocessor:
                     args = self.applyFilters(args)
                 if not os.path.isabs(args):
                     args = os.path.join(self.context['DIRECTORY'], args)
-                args = open(args, 'rU')
+                args = open(args, 'r', encoding='utf-8', errors='replace')
             except Preprocessor.Error:
                 raise
             except:
@@ -787,7 +802,7 @@ def preprocess(includes=[sys.stdin], defines={},
     pp = Preprocessor(defines=defines,
                       marker=marker)
     for f in includes:
-        with open(f, 'rU') as input:
+        with open(f, 'r', encoding='utf-8', errors='replace') as input:
             pp.processFile(input=input, output=output)
     return pp.includes
 

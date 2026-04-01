@@ -108,7 +108,7 @@ class TierStatus(object):
         """
         o = []
 
-        for tier, state in self.tiers.items():
+        for tier, state in list(self.tiers.items()):
             t_entry = dict(
                 name=tier,
                 start=state['begin_time'],
@@ -643,8 +643,8 @@ class CCacheStats(object):
 
         return '\n'.join(lines)
 
-    def __nonzero__(self):
-        relative_values = [v for k, v in self._values.items()
+    def __bool__(self):
+        relative_values = [v for k, v in list(self._values.items())
                            if k not in self.ABSOLUTE_KEYS]
         return (all(v >= 0 for v in relative_values) and
                 any(v > 0 for v in relative_values))
@@ -666,8 +666,8 @@ class BuildDriver(MozbuildObject):
         """Install test files."""
 
         if self.is_clobber_needed():
-            print(INSTALL_TESTS_CLOBBER.format(
-                  clobber_file=os.path.join(self.topobjdir, 'CLOBBER')))
+            print((INSTALL_TESTS_CLOBBER.format(
+                  clobber_file=os.path.join(self.topobjdir, 'CLOBBER'))))
             sys.exit(1)
 
         if not test_objs:
