@@ -82,10 +82,22 @@ addMessageListener("MixedContent:ReenableProtection", function() {
 var AboutHomeListener = {
   init: function(chromeGlobal) {
     chromeGlobal.addEventListener('AboutHomeLoad', this, false, true);
+    chromeGlobal.addEventListener('AboutHomeSearch', this, false, true);
+  },
+
+  _isAboutHomeDocumentURI(uri) {
+    if (!uri) {
+      return false;
+    }
+    let lowerURI = uri.toLowerCase();
+    return lowerURI == "about:home" ||
+           lowerURI.startsWith("about:home?") ||
+           lowerURI.startsWith("about:home#") ||
+           lowerURI == "chrome://browser/content/abouthome/abouthome.xhtml";
   },
 
   get isAboutHome() {
-    return content.document.documentURI.toLowerCase() == "about:home";
+    return this._isAboutHomeDocumentURI(content.document.documentURI);
   },
 
   handleEvent: function(aEvent) {
@@ -95,6 +107,9 @@ var AboutHomeListener = {
     switch (aEvent.type) {
       case "AboutHomeLoad":
         this.onPageLoad();
+        break;
+      case "AboutHomeSearch":
+        this.onSearch(aEvent);
         break;
       case "click":
         this.onClick(aEvent);
@@ -144,7 +159,7 @@ var AboutHomeListener = {
 
     let originalTarget = aEvent.originalTarget;
     let ownerDoc = originalTarget.ownerDocument;
-    if (ownerDoc.documentURI != "about:home") {
+    if (!this._isAboutHomeDocumentURI(ownerDoc.documentURI)) {
       // This shouldn't happen, but we're being defensive.
       return;
     }
@@ -190,6 +205,25 @@ var AboutHomeListener = {
     removeMessageListener("AboutHome:Update", this);
     removeEventListener("click", this, true);
     removeEventListener("pagehide", this, true);
+  },
+
+  onSearch: function(aEvent) {
+    let originalTarget = aEvent.originalTarget || aEvent.target;
+    let ownerDoc = originalTarget && originalTarget.ownerDocument;
+    if (!ownerDoc && originalTarget && originalTarget.nodeType == Ci.nsIDOMNode.DOCUMENT_NODE) {
+      ownerDoc = originalTarget;
+    }
+    if (!ownerDoc || !this._isAboutHomeDocumentURI(ownerDoc.documentURI)) {
+      return;
+    }
+
+    let detail = aEvent.detail || {};
+    let searchString = (detail.searchString || "").trim();
+    if (!searchString) {
+      return;
+    }
+
+    sendAsyncMessage("AboutHome:Search", { searchString });
   },
 };
 AboutHomeListener.init(this);
@@ -362,6 +396,7 @@ var ContentSearchMediator = {
   whitelist: new Set([
     "about:home",
     "about:newtab",
+    "chrome://browser/content/abouthome/aboutHome.xhtml",
   ]),
 
   init: function (chromeGlobal) {
@@ -389,7 +424,11 @@ var ContentSearchMediator = {
   },
 
   get _contentWhitelisted() {
-    return this.whitelist.has(content.document.documentURI);
+    let documentURI = content.document.documentURI;
+    // about:home may carry query/hash fragments; whitelist should apply to the
+    // base page URI so search events are not dropped for those variants.
+    let baseURI = documentURI.replace(/[?#].*$/, "");
+    return this.whitelist.has(baseURI);
   },
 
   _sendMsg: function (type, data=null) {

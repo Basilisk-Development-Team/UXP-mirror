@@ -120,6 +120,7 @@ a {
   transition-property: background-color, border-color, box-shadow;
   transition-duration: 150ms;
   width: 50px;
+  display: none;
 }
 
 #searchSubmit:dir(rtl) {

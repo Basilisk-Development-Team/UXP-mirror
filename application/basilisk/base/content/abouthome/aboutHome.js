@@ -27,7 +27,10 @@ window.addEventListener("pageshow", function () {
   // Delay search engine setup, cause browser.js::BrowserOnAboutPageLoad runs
   // later and may use asynchronous getters.
   window.gObserver.observe(document.documentElement, { attributes: true });
-  window.gObserver.observe(document.getElementById("launcher"), { attributes: true });
+  let launcher = document.getElementById("launcher");
+  if (launcher) {
+    window.gObserver.observe(launcher, { attributes: true });
+  }
   fitToWidth();
   setupSearch();
   window.addEventListener("resize", fitToWidth);
@@ -72,7 +75,22 @@ window.addEventListener("keypress", ev => {
 
 function onSearchSubmit(aEvent)
 {
-  gContentSearchController.search(aEvent);
+  if (aEvent instanceof MouseEvent && gContentSearchController &&
+      gContentSearchController.defaultEngine) {
+    gContentSearchController.search(aEvent);
+    return;
+  }
+
+  // Fallback path for builds where ContentSearch mediation fails.
+  let terms = searchText && searchText.value ? searchText.value.trim() : "";
+  if (!terms) {
+    return;
+  }
+
+  document.dispatchEvent(new CustomEvent("AboutHomeSearch", {
+    bubbles: true,
+    detail: { searchString: terms },
+  }));
 }
 
 
@@ -80,10 +98,13 @@ var gContentSearchController;
 
 function setupSearch()
 {
+  let searchSubmit = document.getElementById("searchSubmit");
+
   // Set submit button label for when CSS background are disabled (e.g.
   // high contrast mode).
-  document.getElementById("searchSubmit").value =
+  searchSubmit.value =
     document.body.getAttribute("dir") == "ltr" ? "\u25B6" : "\u25C0";
+  searchSubmit.addEventListener("click", onSearchSubmit, true);
 
   // The "autofocus" attribute doesn't focus the form element
   // immediately when the element is first drawn, so the
@@ -99,6 +120,14 @@ function setupSearch()
       new ContentSearchUIController(searchText, searchText.parentNode,
                                     "abouthome", "homepage");
   }
+
+  searchText.addEventListener("keypress", function(event) {
+    if (event.keyCode == event.DOM_VK_RETURN) {
+      event.preventDefault();
+      event.stopPropagation();
+      onSearchSubmit(event);
+    }
+  }, true);
 }
 
 /**

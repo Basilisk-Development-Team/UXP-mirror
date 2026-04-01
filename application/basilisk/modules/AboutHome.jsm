@@ -81,6 +81,7 @@ var AboutHome = {
     "AboutHome:Addons",
     "AboutHome:Sync",
     "AboutHome:Settings",
+    "AboutHome:Search",
     "AboutHome:RequestUpdate",
     "AboutHome:MaybeShowAutoMigrationUndoNotification",
   ],
@@ -128,6 +129,31 @@ var AboutHome = {
       case "AboutHome:Settings":
         window.openPreferences();
         break;
+
+      case "AboutHome:Search": {
+        let data = aMessage.data || {};
+        let searchString = (data.searchString || "").trim();
+        if (!searchString) {
+          break;
+        }
+
+        let engine = Services.search.defaultEngine;
+        if (!engine) {
+          break;
+        }
+
+        let submission = engine.getSubmission(searchString, "", "homepage");
+        if (!submission) {
+          break;
+        }
+
+        aMessage.target.loadURIWithFlags(submission.uri.spec,
+                                         Ci.nsIWebNavigation.LOAD_FLAGS_NONE,
+                                         null,
+                                         null,
+                                         submission.postData);
+        break;
+      }
 
       case "AboutHome:RequestUpdate":
         this.sendAboutHomeData(aMessage.target);

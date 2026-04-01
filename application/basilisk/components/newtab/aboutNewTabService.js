@@ -27,7 +27,7 @@ const LOCAL_NEWTAB_URL = "chrome://browser/content/newtab/newTab.xhtml";
 
 const REMOTE_NEWTAB_PATH = "/newtab/v%VERSION%/%CHANNEL%/%LOCALE%/index.html";
 
-const ABOUT_URL = "about:newtab";
+const ABOUT_URL = "about:home";
 
 // Pref that tells if remote newtab is enabled
 const PREF_REMOTE_ENABLED = "browser.newtabpage.remote";
