@@ -273,8 +273,15 @@ Object.defineProperty(ChromeProfileMigrator.prototype, "sourceLocked", {
 function GetBookmarksResource(aProfileFolder) {
   let bookmarksFile = aProfileFolder.clone();
   bookmarksFile.append("Bookmarks");
-  if (!bookmarksFile.exists())
-    return null;
+  if (!bookmarksFile.exists()) {
+    let bookmarksBackupFile = aProfileFolder.clone();
+    bookmarksBackupFile.append("Bookmarks.bak");
+    if (bookmarksBackupFile.exists()) {
+      bookmarksFile = bookmarksBackupFile;
+    } else {
+      return null;
+    }
+  }
 
   return {
     type: MigrationUtils.resourceTypes.BOOKMARKS,
@@ -413,8 +420,16 @@ function GetHistoryResource(aProfileFolder) {
 function GetCookiesResource(aProfileFolder) {
   let cookiesFile = aProfileFolder.clone();
   cookiesFile.append("Cookies");
-  if (!cookiesFile.exists())
-    return null;
+  if (!cookiesFile.exists()) {
+    let networkCookiesFile = aProfileFolder.clone();
+    networkCookiesFile.append("Network");
+    networkCookiesFile.append("Cookies");
+    if (networkCookiesFile.exists()) {
+      cookiesFile = networkCookiesFile;
+    } else {
+      return null;
+    }
+  }
 
   return {
     type: MigrationUtils.resourceTypes.COOKIES,
@@ -465,8 +480,15 @@ function GetCookiesResource(aProfileFolder) {
 function GetWindowsPasswordsResource(aProfileFolder) {
   let loginFile = aProfileFolder.clone();
   loginFile.append("Login Data");
-  if (!loginFile.exists())
-    return null;
+  if (!loginFile.exists()) {
+    let alternateLoginFile = aProfileFolder.clone();
+    alternateLoginFile.append("Login Data For Account");
+    if (alternateLoginFile.exists()) {
+      loginFile = alternateLoginFile;
+    } else {
+      return null;
+    }
+  }
 
   return {
     type: MigrationUtils.resourceTypes.PASSWORDS,
@@ -622,7 +644,7 @@ Object.defineProperty(ChromiumEdgeProfileMigrator.prototype, "sourceProfiles", {
 
       let name = entry.leafName;
       if (name == "Default" || name.startsWith("Profile ")) {
-        profiles.push({ id: name, name });
+        profiles.push({ id: name, name: name == "Default" ? "Default" : "Profile " + name.replace(/^Profile\s+/, "") });
       }
     }
 
