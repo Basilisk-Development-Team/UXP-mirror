@@ -10,10 +10,10 @@
 
 <!ENTITY importFromIE.label             "Microsoft Internet Explorer">
 <!ENTITY importFromIE.accesskey         "M">
-<!ENTITY importFromEdge.label           "Microsoft Edge">
-<!ENTITY importFromEdge.accesskey       "E">
-<!ENTITY importFromChromiumEdge.label   "Chromium Edge">
-<!ENTITY importFromChromiumEdge.accesskey "h">
+<!ENTITY importFromEdge.label           "Microsoft Edge (old)">
+<!ENTITY importFromEdge.accesskey       "O">
+<!ENTITY importFromChromiumEdge.label   "Microsoft Edge (new)">
+<!ENTITY importFromChromiumEdge.accesskey "N">
 <!ENTITY importFromNothing.label        "Don’t import anything">
 <!ENTITY importFromNothing.accesskey    "D">
 <!ENTITY importFromSafari.label         "Safari">

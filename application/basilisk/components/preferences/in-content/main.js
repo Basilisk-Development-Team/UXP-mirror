@@ -5,6 +5,7 @@
 Components.utils.import("resource://gre/modules/Downloads.jsm");
 Components.utils.import("resource://gre/modules/FileUtils.jsm");
 Components.utils.import("resource://gre/modules/Task.jsm");
+Components.utils.import("resource:///modules/MigrationUtils.jsm");
 Components.utils.import("resource:///modules/ShellService.jsm");
 Components.utils.import("resource:///modules/TransientPrefs.jsm");
 
@@ -75,6 +76,8 @@ var gMainPane = {
                      gMainPane.setHomePageToBookmark);
     setEventListener("restoreDefaultHomePage", "command",
                      gMainPane.restoreDefaultHomePage);
+    setEventListener("openMigrationWizard", "command",
+             gMainPane.openMigrationWizard);
     setEventListener("chooseFolder", "command",
                      gMainPane.chooseFolder);
 
@@ -242,6 +245,11 @@ var gMainPane = {
   {
     var homePage = document.getElementById("browser.startup.homepage");
     homePage.value = homePage.defaultValue;
+  },
+
+  openMigrationWizard: function ()
+  {
+    MigrationUtils.showMigrationWizard(window, [MigrationUtils.MIGRATION_ENTRYPOINT_PLACES]);
   },
 
   // DOWNLOADS

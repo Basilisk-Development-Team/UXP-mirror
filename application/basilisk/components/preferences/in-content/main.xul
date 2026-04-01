@@ -244,6 +244,20 @@
   </radiogroup>
 </groupbox>
 
+<!-- Import -->
+<groupbox id="importGroup"
+          data-category="paneGeneral"
+          hidden="true">
+  <caption><label>&importGroup.label;</label></caption>
+
+  <hbox>
+    <button id="openMigrationWizard"
+            class="content-cell-item"
+            label="&importBrowserData.label;"
+            accesskey="&importBrowserData.accesskey;"/>
+  </hbox>
+</groupbox>
+
 <!-- Tab preferences -->
 <groupbox data-category="paneGeneral"
           hidden="true" align="start">

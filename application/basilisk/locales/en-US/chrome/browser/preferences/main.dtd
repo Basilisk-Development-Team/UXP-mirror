@@ -19,8 +19,11 @@
 <!ENTITY chooseBookmark.accesskey  "B">
 <!ENTITY restoreDefault.label      "Restore to Default">
 <!ENTITY restoreDefault.accesskey  "R">
+<!ENTITY importBrowserData.label   "Import Browser Data…">
+<!ENTITY importBrowserData.accesskey "I">
 
 <!ENTITY downloads.label     "Downloads">
+<!ENTITY importGroup.label   "Import">
 
 <!ENTITY saveTo.label "Save files to">
 <!ENTITY saveTo.accesskey "v">

@@ -55,6 +55,27 @@ function getDataFolder(subfoldersWin, subfoldersOSX, subfoldersUnix) {
   return FileUtils.getDir(dirServiceID, subfolders, false);
 }
 
+function getChromiumEdgeDataFolder() {
+  if (AppConstants.platform != "win") {
+    return null;
+  }
+
+  // Probe all common Edge Chromium channels so migration appears even when
+  // users run Beta/Dev/Canary instead of Stable.
+  let microsoftDir = FileUtils.getDir("LocalAppData", ["Microsoft"], false);
+  let channelFolders = ["Edge", "Edge Beta", "Edge Dev", "Edge SxS"];
+  for (let channelFolder of channelFolders) {
+    let candidate = microsoftDir.clone();
+    candidate.append(channelFolder);
+    candidate.append("User Data");
+    if (candidate.exists() && candidate.isReadable() && candidate.isDirectory()) {
+      return candidate;
+    }
+  }
+
+  return null;
+}
+
 /**
  * Convert Chrome time format to Date object
  *
@@ -541,16 +562,77 @@ var componentsArray = [ChromeProfileMigrator, ChromiumProfileMigrator];
  * Chromium Edge migration
  **/
 function ChromiumEdgeProfileMigrator() {
-  let edgeUserDataFolder = getDataFolder(["Microsoft", "Edge"],
-                                         ["Microsoft Edge"],
-                                         ["microsoft-edge"]);
-  this._chromeUserDataFolder = edgeUserDataFolder.exists() ? edgeUserDataFolder : null;
+  let edgeUserDataFolder = getChromiumEdgeDataFolder();
+  this._chromeUserDataFolder = edgeUserDataFolder;
 }
 
 ChromiumEdgeProfileMigrator.prototype = Object.create(ChromeProfileMigrator.prototype);
 ChromiumEdgeProfileMigrator.prototype.classDescription = "Chromium Edge Profile Migrator";
 ChromiumEdgeProfileMigrator.prototype.contractID = "@mozilla.org/profile/migrator;1?app=browser&type=chromiumedge";
 ChromiumEdgeProfileMigrator.prototype.classID = Components.ID("{a3380b9d-ef2f-4a5f-84d9-df2e8a90b06d}");
+
+ChromiumEdgeProfileMigrator.prototype.getResources = function(aProfile) {
+  if (!this._chromeUserDataFolder || !aProfile) {
+    return [];
+  }
+
+  let profileFolder = this._chromeUserDataFolder.clone();
+  profileFolder.append(aProfile.id);
+  if (!profileFolder.exists() || !profileFolder.isDirectory()) {
+    return [];
+  }
+
+  let possibleResources = [
+    GetBookmarksResource(profileFolder),
+    GetHistoryResource(profileFolder),
+    GetCookiesResource(profileFolder),
+  ];
+
+  // Newer Edge stores cookies under the profile's Network subfolder.
+  if (!possibleResources[2]) {
+    let networkFolder = profileFolder.clone();
+    networkFolder.append("Network");
+    possibleResources[2] = GetCookiesResource(networkFolder);
+  }
+
+  if (AppConstants.platform == "win") {
+    possibleResources.push(GetWindowsPasswordsResource(profileFolder));
+  }
+
+  return possibleResources.filter(r => r != null);
+};
+
+Object.defineProperty(ChromiumEdgeProfileMigrator.prototype, "sourceProfiles", {
+  get: function() {
+    if ("__sourceProfiles" in this) {
+      return this.__sourceProfiles;
+    }
+
+    if (!this._chromeUserDataFolder) {
+      return [];
+    }
+
+    let profiles = [];
+    let entries = this._chromeUserDataFolder.directoryEntries;
+    while (entries.hasMoreElements()) {
+      let entry = entries.getNext().QueryInterface(Ci.nsIFile);
+      if (!entry.isDirectory()) {
+        continue;
+      }
+
+      let name = entry.leafName;
+      if (name == "Default" || name.startsWith("Profile ")) {
+        profiles.push({ id: name, name });
+      }
+    }
+
+    this.__sourceProfiles = profiles.filter(profile => {
+      let resources = this.getResources(profile);
+      return resources && resources.length > 0;
+    });
+    return this.__sourceProfiles;
+  }
+});
 
 if (AppConstants.platform == "win") {
   componentsArray.push(ChromiumEdgeProfileMigrator);
