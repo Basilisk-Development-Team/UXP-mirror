@@ -9,6 +9,10 @@ component {4cec1de4-1671-4fc3-a53e-6c539dc77a26} ChromeProfileMigrator.js
 contract @mozilla.org/profile/migrator;1?app=browser&type=chrome {4cec1de4-1671-4fc3-a53e-6c539dc77a26}
 component {8cece922-9720-42de-b7db-7cef88cb07ca} ChromeProfileMigrator.js
 contract @mozilla.org/profile/migrator;1?app=browser&type=chromium {8cece922-9720-42de-b7db-7cef88cb07ca}
+#if defined(XP_WIN)
+component {a3380b9d-ef2f-4a5f-84d9-df2e8a90b06d} ChromeProfileMigrator.js
+contract @mozilla.org/profile/migrator;1?app=browser&type=chromiumedge {a3380b9d-ef2f-4a5f-84d9-df2e8a90b06d}
+#endif
 
 component {91185366-ba97-4438-acba-48deaca63386} FirefoxProfileMigrator.js
 contract @mozilla.org/profile/migrator;1?app=browser&type=firefox {91185366-ba97-4438-acba-48deaca63386}

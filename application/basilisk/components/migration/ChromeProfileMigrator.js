@@ -538,6 +538,25 @@ ChromiumProfileMigrator.prototype.classID = Components.ID("{8cece922-9720-42de-b
 var componentsArray = [ChromeProfileMigrator, ChromiumProfileMigrator];
 
 /**
+ * Chromium Edge migration
+ **/
+function ChromiumEdgeProfileMigrator() {
+  let edgeUserDataFolder = getDataFolder(["Microsoft", "Edge"],
+                                         ["Microsoft Edge"],
+                                         ["microsoft-edge"]);
+  this._chromeUserDataFolder = edgeUserDataFolder.exists() ? edgeUserDataFolder : null;
+}
+
+ChromiumEdgeProfileMigrator.prototype = Object.create(ChromeProfileMigrator.prototype);
+ChromiumEdgeProfileMigrator.prototype.classDescription = "Chromium Edge Profile Migrator";
+ChromiumEdgeProfileMigrator.prototype.contractID = "@mozilla.org/profile/migrator;1?app=browser&type=chromiumedge";
+ChromiumEdgeProfileMigrator.prototype.classID = Components.ID("{a3380b9d-ef2f-4a5f-84d9-df2e8a90b06d}");
+
+if (AppConstants.platform == "win") {
+  componentsArray.push(ChromiumEdgeProfileMigrator);
+}
+
+/**
  * Chrome Canary
  * Not available on Linux
  **/

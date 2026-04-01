@@ -12,6 +12,8 @@
 <!ENTITY importFromIE.accesskey         "M">
 <!ENTITY importFromEdge.label           "Microsoft Edge">
 <!ENTITY importFromEdge.accesskey       "E">
+<!ENTITY importFromChromiumEdge.label   "Chromium Edge">
+<!ENTITY importFromChromiumEdge.accesskey "h">
 <!ENTITY importFromNothing.label        "Don’t import anything">
 <!ENTITY importFromNothing.accesskey    "D">
 <!ENTITY importFromSafari.label         "Safari">

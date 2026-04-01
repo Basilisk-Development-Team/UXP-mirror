@@ -46,7 +46,7 @@ let gUndoData = null;
 XPCOMUtils.defineLazyGetter(this, "gAvailableMigratorKeys", function() {
   if (AppConstants.platform == "win") {
     return [
-      "firefox", "edge", "ie", "chrome", "chromium", "360se",
+      "firefox", "edge", "chromiumedge", "ie", "chrome", "chromium", "360se",
       "canary"
     ];
   }
@@ -517,6 +517,8 @@ this.MigrationUtils = Object.freeze({
     switch (browserId) {
       case "edge":
         return "sourceNameEdge";
+      case "chromiumedge":
+        return "sourceNameChromiumEdge";
       case "ie":
         return "sourceNameIE";
       case "safari":
@@ -1066,6 +1068,7 @@ this.MigrationUtils = Object.freeze({
     "nothing":    1,
     "firefox":    2,
     "edge":       3,
+    "chromiumedge": 10,
     "ie":         4,
     "chrome":     5,
     "chromium":   6,
