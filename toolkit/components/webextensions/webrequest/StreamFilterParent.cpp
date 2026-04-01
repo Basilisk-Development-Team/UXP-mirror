@@ -250,8 +250,9 @@ bool StreamFilterParent::RecvClose() {
 void StreamFilterParent::Destroy() {
   // Close the channel asynchronously so the actor is never destroyed before
   // this message is fully processed.
-  ActorThread()->Dispatch(NewRunnableMethod(this,
-                                            &StreamFilterParent::Close),
+  ActorThread()->Dispatch(NS_NewRunnableFunction([self = RefPtr<StreamFilterParent>(this)]() {
+    self->Close();
+  }),
                           NS_DISPATCH_NORMAL);
 }
 
@@ -354,8 +355,8 @@ void StreamFilterParent::FinishDisconnect() {
 bool StreamFilterParent::RecvWrite(Data&& aData) {
   AssertIsActorThread();
 
-  RunOnIOThread(NS_NewRunnableFunction([this, data = std::move(aData)]() mutable {
-    WriteMove(std::move(data));
+  RunOnIOThread(NS_NewRunnableFunction([self = RefPtr<StreamFilterParent>(this), data = std::move(aData)]() mutable {
+    self->WriteMove(std::move(data));
   }));
   return true;
 }
@@ -612,8 +613,8 @@ StreamFilterParent::OnDataAvailable(nsIRequest* aRequest,
     return NS_ERROR_FAILURE;
   } else {
     ActorThread()->Dispatch(
-        NS_NewRunnableFunction([this, data = std::move(data)]() mutable {
-          DoSendData(std::move(data));
+        NS_NewRunnableFunction([self = RefPtr<StreamFilterParent>(this), data = std::move(data)]() mutable {
+          self->DoSendData(std::move(data));
         }),
         NS_DISPATCH_NORMAL);
   }

@@ -23,6 +23,11 @@
 <!ENTITY  reloadTab.accesskey                "R">
 <!ENTITY  reloadAllTabs.label                "Reload All Tabs">
 <!ENTITY  reloadAllTabs.accesskey            "A">
+<!-- LOCALIZATION NOTE (closeTabsToTheStart.label): This should indicate the
+direction in which tabs are closed, i.e. locales that use RTL mode should say
+right instead of left. -->
+<!ENTITY  closeTabsToTheStart.label          "Close Tabs to the Left">
+<!ENTITY  closeTabsToTheStart.accesskey      "L">
 <!-- LOCALIZATION NOTE (closeTabsToTheEnd.label): This should indicate the
 direction in which tabs are closed, i.e. locales that use RTL mode should say
 left instead of right. -->

@@ -7441,6 +7441,12 @@ var TabContextMenu = {
     document.getElementById("context_pinTab").hidden = this.contextTab.pinned;
     document.getElementById("context_unpinTab").hidden = !this.contextTab.pinned;
 
+    // Disable "Close Tabs to the Left" if there are no tabs before it,
+    // and hide it when the user rightclicked on a pinned tab.
+    document.getElementById("context_closeTabsToTheStart").disabled =
+      gBrowser.getTabsToTheStartFrom(this.contextTab).length == 0;
+    document.getElementById("context_closeTabsToTheStart").hidden = this.contextTab.pinned;
+
     // Disable "Close Tabs to the Right" if there are no tabs
     // following it and hide it when the user rightclicked on a pinned
     // tab.
