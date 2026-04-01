@@ -186,14 +186,13 @@ var CustomizableUIInternal = {
      * something out for it.
      */
     let panelPlacements = [
-      "edit-controls",
       "zoom-controls",
+      "fullscreen-button",
       "new-window-button",
       "privatebrowsing-button",
       "save-page-button",
       "print-button",
       "history-panelmenu",
-      "fullscreen-button",
       "find-button",
       "preferences-button",
       "add-ons-button",

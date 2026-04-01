@@ -257,6 +257,16 @@ panelview:not([mainview]) .toolbarbutton-text,
   flex: auto;
 }
 
+.panelUI-list #PanelUI-contents {
+  padding: 0;
+  margin: 0;
+}
+
+.panelUI-list #PanelUI-contents-scroller {
+  width: auto;
+  padding: 0;
+}
+
 .toolbaritem-combined-buttons@inAnyPanel@ > toolbarbutton > .toolbarbutton-icon {
   min-width: 0;
   min-height: 0;
@@ -447,6 +457,94 @@ toolbarpaletteitem[place="palette"] > toolbaritem > toolbarbutton {
 
 #personal-bookmarks[cui-areatype="toolbar"][overflowedItem=true] > #bookmarks-toolbar-placeholder > .toolbarbutton-icon {
   margin-inline-end: 2px;
+}
+
+/* List layout variant */
+.panelUI-list {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0;
+}
+
+.panelUI-list .toolbarbutton-1,
+.panelUI-list .toolbarbutton-1 > .toolbarbutton-menubutton-button {
+  -moz-appearance: none;
+  -moz-box-orient: horizontal;
+  width: 100%;
+  height: auto;
+  min-height: 48px;
+  padding: 8px 12px;
+  border: none;
+  margin: 0;
+}
+
+/* Full width items */
+.panelUI-list > #new-window-button,
+.panelUI-list > #privatebrowsing-button,
+.panelUI-list > #save-page-button,
+.panelUI-list > #print-button,
+.panelUI-list > #history-panelmenu,
+.panelUI-list > #find-button,
+.panelUI-list > #preferences-button,
+.panelUI-list > #add-ons-button,
+.panelUI-list > #developer-button,
+.panelUI-list > #characterencoding-button {
+  grid-column: 1 / -1;
+}
+
+.panelUI-list .toolbarbutton-1 > .toolbarbutton-icon,
+.panelUI-list .toolbarbutton-1 > .toolbarbutton-badge-stack {
+  width: 16px;
+  height: 16px;
+  min-width: 16px;
+  min-height: 16px;
+  margin: 0 12px 0 0;
+  margin-inline-end: 12px;
+}
+
+.panelUI-list .toolbarbutton-1 > .toolbarbutton-badge-stack > .toolbarbutton-icon {
+  width: 16px;
+  height: 16px;
+  min-width: 16px;
+  min-height: 16px;
+  margin: 0;
+}
+
+.panelUI-list .toolbarbutton-1 > .toolbarbutton-text,
+.panelUI-list .toolbarbutton-1 > .toolbarbutton-multiline-text,
+.panelUI-list .toolbarbutton-1 > .toolbarbutton-menubutton-button > .toolbarbutton-text,
+.panelUI-list .toolbarbutton-1 > .toolbarbutton-menubutton-button > .toolbarbutton-multiline-text {
+  text-align: start;
+  margin: 0;
+  display: -moz-box;
+  -moz-box-orient: vertical;
+  -moz-box-pack: center;
+}
+
+.panelUI-list .toolbarbutton-1[type="menu"] {
+  background-image: url("chrome://browser/skin/toolbarbutton-dropdown-arrow.png");
+  background-position: right 12px center;
+  background-repeat: no-repeat;
+  padding-inline-end: 28px;
+}
+
+.panelUI-list .toolbarbutton-1[type="menu"]:-moz-locale-dir(rtl) {
+  background-position: left 12px center;
+  padding-inline-start: 28px;
+  padding-inline-end: 12px;
+}
+
+.panelUI-list .toolbarbutton-1 > .toolbarbutton-menu-dropmarker {
+  display: none;
+}
+
+.panelUI-list .toolbarbutton-1 > .toolbarbutton-menubutton-dropmarker {
+  display: none;
+}
+
+.panelUI-list .toolbarbutton-1 > .toolbarbutton-multiline-text,
+.panelUI-list .toolbarbutton-1 > .toolbarbutton-menubutton-button > .toolbarbutton-multiline-text {
+  display: none !important;
 }
 
 #edit-controls@inAnyPanel@ > #copy-button,
