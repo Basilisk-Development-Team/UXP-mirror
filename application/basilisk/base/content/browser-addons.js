@@ -334,10 +334,27 @@ const gXPInstallObserver = {
 
         messageString = gNavigatorBundle.getFormattedString(error, args);
 
-        if (install.error == AddonManager.ERROR_CORRUPT_FILE &&
-            install.errorDetail &&
-            typeof install.errorDetail == "string") {
-          messageString += "\n" + "Details: " + install.errorDetail;
+        if (install.error == AddonManager.ERROR_CORRUPT_FILE) {
+          let detail = null;
+          if (install.errorDetail !== undefined && install.errorDetail !== null) {
+            detail = install.errorDetail;
+            if (typeof detail != "string") {
+              if (detail && typeof detail.message == "string" && detail.message) {
+                detail = detail.message;
+              } else {
+                detail = String(detail);
+              }
+            }
+            detail = detail.replace(/[\r\n\t]+/g, " ").trim();
+          }
+
+          let detailString;
+          if (detail) {
+            detailString = gNavigatorBundle.getFormattedString("addonInstallErrorDetail", [detail]);
+          } else {
+            detailString = gNavigatorBundle.getFormattedString("addonInstallErrorDetailCode", [String(install.error)]);
+          }
+          messageString += " " + detailString;
         }
 
         PopupNotifications.show(browser, notificationID, messageString, anchorID,

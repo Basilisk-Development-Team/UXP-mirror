@@ -5735,6 +5735,17 @@ class AddonInstall {
         recursiveRemove(stagedAddon);
       this.state = AddonManager.STATE_INSTALL_FAILED;
       this.error = AddonManager.ERROR_FILE_ACCESS;
+      if (e !== undefined && e !== null) {
+        if (typeof e == "string") {
+          this.errorDetail = e;
+        } else if (e && typeof e.message == "string" && e.message) {
+          this.errorDetail = e.message;
+        } else {
+          this.errorDetail = String(e);
+        }
+      } else {
+        this.errorDetail = null;
+      }
       XPIProvider.removeActiveInstall(this);
       AddonManagerPrivate.callAddonListeners("onOperationCancelled",
                                              this.addon.wrapper);
@@ -5919,6 +5930,17 @@ class LocalAddonInstall extends AddonInstall {
         logger.warn("Invalid XPI", message);
         this.state = AddonManager.STATE_DOWNLOAD_FAILED;
         this.error = error;
+        if (message !== undefined && message !== null) {
+          if (typeof message == "string") {
+            this.errorDetail = message;
+          } else if (message && typeof message.message == "string" && message.message) {
+            this.errorDetail = message.message;
+          } else {
+            this.errorDetail = String(message);
+          }
+        } else {
+          this.errorDetail = null;
+        }
         XPIProvider.removeActiveInstall(this);
         AddonManagerPrivate.callInstallListeners("onNewInstall",
                                                  this.listeners,
@@ -6031,6 +6053,7 @@ class DownloadAddonInstall extends AddonInstall {
       this.removeTemporaryFile();
       this.state = AddonManager.STATE_AVAILABLE;
       this.error = 0;
+      this.errorDetail = null;
       this.progress = 0;
       this.maxProgress = -1;
       this.hash = this.originalHash;
@@ -6102,6 +6125,17 @@ class DownloadAddonInstall extends AddonInstall {
       logger.warn("Failed to start download for addon " + this.sourceURI.spec, e);
       this.state = AddonManager.STATE_DOWNLOAD_FAILED;
       this.error = AddonManager.ERROR_FILE_ACCESS;
+      if (e !== undefined && e !== null) {
+        if (typeof e == "string") {
+          this.errorDetail = e;
+        } else if (e && typeof e.message == "string" && e.message) {
+          this.errorDetail = e.message;
+        } else {
+          this.errorDetail = String(e);
+        }
+      } else {
+        this.errorDetail = null;
+      }
       XPIProvider.removeActiveInstall(this);
       AddonManagerPrivate.callInstallListeners("onDownloadFailed",
                                                this.listeners, this.wrapper);

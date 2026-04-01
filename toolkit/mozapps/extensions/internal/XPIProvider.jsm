@@ -4926,6 +4926,17 @@ AddonInstall.prototype = {
         logger.warn("Invalid XPI", e);
         this.error = AddonManager.ERROR_CORRUPT_FILE;
       }
+      if (e !== undefined && e !== null) {
+        if (typeof e == "string") {
+          this.errorDetail = e;
+        } else if (e && typeof e.message == "string" && e.message) {
+          this.errorDetail = e.message;
+        } else {
+          this.errorDetail = String(e);
+        }
+      } else {
+        this.errorDetail = null;
+      }
       aCallback(this);
       return;
     }
@@ -4981,6 +4992,7 @@ AddonInstall.prototype = {
       this.removeTemporaryFile();
       this.state = AddonManager.STATE_AVAILABLE;
       this.error = 0;
+      this.errorDetail = null;
       this.progress = 0;
       this.maxProgress = -1;
       this.hash = this.originalHash;
@@ -5870,6 +5882,17 @@ AddonInstall.prototype = {
         recursiveRemove(stagedAddon);
       this.state = AddonManager.STATE_INSTALL_FAILED;
       this.error = AddonManager.ERROR_FILE_ACCESS;
+      if (e !== undefined && e !== null) {
+        if (typeof e == "string") {
+          this.errorDetail = e;
+        } else if (e && typeof e.message == "string" && e.message) {
+          this.errorDetail = e.message;
+        } else {
+          this.errorDetail = String(e);
+        }
+      } else {
+        this.errorDetail = null;
+      }
       XPIProvider.removeActiveInstall(this);
       AddonManagerPrivate.callAddonListeners("onOperationCancelled",
                                              createWrapper(this.addon));
