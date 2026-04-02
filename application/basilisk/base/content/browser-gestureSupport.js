@@ -17,6 +17,11 @@ var gGestureSupport = {
   _currentRotation: 0,
   _lastRotateDelta: 0,
   _rotateMomentumThreshold: .75,
+  _pinchOriginX: 0,
+  _pinchOriginY: 0,
+  _pinchDocX: 0,
+  _pinchDocY: 0,
+  _pinchStartZoom: 1,
 
   /**
    * Add or remove mouse gesture event listeners
@@ -84,7 +89,7 @@ var gGestureSupport = {
         let pinchPref = AppConstants.platform == "win"
                         ? def(25, 0)
                         : def(150, 1);
-        this._setupGesture(aEvent, "pinch", pinchPref, "out", "in");
+        this._setupPinchGesture(aEvent, pinchPref);
         break;
       case "MozRotateGestureStart":
         aEvent.preventDefault();
@@ -266,6 +271,101 @@ var gGestureSupport = {
         return aPrev;
       }, []);
     }
+  },
+
+  /**
+   * Setup pinch gesture with semantic zoom (zoom point anchored to gesture location).
+   *
+   * @param aEvent
+   *        The magnify gesture start event
+   * @param aPref
+   *        Preference object with threshold and latched settings
+   */
+  _setupPinchGesture: function(aEvent, aPref) {
+    let browser = gBrowser.selectedBrowser;
+    if (!browser || !browser.contentWindow)
+      return this._setupGesture(aEvent, "pinch", aPref, "out", "in");
+
+    // Capture gesture origin in screen coordinates
+    this._pinchOriginX = aEvent.clientX;
+    this._pinchOriginY = aEvent.clientY;
+    this._pinchStartZoom = browser.markupDocumentViewer.fullZoom || 1;
+
+    // Convert screen point to document coordinates
+    try {
+      let view = browser.contentWindow;
+      this._pinchDocX = aEvent.clientX / this._pinchStartZoom + view.scrollX;
+      this._pinchDocY = aEvent.clientY / this._pinchStartZoom + view.scrollY;
+    } catch (e) {
+      // Fallback to traditional pinch gesture
+      return this._setupGesture(aEvent, "pinch", aPref, "out", "in");
+    }
+
+    // Setup the gesture with semantic zoom handler
+    for (let [pref, def] of Object.entries(aPref))
+      aPref[pref] = this._getPref("pinch." + pref, def);
+
+    let offset = 0;
+    let latchDir = aEvent.delta > 0 ? 1 : -1;
+    let isLatched = false;
+
+    this._doUpdate = (aEvent) => {
+      offset += aEvent.delta;
+      if (Math.abs(offset) > aPref["threshold"]) {
+        let sameDir = (latchDir ^ offset) >= 0;
+        if (!aPref["latched"] || (isLatched ^ sameDir)) {
+          this._performSemanticZoom(aEvent, offset > 0 ? 1 : -1);
+          isLatched = !isLatched;
+        }
+        offset = 0;
+      }
+    };
+
+    this._doUpdate(aEvent);
+  },
+
+  /**
+   * Perform semantic zoom, keeping the gesture point fixed on screen.
+   *
+   * @param aEvent
+   *        The magnify gesture update event
+   * @param aDirection
+   *        1 for zoom in, -1 for zoom out
+   */
+  _performSemanticZoom: function(aEvent, aDirection) {
+    let browser = gBrowser.selectedBrowser;
+    if (!browser || !browser.contentWindow)
+      return;
+
+    let view = browser.contentWindow;
+    let currentZoom = browser.markupDocumentViewer.fullZoom || 1;
+    let zoomValues = [0.3, 0.5, 0.67, 0.8, 0.9, 1, 1.1, 1.2, 1.33, 1.5, 1.7, 2];
+    let currentIndex = zoomValues.findIndex(z => Math.abs(z - currentZoom) < 0.01);
+    if (currentIndex === -1) currentIndex = zoomValues.findIndex(z => z > currentZoom);
+    if (currentIndex === -1) currentIndex = zoomValues.length - 1;
+
+    let newIndex = Math.max(0, Math.min(zoomValues.length - 1, currentIndex + aDirection));
+    let newZoom = zoomValues[newIndex];
+
+    if (newZoom === currentZoom)
+      return;
+
+    // Calculate scroll adjustment to keep document point at gesture screen position
+    let zoomRatio = newZoom / currentZoom;
+    let newScrollX = this._pinchDocX * zoomRatio - this._pinchOriginX / newZoom;
+    let newScrollY = this._pinchDocY * zoomRatio - this._pinchOriginY / newZoom;
+
+    // Clamp scroll to valid bounds
+    newScrollX = Math.max(0, Math.min(newScrollX, view.scrollMaxX));
+    newScrollY = Math.max(0, Math.min(newScrollY, view.scrollMaxY));
+
+    // Apply zoom and scroll
+    browser.markupDocumentViewer.fullZoom = newZoom;
+    view.scrollTo(newScrollX, newScrollY);
+
+    // Notify zoom change for saving preferences
+    let event = new view.CustomEvent("FullZoomChange", {bubbles: true});
+    view.dispatchEvent(event);
   },
 
   /**
