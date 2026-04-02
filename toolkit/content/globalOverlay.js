@@ -2,6 +2,53 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
+// Provide a timer-based fallback for older/chrome contexts that may not
+// expose requestAnimationFrame natively.
+(function() {
+  if (typeof window == "undefined") {
+    return;
+  }
+
+  var raf = window.requestAnimationFrame ||
+            window.mozRequestAnimationFrame ||
+            window.webkitRequestAnimationFrame ||
+            window.msRequestAnimationFrame;
+  var caf = window.cancelAnimationFrame ||
+            window.mozCancelAnimationFrame ||
+            window.webkitCancelAnimationFrame ||
+            window.msCancelAnimationFrame;
+
+  if (!raf) {
+    var lastTime = 0;
+    raf = function(callback) {
+      var now = Date.now();
+      var nextDelay = Math.max(0, 16 - (now - lastTime));
+      var id = window.setTimeout(function() {
+        lastTime = now + nextDelay;
+        var timeStamp = window.performance &&
+                        typeof window.performance.now == "function"
+                        ? window.performance.now()
+                        : Date.now();
+        callback(timeStamp);
+      }, nextDelay);
+      return id;
+    };
+  }
+
+  if (!caf) {
+    caf = function(id) {
+      window.clearTimeout(id);
+    };
+  }
+
+  if (!window.requestAnimationFrame) {
+    window.requestAnimationFrame = raf;
+  }
+  if (!window.cancelAnimationFrame) {
+    window.cancelAnimationFrame = caf;
+  }
+})();
+
 function closeWindow(aClose, aPromptFunction)
 {
 #ifdef XP_MACOSX
