@@ -101,6 +101,9 @@
     <preference id="widget.native-controls.override-win-version"
                 name="widget.native-controls.override-win-version"
                 type="int"/>
+    <preference id="browser.theme.mode"
+          name="browser.theme.mode"
+          type="string"/>
 
 </preferences>
 
@@ -330,6 +333,29 @@
           <menuitem label="&browserThemeOverride11.label;"
                     value="11"
                     id="browserThemeOverride11"/>
+          </menupopup>
+        </menulist>
+      </html:td>
+    </html:tr>
+    <html:tr>
+      <html:td class="label-cell">
+        <label accesskey="&browserColorScheme.accesskey;"
+               control="browserColorScheme">&browserColorScheme.label;</label>
+      </html:td>
+      <html:td class="content-cell">
+        <menulist id="browserColorScheme"
+                  class="content-cell-item"
+                  preference="browser.theme.mode">
+          <menupopup>
+          <menuitem label="&browserColorSchemeSystem.label;"
+                    value="system"
+                    id="browserColorSchemeSystem"/>
+          <menuitem label="&browserColorSchemeLight.label;"
+                    value="light"
+                    id="browserColorSchemeLight"/>
+          <menuitem label="&browserColorSchemeDark.label;"
+                    value="dark"
+                    id="browserColorSchemeDark"/>
           </menupopup>
         </menulist>
       </html:td>

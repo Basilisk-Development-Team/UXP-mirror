@@ -5,6 +5,15 @@
 @namespace url(http://www.w3.org/1999/xhtml); /* set default namespace to HTML */
 @namespace xul url(http://www.mozilla.org/keymaster/gatekeeper/there.is.only.xul);
 
+@media (prefers-color-scheme: dark) {
+  :root,
+  textarea,
+  select,
+  input {
+    scrollbar-color: #5a5a5a #2b2b2b;
+  }
+}
+
 /* bidi */
 
 :-moz-has-dir-attr {

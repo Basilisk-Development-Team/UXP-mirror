@@ -400,3 +400,45 @@ body[narrow] #restorePreviousSession::before {
   }
 }
 
+@media (prefers-color-scheme: dark) {
+  html {
+    background-color: #1f2328;
+    color: #f1f4f7;
+  }
+
+  a {
+    color: #75bbff;
+  }
+
+  #topSection h1 {
+    color: #f1f4f7;
+  }
+
+  #searchIcon {
+    filter: invert(100%) brightness(1.05);
+  }
+
+  #searchText {
+    background: #2b3037 padding-box;
+    border-color: #4b535d;
+    color: #f1f4f7;
+    box-shadow: none;
+  }
+
+  #searchText[keepfocus],
+  #searchText:focus,
+  #searchText[autofocus] {
+    border-color: #4aa3ff;
+  }
+
+  #searchSubmit {
+    background: url("chrome://browser/skin/search-arrow-go.svg#search-arrow-go-inverted") center center no-repeat, linear-gradient(#3e454f, #30363d) padding-box;
+    border-color: #4b535d;
+    box-shadow: none;
+  }
+
+  #searchSubmit:dir(rtl) {
+    background-image: url("chrome://browser/skin/search-arrow-go.svg#search-arrow-go-rtl-inverted"), linear-gradient(#3e454f, #30363d);
+  }
+}
+

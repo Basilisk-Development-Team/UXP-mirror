@@ -54,3 +54,24 @@ th, td {
   -moz-column-width: 20em;
   -moz-column-gap: 3em;
 }
+
+@media (prefers-color-scheme: dark) {
+  html {
+    background: #1f2328;
+    color: #d6dde5;
+  }
+
+  body {
+    color: #f1f4f7;
+    border-color: #4b535d;
+    background: #2b3037;
+  }
+
+  a {
+    color: #75bbff;
+  }
+
+  a:visited {
+    color: #c69aff;
+  }
+}

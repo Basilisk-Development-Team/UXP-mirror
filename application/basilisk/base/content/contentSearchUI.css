@@ -159,3 +159,58 @@
 .contentSearchSettingsButton:active {
   background-color: hsl(0, 0%, 85%);
 }
+
+@media (prefers-color-scheme: dark) {
+  .contentSearchSuggestionTable,
+  .contentSearchSuggestionsList,
+  .contentSearchHeader,
+  .contentSearchSuggestionEntry,
+  .contentSearchSettingsButton {
+    color-scheme: dark;
+  }
+
+  .contentSearchSuggestionTable {
+    background-color: #2b3037;
+    border-color: #4b535d;
+    box-shadow: 0 5px 10px rgba(0, 0, 0, 0.45);
+    color: #f1f4f7;
+  }
+
+  .contentSearchSuggestionsList {
+    border-bottom-color: #4b535d;
+  }
+
+  .contentSearchSuggestionTable .historyIcon {
+    filter: invert(100%) brightness(1.05);
+  }
+
+  .contentSearchHeader {
+    background-color: #252a31;
+    color: #b9c6d4;
+    border-bottom-color: #4b535d;
+  }
+
+  .contentSearchSuggestionRow.selected,
+  .contentSearchOneOffItem.selected {
+    background-color: #1b84d6;
+    color: #ffffff;
+  }
+
+  .contentSearchOneOffItem:not(.last-row) {
+    border-bottom-color: #3d434b;
+  }
+
+  .contentSearchSettingsButton {
+    border-top-color: #4b535d;
+    background-color: #252a31;
+    color: #d6dde5;
+  }
+
+  .contentSearchSettingsButton.selected {
+    background-color: #343a43;
+  }
+
+  .contentSearchSettingsButton:active {
+    background-color: #3e454f;
+  }
+}

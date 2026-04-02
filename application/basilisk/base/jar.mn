@@ -65,6 +65,7 @@ browser.jar:
 *       content/browser/browser.css                   (content/browser.css)
 *       content/browser/browser.js                    (content/browser.js)
 *       content/browser/browser.xul                   (content/browser.xul)
+        content/browser/themeManager.js               (content/themeManager.js)
         content/browser/browser-addons.js             (content/browser-addons.js)
         content/browser/browser-captivePortal.js      (content/browser-captivePortal.js)
         content/browser/browser-ctrlTab.js            (content/browser-ctrlTab.js)

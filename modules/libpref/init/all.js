@@ -289,7 +289,7 @@ pref("browser.display.document_color_use", 0);
 // 1 = default: light theme preferred
 // 2 = dark theme preferred
 // 3 = match ui.color_scheme
-pref("browser.display.prefers_color_scheme", 1);
+pref("browser.display.prefers_color_scheme", 3);
 pref("browser.display.use_system_colors",   false);
 pref("browser.display.foreground_color",    "#000000");
 pref("browser.display.background_color",    "#FFFFFF");

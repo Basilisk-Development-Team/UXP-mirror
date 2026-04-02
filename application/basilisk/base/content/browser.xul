@@ -76,6 +76,8 @@
 <script type="application/javascript" src="chrome://browser/content/downloads/indicator.js"/>
 <script type="application/javascript" src="chrome://browser/content/places/editBookmarkOverlay.js"/>
 
+<script type="application/javascript" src="chrome://browser/content/themeManager.js"/>
+
 # All sets except for popupsets (commands, keys, stringbundles and broadcasters) *must* go into the
 # browser-sets.inc file for sharing with hiddenWindow.xul.
 #define FULL_BROWSER_WINDOW

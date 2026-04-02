@@ -595,6 +595,7 @@ pref("mousewheel.with_win.action", 1);
 
 pref("browser.xul.error_pages.enabled", true);
 pref("browser.xul.error_pages.expert_bad_cert", false);
+pref("browser.theme.mode", "system");
 
 // Enable captive portal detection.
 pref("network.captive-portal-service.enabled", true);

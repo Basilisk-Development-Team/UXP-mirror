@@ -11,6 +11,34 @@ Cu.import("resource://gre/modules/XPCOMUtils.jsm");
 Cu.import("resource://gre/modules/ContextualIdentityService.jsm");
 Cu.import("resource://gre/modules/NotificationDB.jsm");
 
+function ensureThemeManagerLoaded() {
+  if (window.ThemeManager && typeof window.ThemeManager.toggleDarkMode == "function") {
+    return window.ThemeManager;
+  }
+
+  try {
+    var loader = Cc["@mozilla.org/moz/jssubscript-loader;1"]
+      .getService(Ci.mozIJSSubScriptLoader);
+    loader.loadSubScript("chrome://browser/content/themeManager.js", window);
+  } catch (ex) {
+    Cu.reportError(ex);
+  }
+
+  return window.ThemeManager || null;
+}
+
+window.toggleDarkMode = function() {
+  var manager = ensureThemeManagerLoaded();
+  if (manager && typeof manager.toggleDarkMode == "function") {
+    manager.toggleDarkMode();
+  }
+};
+
+this.toggleDarkMode = window.toggleDarkMode;
+if (typeof top != "undefined") {
+  top.toggleDarkMode = window.toggleDarkMode;
+}
+
 // lazy module getters
 [
   ["AboutHome", "resource:///modules/AboutHome.jsm"],

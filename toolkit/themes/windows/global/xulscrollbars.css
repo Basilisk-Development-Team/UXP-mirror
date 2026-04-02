@@ -12,6 +12,7 @@
 /* ::::: scrollbar ::::: */
 
 scrollbar {
+  appearance: scrollbar-horizontal;
   -moz-appearance: scrollbar-horizontal;
   -moz-binding: url("chrome://global/content/bindings/scrollbar.xml#scrollbar");
   cursor: default;
@@ -32,6 +33,7 @@ scrollbar {
 
 scrollbar[orient="vertical"] 
 {
+  appearance: scrollbar-vertical;
    -moz-appearance: scrollbar-vertical;
 }
 
@@ -49,21 +51,25 @@ scrollbarbutton {
 
 /* ::::: slider - a thumb is inside  ::::: */
 slider {
+  appearance: scrollbartrack-horizontal;
   -moz-appearance: scrollbartrack-horizontal;
 }
 
 slider[orient="vertical"] {
+  appearance: scrollbartrack-vertical;
   -moz-appearance: scrollbartrack-vertical;
 }
 
 /* ::::: thumb (horizontal) ::::: */
 
 thumb {
+  appearance: scrollbarthumb-vertical;
   -moz-appearance: scrollbarthumb-vertical;
   min-height: 8px;
 }
 
 thumb[orient="horizontal"] {
+  appearance: scrollbarthumb-horizontal;
   -moz-appearance: scrollbarthumb-horizontal;
   min-width: 8px;
 }
@@ -95,6 +101,7 @@ scrollcorner {
 /* ..... increment .... */
 
 scrollbarbutton[type="increment"] {
+  appearance: scrollbarbutton-right;
   -moz-appearance: scrollbarbutton-right;
   background-image: url("chrome://global/skin/arrow/arrow-rit.gif")
 }
@@ -104,6 +111,7 @@ scrollbarbutton[type="increment"][disabled="true"] {
 }
 
 scrollbar[orient="vertical"] > scrollbarbutton[type="increment"] {
+  appearance: scrollbarbutton-down;
   -moz-appearance: scrollbarbutton-down;
   background-image: url("chrome://global/skin/arrow/arrow-dn.gif")
 }
@@ -115,6 +123,7 @@ scrollbar[orient="vertical"] > scrollbarbutton[type="increment"][disabled="true"
 /* ..... decrement .... */
 
 scrollbarbutton[type="decrement"] {
+  appearance: scrollbarbutton-left;
   -moz-appearance: scrollbarbutton-left;
    background-image: url("chrome://global/skin/arrow/arrow-lft.gif")
 }
@@ -124,12 +133,81 @@ scrollbarbutton[type="decrement"][disabled="true"] {
 }
 
 scrollbar[orient="vertical"] > scrollbarbutton[type="decrement"] {
+  appearance: scrollbarbutton-up;
   -moz-appearance: scrollbarbutton-up;
    background-image: url("chrome://global/skin/arrow/arrow-up.gif")
 }
 
 scrollbar[orient="vertical"] > scrollbarbutton[type="decrement"][disabled="true"] {
    background-image: url("chrome://global/skin/arrow/arrow-up-dis.gif")
+}
+
+@media (prefers-color-scheme: dark) {
+  scrollbar,
+  scrollcorner {
+    background-image: none !important;
+    background-color: #2b2b2b !important;
+  }
+
+  slider {
+    appearance: none !important;
+    -moz-appearance: none !important;
+    background-image: none !important;
+    background-color: #2b2b2b !important;
+  }
+
+  thumb,
+  scrollbarbutton {
+    appearance: none !important;
+    border-color: #3f454c !important;
+    -moz-border-top-colors: #4a5058 #3f454c !important;
+    -moz-border-right-colors: #2f343a #262b30 !important;
+    -moz-border-bottom-colors: #2f343a #262b30 !important;
+    -moz-border-left-colors: #4a5058 #3f454c !important;
+    background-color: #5a5a5a !important;
+  }
+
+  scrollbarbutton[disabled="true"] {
+    background-color: #454b53 !important;
+    opacity: 0.75;
+  }
+
+  scrollbarbutton[type="increment"] {
+    background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><path fill='%23d7dce2' d='M6 4v8l5-4z'/></svg>") !important;
+  }
+
+  scrollbar[orient="vertical"] > scrollbarbutton[type="increment"] {
+    background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><path fill='%23d7dce2' d='M4 6h8l-4 5z'/></svg>") !important;
+  }
+
+  scrollbarbutton[type="increment"][disabled="true"] {
+    background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><path fill='%23828a93' d='M6 4v8l5-4z'/></svg>") !important;
+  }
+
+  scrollbar[orient="vertical"] > scrollbarbutton[type="increment"][disabled="true"] {
+    background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><path fill='%23828a93' d='M4 6h8l-4 5z'/></svg>") !important;
+  }
+
+  scrollbarbutton[type="decrement"] {
+    background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><path fill='%23d7dce2' d='M10 4v8L5 8z'/></svg>") !important;
+  }
+
+  scrollbar[orient="vertical"] > scrollbarbutton[type="decrement"] {
+    background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><path fill='%23d7dce2' d='M4 10h8l-4-5z'/></svg>") !important;
+  }
+
+  scrollbarbutton[type="decrement"][disabled="true"] {
+    background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><path fill='%23828a93' d='M10 4v8L5 8z'/></svg>") !important;
+  }
+
+  scrollbar[orient="vertical"] > scrollbarbutton[type="decrement"][disabled="true"] {
+    background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><path fill='%23828a93' d='M4 10h8l-4-5z'/></svg>") !important;
+  }
+
+  thumb:hover,
+  scrollbarbutton:hover {
+    background-color: #6a6a6a !important;
+  }
 }
 
 /* :::::::::::::::::::::::::::::::::::::::::::::::::::::::: */
@@ -139,6 +217,7 @@ scrollbar[orient="vertical"] > scrollbarbutton[type="decrement"][disabled="true"
   /* ::::: scrollbar ::::: */
 
   html|div scrollbar {
+    appearance: scrollbar-horizontal;
     -moz-appearance: scrollbar-horizontal;
     -moz-binding: url("chrome://global/content/bindings/scrollbar.xml#scrollbar");
     cursor: default;
@@ -147,6 +226,7 @@ scrollbar[orient="vertical"] > scrollbarbutton[type="decrement"][disabled="true"
 
   html|div scrollbar[orient="vertical"] 
   {
+      appearance: scrollbar-vertical;
      -moz-appearance: scrollbar-vertical;
   }
 
@@ -165,11 +245,13 @@ scrollbar[orient="vertical"] > scrollbarbutton[type="decrement"][disabled="true"
   /* ::::: thumb (horizontal) ::::: */
 
   html|div thumb {
+    appearance: scrollbarthumb-vertical;
     -moz-appearance: scrollbarthumb-vertical;
     min-height: 8px;
   }
 
   html|div thumb[orient="horizontal"] {
+    appearance: scrollbarthumb-horizontal;
     -moz-appearance: scrollbarthumb-horizontal;
     min-width: 8px;
   }
@@ -193,6 +275,7 @@ scrollbar[orient="vertical"] > scrollbarbutton[type="decrement"][disabled="true"
   /* ..... increment .... */
 
   html|div scrollbarbutton[type="increment"] {
+    appearance: scrollbarbutton-right;
     -moz-appearance: scrollbarbutton-right;
     background-image: url("chrome://global/skin/arrow/arrow-rit.gif")
   }
@@ -202,6 +285,7 @@ scrollbar[orient="vertical"] > scrollbarbutton[type="decrement"][disabled="true"
   }
 
   html|div scrollbar[orient="vertical"] > scrollbarbutton[type="increment"] {
+    appearance: scrollbarbutton-down;
     -moz-appearance: scrollbarbutton-down;
     background-image: url("chrome://global/skin/arrow/arrow-dn.gif")
   }
@@ -213,6 +297,7 @@ scrollbar[orient="vertical"] > scrollbarbutton[type="decrement"][disabled="true"
   /* ..... decrement .... */
 
   html|div scrollbarbutton[type="decrement"] {
+    appearance: scrollbarbutton-left;
     -moz-appearance: scrollbarbutton-left;
      background-image: url("chrome://global/skin/arrow/arrow-lft.gif")
   }
@@ -222,6 +307,7 @@ scrollbar[orient="vertical"] > scrollbarbutton[type="decrement"][disabled="true"
   }
 
   html|div scrollbar[orient="vertical"] > scrollbarbutton[type="decrement"] {
+    appearance: scrollbarbutton-up;
     -moz-appearance: scrollbarbutton-up;
      background-image: url("chrome://global/skin/arrow/arrow-up.gif")
   }

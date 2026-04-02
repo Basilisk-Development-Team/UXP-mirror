@@ -448,6 +448,25 @@ toolbar:not(#TabsToolbar) > #personal-bookmarks {
   background-position: bottom left;
 }
 
+/* Dark mode browser frame background overrides */
+:root[data-theme="dark"] #tab-view-deck,
+:root[data-theme="dark"] #browser-panel,
+:root[data-theme="dark"] #browser-bottombox,
+:root[data-theme="dark"] #browser,
+:root[data-theme="dark"] #appcontent,
+:root[data-theme="dark"] #content,
+:root[data-theme="dark"] .browserStack,
+:root[data-theme="dark"] #high-priority-global-notificationbox,
+:root[data-theme="dark"] #global-notificationbox,
+:root[data-theme="dark"] #main-window {
+  background: #2b2b2b !important;
+  background-color: #2b2b2b !important;
+  background-image: none !important;
+  border: none !important;
+  border-color: #2b2b2b !important;
+  box-shadow: none !important;
+}
+
 .menuitem-tooltip {
   -moz-binding: url("chrome://browser/content/urlbarBindings.xml#menuitem-tooltip");
 }
