@@ -799,7 +799,11 @@
     -moz-image-region: auto !important;
     transition: none !important;
     opacity: 0.7;
-    -moz-appearance: none;
+    -moz-appearance: menulist-button;
+  }
+
+  .urlbar-history-dropmarker > .dropmarker-icon {
+    filter: var(--chrome-icon-filter);
   }
   
   .urlbar-history-dropmarker:hover {
@@ -4048,6 +4052,7 @@ html|*.urlbar-input:-moz-lwtheme::placeholder,
 
   .urlbar-history-dropmarker > .dropmarker-icon {
     width: 11px;
+    filter: var(--chrome-icon-filter);
   }
 }
 
