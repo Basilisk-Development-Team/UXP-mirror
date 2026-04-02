@@ -193,6 +193,18 @@ function helpButtonCommand() {
   openHelpLink(helpTopic);
 }
 
+function openAddonsSidebarLink(event) {
+  event.preventDefault();
+  event.stopPropagation();
+
+  if (window.top && typeof window.top.BrowserOpenAddonsMgr == "function") {
+    window.top.BrowserOpenAddonsMgr();
+    return;
+  }
+
+  openUILinkIn("about:addons", "tab");
+}
+
 function friendlyPrefCategoryNameToInternalName(aName) {
   if (aName.startsWith("pane"))
     return aName;

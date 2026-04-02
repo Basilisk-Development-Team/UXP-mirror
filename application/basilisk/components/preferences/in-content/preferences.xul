@@ -87,7 +87,8 @@
   <hbox flex="1">
 
     <!-- category list -->
-    <richlistbox id="categories">
+    <vbox id="preferences-sidebar">
+    <richlistbox id="categories" flex="1">
       <richlistitem id="category-general"
                     class="category"
                     value="paneGeneral"
@@ -176,6 +177,13 @@
         <label class="category-name" flex="1">&paneAdvanced.title;</label>
       </richlistitem>
     </richlistbox>
+    <hbox id="preferences-sidebar-footer" align="center">
+      <label id="sidebar-open-addons"
+             class="text-link"
+             value="&openAddonsSidebar.label;"
+             onclick="openAddonsSidebarLink(event);"/>
+    </hbox>
+    </vbox>
 
     <keyset>
       <!-- Disable the findbar because it doesn't work properly.

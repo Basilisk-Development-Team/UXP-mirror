@@ -21,6 +21,7 @@
 <!ENTITY  paneContainers.title    "Container Tabs">
 <!ENTITY  paneSecurity.title      "Security">
 <!ENTITY  paneAdvanced.title      "Advanced">
+<!ENTITY  openAddonsSidebar.label "Add-ons">
 
 <!-- LOCALIZATION NOTE (paneSync.title): This should match syncBrand.shortName.label in ../syncBrand.dtd -->
 <!ENTITY  paneSync.title          "Sync">

@@ -45,12 +45,24 @@ treecol {
 
 /* Category List */
 
-#categories {
+#preferences-sidebar {
   max-height: 100vh;
+}
+
+#categories {
+  max-height: none;
 }
 
 #categories > scrollbox {
   overflow-x: hidden !important;
+}
+
+#preferences-sidebar-footer {
+  padding: 8px 15px 12px;
+}
+
+#sidebar-open-addons {
+  margin: 0;
 }
 
 /**
