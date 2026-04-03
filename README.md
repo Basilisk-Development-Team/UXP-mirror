@@ -7,10 +7,11 @@
 Dactyloidae is a fork of Eclipse Lun3r (fork of Pale Moon made for Windows XP).
 
 Some advantages over upstream, roytam1's New Moon and Lun3r are:
-- More optimzations
+- More optimzations (33.7 in Speedometer 2.1)
 - Better interoperability with upstream. (using SQL storage intead of DBM)
 - More modern theme
 - Better e10s support
+- WebExtensions support (mainly same support as FF78)
 - Literally being the fastest XUL browser
 
 We (as in I) reccomend using Palefill to potentially fix any browser issues:
