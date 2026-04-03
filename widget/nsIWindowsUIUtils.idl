@@ -42,6 +42,12 @@ interface nsIWindowsUIUtils : nsISupports
   void setSMTCThumbnailURL(in AString aThumbnailURL);
 
   /**
+   * Clear native Windows System Media Transport Controls artwork.
+   * No-op on unsupported Windows versions.
+   */
+  void clearSMTCThumbnail();
+
+  /**
    * Clear native Windows System Media Transport Controls metadata.
    * No-op on unsupported Windows versions.
    */

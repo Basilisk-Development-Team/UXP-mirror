@@ -495,6 +495,34 @@ WindowsUIUtils::SetSMTCThumbnailURL(const nsAString& aThumbnailURL)
 }
 
 NS_IMETHODIMP
+WindowsUIUtils::ClearSMTCThumbnail()
+{
+#ifndef __MINGW32__
+  if (!IsWin10OrLater()) {
+    return NS_OK;
+  }
+
+  nsresult rv = EnsureSMTC();
+  if (NS_FAILED(rv)) {
+    return NS_OK;
+  }
+  if (!gSMTC) {
+    return NS_OK;
+  }
+
+  ComPtr<ISystemMediaTransportControlsDisplayUpdater> updater;
+  HRESULT hr = gSMTC->get_DisplayUpdater(&updater);
+  if (FAILED(hr) || !updater) {
+    return NS_OK;
+  }
+
+  updater->put_Thumbnail(nullptr);
+  updater->Update();
+#endif
+  return NS_OK;
+}
+
+NS_IMETHODIMP
 WindowsUIUtils::ClearSMTCMetadata()
 {
 #ifndef __MINGW32__

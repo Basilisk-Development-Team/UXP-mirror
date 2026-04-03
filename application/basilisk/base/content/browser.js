@@ -1869,6 +1869,8 @@ function updateWindowsSMTCMetadataFromTab(aTab, aPlaying) {
   uiUtils.setSMTCMetadata(title, artist, album);
   if (thumbnailURL) {
     uiUtils.setSMTCThumbnailURL(thumbnailURL);
+  } else {
+    uiUtils.clearSMTCThumbnail();
   }
   uiUtils.setSMTCPlaybackState(!!aPlaying);
   gLastSMTCMediaTab = tab;
