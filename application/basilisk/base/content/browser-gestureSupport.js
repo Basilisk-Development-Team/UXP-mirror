@@ -17,11 +17,12 @@ var gGestureSupport = {
   _currentRotation: 0,
   _lastRotateDelta: 0,
   _rotateMomentumThreshold: .75,
-  _pinchOriginX: 0,
-  _pinchOriginY: 0,
-  _pinchDocX: 0,
-  _pinchDocY: 0,
-  _pinchStartZoom: 1,
+  _magnifierOverlay: null,
+  _magnifierCanvas: null,
+  _magnifierZoom: 1,
+  _magnifierCenterX: 0,
+  _magnifierCenterY: 0,
+  _magnifierSourceBrowser: null,
 
   /**
    * Add or remove mouse gesture event listeners
@@ -103,6 +104,10 @@ var gGestureSupport = {
       case "MozTapGesture":
         aEvent.preventDefault();
         this._doAction(aEvent, ["tap"]);
+        break;
+      case "MozMagnifyGesture":
+        aEvent.preventDefault();
+        this._destroyMagnifierOverlay();
         break;
       case "MozRotateGesture":
         aEvent.preventDefault();
@@ -274,7 +279,7 @@ var gGestureSupport = {
   },
 
   /**
-   * Setup pinch gesture with semantic zoom (zoom point anchored to gesture location).
+   * Setup pinch gesture with full-screen magnifier overlay.
    *
    * @param aEvent
    *        The magnify gesture start event
@@ -283,25 +288,17 @@ var gGestureSupport = {
    */
   _setupPinchGesture: function(aEvent, aPref) {
     let browser = gBrowser.selectedBrowser;
-    if (!browser || !browser.contentWindow)
-      return this._setupGesture(aEvent, "pinch", aPref, "out", "in");
-
-    // Capture gesture origin in screen coordinates
-    this._pinchOriginX = aEvent.clientX;
-    this._pinchOriginY = aEvent.clientY;
-    this._pinchStartZoom = browser.markupDocumentViewer.fullZoom || 1;
-
-    // Convert screen point to document coordinates
-    try {
-      let view = browser.contentWindow;
-      this._pinchDocX = aEvent.clientX / this._pinchStartZoom + view.scrollX;
-      this._pinchDocY = aEvent.clientY / this._pinchStartZoom + view.scrollY;
-    } catch (e) {
-      // Fallback to traditional pinch gesture
+    if (!browser || !browser.contentWindow) {
       return this._setupGesture(aEvent, "pinch", aPref, "out", "in");
     }
 
-    // Setup the gesture with semantic zoom handler
+    this._magnifierSourceBrowser = browser;
+    this._magnifierCenterX = aEvent.clientX || 0;
+    this._magnifierCenterY = aEvent.clientY || 0;
+    this._magnifierZoom = 1;
+    this._createMagnifierOverlay();
+
+    // Setup the gesture with magnifier handler
     for (let [pref, def] of Object.entries(aPref))
       aPref[pref] = this._getPref("pinch." + pref, def);
 
@@ -314,7 +311,7 @@ var gGestureSupport = {
       if (Math.abs(offset) > aPref["threshold"]) {
         let sameDir = (latchDir ^ offset) >= 0;
         if (!aPref["latched"] || (isLatched ^ sameDir)) {
-          this._performSemanticZoom(aEvent, offset > 0 ? 1 : -1);
+          this._updateMagnifier(offset > 0 ? 1.2 : 0.833);
           isLatched = !isLatched;
         }
         offset = 0;
@@ -325,47 +322,128 @@ var gGestureSupport = {
   },
 
   /**
-   * Perform semantic zoom, keeping the gesture point fixed on screen.
-   *
-   * @param aEvent
-   *        The magnify gesture update event
-   * @param aDirection
-   *        1 for zoom in, -1 for zoom out
+   * Create full-screen magnifier overlay.
    */
-  _performSemanticZoom: function(aEvent, aDirection) {
-    let browser = gBrowser.selectedBrowser;
-    if (!browser || !browser.contentWindow)
+  _createMagnifierOverlay: function() {
+    if (this._magnifierOverlay)
       return;
 
-    let view = browser.contentWindow;
-    let currentZoom = browser.markupDocumentViewer.fullZoom || 1;
-    let zoomValues = [0.3, 0.5, 0.67, 0.8, 0.9, 1, 1.1, 1.2, 1.33, 1.5, 1.7, 2];
-    let currentIndex = zoomValues.findIndex(z => Math.abs(z - currentZoom) < 0.01);
-    if (currentIndex === -1) currentIndex = zoomValues.findIndex(z => z > currentZoom);
-    if (currentIndex === -1) currentIndex = zoomValues.length - 1;
+    try {
+      let overlay = document.createElement("div");
+      overlay.id = "gGestureSupport-magnifier-overlay";
+      overlay.style.cssText = `
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: #000;
+        z-index: 2147483647;
+        overflow: hidden;
+        margin: 0;
+        padding: 0;
+      `;
 
-    let newIndex = Math.max(0, Math.min(zoomValues.length - 1, currentIndex + aDirection));
-    let newZoom = zoomValues[newIndex];
+      let canvas = document.createElement("canvas");
+      canvas.id = "gGestureSupport-magnifier-canvas";
+      canvas.width = window.innerWidth;
+      canvas.height = window.innerHeight;
+      canvas.style.cssText = `
+        position: absolute;
+        top: 0;
+        left: 0;
+        display: block;
+      `;
 
-    if (newZoom === currentZoom)
+      overlay.appendChild(canvas);
+      document.documentElement.appendChild(overlay);
+
+      this._magnifierOverlay = overlay;
+      this._magnifierCanvas = canvas;
+      this._drawMagnifier();
+    } catch (e) {
+      Cu.reportError("Magnifier overlay creation failed: " + e);
+    }
+  },
+
+  /**
+   * Update magnifier zoom level and redraw.
+   *
+   * @param aZoomMultiplier
+   *        Factor to multiply current zoom by (e.g., 1.2 for zoom in, 0.833 for zoom out)
+   */
+  _updateMagnifier: function(aZoomMultiplier) {
+    let minZoom = 1;
+    let maxZoom = 5;
+    this._magnifierZoom = Math.max(minZoom, Math.min(maxZoom, this._magnifierZoom * aZoomMultiplier));
+    this._drawMagnifier();
+  },
+
+  /**
+   * Draw magnified content to canvas.
+   */
+  _drawMagnifier: function() {
+    if (!this._magnifierOverlay || !this._magnifierCanvas || !this._magnifierSourceBrowser)
       return;
 
-    // Calculate scroll adjustment to keep document point at gesture screen position
-    let zoomRatio = newZoom / currentZoom;
-    let newScrollX = this._pinchDocX * zoomRatio - this._pinchOriginX / newZoom;
-    let newScrollY = this._pinchDocY * zoomRatio - this._pinchOriginY / newZoom;
+    try {
+      let browser = this._magnifierSourceBrowser;
+      let canvas = this._magnifierCanvas;
 
-    // Clamp scroll to valid bounds
-    newScrollX = Math.max(0, Math.min(newScrollX, view.scrollMaxX));
-    newScrollY = Math.max(0, Math.min(newScrollY, view.scrollMaxY));
+      let ctx = canvas.getContext("2d");
+      if (!ctx) return;
 
-    // Apply zoom and scroll
-    browser.markupDocumentViewer.fullZoom = newZoom;
-    view.scrollTo(newScrollX, newScrollY);
+      // Fill background black
+      ctx.fillStyle = "#000000";
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-    // Notify zoom change for saving preferences
-    let event = new view.CustomEvent("FullZoomChange", {bubbles: true});
-    view.dispatchEvent(event);
+      // Save context state
+      ctx.save();
+
+      // Calculate zoom magnification
+      let zoomLevel = this._magnifierZoom;
+      let centerX = this._magnifierCenterX;
+      let centerY = this._magnifierCenterY;
+
+      // Apply magnification transform centered on gesture point
+      ctx.translate(canvas.width / 2, canvas.height / 2);
+      ctx.scale(zoomLevel, zoomLevel);
+      ctx.translate(-centerX, -centerY);
+
+      // Try to draw the window content
+      try {
+        let viewer = browser.markupDocumentViewer;
+        let pageZoom = viewer ? (viewer.fullZoom || 1) : 1;
+        ctx.scale(pageZoom, pageZoom);
+
+        ctx.drawWindow(
+          browser.contentWindow,
+          0, 0,
+          browser.contentWindow.innerWidth,
+          browser.contentWindow.innerHeight,
+          "rgb(0,0,0)",
+          ctx.DRAWWINDOW_DO_NOT_FLUSH | ctx.DRAWWINDOW_DRAW_VIEW | ctx.DRAWWINDOW_USE_WIDGET_LAYERS
+        );
+      } catch (e) {
+        // drawWindow may fail, just show black background
+        Cu.reportError("drawWindow failed: " + e);
+      }
+
+      ctx.restore();
+    } catch (e) {
+      Cu.reportError("_drawMagnifier error: " + e);
+    }
+  },
+
+  /**
+   * Hide and destroy magnifier overlay.
+   */
+  _destroyMagnifierOverlay: function() {
+    if (this._magnifierOverlay && this._magnifierOverlay.parentNode)
+      this._magnifierOverlay.parentNode.removeChild(this._magnifierOverlay);
+    this._magnifierOverlay = null;
+    this._magnifierCanvas = null;
+    this._magnifierSourceBrowser = null;
   },
 
   /**
