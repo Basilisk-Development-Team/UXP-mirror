@@ -3,7 +3,10 @@
     "chat.tools.terminal.autoApprove": {
         "ForEach-Object": true,
         "Get-Item": true,
-        "Test-Path": true
+        "Test-Path": true,
+        "mkdir": true,
+        "cp": true,
+        "hdiutil": true
     },
     "files.associations": {
         "limits.h": "c"
