@@ -115,40 +115,11 @@ endif
 include $(topsrcdir)/toolkit/mozapps/installer/signing.mk
 include $(topsrcdir)/toolkit/mozapps/installer/packager-uxp.mk
 
-# For macOS bundle layout, copy files from dist/bin to the staging bundle
+# Local macOS workaround: precompile_cache.js hangs in xpcshell during package.
+# Skip precomplete/startupcache generation so packaging can complete.
 ifeq (cocoa,$(MOZ_WIDGET_TOOLKIT))
-stage-package: $(MOZ_PKG_MANIFEST) $(MOZ_PKG_MANIFEST_DEPS)
-	# First run the standard stage-package from packager-uxp.mk
-	@echo "Staging macOS bundle..."
-	@mkdir -p '$(DIST)/$(MOZ_PKG_DIR)/$(_APPNAME)/Contents/MacOS'
-	@mkdir -p '$(DIST)/$(MOZ_PKG_DIR)/$(_APPNAME)/Contents/Resources'
-	# Copy binary and libraries to MacOS
-	@cp -f '$(DIST)/bin/dactyloidae' '$(DIST)/$(MOZ_PKG_DIR)/$(_APPNAME)/Contents/MacOS/' || true
-	@cp -f '$(DIST)/bin'/*.dylib '$(DIST)/$(MOZ_PKG_DIR)/$(_APPNAME)/Contents/MacOS/' 2>/dev/null || true
-	@cp -f '$(DIST)/bin/XUL' '$(DIST)/$(MOZ_PKG_DIR)/$(_APPNAME)/Contents/MacOS/' 2>/dev/null || true
-	# Copy ICU data file
-	@cp -f '$(DIST)/bin/icudt63l.dat' '$(DIST)/$(MOZ_PKG_DIR)/$(_APPNAME)/Contents/Resources/' 2>/dev/null || true
-	# Copy resources to Resources
-	@cp -rf '$(DIST)/bin/components' '$(DIST)/$(MOZ_PKG_DIR)/$(_APPNAME)/Contents/Resources/' 2>/dev/null || true
-	@cp -rf '$(DIST)/bin/browser' '$(DIST)/$(MOZ_PKG_DIR)/$(_APPNAME)/Contents/Resources/' 2>/dev/null || true
-	@cp -rf '$(DIST)/bin/defaults' '$(DIST)/$(MOZ_PKG_DIR)/$(_APPNAME)/Contents/Resources/' 2>/dev/null || true
-	@cp -rf '$(DIST)/bin/chrome' '$(DIST)/$(MOZ_PKG_DIR)/$(_APPNAME)/Contents/Resources/' 2>/dev/null || true
-	@cp -rf '$(DIST)/bin/modules' '$(DIST)/$(MOZ_PKG_DIR)/$(_APPNAME)/Contents/Resources/' 2>/dev/null || true
-	@cp -rf '$(DIST)/bin/res' '$(DIST)/$(MOZ_PKG_DIR)/$(_APPNAME)/Contents/Resources/' 2>/dev/null || true
-	# Copy manifest files
-	@cp -f '$(DIST)/bin/chrome.manifest' '$(DIST)/$(MOZ_PKG_DIR)/$(_APPNAME)/Contents/Resources/' 2>/dev/null || true
-	@cp -f '$(DIST)/bin/application.ini' '$(DIST)/$(MOZ_PKG_DIR)/$(_APPNAME)/Contents/Resources/' 2>/dev/null || true
-	@cp -f '$(DIST)/bin/platform.ini' '$(DIST)/$(MOZ_PKG_DIR)/$(_APPNAME)/Contents/Resources/' 2>/dev/null || true
-	@cp -f '$(DIST)/bin/dependentlibs.list' '$(DIST)/$(MOZ_PKG_DIR)/$(_APPNAME)/Contents/Resources/' 2>/dev/null || true
-	# Generate app metadata files from the source templates.
-	@sed \
-		-e 's/%MOZ_MACBUNDLE_ID%/$(MOZ_MACBUNDLE_ID)/' \
-		-e 's/%APP_VERSION%/$(MOZ_APP_VERSION)/g' \
-		-e 's/%MAC_APP_NAME%/$(MOZ_APP_DISPLAYNAME)/g' \
-		-e 's#<string>basilisk</string>#<string>$(MOZ_APP_NAME)</string>#' \
-		'$(srcdir)/macbuild/Contents/Info.plist.in' > '$(DIST)/$(MOZ_PKG_DIR)/$(_APPNAME)/Contents/Info.plist'
-	@cp -f '$(srcdir)/macbuild/Contents/PkgInfo' '$(DIST)/$(MOZ_PKG_DIR)/$(_APPNAME)/Contents/PkgInfo'
-	@echo "Finished staging macOS bundle"
+CREATE_PRECOMPLETE_CMD = true
+export MOZ_SKIP_STARTUPCACHE_PRECOMPILE = 1
 endif
 
 ifeq (bundle, $(MOZ_FS_LAYOUT))

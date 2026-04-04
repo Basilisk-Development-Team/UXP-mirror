@@ -352,25 +352,28 @@ def main():
             if key in log:
                 f.preload(log[key])
 
-    # Fill startup cache
-    if isinstance(formatter, OmniJarFormatter) and launcher.can_launch() \
-      and buildconfig.substs['MOZ_DISABLE_STARTUPCACHE'] != '1' \
-      and buildconfig.substs['MOZ_DISABLE_PRECOMPILED_STARTUPCACHE'] != '1':
-        gre_path = None
-        def get_bases():
-            for b in sink.packager.get_bases(addons=False):
-                for p in (mozpath.join('bin', b), b):
-                    if os.path.exists(os.path.join(args.source, p)):
-                        yield p
-                        break
-        for base in sorted(get_bases()):
-            if not gre_path:
-                gre_path = base
-            omnijar_path = mozpath.join(sink.normalize_path(base),
-                                        buildconfig.substs['OMNIJAR_NAME'])
-            if formatter.contains(omnijar_path):
-                precompile_cache(formatter.copier[omnijar_path],
-                                 args.source, gre_path, base)
+        # Fill startup cache
+        if isinstance(formatter, OmniJarFormatter) and launcher.can_launch() \
+          and os.environ.get('MOZ_SKIP_STARTUPCACHE_PRECOMPILE') != '1' \
+          and buildconfig.substs['MOZ_DISABLE_STARTUPCACHE'] != '1' \
+          and buildconfig.substs['MOZ_DISABLE_PRECOMPILED_STARTUPCACHE'] != '1':
+            gre_path = None
+
+            def get_bases():
+                for b in sink.packager.get_bases(addons=False):
+                    for p in (mozpath.join('bin', b), b):
+                        if os.path.exists(os.path.join(args.source, p)):
+                            yield p
+                            break
+
+            for base in sorted(get_bases()):
+                if not gre_path:
+                    gre_path = base
+                omnijar_path = mozpath.join(sink.normalize_path(base),
+                                            buildconfig.substs['OMNIJAR_NAME'])
+                if formatter.contains(omnijar_path):
+                    precompile_cache(formatter.copier[omnijar_path],
+                                     args.source, gre_path, base)
 
     copier.copy(args.destination)
 
