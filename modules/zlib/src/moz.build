@@ -19,33 +19,37 @@ if CONFIG['CPU_ARCH'] == 'arm':
     ]
 
 if CONFIG['INTEL_ARCHITECTURE']:
-    DEFINES['ADLER32_SIMD_SSSE3'] = True
-    DEFINES['INFLATE_CHUNK_SIMD_SSE2'] = True
-    DEFINES['CRC32_SIMD_SSE42_PCLMUL'] = True
     SOURCES += [
-        'adler32_simd.c',
-        'crc32_simd.c',
-        'crc_folding.c',
-        'fill_window_sse.c',
-        'inffast_chunk.c',
-        'inflate_simd.c',
         'x86.c',
     ]
+
+    if CONFIG['OS_ARCH'] == 'Darwin':
+        # Keep SIMD/chunkcopy paths disabled on Darwin, but provide fallback
+        # helper symbols used by crc32/deflate call sites.
+        DEFINES['ADLER32_SIMD_SSSE3'] = False
+        DEFINES['INFLATE_CHUNK_SIMD_SSE2'] = False
+        DEFINES['CRC32_SIMD_SSE42_PCLMUL'] = False
+        SOURCES += [
+            'simd_darwin_stub.c',
+        ]
+    else:
+        SOURCES += [
+            'adler32_simd.c',
+            'crc32_simd.c',
+            'crc_folding.c',
+            'fill_window_sse.c',
+            'inffast_chunk.c',
+            'inflate_simd.c',
+        ]
 else:
     SOURCES += [
         'simd_stub.c',
-    ]
-
-if CONFIG['CPU_ARCH'] != 'arm' and not CONFIG['INTEL_ARCHITECTURE']:
-    SOURCES += [
-        'inflate.c',
     ]
 
 if CONFIG['ZLIB_IN_MOZGLUE']:
     FINAL_LIBRARY = 'mozglue'
     DEFINES['IMPL_MFBT'] = True
 else:
-    # The final library is in config/external/zlib
     FINAL_LIBRARY = 'zlib'
 
 SOURCES += [
@@ -59,8 +63,10 @@ SOURCES += [
     'gzwrite.c',
     'infback.c',
     'inffast.c',
+    'inflate.c',
     'inftrees.c',
     'trees.c',
     'uncompr.c',
     'zutil.c',
 ]
+

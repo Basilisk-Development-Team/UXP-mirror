@@ -1,0 +1,43 @@
+mk_add_options MOZ_MAKE_FLAGS="-j12"
+
+# Use Clang on MacOS
+export CXX="/usr/bin/clang++ -stdlib=libc++ -arch x86_64"
+export CC="/usr/bin/clang -arch x86_64"
+
+# Build for MacOS 10.7 and above
+export MACOSX_DEPLOYMENT_TARGET=10.7
+
+# Standard build options for Dactyloidae
+ac_add_options --enable-application=basilisk
+ac_add_options --enable-optimize="-O2"
+ac_add_options --enable-strip
+ac_add_options --enable-devtools
+ac_add_options --enable-av1
+ac_add_options --disable-webrtc
+ac_add_options --enable-gamepad
+ac_add_options --enable-pie
+ac_add_options --enable-update-channel=release
+ac_add_options --disable-necko-wifi
+ac_add_options --enable-default-toolkit=cairo-cocoa
+ac_add_options --disable-updater
+ac_add_options --with-pthreads
+ac_add_options --enable-official-branding
+ac_add_options --disable-accessibility
+ac_add_options --disable-debug
+ac_add_options --disable-debug-js-modules
+ac_add_options --disable-debug-symbols
+ac_add_options --disable-tests
+
+# Set MacOS SDK and target
+ac_add_options --with-macos-sdk=/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX11.3.sdk
+ac_add_options --host=x86_64-apple-darwin
+ac_add_options --target=x86_64-apple-darwin
+ac_add_options --with-macbundle-type=hybrid
+
+export MOZILLA_OFFICIAL=1
+
+# stops the compiler bitching
+CXXFLAGS="-std=c++17 -fgnu-keywords"
+ac_add_options --disable-jemalloc
+# from Dactyloidae Win64 mozconfig
+export MOZ_SOURCE_CHANGESET=iloveneedingtobodgechangesetfornoreason

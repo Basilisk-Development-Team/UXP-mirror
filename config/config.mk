@@ -29,6 +29,23 @@ endif
 
 -include $(DEPTH)/.mozconfig.mk
 
+# Darwin's ranlib errors out on archive members without symbols.
+# Avoid implicit ranlib via 'ar ... s' and pass ranlib's suppression flag.
+ifeq ($(OS_ARCH),Darwin)
+AR_FLAGS = cr $@
+HOST_AR_FLAGS = cr $@
+ifneq (,$(findstring -no_warning_for_no_symbols,$(RANLIB)))
+RANLIB := $(RANLIB)
+else
+RANLIB := $(RANLIB) -no_warning_for_no_symbols
+endif
+ifneq (,$(findstring -no_warning_for_no_symbols,$(HOST_RANLIB)))
+HOST_RANLIB := $(HOST_RANLIB)
+else
+HOST_RANLIB := $(HOST_RANLIB) -no_warning_for_no_symbols
+endif
+endif
+
 ifndef EXTERNALLY_MANAGED_MAKE_FILE
 # Import the automatically generated backend file. If this file doesn't exist,
 # the backend hasn't been properly configured. We want this to be a fatal

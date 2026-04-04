@@ -4,5 +4,8 @@
         "ForEach-Object": true,
         "Get-Item": true,
         "Test-Path": true
+    },
+    "files.associations": {
+        "limits.h": "c"
     }
 }

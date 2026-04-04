@@ -32,6 +32,7 @@ ID
 
 obj-x86_64-pc-mingw32/
 obj-i686-pc-mingw32/
+autom4te.cache/
 
 # Empty marker file that's generated when we check out NSS
 security/manager/.nss.checkout

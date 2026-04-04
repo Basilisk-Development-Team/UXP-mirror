@@ -326,7 +326,23 @@ def main(args, proc_callback=None):
     (options, args) = parser.parse_args(args)
 
     with ExpandArgsMore(args) as args:
+        run_ranlib = False
+        ranlib_target = None
+
         if options.extract:
+            # --extract mode is used for archive creation in the recursive
+            # make backend. On Darwin, run ranlib with the no-symbol warning
+            # suppression flag to avoid failures on object members that
+            # intentionally have no symbols.
+            if sys.platform == 'darwin' and len(args):
+                ar_basename = os.path.basename(conf.AR)
+                cmd_basename = os.path.basename(args[0])
+                if cmd_basename == ar_basename:
+                    for a in args[1:]:
+                        if os.path.splitext(a)[1] == conf.LIB_SUFFIX:
+                            ranlib_target = a
+                            run_ranlib = True
+                            break
             args.extract()
         if options.symbol_order:
             args.orderSymbols(options.symbol_order)
@@ -349,6 +365,15 @@ def main(args, proc_callback=None):
         sys.stderr.flush()
         if proc.returncode:
             return proc.returncode
+        if run_ranlib and ranlib_target:
+            ranlib_cmd = ['ranlib', '-no_warning_for_no_symbols', ranlib_target]
+            ranlib = subprocess.Popen(ranlib_cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+            (ranlib_out, ranlib_err) = ranlib.communicate()
+            if ranlib_out:
+                sys.stderr.write(ranlib_out)
+            sys.stderr.flush()
+            if ranlib.returncode:
+                return ranlib.returncode
         return 0
 
 if __name__ == '__main__':

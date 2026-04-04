@@ -75,7 +75,7 @@ typedef int x86_reg;
 #define HAVE_7REGS (ARCH_X86_64 || (HAVE_EBX_AVAILABLE && HAVE_EBP_AVAILABLE))
 #define HAVE_6REGS (ARCH_X86_64 || (HAVE_EBX_AVAILABLE || HAVE_EBP_AVAILABLE))
 
-#if ARCH_X86_64 && defined(PIC)
+#if ARCH_X86_64 && (defined(PIC) || defined(__PIC__) || defined(__pic__))
 #    define BROKEN_RELOCATIONS 1
 #endif
 
@@ -103,7 +103,7 @@ typedef int x86_reg;
 #define LABEL_MANGLE(a) EXTERN_PREFIX #a
 
 // Use rip-relative addressing if compiling PIC code on x86-64.
-#if ARCH_X86_64 && defined(PIC)
+#if ARCH_X86_64 && (defined(PIC) || defined(__PIC__) || defined(__pic__))
 #    define LOCAL_MANGLE(a) #a "(%%rip)"
 #else
 #    define LOCAL_MANGLE(a) #a

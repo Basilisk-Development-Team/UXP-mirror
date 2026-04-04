@@ -5,6 +5,7 @@
 #include <stddef.h>
 #include <string.h>                     /* memset(), memcpy() */
 #include <assert.h>
+#include <limits.h>
 
 #define XML_BUILDING_EXPAT 1
 

@@ -112,3 +112,10 @@ if CONFIG['CLANG_CL']:
         '-fmodules-cache-path=' + TOPOBJDIR + '/media/ffpvx',
         '-fbuiltin-module-map',
     ]
+
+if CONFIG['OS_TARGET'] == 'Darwin':
+    LOCAL_INCLUDES += [
+        '/media/ffvpx',
+    ]
+    CFLAGS += ['-include', 'config_darwin_new.h']
+    CXXFLAGS += ['-include', 'config_darwin_new.h']

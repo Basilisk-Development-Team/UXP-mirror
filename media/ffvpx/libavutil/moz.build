@@ -8,9 +8,8 @@
 if CONFIG['FFVPX_ASFLAGS']:
     DIRS += ['x86']
 
-#    'dummy_funcs.c',
-
 SharedLibrary('mozavutil')
+
 SOURCES += [
     'adler32.c',
     'aes.c',
@@ -43,7 +42,7 @@ SOURCES += [
     'hash.c',
     'hmac.c',
     'hwcontext.c',
-    'hwcontext_cuda.c',
+    # 'hwcontext_cuda.c',  # DISABLED: macOS does not support CUDA/NVCUVID
     'imgutils.c',
     'integer.c',
     'intmath.c',
@@ -83,7 +82,7 @@ SOURCES += [
     'xtea.c',
 ]
 
-SYMBOLS_FILE =  'avutil.symbols'
+SYMBOLS_FILE = 'avutil.symbols'
 NO_VISIBILITY_FLAGS = True
 
 OS_LIBS += CONFIG['REALTIME_LIBS']

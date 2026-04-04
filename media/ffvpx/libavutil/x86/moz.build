@@ -3,19 +3,24 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
-SOURCES += [
-    'cpu.c',
-    'cpuid.asm',
-    'emms.asm',
-    'fixed_dsp.asm',
-    'fixed_dsp_init.c',
-    'float_dsp.asm',
-    'float_dsp_init.c',
-    'imgutils.asm',
-    'imgutils_init.c',
-    'lls.asm',
-    'lls_init.c'
-]
+if CONFIG['OS_TARGET'] == 'Darwin':
+    SOURCES += [
+        'x86util_stub.c',
+    ]
+else:
+    SOURCES += [
+        'cpu.c',
+        'cpuid.asm',
+        'emms.asm',
+        'fixed_dsp.asm',
+        'fixed_dsp_init.c',
+        'float_dsp.asm',
+        'float_dsp_init.c',
+        'imgutils.asm',
+        'imgutils_init.c',
+        'lls.asm',
+        'lls_init.c',
+    ]
 
 FINAL_LIBRARY = 'mozavutil'
 

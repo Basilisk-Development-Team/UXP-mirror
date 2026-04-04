@@ -113,6 +113,12 @@ else
     AC_PROG_CC
     AC_PROG_CXX
     AC_PROG_RANLIB
+    case "$target" in
+    *-apple-darwin*)
+        AR_FLAGS='cr $@'
+        RANLIB="$RANLIB -no_warning_for_no_symbols"
+        ;;
+    esac
     MOZ_PATH_PROGS(AS, $AS as, $CC)
     AC_CHECK_PROGS(AR, ar, :)
     AC_CHECK_PROGS(LD, ld, :)

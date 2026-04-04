@@ -59,6 +59,20 @@
             av_register_codec_parser(&ff_##x##_parser);                 \
     }
 
+#ifdef __APPLE__
+#undef REGISTER_ENCODER
+#undef REGISTER_DECODER
+#undef REGISTER_ENCDEC
+#undef REGISTER_HWACCEL
+#undef REGISTER_PARSER
+
+#define REGISTER_ENCODER(X, x)      do { } while (0)
+#define REGISTER_DECODER(X, x)      do { } while (0)
+#define REGISTER_ENCDEC(X, x)       do { } while (0)
+#define REGISTER_HWACCEL(X, x)      do { } while (0)
+#define REGISTER_PARSER(X, x)       do { } while (0)
+#endif
+
 static void register_all(void)
 {
     /* hardware accelerators */
