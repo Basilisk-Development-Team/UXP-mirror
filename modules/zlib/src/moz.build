@@ -15,7 +15,6 @@ if CONFIG['CPU_ARCH'] == 'arm':
     SOURCES += [
         'adler32_simd.c',
         'inffast_chunk.c',
-        'inflate_simd.c',
     ]
 
 if CONFIG['INTEL_ARCHITECTURE']:
@@ -40,7 +39,6 @@ if CONFIG['INTEL_ARCHITECTURE']:
             'crc_folding.c',
             'fill_window_sse.c',
             'inffast_chunk.c',
-            'inflate_simd.c',
         ]
 else:
     SOURCES += [
@@ -64,10 +62,18 @@ SOURCES += [
     'gzwrite.c',
     'infback.c',
     'inffast.c',
-    'inflate.c',
     'inftrees.c',
     'trees.c',
     'uncompr.c',
     'zutil.c',
 ]
+
+if CONFIG['CPU_ARCH'] == 'arm' or (CONFIG['INTEL_ARCHITECTURE'] and CONFIG['OS_ARCH'] != 'Darwin'):
+    SOURCES += [
+        'inflate_simd.c',
+    ]
+else:
+    SOURCES += [
+        'inflate.c',
+    ]
 

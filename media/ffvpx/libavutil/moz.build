@@ -42,7 +42,6 @@ SOURCES += [
     'hash.c',
     'hmac.c',
     'hwcontext.c',
-    # 'hwcontext_cuda.c',  # DISABLED: macOS does not support CUDA/NVCUVID
     'imgutils.c',
     'integer.c',
     'intmath.c',
@@ -81,6 +80,11 @@ SOURCES += [
     'xga_font_data.c',
     'xtea.c',
 ]
+
+if CONFIG['OS_ARCH'] != 'Darwin':
+    SOURCES += [
+        'hwcontext_cuda.c',
+    ]
 
 SYMBOLS_FILE = 'avutil.symbols'
 NO_VISIBILITY_FLAGS = True
