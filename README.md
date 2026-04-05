@@ -4,9 +4,9 @@
 <br><br>
 <img src="readme/newtab.png">
 
-Dactyloidae is a fork of Eclipse Lun3r (fork of Pale Moon made for Windows XP).
+Dactyloidae is a fork of Eclipse Hydra (fork of Basilisk made for Windows XP).
 
-Some advantages over upstream, roytam1's New Moon and Lun3r are:
+Some advantages over upstream, roytam1's Serpent and Hydra are:
 - More optimzations (33.7 in Speedometer 2.1)
 - Better interoperability with upstream. (using SQL storage intead of DBM)
 - More modern theme
@@ -26,7 +26,9 @@ If I've forgotten to put your name here, please let me know and I'll add it.
 - [BlueySoft (goober)](https://blueyheeler.xyz/) - Branding visuals, icons and fancy text.
 
 Major core browser engine contributions:
+- [Stossy11](https://www.github.com/stossy11) - Helping to develop and fix the macOS build.
 - [Eclipse Community](https://www.github.com/Eclipse-Community/UXP) - For creating Hydra and Lun3r, the bases of this fork.
+- [Basilisk-Dev](https://repo.palemoon.org/Basilisk-Dev) - For supporting and maintaining Basilisk, aswell as general advice for developing this browser.
 - [roytam1](https://github.com/roytam1) - Windows XP support code, e10s, WebExtensions, and more for UXP.
-- [Moonchild Productions](https://repo.palemoon.org/MoonchildProductions) - For creating the Unified XUL Platform, the core of this project.
+- [Moonchild Productions](https://repo.palemoon.org/MoonchildProductions) - For creating the Unified XUL Platform and Basilisk, the core of this project.
 - [Mozilla Developers](https://github.com/mozilla-firefox) - Firefox ESR 52 browser base.

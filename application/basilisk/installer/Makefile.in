@@ -108,12 +108,30 @@ endif
 
 INSTALL_SDK = 1
 
-ifeq (cocoa,$(MOZ_WIDGET_TOOLKIT))
-MOZ_FS_LAYOUT = bundle
-endif
-
 include $(topsrcdir)/toolkit/mozapps/installer/signing.mk
 include $(topsrcdir)/toolkit/mozapps/installer/packager-uxp.mk
+
+ifeq (cocoa,$(MOZ_WIDGET_TOOLKIT))
+APP_BUNDLE_INPUT = $(DIST)/$(MOZ_MACBUNDLE_NAME)
+
+prepare-bundle-input:
+	@mkdir -p '$(APP_BUNDLE_INPUT)/Contents/MacOS' '$(APP_BUNDLE_INPUT)/Contents/Resources'
+	@cp -RLf '$(DIST)/bin/.' '$(APP_BUNDLE_INPUT)/Contents/Resources/'
+	@cp -f '$(APP_BUNDLE_INPUT)/Contents/Resources/$(MOZ_APP_NAME)' '$(APP_BUNDLE_INPUT)/Contents/MacOS/' 2>/dev/null || true
+	@cp -f '$(APP_BUNDLE_INPUT)/Contents/Resources/XUL' '$(APP_BUNDLE_INPUT)/Contents/MacOS/' 2>/dev/null || true
+	@cp -f '$(APP_BUNDLE_INPUT)/Contents/Resources/'*.dylib '$(APP_BUNDLE_INPUT)/Contents/MacOS/' 2>/dev/null || true
+	@cp -Rf '$(APP_BUNDLE_INPUT)/Contents/Resources/plugin-container.app' '$(APP_BUNDLE_INPUT)/Contents/MacOS/' 2>/dev/null || true
+	@cp -f '$(srcdir)/macbuild/Contents/PkgInfo' '$(APP_BUNDLE_INPUT)/Contents/PkgInfo'
+	@sed \
+		-e 's/%MOZ_MACBUNDLE_ID%/$(MOZ_MACBUNDLE_ID)/' \
+		-e 's/%APP_VERSION%/$(MOZ_APP_VERSION)/g' \
+		-e 's/%MAC_BUNDLE_VERSION%/$(MOZ_APP_VERSION)/g' \
+		-e 's/%MAC_APP_NAME%/$(MOZ_APP_DISPLAYNAME)/g' \
+		-e 's#<string>basilisk</string>#<string>$(MOZ_APP_NAME)</string>#' \
+		'$(srcdir)/macbuild/Contents/Info.plist.in' > '$(APP_BUNDLE_INPUT)/Contents/Info.plist'
+
+stage-package: prepare-bundle-input
+endif
 
 # Local macOS workaround: precompile_cache.js hangs in xpcshell during package.
 # Skip precomplete/startupcache generation so packaging can complete.
@@ -131,7 +149,7 @@ BINPATH = bin
 endif
 DEFINES += -DBINPATH='$(BINPATH)'
 
-ifeq (cocoa,$(MOZ_WIDGET_TOOLKIT))
+ifeq (bundle, $(MOZ_FS_LAYOUT))
 RESPATH = $(_APPNAME)/Contents/Resources
 else
 RESPATH = $(BINPATH)

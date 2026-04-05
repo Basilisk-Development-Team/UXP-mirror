@@ -59,6 +59,10 @@ static void _x86_check_features(void)
     x86_cpu_enable_simd = x86_cpu_has_sse2 &&
                           x86_cpu_has_sse42 &&
                           x86_cpu_has_pclmulqdq;
+#ifdef __APPLE__
+    /* SIMD implementations not built on Darwin; disable even if CPU supports them */
+    x86_cpu_enable_simd = 0;
+#endif
 }
 #else
 #include <intrin.h>

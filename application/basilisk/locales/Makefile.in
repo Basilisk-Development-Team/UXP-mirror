@@ -92,7 +92,7 @@ $(STAGEDIST): $(DIST)/branding
 $(DIST)/branding:
 	$(NSINSTALL) -D $@
 
-DEFINES += -DBOOKMARKS_INCLUDE_DIR=$(dir $(call MERGE_FILE,profile/bookmarks.inc))
+DEFINES += -DBOOKMARKS_INCLUDE_DIR=/application/basilisk/locales/$(AB_CD)/profile
 
 libs-%:
 	$(NSINSTALL) -D $(DIST)/install
