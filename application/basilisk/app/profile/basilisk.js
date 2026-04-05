@@ -918,27 +918,14 @@ pref("browser.flash-protected-mode-flip.done", false);
 pref("dom.ipc.shims.enabledWarnings", false);
 
 // Start the browser in e10s mode
-// Disable e10s on OS X, unstable (prob due to being software only idk)
-#ifdef XP_MACOSX
-pref("browser.tabs.remote.autostart", false);
-pref("browser.tabs.remote.force-enable", false);
-pref("browser.tabs.remote.force-disable", true);
-pref("browser.tabs.remote.desktopbehavior", false);
-pref("browser.tabs.remote.ignoreBlockPolicy", false);
-#else
 pref("browser.tabs.remote.autostart", true);
 pref("browser.tabs.remote.force-enable", true);
 pref("browser.tabs.remote.force-disable", false);
 pref("browser.tabs.remote.desktopbehavior", true);
 pref("browser.tabs.remote.ignoreBlockPolicy", true);
-#endif
 // Number of web content processes used by e10s.
 // Keep this at a fixed value in this tree; automatic -1 mode is not supported.
-#ifdef XP_MACOSX
-pref("dom.ipc.processCount", 1);
-#else
 pref("dom.ipc.processCount", 4);
-#endif
 
 // This pref governs whether we attempt to work around problems caused by
 // plugins using OS calls to manipulate the cursor while running out-of-
