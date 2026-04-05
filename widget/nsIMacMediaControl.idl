@@ -1,0 +1,31 @@
+/* This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this
+ * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
+
+#include "nsISupports.idl"
+
+[scriptable, uuid(9d16f8ac-9d47-4f16-95cf-5ec9b42d3e11)]
+interface nsIMacMediaControl : nsISupports
+{
+  /**
+   * Publish playback state to macOS now playing surfaces.
+   */
+  void setSMTCPlaybackState(in boolean aPlaying);
+
+  /**
+   * Publish media metadata to macOS now playing surfaces.
+   */
+  void setSMTCMetadata(in AString aTitle,
+                       in AString aArtist,
+                       in AString aAlbum);
+
+  /**
+   * Publish media artwork URL. Best effort; may be ignored by implementation.
+   */
+  void setSMTCThumbnailURL(in AString aThumbnailURL);
+
+  /**
+   * Clear published media metadata.
+   */
+  void clearSMTCMetadata();
+};

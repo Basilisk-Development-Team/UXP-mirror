@@ -21,6 +21,7 @@ EXPORTS += [
 UNIFIED_SOURCES += [
     'ComplexTextInputPanel.mm',
     'GfxInfo.mm',
+    'MacMediaControlUtils.mm',
     'NativeKeyBindings.mm',
     'nsAppShell.mm',
     'nsBidiKeyboard.mm',

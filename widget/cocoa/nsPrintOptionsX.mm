@@ -8,6 +8,8 @@
 #include "nsIServiceManager.h"
 #include "nsPrintOptionsX.h"
 #include "nsPrintSettingsX.h"
+#include "nsCocoaUtils.h"
+#include "nsIWebBrowserPrint.h"
 
 // The constants for paper orientation were renamed in 10.9. __MAC_10_9 is
 // defined on OS X 10.9 and later. Although 10.8 and earlier are not supported

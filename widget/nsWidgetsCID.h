@@ -155,6 +155,10 @@
 #define NS_MACWEBAPPUTILS_CID \
 { 0xe9096367, 0xddd9, 0x45e4, { 0xb7, 0x62, 0x49, 0xc0, 0xc1, 0x8b, 0x71, 0x19 } }
 
+// {7e3bd1b8-e2f4-4fbe-9f1c-d6f7b98a215e}
+#define NS_MAC_MEDIA_CONTROL_CID \
+{ 0x7e3bd1b8, 0xe2f4, 0x4fbe, { 0x9f, 0x1c, 0xd6, 0xf7, 0xb9, 0x8a, 0x21, 0x5e } }
+
 //-----------------------------------------------------------
 //Printing
 //-----------------------------------------------------------

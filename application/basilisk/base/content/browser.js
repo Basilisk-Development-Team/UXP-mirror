@@ -1795,12 +1795,16 @@ function HandleMediaControlAppCommand(action) {
 }
 
 function getWindowsUIUtils() {
-  if (AppConstants.platform != "win") {
-    return null;
-  }
   try {
-    return Cc["@mozilla.org/windows-ui-utils;1"]
-             .getService(Ci.nsIWindowsUIUtils);
+    if (AppConstants.platform == "win") {
+      return Cc["@mozilla.org/windows-ui-utils;1"]
+               .getService(Ci.nsIWindowsUIUtils);
+    }
+    if (AppConstants.platform == "macosx") {
+      return Cc["@mozilla.org/mac-media-control;1"]
+               .getService(Ci.nsIMacMediaControl);
+    }
+    return null;
   } catch (e) {
     return null;
   }
