@@ -60,3 +60,84 @@ wizard[branded="true"] .wizard-header-icon {
   font: menu !important;
 }
 
+/* On macOS dark appearance, avoid relying on semantic colors that can
+ * produce white-on-light combinations in XUL wizard chrome. */
+:root:-moz-lwtheme-brighttext wizard,
+:root[lwtheme-brighttext] wizard {
+  -moz-appearance: none !important;
+  background-color: #2b2b2b !important;
+  color: #e6e6e6 !important;
+}
+
+:root:-moz-lwtheme-brighttext .wizard-header,
+:root[lwtheme-brighttext] .wizard-header,
+:root:-moz-lwtheme-brighttext .wizard-page-box,
+:root[lwtheme-brighttext] .wizard-page-box,
+:root:-moz-lwtheme-brighttext .wizard-buttons-btm,
+:root[lwtheme-brighttext] .wizard-buttons-btm {
+  -moz-appearance: none !important;
+  background-color: #2b2b2b !important;
+  color: #e6e6e6 !important;
+}
+
+:root:-moz-lwtheme-brighttext .wizard-header-box-1,
+:root[lwtheme-brighttext] .wizard-header-box-1,
+:root:-moz-lwtheme-brighttext .wizard-header-label,
+:root[lwtheme-brighttext] .wizard-header-label,
+:root:-moz-lwtheme-brighttext description,
+:root[lwtheme-brighttext] description,
+:root:-moz-lwtheme-brighttext label,
+:root[lwtheme-brighttext] label {
+  color: #f0f0f0 !important;
+}
+
+:root:-moz-lwtheme-brighttext .wizard-buttons-separator,
+:root[lwtheme-brighttext] .wizard-buttons-separator {
+  border-bottom: 1px solid #505050 !important;
+}
+
+@media (prefers-color-scheme: dark) {
+  wizard,
+  .wizard-header,
+  .wizard-page-box,
+  .wizard-buttons-btm {
+    -moz-appearance: none !important;
+    background-color: #2b2b2b !important;
+    color: #e6e6e6 !important;
+  }
+
+  .wizard-header-box-1,
+  .wizard-header-label,
+  description,
+  label {
+    color: #f0f0f0 !important;
+  }
+
+  .wizard-buttons-separator {
+    border-bottom: 1px solid #505050 !important;
+  }
+
+  .wizard-button {
+    -moz-appearance: none !important;
+    background-color: #3b3b3b !important;
+    color: #f0f0f0 !important;
+    border: 1px solid #5f5f5f !important;
+    border-radius: 6px !important;
+    text-shadow: none !important;
+  }
+
+  .wizard-button:hover:not([disabled="true"]) {
+    background-color: #4a4a4a !important;
+  }
+
+  .wizard-button:hover:active:not([disabled="true"]) {
+    background-color: #2f2f2f !important;
+  }
+
+  .wizard-button[disabled="true"] {
+    color: #8d8d8d !important;
+    border-color: #505050 !important;
+    background-color: #333333 !important;
+  }
+}
+

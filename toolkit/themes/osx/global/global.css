@@ -32,7 +32,9 @@ wizard,
 prefwindow { 
   -moz-appearance: dialog;
   background-color: #FFFFFF;
-  color: -moz-DialogText;
+  /* macOS dark mode can map -moz-DialogText to light text while this
+   * surface remains light, so force an explicit readable foreground. */
+  color: #1f1f1f;
   font: message-box;
 }
 

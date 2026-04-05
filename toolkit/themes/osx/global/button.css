@@ -51,6 +51,16 @@ button[disabled="true"] {
   color: GrayText;
 }
 
+:root:-moz-lwtheme-brighttext button,
+:root[lwtheme-brighttext] button {
+  color: #f0f0f0;
+}
+
+:root:-moz-lwtheme-brighttext button[disabled="true"],
+:root[lwtheme-brighttext] button[disabled="true"] {
+  color: #8d8d8d;
+}
+
 /* ::::: menu/menu-button buttons ::::: */
 
 button[type="menu-button"] {

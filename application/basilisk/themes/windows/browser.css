@@ -5651,6 +5651,22 @@ toolbar[brighttext] scrollbarbutton:hover {
   z-index: auto !important;
 }
 
+@media (prefers-color-scheme: dark) {
+  #main-window > #titlebar,
+  #main-window[tabsintitlebar] > #titlebar,
+  #main-window > #titlebar > #titlebar-content,
+  #main-window[tabsintitlebar] > #titlebar > #titlebar-content,
+  #main-window[tabsintitlebar] #TabsToolbar,
+  #main-window #toolbar-menubar,
+  #main-window #navigator-toolbox {
+    -moz-appearance: none !important;
+    background-image: none !important;
+    background-color: #2b2b2b !important;
+    color: #e6e6e6 !important;
+    border-color: #2b2b2b !important;
+  }
+}
+
 /* Ensure webpage content uses the full client area on macOS. */
 #main-window > #tab-view-deck,
 #main-window > #tab-view-deck > #browser-panel,
