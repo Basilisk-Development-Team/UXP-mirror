@@ -7,8 +7,30 @@
 @namespace url(http://www.mozilla.org/keymaster/gatekeeper/there.is.only.xul);
 @-moz-document url("chrome://browser/content/browser.xul") {
 
+%ifdef XP_MACOSX
+  /* When this Windows theme is used on macOS, keep titlebar metrics aligned
+   * with Cocoa so the top chrome doesn't get clipped. */
+  #main-window > #titlebar,
+  #main-window[tabsintitlebar] > #titlebar {
+    min-height: 22px !important;
+  }
+
+  #titlebar-buttonbox,
+  #titlebar-buttonbox-container,
+  #main-window[sizemode="normal"] #TabsToolbar,
+  #main-window[sizemode="maximized"] #TabsToolbar {
+    margin-top: 0 !important;
+    margin-bottom: 0 !important;
+  }
+
+  .titlebar-button {
+    height: 22px !important;
+    margin-bottom: 0 !important;
+  }
+%endif
+
 :root {
-	font-family: 'Segoe UI', sans-serif;
+  font-family: "Segoe UI", "Lucida Grande", "Helvetica Neue", sans-serif;
 }
 
   /* MAIN WINDOW & TITLEBAR BUTTONS  */
@@ -25,7 +47,7 @@
     padding: 0 !important;
     width: 46px !important;
     height: 32px !important;
-	font-family: "Segoe UI" !important;
+  	font-family: "Segoe UI", "Lucida Grande", "Helvetica Neue", sans-serif !important;
   }
   
   
@@ -150,7 +172,7 @@
     color: var(--inactive-font-color) !important;
     background-color: var(--second-level-bg-color) !important;
     border: none !important;
-	font-family: "Segoe UI" !important;
+	font-family: "Segoe UI", "Lucida Grande", "Helvetica Neue", sans-serif !important;
 	font-size: 12px;
   }
   
@@ -686,7 +708,7 @@
     border: none !important;
     background-color: var(--top-level-bg-color) !important;
     color: var(--main-font-color) !important;
-	font-family: "Segoe UI" !important;
+	font-family: "Segoe UI", "Lucida Grande", "Helvetica Neue", sans-serif !important;
   }
 
   #urlbar[focused] {
@@ -5443,4 +5465,234 @@ toolbar[brighttext] scrollbarbutton {
 toolbar[brighttext] thumb:hover,
 toolbar[brighttext] scrollbarbutton:hover {
   background-color: #6a6a6a !important;
+}
+
+%ifdef XP_MACOSX
+/* Final macOS pass for Windows CSS port:
+ * keep native-style top chrome geometry stable and controls visible. */
+#main-window > #titlebar,
+#main-window[tabsintitlebar] > #titlebar {
+  min-height: 30px !important;
+  height: 30px !important;
+}
+
+#main-window > #titlebar > #titlebar-content,
+#main-window[tabsintitlebar] > #titlebar > #titlebar-content {
+  min-height: 30px !important;
+  height: 30px !important;
+}
+
+#titlebar-buttonbox-container,
+#titlebar-buttonbox,
+#titlebar-min,
+#titlebar-max,
+#titlebar-close,
+#minimize-button,
+#restore-button,
+#close-button {
+  display: -moz-box !important;
+  visibility: visible !important;
+}
+
+#titlebar-buttonbox-container,
+#titlebar-buttonbox {
+  margin: 0 !important;
+  padding: 0 !important;
+}
+
+/* Keep custom titlebar, but render macOS traffic-light controls inside it. */
+#titlebar-buttonbox-container {
+  -moz-box-ordinal-group: 0 !important;
+  margin-left: 8px !important;
+  margin-right: 0 !important;
+  z-index: 20 !important;
+}
+
+#titlebar-buttonbox {
+  -moz-box-align: center !important;
+  min-height: 30px !important;
+}
+
+.titlebar-button,
+#titlebar-min,
+#titlebar-max,
+#titlebar-close,
+#minimize-button,
+#restore-button,
+#close-button {
+  width: 12px !important;
+  height: 12px !important;
+  min-height: 12px !important;
+  margin-top: 0 !important;
+  margin-bottom: 0 !important;
+  margin-left: 0 !important;
+  margin-right: 6px !important;
+  padding: 0 !important;
+  border: none !important;
+  border-radius: 50% !important;
+  background-image: none !important;
+  list-style-image: none !important;
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.15) !important;
+}
+
+/* Order buttons as macOS traffic lights: close, minimize, zoom. */
+#titlebar-close,
+#close-button {
+  -moz-box-ordinal-group: 1 !important;
+}
+
+#titlebar-min,
+#minimize-button {
+  -moz-box-ordinal-group: 2 !important;
+}
+
+#titlebar-max,
+#restore-button {
+  -moz-box-ordinal-group: 3 !important;
+}
+
+#titlebar-min,
+#minimize-button {
+  -moz-appearance: none !important;
+  background-color: #febc2e !important;
+}
+
+#titlebar-max,
+#restore-button {
+  -moz-appearance: none !important;
+  background-color: #28c840 !important;
+}
+
+/* In maximized mode, Windows-specific selectors have higher specificity.
+ * Re-assert fixed traffic-light sizing to prevent stretched green button. */
+#main-window[sizemode="maximized"] #titlebar-max,
+#main-window[sizemode="maximized"] #restore-button {
+  width: 12px !important;
+  height: 12px !important;
+  min-height: 12px !important;
+  border-radius: 50% !important;
+  background-color: #28c840 !important;
+}
+
+#titlebar-close,
+#close-button {
+  -moz-appearance: none !important;
+  background-color: #ff5f57 !important;
+}
+
+/* Dark mode traffic light colors */
+#main-window[lwtheme-brighttext] #titlebar-min,
+#main-window[lwtheme-brighttext] #minimize-button,
+:root[data-theme="dark"] #titlebar-min,
+:root[data-theme="dark"] #minimize-button {
+  background-color: #ffbd44 !important;
+}
+
+#main-window[lwtheme-brighttext] #titlebar-max,
+#main-window[lwtheme-brighttext] #restore-button,
+:root[data-theme="dark"] #titlebar-max,
+:root[data-theme="dark"] #restore-button {
+  background-color: #00ca4e !important;
+}
+
+#main-window[sizemode="maximized"][lwtheme-brighttext] #titlebar-max,
+#main-window[sizemode="maximized"][lwtheme-brighttext] #restore-button,
+#main-window[sizemode="maximized"]:root[data-theme="dark"] #titlebar-max,
+#main-window[sizemode="maximized"]:root[data-theme="dark"] #restore-button {
+  background-color: #00ca4e !important;
+}
+
+#main-window[lwtheme-brighttext] #titlebar-close,
+#main-window[lwtheme-brighttext] #close-button,
+:root[data-theme="dark"] #titlebar-close,
+:root[data-theme="dark"] #close-button {
+  background-color: #ff605c !important;
+}
+
+#main-window[sizemode="normal"] #TabsToolbar,
+#main-window[sizemode="maximized"] #TabsToolbar,
+#main-window[tabsintitlebar] #toolbar-menubar ~ #TabsToolbar,
+#main-window[tabsintitlebar][sizemode="normal"] #toolbar-menubar[autohide="true"][inactive] ~ #TabsToolbar {
+  margin-top: 0 !important;
+  margin-left: 0 !important;
+  margin-bottom: 0 !important;
+  padding-top: 0 !important;
+  padding-inline-start: 76px !important;
+}
+
+/* Neutralize Windows tabs-in-titlebar top offsets on macOS. */
+#toolbar-menubar:not([autohide=true]) ~ #TabsToolbar:not([inFullscreen]),
+#toolbar-menubar[autohide=true]:not([inactive]) ~ #TabsToolbar:not([inFullscreen]),
+#main-window[tabsintitlebar][sizemode="normal"]:not([inFullscreen])[chromehidden~="menubar"] #toolbar-menubar ~ #TabsToolbar,
+#main-window[tabsintitlebar][sizemode="normal"]:not([inFullscreen]) #toolbar-menubar[autohide="true"][inactive] ~ #TabsToolbar {
+  margin-top: 0 !important;
+}
+
+:root {
+  --space-above-tabbar: 0px !important;
+  --tab-toolbar-navbar-overlap: 0px !important;
+}
+
+#main-window[tabsintitlebar] #TabsToolbar {
+  min-height: 30px !important;
+}
+
+/* Keep the macOS tabstrip anchored; remove Windows floating offsets. */
+#main-window[tabsintitlebar] #tabbrowser-tabs,
+#main-window[tabsintitlebar] .tabbrowser-tab,
+#main-window[tabsintitlebar] .tabbrowser-tab > .tab-stack {
+  margin-top: 0 !important;
+  margin-bottom: 0 !important;
+  padding-top: 0 !important;
+}
+
+#main-window[tabsintitlebar]:not([sizemode=fullscreen]) #tabbrowser-tabs {
+  position: static !important;
+  z-index: auto !important;
+}
+
+/* Ensure webpage content uses the full client area on macOS. */
+#main-window > #tab-view-deck,
+#main-window > #tab-view-deck > #browser-panel,
+#main-window #appcontent,
+#main-window #content,
+#main-window .browserContainer,
+#main-window .browserStack,
+#main-window .tabbrowser-tabpanels,
+#main-window #content browser,
+#main-window #appcontent browser,
+#main-window browser {
+  margin: 0 !important;
+  padding: 0 !important;
+  border: none !important;
+  box-shadow: none !important;
+  -moz-appearance: none !important;
+}
+
+#main-window > #tab-view-deck,
+#main-window > #tab-view-deck > #browser-panel,
+#main-window #appcontent,
+#main-window .browserStack,
+#main-window .tabbrowser-tabpanels {
+  -moz-box-flex: 1 !important;
+}
+
+/* SVG color adjustment for dark mode. */
+#main-window[lwtheme-brighttext] #PanelUI-popup svg,
+#main-window[lwtheme-brighttext] .panel-arrow svg,
+#main-window[lwtheme-brighttext] panelview svg,
+:root[data-theme="dark"] #PanelUI-popup svg,
+:root[data-theme="dark"] .panel-arrow svg,
+:root[data-theme="dark"] panelview svg {
+  fill: currentColor !important;
+  filter: invert(100%) !important;
+}
+
+/* Ensure panel backgrounds are appropriate for theme. */
+#main-window[lwtheme-brighttext] .panel-white,
+:root[data-theme="dark"] .panel-white {
+  background-color: #2a2a2a !important;
+}
+%endif
+
 }

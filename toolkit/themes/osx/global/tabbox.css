@@ -2,147 +2,131 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-/*
-    The default style of these tabs is that of an NSTabView with tabs at
-    the top in the "regular" size. These tabs can be used with or without
-    a tabbox element.
-    For bottom tabs you should use the "tabs-bottom" class on the tabbox
-    or the tabs element. Bottom tabs use a style that's similar to the
-    one used in Adium.
-*/
+/* ===== tabbox.css =================================================
+  == Styles used by XUL tab-related elements.
+  ======================================================================= */
 
 @namespace url("http://www.mozilla.org/keymaster/gatekeeper/there.is.only.xul");
 
-tabbox {
-  margin: 0 5px;
+/* ::::: tabs ::::: */
+
+.tabs-left,
+.tabs-right {
+  border-bottom: 2px solid;
+  -moz-border-bottom-colors: ThreeDHighlight ThreeDLightShadow;
 }
+
+/* ::::: tabpanels ::::: */
 
 tabpanels {
-  -moz-appearance: tabpanels;
-  padding: 33px 15px 15px;
+  -moz-appearance: tabpanels; 
+  border-right: 2px solid;
+  border-bottom: 2px solid;
+  border-left: 2px solid;
+  -moz-border-right-colors: ThreeDDarkShadow ThreeDShadow;
+  -moz-border-bottom-colors: ThreeDDarkShadow ThreeDShadow;
+  -moz-border-left-colors: ThreeDHighlight ThreeDLightShadow;
+  background-color: -moz-Dialog;
+  color: -moz-DialogText;
 }
 
-tabs {
-  -moz-box-align: center;
-  font: menu;
-}
+/* ::::: tab ::::: */
 
-tabbox > tabs {
-  padding: 0 10px;
-  margin-bottom: -12px;
-  position: relative;
-}
-
-tab {
+tab 
+{
   -moz-appearance: tab;
+  margin-top: 2px;
+  border-top: 2px solid;
+  border-right: 2px solid;
+  border-left: 2px solid;
+  border-bottom: 1px solid ThreeDHighlight;
+  -moz-border-top-colors: ThreeDHighlight ThreeDLightShadow;
+  -moz-border-right-colors: ThreeDDarkShadow ThreeDShadow;
+  -moz-border-left-colors: ThreeDHighlight ThreeDLightShadow;
+  border-top-left-radius: 2px;
+  border-top-right-radius: 2px;
+  padding: 1px 4px 2px 4px;
+  background-color: -moz-Dialog;
+  color: -moz-DialogText;
 }
 
-tab:-moz-focusring {
-  /* Tab focus rings need to overlay adjacent tabs. */
-  position: relative;
+tab:-moz-locale-dir(rtl) {
+  border-bottom-left-radius: 1px;
+  border-bottom-right-radius: 0px;
 }
 
-tab:first-of-type {
-  padding-inline-start: 2px;
-}
-
-tab:last-of-type {
-  padding-inline-end: 2px;
+.tab-text {
+  margin: 0 !important;
 }
 
 tab[visuallyselected="true"] {
-  color: #FFF;
-  text-shadow: rgba(0, 0, 0, 0.4) 0 1px;
+  margin-top: 0;
+  border-bottom-color: transparent;
+  padding: 1px 6px 4px 6px;
 }
 
-.tab-middle {
-  padding: 1px 6px 2px;
+tab:-moz-focusring > .tab-middle {
+  /* Don't specify the outline-color, we should always use initial value. */
+  outline: 1px dotted;
 }
 
-.tabs-left,
-.tabs-right  {
-  -moz-box-flex: 1;
+tab[beforeselected="true"]:-moz-locale-dir(ltr),
+tab[visuallyselected="true"]:-moz-locale-dir(rtl) + tab {
+  border-right: none;
+  border-top-right-radius: 0;
 }
 
-/* Tabs at the bottom
- * These tabs are smaller, left aligned and don't extend into the tabpanel.
- */
-
-tabbox.tabs-bottom > tabpanels {
-  padding: 10px;
+tab[visuallyselected="true"]:-moz-locale-dir(ltr) + tab,
+tab[beforeselected="true"]:-moz-locale-dir(rtl) {
+  border-left: none;
+  border-top-left-radius: 0;
 }
 
-tabbox.tabs-bottom > tabs,
-tabs.tabs-bottom {
-  background-color: rgba(0, 0, 0, 0.1);
-  padding: 0;
-  margin: 0;
-  border-top: 2px solid;
-  -moz-border-top-colors: #888 rgba(0, 0, 0, 0.08);
-  -moz-box-align: start;
-  font: message-box;
+tab:first-of-type[visuallyselected="true"] {
+  padding-right: 5px;
+  padding-left: 5px;
 }
 
-tabbox.tabs-bottom > tabs > .tabs-left,
-tabs.tabs-bottom > .tabs-left {
-  -moz-box-flex: 0;
+/* ::::: tab-bottom ::::::::::
+   :: Tabs that are attached to the bottom of a panel, but not necessarily
+   :: a tabpanels.
+   ::::: */
+
+.tab-bottom {
+  margin-top: 0;
+  margin-bottom: 2px;
+  border-top: 1px solid;
+  border-bottom: 2px solid;
+  -moz-border-top-colors: ThreeDShadow;
+  -moz-border-bottom-colors: ThreeDShadow ThreeDLightShadow;
+  border-top-left-radius: 0;
+  border-top-right-radius: 0;
+  border-bottom-right-radius: 2px;
+  border-bottom-left-radius: 2px;
+  padding: 2px 4px 1px 4px;
 }
 
-tabbox.tabs-bottom > tabs > tab,
-tabs.tabs-bottom > tab {
-  -moz-appearance: none;
-  margin: -1px 0 0;
-  padding: 0 0 2px 0;
-  position: relative;
-  border-inline-end: 1px solid rgba(0, 0, 0, 0.19);
+.tab-bottom[visuallyselected="true"] {
+  margin-bottom: 0;
+  -moz-border-top-colors: -moz-Dialog;
+  padding: 4px 6px 1px 6px;
 }
 
-tabbox.tabs-bottom > tabs > tab > .tab-middle,
-tabs.tabs-bottom > tab > .tab-middle {
-  padding: 1px 2px 0 2px;
+.tab-bottom[beforeselected="true"]:-moz-locale-dir(ltr),
+.tab-bottom[visuallyselected="true"]:-moz-locale-dir(rtl) + .tab-bottom {
+  border-bottom-right-radius: 0;
 }
 
-tabbox.tabs-bottom > tabs > tab:not([visuallyselected=true]):hover,
-tabs.tabs-bottom > tab:not([visuallyselected=true]):hover {
-  background-color: rgba(0, 0, 0, 0.1);
-  border-inline-end-color: rgba(0, 0, 0, 0.1);
+.tab-bottom[visuallyselected="true"]:-moz-locale-dir(ltr) + .tab-bottom,
+.tab-bottom[beforeselected="true"]:-moz-locale-dir(rtl) {
+  border-bottom-left-radius: 0;
 }
 
-tabbox.tabs-bottom > tabs > tab[visuallyselected=true],
-tabs.tabs-bottom > tab[visuallyselected=true] {
-  color: #000;
-  text-shadow: none;
-  border: solid #888;
-  border-width: 0 2px 2px;
-  border-radius: 2px;
-  -moz-border-left-colors: rgba(0, 0, 0, 0.08) #888;
-  -moz-border-right-colors: rgba(0, 0, 0, 0.08) #888;
-  -moz-border-bottom-colors: rgba(0, 0, 0, 0.08) #888;
-  margin-inline-end: -1px;
-  margin-top: -2px;
-  margin-bottom: 1px;
-  padding: 0;
+/* ::::: tabs-bottom ::::: */
+
+.tabs-bottom > .tabs-left,
+.tabs-bottom > .tabs-right {
+  border-top: 1px solid ThreeDShadow;
+  border-bottom: none;
 }
 
-tabbox.tabs-bottom > tabs > tab[beforeselected=true],
-tabs.tabs-bottom > tab[beforeselected=true] {
-  border-inline-end-color: transparent;
-  margin-inline-end: -2px;
-}
-
-tabbox.tabs-bottom > tabs > tab:first-of-type:not([visuallyselected=true]),
-tabs.tabs-bottom > tab:first-of-type:not([visuallyselected=true]) {
-  border-inline-start: 4px solid transparent;
-}
-
-tabbox.tabs-bottom > tabs > tab:first-of-type[visuallyselected=true],
-tabs.tabs-bottom > tab:first-of-type[visuallyselected=true] {
-  margin-inline-start: 2px;
-}
-
-tabbox.tabs-bottom,
-tabbox.tabs-bottom > tabpanels,
-tabbox.tabs-bottom > tabs > tab[visuallyselected=true] > .tab-middle,
-tabs.tabs-bottom > tab[visuallyselected=true] > .tab-middle {
-  -moz-appearance: dialog;
-}
