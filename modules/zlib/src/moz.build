@@ -33,6 +33,7 @@ if CONFIG['INTEL_ARCHITECTURE']:
             'simd_darwin_stub.c',
         ]
     else:
+        DEFINES['INFLATE_CHUNK_SIMD_SSE2'] = True
         SOURCES += [
             'adler32_simd.c',
             'crc32_simd.c',
