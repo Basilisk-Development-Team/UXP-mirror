@@ -8,7 +8,7 @@ Dactyloidae is a fork of Eclipse Hydra (fork of Basilisk made for Windows XP).
 
 Some advantages over upstream, roytam1's Serpent and Hydra are:
 - More optimizations
-- Better interoperability with upstream. (using SQL storage intead of DBM)
+- Better interoperability with upstream. (using SQL storage instead of DBM)
 - More modern theme
 - Better e10s support
 - WebExtensions support comparable to Firefox ESR 78
