@@ -7,14 +7,14 @@
 Dactyloidae is a fork of Eclipse Hydra (fork of Basilisk made for Windows XP).
 
 Some advantages over upstream, roytam1's Serpent and Hydra are:
-- More optimzations (33.7 in Speedometer 2.1)
+- More optimizations
 - Better interoperability with upstream. (using SQL storage intead of DBM)
 - More modern theme
 - Better e10s support
-- WebExtensions support (mainly same support as FF78)
-- Literally being the fastest XUL browser
+- WebExtensions support comparable to Firefox ESR 78
+- Literally being the fastest XUL browser (33.7 in Speedometer 2.1 compared to 22.4 in Pale Moon 34.1 AVX2)
 
-We (as in I) reccomend using Palefill to potentially fix any browser issues:
+We reccomend using Palefill to potentially fix any browser issues:
 <a href="https://github.com/martok/palefill/releases">Download it here</a>
 
 ## Credits
