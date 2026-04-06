@@ -1225,6 +1225,11 @@ pref("browser.cache.frecency_experiment", -1);
 // Enable GMP support in the addon manager.
 pref("media.gmp-provider.enabled", true);
 
+// On MacOS 10.6 and earlier, enable the window resize grip
+#ifdef XP_MACOSX
+pref("ui.mouse.resize_grip", true);
+#endif
+
 // Enable Contextual Identity Containers
 #ifdef NIGHTLY_BUILD
 pref("privacy.userContext.enabled", true);
