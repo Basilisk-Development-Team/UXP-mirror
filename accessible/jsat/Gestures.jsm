@@ -76,6 +76,8 @@ const EDGE = 0.1;
 const TIMEOUT_MULTIPLIER = 1;
 // A single pointer down/up sequence periodically precedes the tripple swipe
 // gesture on Android. This delay acounts for that.
+const IS_ANDROID = Utils.MozBuildApp === 'mobile/android' &&
+  Utils.AndroidSdkVersion >= 14;
 
 /**
  * A point object containing distance travelled data.
@@ -204,7 +206,7 @@ this.GestureTracker = { // jshint ignore:line
     if (aDetail.type !== 'pointerdown') {
       return;
     }
-    let GestureConstructor = aGesture || Tap;
+    let GestureConstructor = aGesture || (IS_ANDROID ? DoubleTap : Tap);
     this._create(GestureConstructor);
     this._update(aDetail, aTimeStamp);
   },

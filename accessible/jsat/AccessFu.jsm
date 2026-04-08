@@ -64,7 +64,9 @@ this.AccessFu = { // jshint ignore:line
     if (this._enabled) {
       this._disable();
     }
-    if (Utils.win.navigator.mozSettings) {
+    if (Utils.MozBuildApp === 'mobile/android') {
+      Services.obs.removeObserver(this, 'Accessibility:Settings');
+    } else if (Utils.win.navigator.mozSettings) {
       Utils.win.navigator.mozSettings.removeObserver(
         SCREENREADER_SETTING, this.handleEvent);
     }
@@ -583,7 +585,11 @@ var Output = {
 
   get androidBridge() {
     delete this.androidBridge;
-    this.androidBridge = null;
+    if (Utils.MozBuildApp === 'mobile/android') {
+      this.androidBridge = Services.androidBridge;
+    } else {
+      this.androidBridge = null;
+    }
     return this.androidBridge;
   },
 
@@ -809,6 +815,12 @@ var Input = {
             target.blur();
           }
         }
+
+        if (Utils.MozBuildApp == 'mobile/android') {
+          // Return focus to native Android browser chrome.
+          Services.androidBridge.handleGeckoMessage(
+              { type: 'ToggleChrome:Focus' });
+        }
         break;
       case aEvent.DOM_VK_RETURN:
         if (this.editState.editing) {
@@ -825,9 +837,18 @@ var Input = {
   },
 
   moveToPoint: function moveToPoint(aRule, aX, aY) {
-    let win = Utils.win;
-    Utils.winUtils.sendMouseEvent('mousemove',
-      aX - win.mozInnerScreenX, aY - win.mozInnerScreenY, 0, 0, 0);
+    // XXX: Bug 1013408 - There is no alignment between the chrome window's
+    // viewport size and the content viewport size in Android. This makes
+    // sending mouse events beyond its bounds impossible.
+    if (Utils.MozBuildApp === 'mobile/android') {
+      let mm = Utils.getMessageManager(Utils.CurrentBrowser);
+      mm.sendAsyncMessage('AccessFu:MoveToPoint',
+        {rule: aRule, x: aX, y: aY, origin: 'top'});
+    } else {
+      let win = Utils.win;
+      Utils.winUtils.sendMouseEvent('mousemove',
+        aX - win.mozInnerScreenX, aY - win.mozInnerScreenY, 0, 0, 0);
+    }
   },
 
   moveCursor: function moveCursor(aAction, aRule, aInputType, aAdjustRange) {
