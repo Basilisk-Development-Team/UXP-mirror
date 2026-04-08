@@ -697,7 +697,7 @@ class ConfigureSandbox(dict):
         self._templates.add(wrapper)
         return wrapper
 
-    RE_MODULE = re.compile('^[a-zA-Z0-9_\.]+$')
+    RE_MODULE = re.compile(r'^[a-zA-Z0-9_\.]+$')
 
     def imports_impl(self, _import, _from=None, _as=None):
         '''Implementation of @imports.

@@ -1445,7 +1445,7 @@ VARIABLES = {
         """Names of example WebIDL interfaces to build as part of the build.
 
         Names in this list correspond to WebIDL interface names defined in
-        WebIDL files included in the build from one of the \*WEBIDL_FILES
+        WebIDL files included in the build from one of the \\*WEBIDL_FILES
         variables.
         """),
 

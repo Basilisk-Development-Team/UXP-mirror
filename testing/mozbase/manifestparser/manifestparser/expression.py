@@ -195,7 +195,7 @@ class ExpressionParser(object):
         LITERAL ::= BOOL | INT | IDENT | STRING
         BOOL ::= 'true' | 'false'
         INT ::= [0-9]+
-        IDENT ::= [a-zA-Z_]\w*
+        IDENT ::= [a-zA-Z_]\\w*
         STRING ::= '"' [^\"] '"' | ''' [^\'] '''
 
     At its core, expressions consist of booleans, integers, identifiers and.

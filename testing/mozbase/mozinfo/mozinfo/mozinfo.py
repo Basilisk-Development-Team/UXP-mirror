@@ -154,7 +154,7 @@ elif processor.upper() == "AMD64":
     processor = "x86_64"
 elif processor == "Power Macintosh":
     processor = "ppc"
-bits = re.search('(\d+)bit', bits).group(1)
+bits = re.search(r'(\d+)bit', bits).group(1)
 info.update({'processor': processor,
              'bits': int(bits),
              })

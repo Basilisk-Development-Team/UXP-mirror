@@ -47,7 +47,7 @@ def get_properties(preprocessorHeader):
 def generate_idl_names(properties):
     names = []
     for p in properties:
-        if p["proptype"] is "alias":
+        if p["proptype"] == "alias":
             continue
         if p["idlname"] is None:
             names.append("  nullptr,  // %s" % p["name"])
@@ -57,7 +57,7 @@ def generate_idl_names(properties):
 
 def generate_assertions(properties):
     def enum(p):
-        if p["proptype"] is "alias":
+        if p["proptype"] == "alias":
             return "eCSSPropertyAlias_%s" % p["prop"]
         else:
             return "eCSSProperty_%s" % p["id"]
@@ -67,7 +67,7 @@ def generate_assertions(properties):
 
 def generate_idl_name_positions(properties):
     # Skip aliases.
-    ps = [p for p in properties if p["proptype"] is not "alias"]
+    ps = [p for p in properties if p["proptype"] != "alias"]
 
     # Sort alphabetically by IDL name.
     ps = sorted(ps, key=lambda p: p["idlname"] or "")
