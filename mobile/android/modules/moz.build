@@ -10,7 +10,10 @@ EXTRA_JS_MODULES += [
     'dbg-browser-actors.js',
     'DelayedInit.jsm',
     'DownloadNotifications.jsm',
+<<<<<<< HEAD
     'FxAccountsWebChannel.jsm',
+=======
+>>>>>>> parent of c9b411d6cd (Issue #1053 - Drop support Android and remove Fennec - Part 1a: Remove mobile/android)
     'HelperApps.jsm',
     'Home.jsm',
     'HomeProvider.jsm',

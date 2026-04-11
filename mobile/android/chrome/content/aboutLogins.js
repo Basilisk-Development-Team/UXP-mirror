@@ -8,7 +8,10 @@ Cu.import("resource://services-common/utils.js"); /*global: CommonUtils */
 Cu.import("resource://gre/modules/Messaging.jsm");
 Cu.import("resource://gre/modules/Services.jsm");
 Cu.import("resource://gre/modules/XPCOMUtils.jsm");
+<<<<<<< HEAD
 Cu.import("resource://gre/modules/TelemetryStopwatch.jsm");
+=======
+>>>>>>> parent of c9b411d6cd (Issue #1053 - Drop support Android and remove Fennec - Part 1a: Remove mobile/android)
 
 XPCOMUtils.defineLazyGetter(window, "gChromeWin", () =>
   window.QueryInterface(Ci.nsIInterfaceRequestor)

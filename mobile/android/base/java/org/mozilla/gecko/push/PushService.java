@@ -22,7 +22,10 @@ import org.mozilla.gecko.Telemetry;
 import org.mozilla.gecko.TelemetryContract;
 import org.mozilla.gecko.annotation.ReflectionTarget;
 import org.mozilla.gecko.db.BrowserDB;
+<<<<<<< HEAD
 import org.mozilla.gecko.fxa.FxAccountPushHandler;
+=======
+>>>>>>> parent of c9b411d6cd (Issue #1053 - Drop support Android and remove Fennec - Part 1a: Remove mobile/android)
 import org.mozilla.gecko.gcm.GcmTokenClient;
 import org.mozilla.gecko.push.autopush.AutopushClientException;
 import org.mozilla.gecko.util.BundleEventListener;
@@ -66,13 +69,19 @@ public class PushService implements BundleEventListener {
             "PushServiceAndroidGCM:UnregisterUserAgent",
             "PushServiceAndroidGCM:SubscribeChannel",
             "PushServiceAndroidGCM:UnsubscribeChannel",
+<<<<<<< HEAD
             "FxAccountsPush:Initialized",
             "FxAccountsPush:ReceivedPushMessageToDecode:Response",
+=======
+>>>>>>> parent of c9b411d6cd (Issue #1053 - Drop support Android and remove Fennec - Part 1a: Remove mobile/android)
             "History:GetPrePathLastVisitedTimeMilliseconds",
     };
 
     private enum GeckoComponent {
+<<<<<<< HEAD
         FxAccountsPush,
+=======
+>>>>>>> parent of c9b411d6cd (Issue #1053 - Drop support Android and remove Fennec - Part 1a: Remove mobile/android)
         PushServiceAndroidGCM
     }
 
@@ -98,7 +107,10 @@ public class PushService implements BundleEventListener {
 
     // NB: These are not thread-safe, we're depending on these being access from the same background thread.
     private boolean isReadyPushServiceAndroidGCM = false;
+<<<<<<< HEAD
     private boolean isReadyFxAccountsPush = false;
+=======
+>>>>>>> parent of c9b411d6cd (Issue #1053 - Drop support Android and remove Fennec - Part 1a: Remove mobile/android)
     private final List<JSONObject> pendingPushMessages;
 
     public PushService(Context context) {
@@ -238,9 +250,12 @@ public class PushService implements BundleEventListener {
 
     protected static void sendMessageToDecodeToGeckoService(final @NonNull JSONObject message) {
         Log.i(LOG_TAG, "Delivering dom/push message to decode to Gecko!");
+<<<<<<< HEAD
         GeckoAppShell.notifyObservers("FxAccountsPush:ReceivedPushMessageToDecode",
                                       message.toString(),
                                       GeckoThread.State.PROFILE_READY);
+=======
+>>>>>>> parent of c9b411d6cd (Issue #1053 - Drop support Android and remove Fennec - Part 1a: Remove mobile/android)
     }
 
     protected void registerGeckoEventListener() {
@@ -279,11 +294,14 @@ public class PushService implements BundleEventListener {
                 callback.sendSuccess(null);
                 return;
             }
+<<<<<<< HEAD
             if ("FxAccountsPush:Initialized".equals(event)) {
                 processComponentState(GeckoComponent.FxAccountsPush, true);
                 callback.sendSuccess(null);
                 return;
             }
+=======
+>>>>>>> parent of c9b411d6cd (Issue #1053 - Drop support Android and remove Fennec - Part 1a: Remove mobile/android)
             if ("PushServiceAndroidGCM:Configure".equals(event)) {
                 final String endpoint = message.getString("endpoint");
                 if (endpoint == null) {
@@ -390,10 +408,13 @@ public class PushService implements BundleEventListener {
                 callback.sendError("Could not unsubscribe from channel: " + channelID);
                 return;
             }
+<<<<<<< HEAD
             if ("FxAccountsPush:ReceivedPushMessageToDecode:Response".equals(event)) {
                 FxAccountPushHandler.handleFxAPushMessage(context, message);
                 return;
             }
+=======
+>>>>>>> parent of c9b411d6cd (Issue #1053 - Drop support Android and remove Fennec - Part 1a: Remove mobile/android)
             if ("History:GetPrePathLastVisitedTimeMilliseconds".equals(event)) {
                 if (callback == null) {
                     Log.e(LOG_TAG, "callback must not be null in " + event);
@@ -420,10 +441,14 @@ public class PushService implements BundleEventListener {
     }
 
     private void processComponentState(@NonNull GeckoComponent component, boolean isReady) {
+<<<<<<< HEAD
         if (component == GeckoComponent.FxAccountsPush) {
             isReadyFxAccountsPush = isReady;
 
         } else if (component == GeckoComponent.PushServiceAndroidGCM) {
+=======
+        if (component == GeckoComponent.PushServiceAndroidGCM) {
+>>>>>>> parent of c9b411d6cd (Issue #1053 - Drop support Android and remove Fennec - Part 1a: Remove mobile/android)
             isReadyPushServiceAndroidGCM = isReady;
         }
 
@@ -435,7 +460,11 @@ public class PushService implements BundleEventListener {
     }
 
     private boolean canSendPushMessagesToGecko() {
+<<<<<<< HEAD
         return isReadyFxAccountsPush && isReadyPushServiceAndroidGCM;
+=======
+        return isReadyPushServiceAndroidGCM;
+>>>>>>> parent of c9b411d6cd (Issue #1053 - Drop support Android and remove Fennec - Part 1a: Remove mobile/android)
     }
 
     private static void sendPushMessagesToGecko(@NonNull List<JSONObject> messages) {

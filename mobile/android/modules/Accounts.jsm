@@ -40,6 +40,7 @@ var Accounts = Object.freeze({
     }).then(data => data.exists);
   },
 
+<<<<<<< HEAD
   firefoxAccountsExist: function () {
     return this._accountsExist("fxa");
   },
@@ -48,6 +49,10 @@ var Accounts = Object.freeze({
     Deprecated.warning("The legacy Sync account type has been removed from Firefox for Android. " +
                        "Please use `firefoxAccountsExist` instead.",
                        "https://developer.mozilla.org/en-US/Add-ons/Firefox_for_Android/API/Accounts.jsm");
+=======
+  syncAccountsExist: function () {
+    Deprecated.warning("The legacy Sync account type has been removed from Firefox for Android.");
+>>>>>>> parent of c9b411d6cd (Issue #1053 - Drop support Android and remove Fennec - Part 1a: Remove mobile/android)
     return Promise.resolve(false);
   },
 
@@ -73,6 +78,7 @@ var Accounts = Object.freeze({
   },
 
   _addDefaultEndpoints: function (json) {
+<<<<<<< HEAD
     let newData = Cu.cloneInto(json, {}, { cloneFunctions: false });
     let associations = {
       authServerEndpoint: 'identity.fxaccounts.auth.uri',
@@ -174,5 +180,15 @@ var Accounts = Object.freeze({
         type: "Accounts:ShowSyncPreferences"
       });
     });
+=======
+    // Empty without FxA
+    let newData = Cu.cloneInto(json, {}, { cloneFunctions: false });
+    return newData;
+  },
+
+  showSyncPreferences: function () {
+    // Only show Sync preferences of an existing Android Account.
+    throw new Error("Can't show Sync preferences without accounts!");
+>>>>>>> parent of c9b411d6cd (Issue #1053 - Drop support Android and remove Fennec - Part 1a: Remove mobile/android)
   }
 });
