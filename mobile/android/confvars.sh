@@ -57,8 +57,4 @@ MOZ_WEBGL_CONFORMANT=1
 export JS_GC_SMALL_CHUNK_SIZE=1
 
 # Enable checking that add-ons are signed by the trusted root
-<<<<<<< HEAD
 MOZ_ADDON_SIGNING=1
-=======
-MOZ_ADDON_SIGNING=
->>>>>>> parent of c9b411d6cd (Issue #1053 - Drop support Android and remove Fennec - Part 1a: Remove mobile/android)

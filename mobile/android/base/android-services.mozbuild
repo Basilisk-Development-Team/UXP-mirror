@@ -780,7 +780,6 @@ sync_java_files = [TOPSRCDIR + '/mobile/android/services/src/main/java/org/mozil
     'background/common/telemetry/TelemetryWrapper.java',
     'background/db/CursorDumper.java',
     'background/db/Tab.java',
-<<<<<<< HEAD
     'background/fxa/FxAccount20CreateDelegate.java',
     'background/fxa/FxAccount20LoginDelegate.java',
     'background/fxa/FxAccountClient.java',
@@ -796,8 +795,6 @@ sync_java_files = [TOPSRCDIR + '/mobile/android/services/src/main/java/org/mozil
     'background/fxa/profile/FxAccountProfileClient10.java',
     'background/fxa/QuickPasswordStretcher.java',
     'background/fxa/SkewHandler.java',
-=======
->>>>>>> parent of c9b411d6cd (Issue #1053 - Drop support Android and remove Fennec - Part 1a: Remove mobile/android)
     'background/nativecode/NativeCrypto.java',
     'background/preferences/PreferenceFragment.java',
     'background/preferences/PreferenceManagerCompat.java',
@@ -816,7 +813,6 @@ sync_java_files = [TOPSRCDIR + '/mobile/android/services/src/main/java/org/mozil
     'browserid/verifier/BrowserIDVerifierDelegate.java',
     'browserid/verifier/BrowserIDVerifierException.java',
     'browserid/VerifyingPublicKey.java',
-<<<<<<< HEAD
     'fxa/AccountLoader.java',
     'fxa/activities/CustomColorPreference.java',
     'fxa/activities/FxAccountAbstractActivity.java',
@@ -863,8 +859,6 @@ sync_java_files = [TOPSRCDIR + '/mobile/android/services/src/main/java/org/mozil
     'fxa/sync/FxAccountSyncStatusHelper.java',
     'fxa/sync/SchedulePolicy.java',
     'fxa/SyncStatusListener.java',
-=======
->>>>>>> parent of c9b411d6cd (Issue #1053 - Drop support Android and remove Fennec - Part 1a: Remove mobile/android)
     'push/autopush/AutopushClient.java',
     'push/autopush/AutopushClientException.java',
     'push/RegisterUserAgentResponse.java',

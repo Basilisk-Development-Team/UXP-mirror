@@ -24,10 +24,7 @@ globals:
     strings: false
     Strings: false
     Task: false
-<<<<<<< HEAD
     TelemetryStopwatch: false
-=======
->>>>>>> parent of c9b411d6cd (Issue #1053 - Drop support Android and remove Fennec - Part 1a: Remove mobile/android)
     UITelemetry: false
     UserAgentOverrides: 0
     XPCOMUtils: false

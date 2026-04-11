@@ -217,10 +217,7 @@
 @BINPATH@/components/toolkit_finalizationwitness.xpt
 @BINPATH@/components/toolkit_formautofill.xpt
 @BINPATH@/components/toolkit_osfile.xpt
-<<<<<<< HEAD
 @BINPATH@/components/toolkit_securityreporter.xpt
-=======
->>>>>>> parent of c9b411d6cd (Issue #1053 - Drop support Android and remove Fennec - Part 1a: Remove mobile/android)
 @BINPATH@/components/toolkit_perfmonitoring.xpt
 @BINPATH@/components/toolkit_xulstore.xpt
 @BINPATH@/components/toolkitprofile.xpt
@@ -425,13 +422,10 @@
 @BINPATH@/components/PrivateBrowsing.manifest
 @BINPATH@/components/PrivateBrowsingTrackingProtectionWhitelist.js
 
-<<<<<<< HEAD
 ; Security Reports
 @BINPATH@/components/SecurityReporter.manifest
 @BINPATH@/components/SecurityReporter.js
 
-=======
->>>>>>> parent of c9b411d6cd (Issue #1053 - Drop support Android and remove Fennec - Part 1a: Remove mobile/android)
 ; [Browser Chrome Files]
 @BINPATH@/chrome/toolkit@JAREXT@
 @BINPATH@/chrome/toolkit.manifest
@@ -514,10 +508,7 @@
 @BINPATH@/components/ImageBlockingPolicy.js
 @BINPATH@/components/DirectoryProvider.js
 @BINPATH@/components/FilePicker.js
-<<<<<<< HEAD
 @BINPATH@/components/FxAccountsPush.js
-=======
->>>>>>> parent of c9b411d6cd (Issue #1053 - Drop support Android and remove Fennec - Part 1a: Remove mobile/android)
 @BINPATH@/components/HelperAppDialog.js
 @BINPATH@/components/LoginManagerPrompter.js
 @BINPATH@/components/MobileComponents.manifest

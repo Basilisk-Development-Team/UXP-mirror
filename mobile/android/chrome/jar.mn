@@ -56,11 +56,8 @@ chrome.jar:
   content/aboutHealthReport.xhtml      (content/aboutHealthReport.xhtml)
   content/aboutHealthReport.js         (content/aboutHealthReport.js)
 #endif
-<<<<<<< HEAD
   content/aboutAccounts.xhtml          (content/aboutAccounts.xhtml)
   content/aboutAccounts.js             (content/aboutAccounts.js)
-=======
->>>>>>> parent of c9b411d6cd (Issue #1053 - Drop support Android and remove Fennec - Part 1a: Remove mobile/android)
   content/aboutLogins.xhtml            (content/aboutLogins.xhtml)
   content/aboutLogins.js               (content/aboutLogins.js)
 #ifndef RELEASE_OR_BETA

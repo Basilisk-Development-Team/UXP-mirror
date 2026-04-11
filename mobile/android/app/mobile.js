@@ -901,7 +901,6 @@ pref("dom.push.maxRecentMessageIDsPerSubscription", 0);
 pref("dom.push.enabled", false);
 #endif
 
-<<<<<<< HEAD
 // The remote content URL where FxAccountsWebChannel messages originate.  Must use HTTPS.
 pref("identity.fxaccounts.remote.webchannel.uri", "https://accounts.firefox.com");
 
@@ -914,8 +913,6 @@ pref("identity.fxaccounts.remote.oauth.uri", "https://oauth.accounts.firefox.com
 // Token server used by Firefox Account-authenticated Sync.
 pref("identity.sync.tokenserver.uri", "https://token.services.mozilla.com/1.0/sync/1.5");
 
-=======
->>>>>>> parent of c9b411d6cd (Issue #1053 - Drop support Android and remove Fennec - Part 1a: Remove mobile/android)
 // Enable Presentation API
 pref("dom.presentation.enabled", false);
 pref("dom.presentation.discovery.enabled", true);

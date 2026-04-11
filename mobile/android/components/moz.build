@@ -20,10 +20,7 @@ EXTRA_COMPONENTS += [
     'ContentPermissionPrompt.js',
     'DirectoryProvider.js',
     'FilePicker.js',
-<<<<<<< HEAD
     'FxAccountsPush.js',
-=======
->>>>>>> parent of c9b411d6cd (Issue #1053 - Drop support Android and remove Fennec - Part 1a: Remove mobile/android)
     'HelperAppDialog.js',
     'ImageBlockingPolicy.js',
     'LoginManagerPrompter.js',
