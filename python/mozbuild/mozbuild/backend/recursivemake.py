@@ -154,7 +154,7 @@ DEPRECATED_VARIABLES_MESSAGE = (
 
 
 def make_quote(s):
-    return s.replace('#', '\#').replace('$', '$$')
+    return s.replace('#', r'\#').replace('$', '$$')
 
 
 class BackendMakeFile(object):
@@ -784,7 +784,7 @@ class RecursiveMakeBackend(CommonBackend):
                             'tools'):
                         if t not in content:
                             continue
-                        if t == 'tools' and not re.search('(?:^|\s)tools.*::', content, re.M):
+                        if t == 'tools' and not re.search(r'(?:^|\s)tools.*::', content, re.M):
                             continue
                         if objdir == self.environment.topobjdir:
                             continue

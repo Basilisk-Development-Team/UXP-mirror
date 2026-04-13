@@ -61,7 +61,7 @@ class MozconfigLoadException(Exception):
 class MozconfigLoader(object):
     """Handles loading and parsing of mozconfig files."""
 
-    RE_MAKE_VARIABLE = re.compile('''
+    RE_MAKE_VARIABLE = re.compile(r'''
         ^\s*                    # Leading whitespace
         (?P<var>[a-zA-Z_0-9]+)  # Variable name
         \s* [?:]?= \s*          # Assignment operator surrounded by optional

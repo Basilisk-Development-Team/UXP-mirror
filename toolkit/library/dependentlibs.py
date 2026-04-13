@@ -31,7 +31,7 @@ def dependentlibs_dumpbin(lib):
     for line in proc.stdout:
         line = line.decode(getpreferredencoding(False))
         # Each line containing an imported library name starts with 4 spaces
-        match = re.match('    (\S+)', line)
+        match = re.match(r'    (\S+)', line)
         if match:
              deps.append(match.group(1))
         elif len(deps):
@@ -47,7 +47,7 @@ def dependentlibs_mingw_objdump(lib):
     deps = []
     for line in proc.stdout:
         line = line.decode(getpreferredencoding(False))
-        match = re.match('\tDLL Name: (\S+)', line)
+        match = re.match(r'\tDLL Name: (\S+)', line)
         if match:
             deps.append(match.group(1))
     proc.wait()
@@ -88,7 +88,7 @@ def dependentlibs_readelf(lib):
             # 0x00000001 (NEEDED)             Shared library: [libname]
             # or with BSD readelf:
             # 0x00000001 NEEDED               Shared library: [libname]
-            match = re.search('\[(.*)\]', tmp[3])
+            match = re.search(r'\[(.*)\]', tmp[3])
             if match:
                 deps.append(match.group(1))
     proc.wait()

@@ -1147,7 +1147,7 @@ def pair(iterable):
     return itertools.zip_longest(i, i)
 
 
-VARIABLES_RE = re.compile('\$\((\w+)\)')
+VARIABLES_RE = re.compile(r'\$\((\w+)\)')
 
 
 def expand_variables(s, variables):

@@ -19,8 +19,8 @@ unary :
   '!'? value ;
 value :
   [0-9]+ # integer
-  | 'defined(' \w+ ')'
-  | \w+  # string identifier or value;
+  | 'defined(' \\w+ ')'
+  | \\w+  # string identifier or value;
 """
 
 import sys
@@ -128,7 +128,7 @@ class Expression:
         Production: '!'? value
         """
         # eat whitespace right away, too
-        not_ws = re.match('!\s*', self.content)
+        not_ws = re.match(r'!\s*', self.content)
         if not not_ws:
             return self.__get_value()
         rv = Expression.__AST('not')
@@ -139,13 +139,13 @@ class Expression:
 
     def __get_value(self):
         """
-        Production: ( [0-9]+ | 'defined(' \w+ ')' | \w+ )
+        Production: ( [0-9]+ | 'defined(' \\w+ ')' | \\w+ )
         Note that the order is important, and the expression is kind-of
-        ambiguous as \w includes 0-9. One could make it unambiguous by
+        ambiguous as \\w includes 0-9. One could make it unambiguous by
         removing 0-9 from the first char of a string literal.
         """
         rv = None
-        m = re.match('defined\s*\(\s*(\w+)\s*\)', self.content)
+        m = re.match(r'defined\s*\(\s*(\w+)\s*\)', self.content)
         if m:
             word_len = m.end()
             rv = Expression.__ASTLeaf('defined', m.group(1))
@@ -155,7 +155,7 @@ class Expression:
                 value = int(self.content[:word_len])
                 rv = Expression.__ASTLeaf('int', value)
             else:
-                word_len = re.match('\w*', self.content).end()
+                word_len = re.match(r'\w*', self.content).end()
                 if word_len:
                     rv = Expression.__ASTLeaf('string', self.content[:word_len])
                 else:
@@ -165,7 +165,7 @@ class Expression:
         return rv
 
     def __ignore_whitespace(self):
-        ws_len = re.match('\s*', self.content).end()
+        ws_len = re.match(r'\s*', self.content).end()
         self.__strip(ws_len)
         return
 
@@ -312,7 +312,7 @@ class Preprocessor:
             self.cmds[cmd] = (level, getattr(self, 'do_' + cmd))
         self.out = sys.stdout
         self.setMarker(marker)
-        self.varsubst = re.compile('@(?P<VAR>\w+)@', re.U)
+        self.varsubst = re.compile(r'@(?P<VAR>\w+)@', re.U)
         self.includes = set()
         self.silenceMissingDirectiveWarnings = False
         if defines:
@@ -334,7 +334,7 @@ class Preprocessor:
         """
         self.marker = aMarker
         if aMarker:
-            self.instruction = re.compile('{0}(?P<cmd>[a-z]+)(?:\s(?P<args>.*))?$'
+            self.instruction = re.compile(r'{0}(?P<cmd>[a-z]+)(?:\s(?P<args>.*))?$'
                                           .format(aMarker),
                                           re.U)
             self.comment = re.compile(aMarker, re.U)
@@ -498,7 +498,7 @@ class Preprocessor:
 
     def getCommandLineParser(self, unescapeDefines = False):
         escapedValue = re.compile('".*"$')
-        numberValue = re.compile('\d+$')
+        numberValue = re.compile(r'\d+$')
         def handleD(option, opt, value, parser):
             vals = value.split('=', 1)
             if len(vals) == 1:
@@ -566,7 +566,7 @@ class Preprocessor:
 
     # Variables
     def do_define(self, args):
-        m = re.match('(?P<name>\w+)(?:\s(?P<value>.*))?', args, re.U)
+        m = re.match(r'(?P<name>\w+)(?:\s(?P<value>.*))?', args, re.U)
         if not m:
             raise Preprocessor.Error(self, 'SYNTAX_DEF', args)
         val = ''
@@ -578,7 +578,7 @@ class Preprocessor:
                 pass
         self.context[m.group('name')] = val
     def do_undef(self, args):
-        m = re.match('(?P<name>\w+)$', args, re.U)
+        m = re.match(r'(?P<name>\w+)$', args, re.U)
         if not m:
             raise Preprocessor.Error(self, 'SYNTAX_DEF', args)
         if args in self.context:
@@ -614,7 +614,7 @@ class Preprocessor:
         if self.disableLevel and not replace:
             self.disableLevel += 1
             return
-        if re.match('\W', args, re.U):
+        if re.match(r'\W', args, re.U):
             raise Preprocessor.Error(self, 'INVALID_VAR', args)
         if args not in self.context:
             self.disableLevel = 1
@@ -629,7 +629,7 @@ class Preprocessor:
         if self.disableLevel and not replace:
             self.disableLevel += 1
             return
-        if re.match('\W', args, re.U):
+        if re.match(r'\W', args, re.U):
             raise Preprocessor.Error(self, 'INVALID_VAR', args)
         if args in self.context:
             self.disableLevel = 1
@@ -673,7 +673,7 @@ class Preprocessor:
             self.ifStates.pop()
     # output processing
     def do_expand(self, args):
-        lst = re.split('__(\w+)__', args, re.U)
+        lst = re.split(r'__(\w+)__', args, re.U)
         do_replace = False
         def vsubst(v):
             if v in self.context:
@@ -762,7 +762,7 @@ class Preprocessor:
                 raise
             except:
                 raise Preprocessor.Error(self, 'FILE_NOT_FOUND', str(args))
-        self.checkLineNumbers = bool(re.search('\.(js|jsm|java)(?:\.in)?$', args.name))
+        self.checkLineNumbers = bool(re.search(r'\.(js|jsm|java)(?:\.in)?$', args.name))
         oldFile = self.context['FILE']
         oldLine = self.context['LINE']
         oldDir = self.context['DIRECTORY']

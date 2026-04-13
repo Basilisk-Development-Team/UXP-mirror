@@ -461,6 +461,7 @@ class BuildMonitor(MozbuildObject):
         try:
             ccache = which.which('ccache')
             output = subprocess.check_output([ccache, '-s'])
+            output = output.decode('utf-8', errors='replace')
             ccache_stats = CCacheStats(output)
         except which.WhichError:
             pass
