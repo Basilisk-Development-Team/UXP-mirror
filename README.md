@@ -24,6 +24,7 @@ If I've forgotten to put your name here, please let me know and I'll add it.
 - [Feodor2](https://github.com/Feodor2) - Portable mode, theme fixes, and more from Mypal and Mypal68.
 - [Librewolf Developers](https://codeberg.org/librewolf) - Privacy tweaks from Librewolf. (Has not been implemented yet)
 - [BlueySoft (goober)](https://blueyheeler.xyz/) - Branding visuals, icons and fancy text.
+- [White Star](https://github.com/dbsoft/White-Star) - Helping with porting platform to Darwin PowerPC.
 
 Major core browser engine contributions:
 - [Stossy11](https://www.github.com/stossy11) - Helping to develop and fix the macOS build.
