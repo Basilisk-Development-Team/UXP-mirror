@@ -229,6 +229,7 @@ main_deunified_sources = [
     'jit/JitSpewer.cpp',
     'jit/JSONSpewer.cpp',
     'jit/LICM.cpp',
+    'jit/LoongArchMinimalJit.cpp',
     'jit/Linker.cpp',
     'jit/LIR.cpp',
     'jit/LoopUnroller.cpp',
