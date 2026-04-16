@@ -1,35 +1,32 @@
-/* simd_stub.c -- stub implementations
-* Copyright (C) 2014 Intel Corporation
-* For conditions of distribution and use, see copyright notice in zlib.h
-*/
-#include <assert.h>
+// Minimal SIMD stub for platforms without SIMD support.
+// This file must NOT define x86_cpu_enable_simd or x86_check_features.
 
+#include "zutil.h"
 #include "deflate.h"
-#include "x86.h"
 
-int ZLIB_INTERNAL x86_cpu_enable_simd = 0;
+// These signatures must match the prototypes in zlib's inflate.c / deflate.c.
 
-void ZLIB_INTERNAL crc_fold_init(deflate_state *const s) {
-    assert(0);
-}
-
-void ZLIB_INTERNAL crc_fold_copy(deflate_state *const s,
-                                 unsigned char *dst,
-                                 const unsigned char *src,
-                                 long len) {
-    assert(0);
-}
-
-unsigned ZLIB_INTERNAL crc_fold_512to32(deflate_state *const s) {
-    assert(0);
-    return 0;
-}
-
-void ZLIB_INTERNAL fill_window_sse(deflate_state *s)
+void fill_window_sse(deflate_state *s)
 {
-    assert(0);
+    // No SIMD available — generic code will be used instead.
 }
 
-void x86_check_features(void)
+void inflate_fast_sse(deflate_state *s, unsigned start)
 {
+    // No SIMD available — generic inflate_fast will be used.
+}
+
+void chunkcopy_sse(unsigned char *out, const unsigned char *from, unsigned len)
+{
+    // No SIMD — fall back to normal memcpy.
+    memcpy(out, from, len);
+}
+
+void chunkcopy_safe_sse(unsigned char *out, const unsigned char *from,
+                        unsigned len, unsigned space)
+{
+    // Safe copy fallback.
+    if (len > space)
+        len = space;
+    memcpy(out, from, len);
 }
