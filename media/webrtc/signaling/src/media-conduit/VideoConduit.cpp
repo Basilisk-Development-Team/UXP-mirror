@@ -230,7 +230,9 @@ WebrtcVideoConduit::~WebrtcVideoConduit()
     mVideoStatsTimer->Cancel();
   }
 
+  #ifdef MOZ_WEBRTC_LEGACY_VIE
   MOZ_ASSERT(!mPtrViEBase, "Call DeleteStreams prior to ~WebrtcVideoConduit.");
+  #endif
 }
 
 void

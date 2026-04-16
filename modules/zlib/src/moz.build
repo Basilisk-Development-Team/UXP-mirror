@@ -38,7 +38,7 @@ if CONFIG['INTEL_ARCHITECTURE']:
         DEFINES['INFLATE_CHUNK_SIMD_SSE2'] = False
         DEFINES['CRC32_SIMD_SSE42_PCLMUL'] = False
         SOURCES += [
-            'simd_darwin_stub.c',
+            'simd_stub.c',
         ]
     else:
         DEFINES['INFLATE_CHUNK_SIMD_SSE2'] = True
