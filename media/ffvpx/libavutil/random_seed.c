@@ -132,7 +132,8 @@ uint32_t av_get_random_seed(void)
     }
 #endif
 
-#if HAVE_ARC4RANDOM
+/* Don’t use arc4random() on Linux – glibc doesn’t provide it */
+#if HAVE_ARC4RANDOM && !defined(__linux__)
     return arc4random();
 #endif
 

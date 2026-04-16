@@ -125,6 +125,31 @@ nsUUIDGenerator::GenerateUUIDInPlace(nsID* aId)
   setstate(mState);
 #endif
 
+#if defined(__linux__)
+  // Linux does not provide arc4random_buf or arc4random.
+  // Use /dev/urandom for secure UUID generation.
+  int fd = open("/dev/urandom", O_RDONLY);
+  if (fd >= 0) {
+    ssize_t n = read(fd, aId, sizeof(nsID));
+    close(fd);
+    if (n == sizeof(nsID)) {
+      return NS_OK;
+    }
+  }
+
+  // Fallback if /dev/urandom fails
+  size_t bytesLeft = sizeof(nsID);
+  while (bytesLeft > 0) {
+    long rval = random();
+    const size_t mRBytes = 4;
+    size_t toCopy = std::min(bytesLeft, mRBytes);
+    memcpy(reinterpret_cast<char*>(aId) + (sizeof(nsID) - bytesLeft),
+           &rval, toCopy);
+    bytesLeft -= toCopy;
+  }
+
+#else
+
 #ifdef HAVE_ARC4RANDOM_BUF
   arc4random_buf(aId, sizeof(nsID));
 #else /* HAVE_ARC4RANDOM_BUF */
@@ -135,8 +160,14 @@ nsUUIDGenerator::GenerateUUIDInPlace(nsID* aId)
     const size_t mRBytes = 4;
 #else
     long rval = random();
+    const size_t mRBytes = 4;
 #endif
-
+    size_t toCopy = std::min(bytesLeft, mRBytes);
+    memcpy(reinterpret_cast<char*>(aId) + (sizeof(nsID) - bytesLeft),
+           &rval, toCopy);
+    bytesLeft -= toCopy;
+  }
+#endif /* HAVE_ARC4RANDOM_BUF */
 
     uint8_t* src = (uint8_t*)&rval;
     // We want to grab the mRBytes least significant bytes of rval, since

@@ -31,6 +31,15 @@ if CONFIG['INTEL_ARCHITECTURE']:
         SOURCES += [
             'simd_darwin_stub.c',
         ]
+    if CONFIG['OS_ARCH'] == 'Linux':
+        # Keep SIMD/chunkcopy paths disabled on Linux, but provide fallback
+        # helper symbols used by crc32/deflate call sites.
+        DEFINES['ADLER32_SIMD_SSSE3'] = False
+        DEFINES['INFLATE_CHUNK_SIMD_SSE2'] = False
+        DEFINES['CRC32_SIMD_SSE42_PCLMUL'] = False
+        SOURCES += [
+            'simd_darwin_stub.c',
+        ]
     else:
         DEFINES['INFLATE_CHUNK_SIMD_SSE2'] = True
         SOURCES += [
@@ -68,7 +77,8 @@ SOURCES += [
     'zutil.c',
 ]
 
-if CONFIG['CPU_ARCH'] == 'arm' or (CONFIG['INTEL_ARCHITECTURE'] and CONFIG['OS_ARCH'] != 'Darwin'):
+# Enable SIMD inflate only on Windows (WINNT). Disable on Linux, BSD, Darwin, etc.
+if CONFIG['OS_ARCH'] == 'WINNT':
     SOURCES += [
         'inflate_simd.c',
     ]
@@ -76,4 +86,5 @@ else:
     SOURCES += [
         'inflate.c',
     ]
+
 
