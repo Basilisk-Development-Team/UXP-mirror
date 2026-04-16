@@ -138,7 +138,7 @@ class MinimalLoongArchCompiler
     bool sawReturn_;
 
     bool emit(uint32_t word) {
-        if (wordCount_ >= ArrayLength(words_))
+        if (wordCount_ >= mozilla::ArrayLength(words_))
             return false;
         words_[wordCount_++] = word;
         return true;
@@ -166,7 +166,7 @@ class MinimalLoongArchCompiler
     }
 
     bool emitFailureBranch() {
-        if (failPatchCount_ >= ArrayLength(failPatches_))
+        if (failPatchCount_ >= mozilla::ArrayLength(failPatches_))
             return false;
         failPatches_[failPatchCount_++] = wordCount_;
         return emit(EncodeBranch16(0x5c000000, WideScratch, NarrowScratch, 0));
@@ -199,12 +199,12 @@ class MinimalLoongArchCompiler
     }
 
     LoongArchReg allocStackReg() {
-        MOZ_ASSERT(stackDepth_ < ArrayLength(stack_));
+        MOZ_ASSERT(stackDepth_ < mozilla::ArrayLength(stack_));
         return StackRegs[stackDepth_];
     }
 
     bool pushTempFromReg(LoongArchReg src) {
-        if (stackDepth_ >= ArrayLength(StackRegs))
+        if (stackDepth_ >= mozilla::ArrayLength(StackRegs))
             return false;
         LoongArchReg dst = allocStackReg();
         if (!emitMove(dst, src))
@@ -214,7 +214,7 @@ class MinimalLoongArchCompiler
     }
 
     bool pushTempFromImm(int32_t imm) {
-        if (stackDepth_ >= ArrayLength(StackRegs))
+        if (stackDepth_ >= mozilla::ArrayLength(StackRegs))
             return false;
         LoongArchReg dst = allocStackReg();
         if (!emitLoadImm32(dst, imm))
@@ -232,7 +232,7 @@ class MinimalLoongArchCompiler
 
     bool supportedScriptShape() const {
         return script_->numArgs() <= 2 &&
-               script_->nfixed() <= ArrayLength(LocalRegs) &&
+               script_->nfixed() <= mozilla::ArrayLength(LocalRegs) &&
                !script_->isAsync() &&
                !script_->isStarGenerator() &&
                !script_->isLegacyGenerator() &&
