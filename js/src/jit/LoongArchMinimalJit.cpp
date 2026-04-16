@@ -547,24 +547,29 @@ class MinimalLoongArchCompiler
 };
 
 static bool
+CanUseMinimalJit(JSScript* script, const CallArgs& args)
+{
+    if (!script || script->numArgs() > 2)
+        return false;
+
+    if (args.length() < script->numArgs())
+        return false;
+
+    for (unsigned i = 0; i < script->numArgs(); i++) {
+        if (!args[i].isInt32())
+            return false;
+    }
+
+    return true;
+}
+
+static bool
 CanUseMinimalJit(RunState& state, InvokeState& invoke)
 {
     if (invoke.constructing())
         return false;
 
-    JSScript* script = state.script();
-    if (!script || script->numArgs() > 2)
-        return false;
-
-    if (invoke.args().length() < script->numArgs())
-        return false;
-
-    for (unsigned i = 0; i < script->numArgs(); i++) {
-        if (!invoke.args()[i].isInt32())
-            return false;
-    }
-
-    return true;
+    return CanUseMinimalJit(state.script(), invoke.args());
 }
 
 static bool
@@ -606,6 +611,33 @@ LookupOrCompileMinimalJit(JSContext* cx, JSScript* script, TinyLoongArchJitCode*
 }
 
 } // namespace
+
+bool
+TryCallLoongArchMinimalJit(JSContext* cx, HandleFunction fun, const CallArgs& args, bool* handled)
+{
+    *handled = false;
+
+    if (!fun || !fun->isInterpreted())
+        return true;
+
+    JSScript* script = fun->nonLazyScript();
+    if (!CanUseMinimalJit(script, args))
+        return true;
+
+    TinyLoongArchJitCode fn;
+    if (!LookupOrCompileMinimalJit(cx, script, &fn))
+        return false;
+
+    int32_t result = 0;
+    int32_t arg0 = script->numArgs() >= 1 ? args[0].toInt32() : 0;
+    int32_t arg1 = script->numArgs() >= 2 ? args[1].toInt32() : 0;
+    if (!fn(arg0, arg1, &result))
+        return true;
+
+    args.rval().setInt32(result);
+    *handled = true;
+    return true;
+}
 
 bool
 TryEnterLoongArchMinimalJit(JSContext* cx, RunState& state)
