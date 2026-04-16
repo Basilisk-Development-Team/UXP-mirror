@@ -16,6 +16,7 @@
 #include "jsopcode.h"
 #include "jsscript.h"
 #include "vm/Interpreter.h"
+#include "vm/Stack.h"
 
 using namespace js;
 
@@ -564,6 +565,34 @@ CanUseMinimalJit(JSScript* script, const CallArgs& args)
 }
 
 static bool
+CanDirectCallMinimalJit(JSContext* cx, HandleFunction fun, JSScript* script, const CallArgs& args)
+{
+    if (!fun || !fun->isInterpreted() || !script)
+        return false;
+
+    if (!CanUseMinimalJit(script, args))
+        return false;
+
+    if (fun->isSelfHostedBuiltin() || fun->isArrow() || fun->needsSomeEnvironmentObject())
+        return false;
+
+    if (script->selfHosted() || script->strict() || script->treatAsRunOnce())
+        return false;
+
+    if (cx->compartment()->isDebuggee() || cx->runtime()->profilingScripts ||
+        cx->runtime()->spsProfiler.enabled())
+    {
+        return false;
+    }
+
+    Activation* activation = cx->runtime()->activation();
+    if (!activation || !activation->isInterpreter())
+        return false;
+
+    return true;
+}
+
+static bool
 CanUseMinimalJit(RunState& state, InvokeState& invoke)
 {
     if (invoke.constructing())
@@ -611,6 +640,30 @@ LookupOrCompileMinimalJit(JSContext* cx, JSScript* script, TinyLoongArchJitCode*
 }
 
 } // namespace
+
+bool
+TryCallLoongArchMinimalJit(JSContext* cx, HandleFunction fun, const CallArgs& args, bool* handled)
+{
+    *handled = false;
+
+    JSScript* script = fun ? fun->nonLazyScript() : nullptr;
+    if (!CanDirectCallMinimalJit(cx, fun, script, args))
+        return true;
+
+    TinyLoongArchJitCode fn;
+    if (!LookupOrCompileMinimalJit(cx, script, &fn))
+        return true;
+
+    int32_t result = 0;
+    int32_t arg0 = script->numArgs() >= 1 ? args[0].toInt32() : 0;
+    int32_t arg1 = script->numArgs() >= 2 ? args[1].toInt32() : 0;
+    if (!fn(arg0, arg1, &result))
+        return true;
+
+    args.rval().setInt32(result);
+    *handled = true;
+    return true;
+}
 
 bool
 TryEnterLoongArchMinimalJit(JSContext* cx, RunState& state)
