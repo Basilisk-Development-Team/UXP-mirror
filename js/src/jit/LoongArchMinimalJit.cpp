@@ -15,6 +15,7 @@
 #include "jsopcode.h"
 #include "jsscript.h"
 #include "vm/Interpreter.h"
+#include "vm/NativeObject-inl.h"
 #include "vm/Stack.h"
 
 using namespace js;
@@ -54,6 +55,13 @@ static constexpr LoongArchReg WideScratch = t7;
 static constexpr LoongArchReg NarrowScratch = t8;
 
 using TinyLoongArchJitCode = bool (*)(int32_t arg0, int32_t arg1, int32_t* out);
+
+enum MinimalFastPathKind : uint8_t {
+    MinimalFastPathUninitialized = 0,
+    MinimalFastPathNone = 1,
+    MinimalFastPathGetter = 2,
+    MinimalFastPathSetter = 3
+};
 
 static inline uint32_t
 EncodeThreeReg(uint32_t opcode, LoongArchReg rd, LoongArchReg rj, LoongArchReg rk)
@@ -564,6 +572,124 @@ CanDirectCallMinimalJit(JSContext* cx, HandleFunction fun, JSScript* script, con
 }
 
 static bool
+PreparePropertyFastPath(JSScript* script)
+{
+    if (script->loongArchMinimalFastPathKind() != MinimalFastPathUninitialized)
+        return script->loongArchMinimalFastPathKind() != MinimalFastPathNone;
+
+    uint8_t objectArg = 0;
+    uint8_t valueArg = 0;
+    uint32_t propOffset = 0;
+    enum State { Start, SawObject, SawValue, SawProp } state = Start;
+
+    for (jsbytecode* pc = script->code(); pc < script->codeEnd(); pc += GetBytecodeLength(pc)) {
+        switch (JSOp(*pc)) {
+          case JSOP_JUMPTARGET:
+          case JSOP_NOP:
+            continue;
+          case JSOP_GETARG: {
+            uint32_t arg = GET_ARGNO(pc);
+            if (state == Start) {
+                objectArg = uint8_t(arg);
+                state = SawObject;
+                continue;
+            }
+            if (state == SawObject) {
+                valueArg = uint8_t(arg);
+                state = SawValue;
+                continue;
+            }
+            script->setLoongArchMinimalFastPath(MinimalFastPathNone, 0, 0, 0);
+            return false;
+          }
+          case JSOP_GETPROP:
+            if (state == SawObject) {
+                propOffset = uint32_t(pc - script->code());
+                state = SawProp;
+                continue;
+            }
+            break;
+          case JSOP_SETPROP:
+          case JSOP_STRICTSETPROP:
+            if (state == SawValue) {
+                propOffset = uint32_t(pc - script->code());
+                script->setLoongArchMinimalFastPath(MinimalFastPathSetter, objectArg, valueArg, propOffset);
+                state = SawProp;
+                continue;
+            }
+            break;
+          case JSOP_RETURN:
+            if (state == SawProp) {
+                uint8_t kind = script->loongArchMinimalFastPathKind();
+                if (kind == MinimalFastPathSetter)
+                    return true;
+                script->setLoongArchMinimalFastPath(MinimalFastPathGetter, objectArg, 0, propOffset);
+                return true;
+            }
+            break;
+          default:
+            break;
+        }
+
+        script->setLoongArchMinimalFastPath(MinimalFastPathNone, 0, 0, 0);
+        return false;
+    }
+
+    script->setLoongArchMinimalFastPath(MinimalFastPathNone, 0, 0, 0);
+    return false;
+}
+
+static bool
+TryFastPropertyPath(JSContext* cx, JSScript* script, const CallArgs& args, bool* handled)
+{
+    *handled = false;
+
+    if (!PreparePropertyFastPath(script))
+        return true;
+
+    uint8_t kind = script->loongArchMinimalFastPathKind();
+    uint8_t objectArg = script->loongArchMinimalFastPathObjectArg();
+    if (args.length() <= objectArg || !args[objectArg].isObject())
+        return true;
+
+    RootedObject obj(cx, &args[objectArg].toObject());
+    if (!obj->is<NativeObject>())
+        return true;
+
+    jsbytecode* pc = script->code() + script->loongArchMinimalFastPathOffset();
+    RootedPropertyName name(cx, script->getName(pc));
+    RootedShape shape(cx, obj->as<NativeObject>().lookupPure(name));
+    if (!shape || !shape->hasSlot())
+        return true;
+
+    if (kind == MinimalFastPathGetter) {
+        if (!shape->hasDefaultGetter())
+            return true;
+
+        Value result = obj->as<NativeObject>().getSlot(shape->slot());
+        if (result.isMagic())
+            return true;
+
+        args.rval().set(result);
+        *handled = true;
+        return true;
+    }
+
+    if (kind == MinimalFastPathSetter) {
+        uint8_t valueArg = script->loongArchMinimalFastPathValueArg();
+        if (args.length() <= valueArg || !shape->hasDefaultSetter() || !shape->writable())
+            return true;
+
+        obj->as<NativeObject>().setSlotWithType(cx, shape, args[valueArg]);
+        args.rval().set(args[valueArg]);
+        *handled = true;
+        return true;
+    }
+
+    return true;
+}
+
+static bool
 CanUseMinimalJit(RunState& state, InvokeState& invoke)
 {
     if (invoke.constructing())
@@ -606,6 +732,12 @@ TryCallLoongArchMinimalJit(JSContext* cx, HandleFunction fun, const CallArgs& ar
     *handled = false;
 
     JSScript* script = fun ? fun->nonLazyScript() : nullptr;
+    if (!script)
+        return true;
+
+    if (!TryFastPropertyPath(cx, script, args, handled) || *handled)
+        return !cx->isExceptionPending();
+
     if (!CanDirectCallMinimalJit(cx, fun, script, args))
         return true;
 
@@ -631,6 +763,14 @@ TryEnterLoongArchMinimalJit(JSContext* cx, RunState& state)
         return false;
 
     InvokeState& invoke = *state.asInvoke();
+    bool handled = false;
+    if (!TryFastPropertyPath(cx, state.script(), invoke.args(), &handled))
+        return false;
+    if (handled) {
+        state.setReturnValue(invoke.args().rval());
+        return true;
+    }
+
     if (!CanUseMinimalJit(state, invoke))
         return false;
 

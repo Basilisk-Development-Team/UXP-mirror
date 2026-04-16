@@ -23,3 +23,13 @@ for (var i = 0; i < 100; i++) {
 
 assertEq(overflow(2147483647, 1), 2147483648);
 assertEq(unsupported(2, 3), 5.5);
+
+(function testPropertyWrappers() {
+    function getX(obj) { return obj.x; }
+    function setX(obj, value) { return obj.x = value; }
+
+    var obj = { x: 7 };
+    assertEq(getX(obj), 7);
+    assertEq(setX(obj, 42), 42);
+    assertEq(obj.x, 42);
+})();
