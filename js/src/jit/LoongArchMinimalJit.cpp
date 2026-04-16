@@ -10,7 +10,6 @@
 #include "mozilla/ArrayUtils.h"
 
 #include "jit/ProcessExecutableMemory.h"
-#include "js/HashTable.h"
 #include "js/Vector.h"
 #include "js/Value.h"
 #include "jsopcode.h"
@@ -149,34 +148,6 @@ struct BranchPatch
     BranchKind kind;
     LoongArchReg reg;
 };
-
-struct CachedJitCode
-{
-    TinyLoongArchJitCode fn;
-    uint8_t* code;
-};
-
-using MinimalJitCache = HashMap<JSScript*, CachedJitCode, DefaultHasher<JSScript*>, SystemAllocPolicy>;
-
-static MinimalJitCache*
-GetMinimalJitCache()
-{
-    static MinimalJitCache* cache;
-    if (cache)
-        return cache;
-
-    cache = js_new<MinimalJitCache>();
-    if (!cache)
-        return nullptr;
-
-    if (!cache->init()) {
-        js_delete(cache);
-        cache = nullptr;
-        return nullptr;
-    }
-
-    return cache;
-}
 
 class MinimalLoongArchCompiler
 {
@@ -604,12 +575,8 @@ CanUseMinimalJit(RunState& state, InvokeState& invoke)
 static bool
 LookupOrCompileMinimalJit(JSContext* cx, JSScript* script, TinyLoongArchJitCode* fnOut)
 {
-    MinimalJitCache* cache = GetMinimalJitCache();
-    if (!cache)
-        return false;
-
-    if (MinimalJitCache::Ptr entry = cache->lookup(script)) {
-        *fnOut = entry->value().fn;
+    if (uint8_t* code = script->loongArchMinimalJitCodeRaw()) {
+        *fnOut = JS_DATA_TO_FUNC_PTR(TinyLoongArchJitCode, code);
         return true;
     }
 
@@ -625,17 +592,9 @@ LookupOrCompileMinimalJit(JSContext* cx, JSScript* script, TinyLoongArchJitCode*
     if (!code.makeExecutable())
         return false;
 
-    CachedJitCode compiled = {
-        JS_DATA_TO_FUNC_PTR(TinyLoongArchJitCode, code.bytes()),
-        code.release()
-    };
-
-    if (!cache->put(script, compiled)) {
-        DeallocateExecutableMemory(compiled.code, compiler.codeSize());
-        return false;
-    }
-
-    *fnOut = compiled.fn;
+    uint8_t* raw = code.release();
+    script->setLoongArchMinimalJitCode(raw, uint32_t(compiler.codeSize()));
+    *fnOut = JS_DATA_TO_FUNC_PTR(TinyLoongArchJitCode, raw);
     return true;
 }
 
