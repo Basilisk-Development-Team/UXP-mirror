@@ -702,39 +702,44 @@ js::math_pow(JSContext* cx, unsigned argc, Value* vp)
     return true;
 }
 
+namespace js {
+
 uint64_t
-js::GenerateRandomSeed()
+GenerateRandomSeed()
 {
     uint64_t seed = 0;
 
-#if defined(XP_WIN)
-    MOZ_ALWAYS_TRUE(RtlGenRandom(&seed, sizeof(seed)));
-#elif defined(HAVE_ARC4RANDOM)
-    seed = (static_cast<uint64_t>(arc4random()) << 32) | arc4random();
-#elif defined(XP_UNIX)
-    bool done = false;
-# if defined(__linux__)
-    // Try the relatively new getrandom syscall first. It's the preferred way
-    // on Linux as /dev/urandom may not work inside chroots and is harder to
-    // sandbox (see bug 995069).
-    int ret = syscall(SYS_getrandom, &seed, sizeof(seed), GRND_NONBLOCK);
-    done = (ret == sizeof(seed));
-# endif
-    if (!done) {
-        int fd = open("/dev/urandom", O_RDONLY);
-        if (fd >= 0) {
-            mozilla::Unused << read(fd, static_cast<void*>(&seed), sizeof(seed));
-            close(fd);
-        }
+#if defined(__linux__)
+    // Linux does not provide arc4random(), so use /dev/urandom.
+    int fd = open("/dev/urandom", O_RDONLY);
+    if (fd >= 0) {
+        ssize_t n = read(fd, &seed, sizeof(seed));
+        close(fd);
+        if (n == sizeof(seed))
+            return seed;
     }
-#else
-# error "Platform needs to implement GenerateRandomSeed()"
-#endif
 
-    // Also mix in PRMJ_Now() in case we couldn't read random bits from the OS.
-    uint64_t timestamp = PRMJ_Now();
-    return seed ^ timestamp ^ (timestamp << 32);
+    // Fallback if /dev/urandom fails
+    uint32_t lo = random();
+    uint32_t hi = random();
+    return (static_cast<uint64_t>(hi) << 32) | lo;
+
+#elif defined(HAVE_ARC4RANDOM)
+    // BSD / macOS path
+    uint32_t lo = arc4random();
+    uint32_t hi = arc4random();
+    return (static_cast<uint64_t>(hi) << 32) | lo;
+
+#else
+    // Generic fallback
+    uint32_t lo = random();
+    uint32_t hi = random();
+    return (static_cast<uint64_t>(hi) << 32) | lo;
+#endif
 }
+
+} // namespace js
+
 
 void
 js::GenerateXorShift128PlusSeed(mozilla::Array<uint64_t, 2>& seed)
