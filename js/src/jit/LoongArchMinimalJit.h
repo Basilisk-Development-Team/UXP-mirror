@@ -7,7 +7,6 @@
 #define jit_LoongArchMinimalJit_h
 
 #include "jspubtd.h"
-#include "js/CallArgs.h"
 
 namespace js {
 
@@ -16,7 +15,6 @@ class RunState;
 namespace jit {
 
 [[nodiscard]] bool TryEnterLoongArchMinimalJit(JSContext* cx, RunState& state);
-[[nodiscard]] bool TryCallLoongArchMinimalJit(JSContext* cx, HandleFunction fun, const CallArgs& args, bool* handled);
 
 } // namespace jit
 } // namespace js

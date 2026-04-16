@@ -505,14 +505,6 @@ js::InternalCallOrConstruct(JSContext* cx, const CallArgs& args, MaybeConstruct 
     if (!JSFunction::getOrCreateScript(cx, fun))
         return false;
 
-    if (construct != CONSTRUCT) {
-        bool handled;
-        if (!jit::TryCallLoongArchMinimalJit(cx, fun, args, &handled))
-            return false;
-        if (handled)
-            return true;
-    }
-
     /* Run function until JSOP_RETRVAL, JSOP_RETURN or error. */
     InvokeState state(cx, args, construct);
 
