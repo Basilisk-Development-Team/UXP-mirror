@@ -6,9 +6,10 @@
 #ifndef jit_LoongArchMinimalJit_h
 #define jit_LoongArchMinimalJit_h
 
+#include "jspubtd.h"
+
 namespace js {
 
-class JSContext;
 class RunState;
 
 namespace jit {
