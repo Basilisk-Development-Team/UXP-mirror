@@ -444,13 +444,14 @@ class MinimalLoongArchCompiler
                 if (!duplicateTop())
                     return false;
                 break;
-              case JSOP_SWAP:
+              case JSOP_SWAP: {
                 if (stackDepth_ < 2)
                     return false;
                 LoongArchReg tmp = stack_[stackDepth_ - 1];
                 stack_[stackDepth_ - 1] = stack_[stackDepth_ - 2];
                 stack_[stackDepth_ - 2] = tmp;
                 break;
+              }
               case JSOP_TONUMERIC:
               case JSOP_CHECKLEXICAL:
               case JSOP_LOOPENTRY:
