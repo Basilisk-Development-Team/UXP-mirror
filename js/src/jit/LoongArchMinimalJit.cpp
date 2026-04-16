@@ -10,9 +10,11 @@
 #include "mozilla/ArrayUtils.h"
 
 #include "jit/ProcessExecutableMemory.h"
+#include "js/HashTable.h"
+#include "js/Vector.h"
+#include "js/Value.h"
 #include "jsopcode.h"
 #include "jsscript.h"
-#include "js/Value.h"
 #include "vm/Interpreter.h"
 
 using namespace js;
@@ -124,23 +126,81 @@ class AutoExecutableMemory
                                 reinterpret_cast<char*>(bytes_ + size_));
         return true;
     }
+
+    uint8_t* release() {
+        uint8_t* result = bytes_;
+        bytes_ = nullptr;
+        size_ = 0;
+        return result;
+    }
 };
+
+enum class BranchKind {
+    Always,
+    IfTrue,
+    IfFalse
+};
+
+struct BranchPatch
+{
+    size_t wordOffset;
+    uint32_t targetPcOffset;
+    BranchKind kind;
+    LoongArchReg reg;
+};
+
+struct CachedJitCode
+{
+    TinyLoongArchJitCode fn;
+    uint8_t* code;
+};
+
+using MinimalJitCache = HashMap<JSScript*, CachedJitCode, DefaultHasher<JSScript*>, SystemAllocPolicy>;
+
+static MinimalJitCache*
+GetMinimalJitCache()
+{
+    static MinimalJitCache* cache;
+    if (cache)
+        return cache;
+
+    cache = js_new<MinimalJitCache>();
+    if (!cache)
+        return nullptr;
+
+    if (!cache->init()) {
+        js_delete(cache);
+        cache = nullptr;
+        return nullptr;
+    }
+
+    return cache;
+}
 
 class MinimalLoongArchCompiler
 {
     JSScript* script_;
-    uint32_t words_[256];
+    uint32_t words_[512];
     size_t wordCount_;
-    size_t failPatches_[64];
+    size_t failPatches_[128];
     size_t failPatchCount_;
     LoongArchReg stack_[16];
     size_t stackDepth_;
     bool sawReturn_;
+    Vector<int32_t, 0, SystemAllocPolicy> pcToWord_;
+    Vector<BranchPatch, 0, SystemAllocPolicy> branchPatches_;
 
     bool emit(uint32_t word) {
         if (wordCount_ >= mozilla::ArrayLength(words_))
             return false;
         words_[wordCount_++] = word;
+        return true;
+    }
+
+    bool markBytecode(jsbytecode* pc) {
+        uint32_t offset = uint32_t(pc - script_->code());
+        MOZ_ASSERT(offset < pcToWord_.length());
+        pcToWord_[offset] = int32_t(wordCount_);
         return true;
     }
 
@@ -187,6 +247,39 @@ class MinimalLoongArchCompiler
         return emitMove(out, NarrowScratch);
     }
 
+    bool emitCheckedIncDec(JSOp op, LoongArchReg srcDst) {
+        MOZ_ASSERT(op == JSOP_INC || op == JSOP_DEC);
+        int32_t imm = (op == JSOP_INC) ? 1 : -1;
+        if (!emit(EncodeImm12(0x02c00000, WideScratch, srcDst, imm)))
+            return false;
+        if (!emit(EncodeImm12(0x02800000, NarrowScratch, srcDst, imm)))
+            return false;
+        if (!emitFailureBranch())
+            return false;
+        return emitMove(srcDst, NarrowScratch);
+    }
+
+    bool emitCompareLessThan(LoongArchReg lhs, LoongArchReg rhs, LoongArchReg out) {
+        return emit(EncodeThreeReg(0x00120000, out, lhs, rhs));
+    }
+
+    bool emitBranch(BranchKind kind, LoongArchReg reg, uint32_t targetPcOffset) {
+        BranchPatch patch = { wordCount_, targetPcOffset, kind, reg };
+        if (!branchPatches_.append(patch))
+            return false;
+
+        switch (kind) {
+          case BranchKind::Always:
+            return emit(EncodeBranch16(0x58000000, zero, zero, 0));
+          case BranchKind::IfTrue:
+            return emit(EncodeBranch16(0x5c000000, reg, zero, 0));
+          case BranchKind::IfFalse:
+            return emit(EncodeBranch16(0x58000000, reg, zero, 0));
+        }
+
+        MOZ_CRASH("bad branch kind");
+    }
+
     bool emitReturn(LoongArchReg result) {
         if (!emit(EncodeUnsignedImm12(0x29000000, result, a2, 0)))
             return false;
@@ -223,11 +316,23 @@ class MinimalLoongArchCompiler
         return true;
     }
 
+    bool duplicateTop() {
+        if (!stackDepth_)
+            return false;
+        return pushTempFromReg(stack_[stackDepth_ - 1]);
+    }
+
     bool pop(LoongArchReg* reg) {
         if (!stackDepth_)
             return false;
         *reg = stack_[--stackDepth_];
         return true;
+    }
+
+    bool emitStoreLocal(uint32_t slot) {
+        if (slot >= script_->nfixed() || !stackDepth_)
+            return false;
+        return emitMove(LocalRegs[slot], stack_[stackDepth_ - 1]);
     }
 
     bool supportedScriptShape() const {
@@ -247,6 +352,32 @@ class MinimalLoongArchCompiler
                !script_->isDerivedClassConstructor();
     }
 
+    bool patchBranches() {
+        for (size_t i = 0; i < branchPatches_.length(); i++) {
+            const BranchPatch& patch = branchPatches_[i];
+            if (patch.targetPcOffset >= pcToWord_.length())
+                return false;
+
+            int32_t targetWord = pcToWord_[patch.targetPcOffset];
+            if (targetWord < 0)
+                return false;
+
+            int32_t rel = targetWord - int32_t(patch.wordOffset);
+            switch (patch.kind) {
+              case BranchKind::Always:
+                words_[patch.wordOffset] = EncodeBranch16(0x58000000, zero, zero, rel);
+                break;
+              case BranchKind::IfTrue:
+                words_[patch.wordOffset] = EncodeBranch16(0x5c000000, patch.reg, zero, rel);
+                break;
+              case BranchKind::IfFalse:
+                words_[patch.wordOffset] = EncodeBranch16(0x58000000, patch.reg, zero, rel);
+                break;
+            }
+        }
+        return true;
+    }
+
   public:
     explicit MinimalLoongArchCompiler(JSScript* script)
       : script_(script),
@@ -260,8 +391,15 @@ class MinimalLoongArchCompiler
         if (!supportedScriptShape())
             return false;
 
+        if (!pcToWord_.appendN(-1, script_->length() + 1))
+            return false;
+
         jsbytecode* pc = script_->code();
         while (pc < script_->codeEnd()) {
+            if (!markBytecode(pc))
+                return false;
+
+            uint32_t pcOffset = uint32_t(pc - script_->code());
             JSOp op = JSOp(*pc);
             switch (op) {
               case JSOP_GETARG:
@@ -276,14 +414,11 @@ class MinimalLoongArchCompiler
                 if (!pushTempFromReg(LocalRegs[GET_LOCALNO(pc)]))
                     return false;
                 break;
-              case JSOP_SETLOCAL: {
-                uint32_t slot = GET_LOCALNO(pc);
-                if (slot >= script_->nfixed() || !stackDepth_)
-                    return false;
-                if (!emitMove(LocalRegs[slot], stack_[stackDepth_ - 1]))
+              case JSOP_SETLOCAL:
+              case JSOP_INITLEXICAL:
+                if (!emitStoreLocal(GET_LOCALNO(pc)))
                     return false;
                 break;
-              }
               case JSOP_ZERO:
                 if (!pushTempFromImm(0))
                     return false;
@@ -305,6 +440,23 @@ class MinimalLoongArchCompiler
                     return false;
                 stackDepth_--;
                 break;
+              case JSOP_DUP:
+                if (!duplicateTop())
+                    return false;
+                break;
+              case JSOP_SWAP:
+                if (stackDepth_ < 2)
+                    return false;
+                LoongArchReg tmp = stack_[stackDepth_ - 1];
+                stack_[stackDepth_ - 1] = stack_[stackDepth_ - 2];
+                stack_[stackDepth_ - 2] = tmp;
+                break;
+              case JSOP_TONUMERIC:
+              case JSOP_CHECKLEXICAL:
+              case JSOP_LOOPENTRY:
+              case JSOP_JUMPTARGET:
+              case JSOP_NOP:
+                break;
               case JSOP_ADD:
               case JSOP_SUB: {
                 LoongArchReg rhs;
@@ -317,9 +469,38 @@ class MinimalLoongArchCompiler
                 stack_[stackDepth_++] = out;
                 break;
               }
-              case JSOP_NOP:
-              case JSOP_JUMPTARGET:
+              case JSOP_INC:
+              case JSOP_DEC:
+                if (!stackDepth_)
+                    return false;
+                if (!emitCheckedIncDec(op, stack_[stackDepth_ - 1]))
+                    return false;
                 break;
+              case JSOP_LT: {
+                LoongArchReg rhs;
+                LoongArchReg lhs;
+                if (!pop(&rhs) || !pop(&lhs))
+                    return false;
+                LoongArchReg out = allocStackReg();
+                if (!emitCompareLessThan(lhs, rhs, out))
+                    return false;
+                stack_[stackDepth_++] = out;
+                break;
+              }
+              case JSOP_GOTO:
+                if (!emitBranch(BranchKind::Always, zero, uint32_t(int32_t(pcOffset) + GET_JUMP_OFFSET(pc))))
+                    return false;
+                break;
+              case JSOP_IFEQ:
+              case JSOP_IFNE: {
+                LoongArchReg cond;
+                if (!pop(&cond))
+                    return false;
+                BranchKind kind = (op == JSOP_IFNE) ? BranchKind::IfTrue : BranchKind::IfFalse;
+                if (!emitBranch(kind, cond, uint32_t(int32_t(pcOffset) + GET_JUMP_OFFSET(pc))))
+                    return false;
+                break;
+              }
               case JSOP_RETURN:
                 if (stackDepth_ != 1)
                     return false;
@@ -333,7 +514,11 @@ class MinimalLoongArchCompiler
             pc += GetBytecodeLength(pc);
         }
 
+        pcToWord_[script_->length()] = int32_t(wordCount_);
+
         if (!sawReturn_)
+            return false;
+        if (!patchBranches())
             return false;
 
         size_t failureOffset = wordCount_;
@@ -381,20 +566,19 @@ CanUseMinimalJit(RunState& state, InvokeState& invoke)
     return true;
 }
 
-} // namespace
-
-bool
-TryEnterLoongArchMinimalJit(JSContext* cx, RunState& state)
+static bool
+LookupOrCompileMinimalJit(JSContext* cx, JSScript* script, TinyLoongArchJitCode* fnOut)
 {
-    (void)cx;
-    if (!state.isInvoke())
+    MinimalJitCache* cache = GetMinimalJitCache();
+    if (!cache)
         return false;
 
-    InvokeState& invoke = *state.asInvoke();
-    if (!CanUseMinimalJit(state, invoke))
-        return false;
+    if (MinimalJitCache::Ptr entry = cache->lookup(script)) {
+        *fnOut = entry->value().fn;
+        return true;
+    }
 
-    MinimalLoongArchCompiler compiler(state.script());
+    MinimalLoongArchCompiler compiler(script);
     if (!compiler.compile())
         return false;
 
@@ -403,11 +587,38 @@ TryEnterLoongArchMinimalJit(JSContext* cx, RunState& state)
         return false;
 
     compiler.copyCode(code.bytes());
-
     if (!code.makeExecutable())
         return false;
 
-    TinyLoongArchJitCode fn = JS_DATA_TO_FUNC_PTR(TinyLoongArchJitCode, code.bytes());
+    CachedJitCode compiled = {
+        JS_DATA_TO_FUNC_PTR(TinyLoongArchJitCode, code.bytes()),
+        code.release()
+    };
+
+    if (!cache->put(script, compiled)) {
+        DeallocateExecutableMemory(compiled.code, compiler.codeSize());
+        return false;
+    }
+
+    *fnOut = compiled.fn;
+    return true;
+}
+
+} // namespace
+
+bool
+TryEnterLoongArchMinimalJit(JSContext* cx, RunState& state)
+{
+    if (!state.isInvoke())
+        return false;
+
+    InvokeState& invoke = *state.asInvoke();
+    if (!CanUseMinimalJit(state, invoke))
+        return false;
+
+    TinyLoongArchJitCode fn;
+    if (!LookupOrCompileMinimalJit(cx, state.script(), &fn))
+        return false;
 
     int32_t result = 0;
     int32_t arg0 = state.script()->numArgs() >= 1 ? invoke.args()[0].toInt32() : 0;
