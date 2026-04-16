@@ -59,6 +59,11 @@ static void _x86_check_features(void)
     x86_cpu_enable_simd = x86_cpu_has_sse2 &&
                           x86_cpu_has_sse42 &&
                           x86_cpu_has_pclmulqdq;
+#if !defined(INFLATE_CHUNK_SIMD_SSE2) || !(INFLATE_CHUNK_SIMD_SSE2) || \
+    !defined(CRC32_SIMD_SSE42_PCLMUL) || !(CRC32_SIMD_SSE42_PCLMUL)
+    /* Runtime SIMD must stay off if required SIMD objects were not built. */
+    x86_cpu_enable_simd = 0;
+#endif
 #ifdef __APPLE__
     /* SIMD implementations not built on Darwin; disable even if CPU supports them */
     x86_cpu_enable_simd = 0;
@@ -122,5 +127,10 @@ static void _x86_check_features(void)
     x86_cpu_enable_simd = x86_cpu_has_sse2 &&
                           x86_cpu_has_sse42 &&
                           x86_cpu_has_pclmulqdq;
+#if !defined(INFLATE_CHUNK_SIMD_SSE2) || !(INFLATE_CHUNK_SIMD_SSE2) || \
+    !defined(CRC32_SIMD_SSE42_PCLMUL) || !(CRC32_SIMD_SSE42_PCLMUL)
+    /* Runtime SIMD must stay off if required SIMD objects were not built. */
+    x86_cpu_enable_simd = 0;
+#endif
 }
 #endif  /* _MSC_VER */
