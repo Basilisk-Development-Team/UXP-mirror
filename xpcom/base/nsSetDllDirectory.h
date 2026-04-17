@@ -10,9 +10,9 @@
 #error This file only makes sense on Windows.
 #endif
 
+#include <stdlib.h>
 #include <windows.h>
 #include <nscore.h>
-#include <stdlib.h>
 
 namespace mozilla {
 

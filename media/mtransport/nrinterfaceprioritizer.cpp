@@ -43,9 +43,9 @@ public:
     }
     addr_ = buf;
 
-    is_vpn_ = (local_addr.interface.type & NR_INTERFACE_TYPE_VPN) != 0 ? 1 : 0;
-    estimated_speed_ = local_addr.interface.estimated_speed;
-    type_preference_ = GetNetworkTypePreference(local_addr.interface.type);
+    is_vpn_ = (local_addr.if_info.type & NR_INTERFACE_TYPE_VPN) != 0 ? 1 : 0;
+    estimated_speed_ = local_addr.if_info.estimated_speed;
+    type_preference_ = GetNetworkTypePreference(local_addr.if_info.type);
     ip_version_ = local_addr.addr.ip_version;
     return true;
   }

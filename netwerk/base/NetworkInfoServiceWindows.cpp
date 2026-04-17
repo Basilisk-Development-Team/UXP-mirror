@@ -3,11 +3,12 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
+#include <stdlib.h>
 #include <winsock2.h>
 #include <ws2ipdef.h>
 #include <iphlpapi.h>
 
-#include "mozilla/UniquePtr.h"
+#include "mozilla/UniquePtrExtensions.h"
 
 #include "NetworkInfoServiceImpl.h"
 
@@ -17,7 +18,7 @@ namespace net {
 nsresult
 DoListAddresses(AddrMapType& aAddrMap)
 {
-  UniquePtr<MIB_IPADDRTABLE> ipAddrTable;
+  UniqueFreePtr<MIB_IPADDRTABLE> ipAddrTable;
   DWORD size = sizeof(MIB_IPADDRTABLE);
 
   ipAddrTable.reset((MIB_IPADDRTABLE*) malloc(size));

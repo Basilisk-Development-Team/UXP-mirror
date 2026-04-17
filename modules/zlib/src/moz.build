@@ -88,4 +88,8 @@ else:
         'inflate.c',
     ]
 
+if CONFIG['OS_ARCH'] == 'WINNT' and CONFIG['GNU_CC']:
+    SOURCES['crc32_simd.c'].flags += ['-msse4.2', '-mpclmul']
+    SOURCES['crc_folding.c'].flags += ['-msse4.2', '-mpclmul']
+
 

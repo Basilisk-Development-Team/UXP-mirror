@@ -7,6 +7,7 @@
 #ifndef nsFilePicker_h__
 #define nsFilePicker_h__
 
+#include <stdlib.h>
 #include <windows.h>
 
 // For Vista IFileDialog interfaces which aren't exposed

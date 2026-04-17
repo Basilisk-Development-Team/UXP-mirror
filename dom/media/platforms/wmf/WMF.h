@@ -18,6 +18,7 @@ which makes Windows Media Foundation unavailable.
 #undef WINVER
 #define WINVER _WIN32_WINNT_WIN7
 
+#include <stdlib.h>
 #include <windows.h>
 #include <mfapi.h>
 #include <mfidl.h>

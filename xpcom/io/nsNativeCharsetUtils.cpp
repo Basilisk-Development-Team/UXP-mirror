@@ -9,7 +9,7 @@
 // Windows
 //-----------------------------------------------------------------------------
 #if defined(XP_WIN)
-
+#include <stdlib.h>
 #include <windows.h>
 #include "nsString.h"
 #include "nsAString.h"

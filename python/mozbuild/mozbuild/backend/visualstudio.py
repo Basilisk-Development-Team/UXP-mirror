@@ -66,7 +66,7 @@ class VisualStudioBackend(CommonBackend):
         self._out_dir = os.path.join(self.environment.topobjdir, 'msvc')
         self._projsubdir = 'projects'
 
-        self._version = self.environment.substs.get('MSVS_VERSION', '2015')
+        self._version = self.environment.substs.get('MSVS_VERSION')
 
         self._paths_to_sources = {}
         self._paths_to_includes = {}
@@ -131,6 +131,12 @@ class VisualStudioBackend(CommonBackend):
     def consume_finished(self):
         out_dir = self._out_dir
         out_proj_dir = os.path.join(self._out_dir, self._projsubdir)
+
+        # If we do not have an MSVC version, we should not generate Visual
+        # Studio projects.
+        version = self._version
+        if not version:
+            return
 
         projects = self._write_projects_for_sources(self._libs_to_paths,
             "library", out_proj_dir)

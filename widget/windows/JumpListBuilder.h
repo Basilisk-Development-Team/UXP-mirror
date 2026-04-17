@@ -6,6 +6,8 @@
 #ifndef __JumpListBuilder_h__
 #define __JumpListBuilder_h__
 
+#include <stdlib.h>
+
 #include <windows.h>
 
 #undef NTDDI_VERSION

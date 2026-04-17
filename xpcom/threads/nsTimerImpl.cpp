@@ -519,13 +519,15 @@ nsTimerImpl::Fire(int32_t aGeneration)
           this, (TimeStamp::Now() - now).ToMilliseconds()));
 }
 
-#if defined(HAVE_DLADDR) && defined(HAVE___CXA_DEMANGLE)
+#if defined(HAVE_DLADDR) && defined(HAVE___CXA_DEMANGLE) && !defined(XP_WIN)
 #define USE_DLADDR 1
 #endif
 
 #ifdef USE_DLADDR
+#if !defined(XP_WIN)
 #include <cxxabi.h>
 #include <dlfcn.h>
+#endif
 #endif
 
 // See the big comment above GetTimerFiringsLog() to understand this code.

@@ -605,7 +605,7 @@ BOOL MyWinHttpGetProxyForUrl(pfnWinHttpGetProxyForUrl pWHGPFU,
   // error.
   BOOL success = FALSE;
 
-#if (_HAS_EXCEPTIONS == 0)
+#if (_HAS_EXCEPTIONS == 0) && defined(_MSC_VER)
   __try {
     success = pWHGPFU(hWinHttp, url, options, info);
   } __except(EXCEPTION_EXECUTE_HANDLER) {

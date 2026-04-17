@@ -41,11 +41,11 @@
 #include "nsNativeCharsetUtils.h"
 #include "nsIAppStartup.h"
 
+#include <stdlib.h>
+#include <stdio.h>
 #include <windows.h>
 #include <shellapi.h>
 #include <ddeml.h>
-#include <stdlib.h>
-#include <stdio.h>
 #include <io.h>
 #include <direct.h>
 #include <fcntl.h>

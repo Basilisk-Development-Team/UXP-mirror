@@ -42,6 +42,7 @@ typedef enum _AR_STATE
   AR_DOCKED         = 0x40,
   AR_LAPTOP         = 0x80
 } AR_STATE, *PAR_STATE;
+#define MOZ_AR_STATE_DEFINED 1
 #endif
 
 class nsLookAndFeel: public nsXPLookAndFeel {

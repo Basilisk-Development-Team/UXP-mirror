@@ -12,6 +12,8 @@
 
 #include <assert.h>
 
+#include <stdlib.h>
+
 #ifdef WIN32
 #include <direct.h>
 #include <tchar.h>
@@ -33,7 +35,6 @@
 #endif
 
 #include <stdio.h>
-#include <stdlib.h>
 #include <string.h>
 
 #include "webrtc/typedefs.h"  // For architecture defines

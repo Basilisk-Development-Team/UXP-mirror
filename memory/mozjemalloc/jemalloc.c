@@ -212,6 +212,7 @@ static unsigned long tlsIndex = 0xffffffff;
 #define	_pthread_self() __threadid()
 
 /* use MSVC intrinsics */
+#if defined(_MSC_VER)
 #pragma intrinsic(_BitScanForward)
 static __forceinline int
 ffs(int x)
@@ -223,6 +224,16 @@ ffs(int x)
 
 	return (0);
 }
+#else
+static inline int
+ffs(int x)
+{
+	if (x == 0)
+		return (0);
+
+	return (__builtin_ctz((unsigned int)x) + 1);
+}
+#endif
 
 /* Implement getenv without using malloc */
 static char mozillaMallocOptionsBuf[64];
@@ -243,10 +254,12 @@ typedef unsigned char uint8_t;
 typedef unsigned uint32_t;
 typedef unsigned long long uint64_t;
 typedef unsigned long long uintmax_t;
+#if !defined(_SSIZE_T_) && !defined(_SSIZE_T_DEFINED)
 #if defined(_WIN64)
 typedef long long ssize_t;
 #else
 typedef long ssize_t;
+#endif
 #endif
 
 #define	MALLOC_DECOMMIT

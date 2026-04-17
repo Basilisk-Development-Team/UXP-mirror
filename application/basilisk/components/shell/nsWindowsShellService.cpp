@@ -5,6 +5,8 @@
 
 #include "nsWindowsShellService.h"
 
+#include <stdlib.h>
+
 #include "imgIContainer.h"
 #include "imgIRequest.h"
 #include "mozilla/gfx/2D.h"

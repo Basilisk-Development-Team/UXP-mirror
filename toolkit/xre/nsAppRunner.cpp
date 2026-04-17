@@ -93,6 +93,7 @@
 
 #ifdef XP_WIN
 #include "nsIWinAppHelper.h"
+#include <stdlib.h>
 #include <windows.h>
 #include <intrin.h>
 #include <math.h>
@@ -136,7 +137,6 @@
 #include "mozilla/StartupTimeline.h"
 #include "mozilla/LateWriteChecks.h"
 
-#include <stdlib.h>
 #include <locale.h>
 
 #ifdef XP_UNIX

@@ -6,6 +6,7 @@
 #ifndef GFX_READBACKMANAGERD3D11_H
 #define GFX_READBACKMANAGERD3D11_H
 
+#include <stdlib.h>
 #include <windows.h>
 #include <d3d10_1.h>
 

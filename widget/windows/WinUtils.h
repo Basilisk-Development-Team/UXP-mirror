@@ -39,7 +39,7 @@
 
 // Starting with version 10.0.22621.0 of the Windows SDK the AR_STATE enum and
 // types are only defined when building for Windows 8 instead of Windows 7.
-#if (WDK_NTDDI_VERSION >= 0x0A00000C) && (WINVER < 0x0602)
+#if (WDK_NTDDI_VERSION >= 0x0A00000C) && (WINVER < 0x0602) && !defined(MOZ_AR_STATE_DEFINED)
 
 enum tagAR_STATE {
   AR_ENABLED = 0x0,
@@ -56,6 +56,8 @@ enum tagAR_STATE {
 typedef enum tagAR_STATE AR_STATE;
 
 using PAR_STATE = enum tagAR_STATE*;
+
+#define MOZ_AR_STATE_DEFINED 1
 
 #endif  // (WDK_NTDDI_VERSION >= 0x0A00000C) && (WINVER < 0x0602)
 

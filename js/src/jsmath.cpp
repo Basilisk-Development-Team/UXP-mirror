@@ -709,7 +709,11 @@ GenerateRandomSeed()
 {
     uint64_t seed = 0;
 
-#if defined(__linux__)
+#if defined(XP_WIN)
+    if (SystemFunction036(&seed, sizeof(seed)))
+        return seed;
+
+#elif defined(__linux__)
     // Linux does not provide arc4random(), so use /dev/urandom.
     int fd = open("/dev/urandom", O_RDONLY);
     if (fd >= 0) {
@@ -732,8 +736,10 @@ GenerateRandomSeed()
 
 #else
     // Generic fallback
-    uint32_t lo = random();
-    uint32_t hi = random();
+    uint32_t lo = 0;
+    uint32_t hi = 0;
+    lo = static_cast<uint32_t>(rand());
+    hi = static_cast<uint32_t>(rand());
     return (static_cast<uint64_t>(hi) << 32) | lo;
 #endif
 }

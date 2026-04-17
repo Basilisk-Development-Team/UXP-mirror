@@ -6,6 +6,7 @@
 #if defined(XP_MACOSX) || defined(XP_LINUX)
 #include <unistd.h>
 #elif defined(XP_WIN)
+#include <stdlib.h>
 #include <winsock2.h>
 #endif
 

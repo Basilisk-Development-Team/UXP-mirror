@@ -36,6 +36,12 @@ typedef __m128i z_vec128i_t;
 #error chunkcopy.h inflate chunk SIMD is not defined for your build target
 #endif
 
+#if defined(_MSC_VER)
+#define Z_ALIGN16(type, name) __declspec(align(16)) type name
+#else
+#define Z_ALIGN16(type, name) type name __attribute__((aligned(16)))
+#endif
+
 #ifdef _MSC_VER
 #if _MSC_VER < 1900
 #define inline 
@@ -222,7 +228,7 @@ static inline z_vec128i_t v_load64_dup(const void* src) {
 #if 0//def _WIN64
   return _mm_set1_epi64x(i64);
 #else
-  _declspec(align(16)) uint64_t temp[2] = {i64, i64};
+  Z_ALIGN16(uint64_t, temp[2]) = {i64, i64};
   return _mm_load_si128((const __m128i*)temp);
 #endif
 }

@@ -4,8 +4,8 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 /* Windows only app to show a modal debug dialog - launched by nsDebug.cpp */
-#include <windows.h>
 #include <stdlib.h>
+#include <windows.h>
 #ifdef _MSC_VER
 #include <strsafe.h>
 #endif

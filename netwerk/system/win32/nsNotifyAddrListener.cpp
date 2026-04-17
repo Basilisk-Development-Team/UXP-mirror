@@ -8,6 +8,7 @@
 // inet_ntop() doesn't exist on Windows XP.
 #define _WINSOCK_DEPRECATED_NO_WARNINGS
 
+#include <stdlib.h>
 #include <stdarg.h>
 #include <windef.h>
 #include <winbase.h>

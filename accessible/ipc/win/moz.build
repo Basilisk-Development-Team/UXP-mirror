@@ -4,7 +4,8 @@
 # file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
 if CONFIG['COMPILE_ENVIRONMENT']:
-    DIRS += ['typelib']
+    if CONFIG['CC_TYPE'] == 'msvc':
+        DIRS += ['typelib']
 
 # With --disable-accessibility, we need to compile PDocAccessible.ipdl (which
 # also depends on COMPtrTypes.h), but not the C++.

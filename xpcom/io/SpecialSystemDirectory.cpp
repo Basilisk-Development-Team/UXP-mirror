@@ -3,6 +3,7 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
+#include <stdlib.h>
 #include "SpecialSystemDirectory.h"
 #include "nsString.h"
 #include "nsDependentString.h"
@@ -10,9 +11,9 @@
 
 #if defined(XP_WIN)
 
+#include <stdlib.h>
 #include <windows.h>
 #include <shlobj.h>
-#include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
 #include <direct.h>

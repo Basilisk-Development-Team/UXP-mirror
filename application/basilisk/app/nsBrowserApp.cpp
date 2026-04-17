@@ -7,9 +7,9 @@
 #include "mozilla/AppData.h"
 #include "application.ini.h"
 #include "nsXPCOMGlue.h"
+#include <stdlib.h>
 #if defined(XP_WIN)
 #include <windows.h>
-#include <stdlib.h>
 #elif defined(XP_UNIX)
 #include <sys/resource.h>
 #include <unistd.h>

@@ -20,7 +20,7 @@
 #include "nsPrintfCString.h"
 #include "VideoUtils.h"
 
-const CLSID CLSID_VideoProcessorMFT =
+const CLSID sCLSID_VideoProcessorMFT =
 {
   0x88753b26,
   0x5b24,
@@ -666,7 +666,7 @@ D3D11DXVA2Manager::Init(layers::KnowsCompositor* aKnowsCompositor,
   }
 
   mTransform = new MFTDecoder();
-  hr = mTransform->Create(CLSID_VideoProcessorMFT);
+  hr = mTransform->Create(sCLSID_VideoProcessorMFT);
   if (!SUCCEEDED(hr)) {
     aFailureReason = nsPrintfCString("MFTDecoder::Create(CLSID_VideoProcessorMFT) failed with code %X", hr);
     return hr;

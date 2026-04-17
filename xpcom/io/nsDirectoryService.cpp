@@ -19,9 +19,9 @@
 #include "nsIStringEnumerator.h"
 
 #if defined(XP_WIN)
+#include <stdlib.h>
 #include <windows.h>
 #include <shlobj.h>
-#include <stdlib.h>
 #include <stdio.h>
 #elif defined(XP_UNIX)
 #include <unistd.h>

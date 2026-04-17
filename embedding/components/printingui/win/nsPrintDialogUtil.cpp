@@ -21,12 +21,6 @@ WIN_LIBS=                                       \
 ---------------------------------------------------------------------- */
 
 #include "plstr.h"
-#include <windows.h>
-#include <tchar.h>
-
-#include <unknwn.h>
-#include <commdlg.h>
-
 #include "nsIWebBrowserPrint.h"
 #include "nsString.h"
 #include "nsIServiceManager.h"
@@ -43,7 +37,13 @@ WIN_LIBS=                                       \
 #include "nsCRT.h"
 #include "prenv.h" /* for PR_GetEnv */
 
+#include <stdlib.h>
 #include <windows.h>
+#include <tchar.h>
+
+#include <unknwn.h>
+#include <commdlg.h>
+
 #include <winspool.h> 
 
 // For Localization

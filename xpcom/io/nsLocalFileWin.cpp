@@ -29,16 +29,16 @@
 #include "nsReadableUtils.h"
 
 #include <direct.h>
-#include <windows.h>
+#include <stdlib.h>
 #include <shlwapi.h>
 #include <aclapi.h>
+#include <windows.h>
 
 #include "shellapi.h"
 #include "shlguid.h"
 
 #include  <io.h>
 #include  <stdio.h>
-#include  <stdlib.h>
 #include  <mbstring.h>
 
 #include "nsXPIDLString.h"

@@ -3,13 +3,13 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 #if defined(XP_WIN)
+#include <stdlib.h>
 #include <windows.h>
 #endif
 
 
 #include <stdio.h>
 #include <string.h>
-#include <stdlib.h>
 #include <stdarg.h>
 
 #include "updatecommon.h"

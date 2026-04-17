@@ -6,6 +6,7 @@
 #ifndef mozilla_FileUtilsWin_h
 #define mozilla_FileUtilsWin_h
 
+#include <stdlib.h>
 #include <windows.h>
 
 #include "mozilla/Scoped.h"
