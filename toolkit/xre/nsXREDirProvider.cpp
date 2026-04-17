@@ -400,7 +400,7 @@ nsXREDirProvider::GetFile(const char* aProperty, bool* aPersistent,
         rv = localDir->AppendNative(NS_LITERAL_CSTRING("NativeMessagingHosts"));
       }
 #else
-      rv = localDir->AppendNative(NS_LITERAL_CSTRING(".mozilla"));
+  rv = localDir->AppendNative(NS_LITERAL_CSTRING("mozilla"));
       if (NS_SUCCEEDED(rv)) {
         rv = localDir->AppendNative(NS_LITERAL_CSTRING("native-messaging-hosts"));
       }
@@ -1361,8 +1361,17 @@ nsXREDirProvider::GetUserDataDirectoryHome(nsIFile** aFile, bool aLocal)
         rv = localDir->AppendNative(NS_LITERAL_CSTRING(".cache"));
     }
   } else {
-    rv = NS_NewNativeLocalFile(nsDependentCString(homeDir), true,
-                               getter_AddRefs(localDir));
+    // If $XDG_CONFIG_HOME is defined use it, otherwise use $HOME/.config.
+    const char* configHome = getenv("XDG_CONFIG_HOME");
+    if (configHome && *configHome) {
+      rv = NS_NewNativeLocalFile(nsDependentCString(configHome), true,
+                                 getter_AddRefs(localDir));
+    } else {
+      rv = NS_NewNativeLocalFile(nsDependentCString(homeDir), true,
+                                 getter_AddRefs(localDir));
+      if (NS_SUCCEEDED(rv))
+        rv = localDir->AppendNative(NS_LITERAL_CSTRING(".config"));
+    }
   }
 #else
 #error "Don't know how to get product dir on your platform"
@@ -1375,9 +1384,31 @@ nsXREDirProvider::GetUserDataDirectoryHome(nsIFile** aFile, bool aLocal)
 nsresult
 nsXREDirProvider::GetSysUserExtensionsDirectory(nsIFile** aFile)
 {
+  nsresult rv;
   nsCOMPtr<nsIFile> localDir;
-  nsresult rv = GetUserDataDirectoryHome(getter_AddRefs(localDir), false);
+#if defined(XP_UNIX) && !defined(XP_MACOSX)
+  const char* dataHome = getenv("XDG_DATA_HOME");
+  if (dataHome && *dataHome) {
+    rv = NS_NewNativeLocalFile(nsDependentCString(dataHome), true,
+                               getter_AddRefs(localDir));
+    NS_ENSURE_SUCCESS(rv, rv);
+  } else {
+    const char* homeDir = getenv("HOME");
+    if (!homeDir || !*homeDir)
+      return NS_ERROR_FAILURE;
+
+    rv = NS_NewNativeLocalFile(nsDependentCString(homeDir), true,
+                               getter_AddRefs(localDir));
+    NS_ENSURE_SUCCESS(rv, rv);
+    rv = localDir->AppendNative(NS_LITERAL_CSTRING(".local"));
+    NS_ENSURE_SUCCESS(rv, rv);
+    rv = localDir->AppendNative(NS_LITERAL_CSTRING("share"));
+    NS_ENSURE_SUCCESS(rv, rv);
+  }
+#else
+  rv = GetUserDataDirectoryHome(getter_AddRefs(localDir), false);
   NS_ENSURE_SUCCESS(rv, rv);
+#endif
 
   //rv = AppendSysUserExtensionPath(localDir);
   //NS_ENSURE_SUCCESS(rv, rv);
@@ -1482,7 +1513,7 @@ nsXREDirProvider::AppendSysUserExtensionPath(nsIFile* aFile)
 
 #elif defined(XP_UNIX)
 
-  static const char* const sXR = ".mozilla";
+  static const char* const sXR = "mozilla";
   rv = aFile->AppendNative(nsDependentCString(sXR));
   NS_ENSURE_SUCCESS(rv, rv);
 
@@ -1556,20 +1587,11 @@ nsXREDirProvider::AppendProfilePath(nsIFile* aFile,
 
 #elif defined(XP_UNIX)
   nsAutoCString folder;
-  // Make it hidden (by starting with "."), except when local (the
-  // profile is already under ~/.cache or XDG_CACHE_HOME).
-  if (!aLocal)
-    folder.Assign('.');
 
   if (!profile.IsEmpty()) {
     // Skip any leading path characters
     const char* profileStart = profile.get();
     while (*profileStart == '/' || *profileStart == '\\')
-      profileStart++;
-
-    // On the off chance that someone wanted their folder to be hidden don't
-    // let it become ".."
-    if (*profileStart == '.' && !aLocal)
       profileStart++;
 
     folder.Append(profileStart);
