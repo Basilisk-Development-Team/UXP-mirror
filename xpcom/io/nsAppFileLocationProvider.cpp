@@ -40,6 +40,37 @@
 #define APP_REGISTRY_NAME NS_LITERAL_CSTRING("appreg")
 #endif
 
+#if defined(XP_UNIX)
+static nsresult
+GetUnixXDGHome(nsIFile** aLocalFile, bool aLocal)
+{
+  if (NS_WARN_IF(!aLocalFile)) {
+    return NS_ERROR_INVALID_ARG;
+  }
+
+  const char* xdgHome = aLocal ? PR_GetEnv("XDG_CACHE_HOME")
+                               : PR_GetEnv("XDG_CONFIG_HOME");
+  if (xdgHome && *xdgHome) {
+    return NS_NewNativeLocalFile(nsDependentCString(xdgHome), true,
+                                 aLocalFile);
+  }
+
+  const char* homeDir = PR_GetEnv("HOME");
+  if (!homeDir || !*homeDir) {
+    return NS_ERROR_FAILURE;
+  }
+
+  nsresult rv = NS_NewNativeLocalFile(nsDependentCString(homeDir), true,
+                                      aLocalFile);
+  if (NS_FAILED(rv)) {
+    return rv;
+  }
+
+  return (*aLocalFile)->AppendNative(aLocal ? NS_LITERAL_CSTRING(".cache")
+                                            : NS_LITERAL_CSTRING(".config"));
+}
+#endif
+
 // define default product directory
 #define DEFAULT_PRODUCT_DIR NS_LITERAL_CSTRING(MOZ_USER_DIR)
 
@@ -270,7 +301,8 @@ nsAppFileLocationProvider::CloneMozBinDirectory(nsIFile** aLocalFile)
 //----------------------------------------------------------------------------------------
 // GetProductDirectory - Gets the directory which contains the application data folder
 //
-// UNIX   : ~/.mozilla/
+// UNIX   : ${XDG_CONFIG_HOME:-$HOME/.config}/<product>/
+//          ${XDG_CACHE_HOME:-$HOME/.cache}/<product>/ when aLocal is true
 // WIN    : <Application Data folder on user's machine>\Mozilla
 // Mac    : :Documents:Mozilla:
 //----------------------------------------------------------------------------------------
@@ -315,8 +347,7 @@ nsAppFileLocationProvider::GetProductDirectory(nsIFile** aLocalFile,
     return rv;
   }
 #elif defined(XP_UNIX)
-  rv = NS_NewNativeLocalFile(nsDependentCString(PR_GetEnv("HOME")), true,
-                             getter_AddRefs(localDir));
+  rv = GetUnixXDGHome(getter_AddRefs(localDir), aLocal);
   if (NS_FAILED(rv)) {
     return rv;
   }
@@ -347,7 +378,8 @@ nsAppFileLocationProvider::GetProductDirectory(nsIFile** aLocalFile,
 //----------------------------------------------------------------------------------------
 // GetDefaultUserProfileRoot - Gets the directory which contains each user profile dir
 //
-// UNIX   : ~/.mozilla/
+// UNIX   : ${XDG_CONFIG_HOME:-$HOME/.config}/<product>/
+//          ${XDG_CACHE_HOME:-$HOME/.cache}/<product>/ when aLocal is true
 // WIN    : <Application Data folder on user's machine>\Mozilla\Profiles
 // Mac    : :Documents:Mozilla:Profiles:
 //----------------------------------------------------------------------------------------
