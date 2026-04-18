@@ -20,6 +20,8 @@ elif 'gtk' in CONFIG['MOZ_WIDGET_TOOLKIT']:
 if CONFIG['MOZ_GL_PROVIDER']:
     gl_provider = CONFIG['MOZ_GL_PROVIDER']
 
+DISABLE_STL_WRAPPING = True
+
 EXPORTS += [
     'DecomposeIntoNoRepeatTriangles.h',
     'EGLUtils.h',

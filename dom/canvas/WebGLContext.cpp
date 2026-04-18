@@ -843,6 +843,13 @@ WebGLContext::ThrowEvent_WebGLContextCreationError(const nsACString& text)
 }
 
 NS_IMETHODIMP
+WebGLContext::InitializeWithDrawTarget(nsIDocShell*,
+                                       NotNull<gfx::DrawTarget*>)
+{
+    return NS_ERROR_NOT_IMPLEMENTED;
+}
+
+NS_IMETHODIMP
 WebGLContext::SetDimensions(int32_t signedWidth, int32_t signedHeight)
 {
     if (signedWidth < 0 || signedHeight < 0) {

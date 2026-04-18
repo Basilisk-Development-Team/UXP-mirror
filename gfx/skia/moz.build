@@ -646,7 +646,10 @@ else:
 # We allow warnings for third-party code that can be updated from upstream.
 ALLOW_COMPILER_WARNINGS = True
 
-FINAL_LIBRARY = 'gkmedias'
+if CONFIG['GNU_CC']:
+    FINAL_LIBRARY = 'xul'
+else:
+    FINAL_LIBRARY = 'gkmedias'
 LOCAL_INCLUDES += [
     'skia/include/c',
     'skia/include/config',
@@ -694,6 +697,10 @@ if CONFIG['MOZ_WIDGET_TOOLKIT'] == 'windows':
     ]
 
 if CONFIG['GKMEDIAS_SHARED_LIBRARY']:
+    DEFINES['SKIA_DLL'] = 1
+    DEFINES['GR_DLL'] = 1
+    DEFINES['SK_FONT_HOST_USE_SYSTEM_SETTINGS'] = 1
+if CONFIG['GKMEDIAS_SHARED_LIBRARY'] and not CONFIG['GNU_CC']:
     DEFINES['SKIA_DLL'] = 1
     DEFINES['GR_DLL'] = 1
     DEFINES['SK_FONT_HOST_USE_SYSTEM_SETTINGS'] = 1
