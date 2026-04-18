@@ -6,6 +6,7 @@
 #ifndef ProfileUnlockerWin_h
 #define ProfileUnlockerWin_h
 
+#include <stdlib.h>
 #include <windows.h>
 #include <restartmanager.h>
 

@@ -5,7 +5,7 @@
 
 #ifndef mozilla_gfx_NativeFontResourceGDI_h
 #define mozilla_gfx_NativeFontResourceGDI_h
-
+#include <stdlib.h>
 #include <windows.h>
 
 #include "2D.h"

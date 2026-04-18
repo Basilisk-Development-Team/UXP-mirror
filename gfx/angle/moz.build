@@ -8,6 +8,8 @@
 #
 # WARNING WARNING WARNING
 #
+DISABLE_STL_WRAPPING = True
+
 UNIFIED_SOURCES += [
     'src/common/angleutils.cpp',
     'src/common/debug.cpp',

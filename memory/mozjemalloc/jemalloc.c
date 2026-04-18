@@ -193,6 +193,10 @@
 #include <windows.h>
 #include <intrin.h>
 
+#ifndef min
+#define min(a, b) (((a) < (b)) ? (a) : (b))
+#endif
+
 #pragma warning( disable: 4267 4996 4146 )
 
 #define	bool BOOL

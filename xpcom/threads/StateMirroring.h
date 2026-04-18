@@ -61,7 +61,34 @@ template<typename T>
 class AbstractCanonical
 {
 public:
+#if defined(__MINGW32__)
+  MOZ_NEVER_INLINE MozExternalRefCountType AddRef(void)
+  {
+    MOZ_ASSERT_TYPE_OK_FOR_REFCOUNTING(AbstractCanonical)
+    MOZ_ASSERT(int32_t(mRefCnt) >= 0, "illegal refcnt");
+    nsrefcnt count = ++mRefCnt;
+    NS_LOG_ADDREF(this, count, "AbstractCanonical", sizeof(*this));
+    return (nsrefcnt) count;
+  }
+
+  MOZ_NEVER_INLINE MozExternalRefCountType Release(void)
+  {
+    MOZ_ASSERT(int32_t(mRefCnt) > 0, "dup release");
+    nsrefcnt count = --mRefCnt;
+    NS_LOG_RELEASE(this, count, "AbstractCanonical");
+    if (count == 0) {
+      delete (this);
+      return 0;
+    }
+    return count;
+  }
+  typedef mozilla::TrueType HasThreadSafeRefCnt;
+protected:
+  ::mozilla::ThreadSafeAutoRefCnt mRefCnt;
+public:
+#else
   NS_INLINE_DECL_THREADSAFE_REFCOUNTING(AbstractCanonical)
+#endif
   AbstractCanonical(AbstractThread* aThread) : mOwnerThread(aThread) {}
   virtual void AddMirror(AbstractMirror<T>* aMirror) = 0;
   virtual void RemoveMirror(AbstractMirror<T>* aMirror) = 0;
@@ -82,7 +109,34 @@ template<typename T>
 class AbstractMirror
 {
 public:
+#if defined(__MINGW32__)
+  MOZ_NEVER_INLINE MozExternalRefCountType AddRef(void)
+  {
+    MOZ_ASSERT_TYPE_OK_FOR_REFCOUNTING(AbstractMirror)
+    MOZ_ASSERT(int32_t(mRefCnt) >= 0, "illegal refcnt");
+    nsrefcnt count = ++mRefCnt;
+    NS_LOG_ADDREF(this, count, "AbstractMirror", sizeof(*this));
+    return (nsrefcnt) count;
+  }
+
+  MOZ_NEVER_INLINE MozExternalRefCountType Release(void)
+  {
+    MOZ_ASSERT(int32_t(mRefCnt) > 0, "dup release");
+    nsrefcnt count = --mRefCnt;
+    NS_LOG_RELEASE(this, count, "AbstractMirror");
+    if (count == 0) {
+      delete (this);
+      return 0;
+    }
+    return count;
+  }
+  typedef mozilla::TrueType HasThreadSafeRefCnt;
+protected:
+  ::mozilla::ThreadSafeAutoRefCnt mRefCnt;
+public:
+#else
   NS_INLINE_DECL_THREADSAFE_REFCOUNTING(AbstractMirror)
+#endif
   AbstractMirror(AbstractThread* aThread) : mOwnerThread(aThread) {}
   virtual void UpdateValue(const T& aNewValue) = 0;
   virtual void NotifyDisconnected() = 0;

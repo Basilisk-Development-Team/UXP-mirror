@@ -5,7 +5,7 @@
 
 #ifndef MOZILLA_GFX_PATHD2D_H_
 #define MOZILLA_GFX_PATHD2D_H_
-
+#include <stdlib.h>
 #include <d2d1.h>
 
 #include "2D.h"

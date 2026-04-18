@@ -121,8 +121,8 @@ TranslateVersionStr(const WCHAR* szVersion, verBlock *vbVersion)
   // wcstok that is generally not thread-safe. For our purposes here, it works
   // fine, though.
   auto wcstok = [](wchar_t* strToken, const wchar_t* strDelimit,
-                   wchar_t** /*ctx*/) {
-    return ::std::wcstok(strToken, strDelimit);
+                   wchar_t** ctx) {
+    return ::wcstok(strToken, strDelimit, ctx);
   };
 #endif
 

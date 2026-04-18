@@ -6,6 +6,7 @@
 #ifndef nsURILoader_h__
 #define nsURILoader_h__
 
+#include <stdlib.h>
 #include "nsCURILoader.h"
 #include "nsISupportsUtils.h"
 #include "nsCOMArray.h"

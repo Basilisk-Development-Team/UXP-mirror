@@ -5,7 +5,7 @@
 
 #ifndef mozilla_gfx_NativeFontResourceDWrite_h
 #define mozilla_gfx_NativeFontResourceDWrite_h
-
+#include <stdlib.h>
 #include <dwrite.h>
 
 #include "2D.h"

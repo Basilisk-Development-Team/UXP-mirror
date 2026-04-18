@@ -5,7 +5,7 @@
  * accompanying file LICENSE for details.
  */
 #define NOMINMAX
-
+#include <stdlib.h>
 #include <initguid.h>
 #include <windows.h>
 #include <mmdeviceapi.h>

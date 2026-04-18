@@ -8,7 +8,7 @@
 
 #ifndef nsDocLoader_h__
 #define nsDocLoader_h__
-
+#include <stdlib.h>
 #include "nsIDocumentLoader.h"
 #include "nsIWebProgress.h"
 #include "nsIWebProgressListener.h"

@@ -5,7 +5,7 @@
 
 #ifndef nsDownloadScanner_h_
 #define nsDownloadScanner_h_
-
+#include <stdlib.h>
 #ifdef WIN32_LEAN_AND_MEAN
 #undef WIN32_LEAN_AND_MEAN
 #endif

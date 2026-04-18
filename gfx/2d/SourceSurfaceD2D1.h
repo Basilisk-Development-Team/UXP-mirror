@@ -5,7 +5,7 @@
 
 #ifndef MOZILLA_GFX_SOURCESURFACED2D1_H_
 #define MOZILLA_GFX_SOURCESURFACED2D1_H_
-
+#include <stdlib.h>
 #include "2D.h"
 #include "HelpersD2D.h"
 #include <vector>

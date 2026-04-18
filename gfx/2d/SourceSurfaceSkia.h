@@ -5,7 +5,7 @@
 
 #ifndef MOZILLA_GFX_SOURCESURFACESKIA_H_
 #define MOZILLA_GFX_SOURCESURFACESKIA_H_
-
+#include <stdlib.h>
 #include "2D.h"
 #include <vector>
 #include "skia/include/core/SkCanvas.h"

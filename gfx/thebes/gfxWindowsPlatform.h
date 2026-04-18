@@ -11,6 +11,7 @@
  * XXX to get CAIRO_HAS_D2D_SURFACE, CAIRO_HAS_DWRITE_FONT
  * and cairo_win32_scaled_font_select_font
  */
+#include <stdlib.h>
 #include "cairo-win32.h"
 
 #include "gfxFontUtils.h"

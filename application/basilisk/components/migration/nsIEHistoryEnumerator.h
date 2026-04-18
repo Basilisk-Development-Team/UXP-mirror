@@ -4,7 +4,7 @@
 
 #ifndef iehistoryenumerator___h___
 #define iehistoryenumerator___h___
-
+#include <stdlib.h>
 #include <urlhist.h>
 
 #include "mozilla/Attributes.h"

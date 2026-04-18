@@ -34,6 +34,7 @@
 #endif // defined(XP_MACOSX)
 
 #if defined(XP_WIN)
+#include <stdlib.h>
 #include <windows.h>
 #include <accctrl.h>
 

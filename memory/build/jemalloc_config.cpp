@@ -3,8 +3,9 @@
  * You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 #include <mozilla/Assertions.h>
+#include <stdlib.h>
 
 /* Provide an abort function for use in jemalloc code */
 extern "C" void moz_abort() {
-  MOZ_CRASH();
+  abort();
 }

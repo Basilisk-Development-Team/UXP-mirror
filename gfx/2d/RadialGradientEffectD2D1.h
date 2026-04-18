@@ -5,7 +5,7 @@
 
 #ifndef MOZILLA_GFX_RADIALGRADIENTEFFECTD2D1_H_
 #define MOZILLA_GFX_RADIALGRADIENTEFFECTD2D1_H_
-
+#include <stdlib.h>
 #include <d2d1_1.h>
 #include <d2d1effectauthor.h>
 #include <d2d1effecthelpers.h>

@@ -20,6 +20,10 @@
 #include "cubeb/cubeb.h"
 #include "cubeb-internal.h"
 
+#if defined(__MINGW32__)
+#define _snprintf_s(dest, size, count, ...) snprintf(dest, size, __VA_ARGS__)
+#endif
+
 /* This is missing from the MinGW headers. Use a safe fallback. */
 #if !defined(MEMORY_ALLOCATION_ALIGNMENT)
 #define MEMORY_ALLOCATION_ALIGNMENT 16
