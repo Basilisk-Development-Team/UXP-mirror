@@ -645,6 +645,16 @@ extensions.registerSchemaAPI("downloads", "addon_parent", context => {
       },
 
       open(downloadId) {
+        // Restrict downloads.open() to explicit user-initiated calls.
+        let browserWindow = Services.wm.getMostRecentWindow("navigator:browser");
+        if (browserWindow) {
+          let winUtils = browserWindow.QueryInterface(Ci.nsIInterfaceRequestor)
+                                      .getInterface(Ci.nsIDOMWindowUtils);
+          if (!winUtils.isHandlingUserInput) {
+            return Promise.reject({message: "downloads.open() may only be called from a user input handler"});
+          }
+        }
+
         return DownloadMap.lazyInit().then(() => {
           let download = DownloadMap.fromId(downloadId).download;
           if (download.succeeded) {
