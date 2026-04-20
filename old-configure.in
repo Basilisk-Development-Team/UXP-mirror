@@ -1230,8 +1230,10 @@ case "${OS_TARGET}" in
 Darwin)
   ;;
 *)
-  STL_FLAGS="-I${DIST}/stl_wrappers"
-  WRAP_STL_INCLUDES=1
+  if test -z "$GNU_CC"; then
+    STL_FLAGS="-I${DIST}/stl_wrappers"
+    WRAP_STL_INCLUDES=1
+  fi
   ;;
 esac
 

@@ -6,7 +6,8 @@
         "Test-Path": true,
         "mkdir": true,
         "cp": true,
-        "hdiutil": true
+        "hdiutil": true,
+        "&": true
     },
     "files.associations": {
         "limits.h": "c"

@@ -843,9 +843,11 @@ WebGLContext::ThrowEvent_WebGLContextCreationError(const nsACString& text)
 }
 
 NS_IMETHODIMP
-WebGLContext::InitializeWithDrawTarget(nsIDocShell*,
-                                       NotNull<gfx::DrawTarget*>)
+WebGLContext::InitializeWithDrawTarget(nsIDocShell* aDocShell,
+                                       NotNull<gfx::DrawTarget*> aTarget)
 {
+    (void)aDocShell;
+    (void)aTarget;
     return NS_ERROR_NOT_IMPLEMENTED;
 }
 

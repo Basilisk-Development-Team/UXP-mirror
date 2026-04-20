@@ -57,6 +57,11 @@ SOURCES += [
     'ImageUtils.cpp',
 ]
 
+if CONFIG['GNU_CC'] and CONFIG['CPU_ARCH'] == 'x86' and CONFIG['OS_ARCH'] == 'WINNT':
+    SOURCES += [
+        'WebGLContext_mingw_compat.cpp',
+    ]
+
 # WebGL Sources
 UNIFIED_SOURCES += [
     'TexUnpackBlob.cpp',
@@ -79,7 +84,6 @@ UNIFIED_SOURCES += [
     'WebGL2ContextVertices.cpp',
     'WebGLActiveInfo.cpp',
     'WebGLBuffer.cpp',
-    'WebGLContext.cpp',
     'WebGLContextBuffers.cpp',
     'WebGLContextDraw.cpp',
     'WebGLContextExtensions.cpp',
@@ -151,6 +155,7 @@ UNIFIED_SOURCES += [
 
 SOURCES += [
     'MurmurHash3.cpp',
+    'WebGLContext.cpp',
 ]
 
 # Suppress warnings from third-party code.

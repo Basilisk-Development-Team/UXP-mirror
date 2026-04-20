@@ -16,11 +16,7 @@
  * Note: MOZ_NORETURN seems to break crash stacks on ARM, so we don't
  * use that annotation there.
  */
-#if defined(__MINGW32__)
-#  define MOZALLOC_ABORT_API
-#else
-#  define MOZALLOC_ABORT_API MFBT_API
-#endif
+#define MOZALLOC_ABORT_API MFBT_API
 
 MOZALLOC_ABORT_API
 #if !defined(__arm__)

@@ -17,6 +17,8 @@ SOURCES += [
     'utf_info.cxx',
 ]
 
+DISABLE_STL_WRAPPING = True
+
 DEFINES['BUILDING_LIBHUNSPELL'] = True
 
 # Hunspell must be built into libxul on SunOS. See UXP Issue #2290.
