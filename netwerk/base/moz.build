@@ -242,7 +242,6 @@ UNIFIED_SOURCES += [
     'nsURLParsers.cpp',
     'PollableEvent.cpp',
     'Predictor.cpp',
-    'ProxyAutoConfig.cpp',
     'RedirectChannelRegistrar.cpp',
     'RequestContextService.cpp',
     'SimpleBuffer.cpp',
@@ -255,15 +254,18 @@ UNIFIED_SOURCES += [
 if CONFIG['MOZ_WIDGET_TOOLKIT'] == 'windows':
     SOURCES += [
         'nsURLHelperWin.cpp',
+        'ProxyAutoConfig.cpp',
         'ShutdownLayer.cpp',
     ]
 elif CONFIG['MOZ_WIDGET_TOOLKIT'] == 'cocoa':
     SOURCES += [
         'nsURLHelperOSX.cpp',
+        'ProxyAutoConfig.cpp',
     ]
 else:
     SOURCES += [
         'nsURLHelperUnix.cpp',
+        'ProxyAutoConfig.cpp',
     ]
 
 # nsINetworkInfoService support.
