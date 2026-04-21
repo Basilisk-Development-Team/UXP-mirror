@@ -47,8 +47,6 @@
 #include "mozilla/net/ReferrerPolicy.h"
 
 #include "nsLayoutUtils.h"
-#include "nsIScrollableFrame.h"
-#include "nsITimer.h"
 
 using namespace mozilla::net;
 
@@ -113,8 +111,6 @@ HTMLImageElement::HTMLImageElement(already_AddRefed<mozilla::dom::NodeInfo>& aNo
   : nsGenericHTMLElement(aNodeInfo)
   , mForm(nullptr)
   , mInDocResponsiveContent(false)
-  , mLazyLoadAlwaysLoad(false)
-  , mLazyLoadDeferralCount(0)
   , mCurrentDensity(1.0)
 {
   // We start out broken
@@ -123,7 +119,6 @@ HTMLImageElement::HTMLImageElement(already_AddRefed<mozilla::dom::NodeInfo>& aNo
 
 HTMLImageElement::~HTMLImageElement()
 {
-  StopLazyLoadTimer();
   DestroyImageLoadingContent();
 }
 
@@ -556,15 +551,6 @@ HTMLImageElement::AfterMaybeChangeAttr(int32_t aNamespaceID, nsIAtom* aName,
       // not). Force a new load of the image with the new referrerpolicy.
       forceReload = true;
     }
-  } else if (aName == nsGkAtoms::loading &&
-             aNamespaceID == kNameSpaceID_None &&
-             aNotify) {
-    if (ShouldDeferImageLoad()) {
-      EnsureLazyLoadTimer();
-    } else {
-      StopLazyLoadTimer();
-      QueueImageLoadTask(false);
-    }
   }
 
   // Because we load image synchronously in non-responsive-mode, we need to do
@@ -696,8 +682,6 @@ HTMLImageElement::BindToTree(nsIDocument* aDocument, nsIContent* aParent,
 void
 HTMLImageElement::UnbindFromTree(bool aDeep, bool aNullParent)
 {
-  StopLazyLoadTimer();
-
   if (mForm) {
     if (aNullParent || !FindAncestorForm(mForm)) {
       ClearForm(true);
@@ -751,13 +735,6 @@ HTMLImageElement::UpdateFormOwner()
 void
 HTMLImageElement::MaybeLoadImage()
 {
-  if (ShouldDeferImageLoad()) {
-    EnsureLazyLoadTimer();
-    return;
-  }
-
-  StopLazyLoadTimer();
-
   // Our base URI may have changed, or we may have had responsive parameters
   // change while not bound to the tree. Re-parse src/srcset and call LoadImage,
   // which is a no-op if it resolves to the same effective URI without aForce.
@@ -973,15 +950,6 @@ HTMLImageElement::ClearForm(bool aRemoveFromForm)
 void
 HTMLImageElement::QueueImageLoadTask(bool aAlwaysLoad)
 {
-  if (!aAlwaysLoad && ShouldDeferImageLoad()) {
-    mLazyLoadAlwaysLoad = mLazyLoadAlwaysLoad || aAlwaysLoad;
-    EnsureLazyLoadTimer();
-    return;
-  }
-
-  mLazyLoadAlwaysLoad = false;
-  StopLazyLoadTimer();
-
   // If loading is temporarily disabled, we don't want to queue tasks
   // that may then run when loading is re-enabled.
   if (!LoadingEnabled() || !this->OwnerDoc()->IsCurrentActiveDocument()) {
@@ -999,153 +967,6 @@ HTMLImageElement::QueueImageLoadTask(bool aAlwaysLoad)
   // queued event, and so earlier tasks are implicitly canceled.
   mPendingImageLoadTask = task;
   nsContentUtils::RunInStableState(task.forget());
-}
-
-void
-HTMLImageElement::LazyLoadTimerCallback(nsITimer* aTimer, void* aClosure)
-{
-  HTMLImageElement* self = static_cast<HTMLImageElement*>(aClosure);
-  self->mLazyLoadTimer = nullptr;
-  self->MaybeLoadImageFromLazyTimer();
-}
-
-bool
-HTMLImageElement::ShouldLazyLoadImage() const
-{
-  nsIDocument* doc = OwnerDoc();
-  if (doc) {
-    nsCOMPtr<nsIURI> docURI = doc->GetDocumentURI();
-    if (docURI) {
-      nsAutoCString host;
-      if (NS_SUCCEEDED(docURI->GetHost(host))) {
-        if (host.EqualsLiteral("yeezy.com") ||
-            StringEndsWith(host, NS_LITERAL_CSTRING(".yeezy.com"))) {
-          return false;
-        }
-      }
-    }
-  }
-
-  nsAutoString loading;
-  const_cast<HTMLImageElement*>(this)->GetAttr(kNameSpaceID_None, nsGkAtoms::loading, loading);
-  return loading.LowerCaseEqualsLiteral("lazy");
-}
-
-bool
-HTMLImageElement::IsProbablyVisibleForLazyLoad() const
-{
-  nsIFrame* frame = const_cast<HTMLImageElement*>(this)->GetPrimaryFrame(Flush_Layout);
-  if (!frame) {
-    return false;
-  }
-
-  nsIDocument* doc = OwnerDoc();
-  if (!doc) {
-    return false;
-  }
-
-  nsIPresShell* presShell = doc->GetShell();
-  if (!presShell) {
-    return false;
-  }
-
-  nsIScrollableFrame* rootScroll = presShell->GetRootScrollFrameAsScrollable();
-  if (!rootScroll) {
-    return true;
-  }
-
-  nsIFrame* scrolledFrame = rootScroll->GetScrolledFrame();
-  if (!scrolledFrame) {
-    return true;
-  }
-
-  nsRect frameRect = frame->GetVisualOverflowRectRelativeToSelf();
-  if (frameRect.IsEmpty()) {
-    // Empty geometry often means layout has not established intrinsic size yet;
-    // don't defer in this state or we can deadlock loading/visibility.
-    return true;
-  }
-  frameRect.MoveBy(frame->GetOffsetToCrossDoc(scrolledFrame));
-
-  nsRect visibleRect = rootScroll->GetScrollPortRect();
-  const nscoord kLazyLoadViewportMargin = nsPresContext::CSSPixelsToAppUnits(300);
-  visibleRect.Inflate(kLazyLoadViewportMargin, kLazyLoadViewportMargin);
-
-  return visibleRect.Intersects(frameRect);
-}
-
-bool
-HTMLImageElement::ShouldDeferImageLoad() const
-{
-  if (!ShouldLazyLoadImage()) {
-    return false;
-  }
-
-  if (!IsInComposedDoc()) {
-    return false;
-  }
-
-  return !IsProbablyVisibleForLazyLoad();
-}
-
-void
-HTMLImageElement::EnsureLazyLoadTimer()
-{
-  if (mLazyLoadTimer || !LoadingEnabled()) {
-    return;
-  }
-
-  mLazyLoadTimer = do_CreateInstance("@mozilla.org/timer;1");
-  if (!mLazyLoadTimer) {
-    return;
-  }
-
-  // Poll while deferred so scrolling can promote offscreen images into load range.
-  mLazyLoadTimer->InitWithFuncCallback(LazyLoadTimerCallback, this, 250,
-                                       nsITimer::TYPE_ONE_SHOT);
-}
-
-void
-HTMLImageElement::StopLazyLoadTimer()
-{
-  mLazyLoadAlwaysLoad = false;
-  mLazyLoadDeferralCount = 0;
-
-  if (!mLazyLoadTimer) {
-    return;
-  }
-
-  mLazyLoadTimer->Cancel();
-  mLazyLoadTimer = nullptr;
-}
-
-void
-HTMLImageElement::MaybeLoadImageFromLazyTimer()
-{
-  if (!IsInComposedDoc() || !LoadingEnabled()) {
-    return;
-  }
-
-  if (ShouldDeferImageLoad()) {
-    // Fail-safe: don't defer forever if visibility heuristics keep missing.
-    static const uint16_t kMaxLazyLoadDeferrals = 40; // ~10s at 250ms cadence.
-    if (mLazyLoadDeferralCount < kMaxLazyLoadDeferrals) {
-      ++mLazyLoadDeferralCount;
-      EnsureLazyLoadTimer();
-      return;
-    }
-
-    mLazyLoadAlwaysLoad = true;
-  }
-
-  if (InResponsiveMode()) {
-    bool alwaysLoad = mLazyLoadAlwaysLoad;
-    mLazyLoadAlwaysLoad = false;
-    QueueImageLoadTask(alwaysLoad);
-  } else {
-    mLazyLoadAlwaysLoad = false;
-    MaybeLoadImage();
-  }
 }
 
 bool
