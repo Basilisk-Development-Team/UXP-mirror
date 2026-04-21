@@ -1,8 +1,8 @@
 mimalloc vendor snapshot
 
 Source: https://github.com/microsoft/mimalloc
-Commit: 0ddf397796fbefa35b3278bd4431c2913a9892eb
-Release: 3.3.0
+Commit: e2e6e70f8333e58ed0116591ca33a56227db9139
+Release: 3.3.1
 
 Notes:
 - Copied include/, src/, LICENSE, readme.md, and Windows x86/x64
