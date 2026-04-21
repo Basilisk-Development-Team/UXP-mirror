@@ -5,8 +5,8 @@ terms of the MIT license. A copy of the license can be found in the file
 "LICENSE" at the root of this distribution.
 -----------------------------------------------------------------------------*/
 #pragma once
-#ifndef MIMALLOC_ATOMIC_H
-#define MIMALLOC_ATOMIC_H
+#ifndef MI_ATOMIC_H
+#define MI_ATOMIC_H
 
 // include windows.h or pthreads.h
 #if defined(_WIN32)
@@ -75,16 +75,21 @@ terms of the MIT license. A copy of the license can be found in the file
 #define mi_atomic_exchange_relaxed(p,x)          mi_atomic(exchange_explicit)(p,x,mi_memory_order(relaxed))
 #define mi_atomic_exchange_release(p,x)          mi_atomic(exchange_explicit)(p,x,mi_memory_order(release))
 #define mi_atomic_exchange_acq_rel(p,x)          mi_atomic(exchange_explicit)(p,x,mi_memory_order(acq_rel))
+
+#define mi_atomic_cas_weak_relaxed(p,exp,des)    mi_atomic_cas_weak(p,exp,des,mi_memory_order(relaxed),mi_memory_order(relaxed))
 #define mi_atomic_cas_weak_release(p,exp,des)    mi_atomic_cas_weak(p,exp,des,mi_memory_order(release),mi_memory_order(relaxed))
 #define mi_atomic_cas_weak_acq_rel(p,exp,des)    mi_atomic_cas_weak(p,exp,des,mi_memory_order(acq_rel),mi_memory_order(acquire))
+#define mi_atomic_cas_strong_relaxed(p,exp,des)  mi_atomic_cas_strong(p,exp,des,mi_memory_order(relaxed),mi_memory_order(relaxed))
 #define mi_atomic_cas_strong_release(p,exp,des)  mi_atomic_cas_strong(p,exp,des,mi_memory_order(release),mi_memory_order(relaxed))
 #define mi_atomic_cas_strong_acq_rel(p,exp,des)  mi_atomic_cas_strong(p,exp,des,mi_memory_order(acq_rel),mi_memory_order(acquire))
 
 #define mi_atomic_add_relaxed(p,x)               mi_atomic(fetch_add_explicit)(p,x,mi_memory_order(relaxed))
-#define mi_atomic_sub_relaxed(p,x)               mi_atomic(fetch_sub_explicit)(p,x,mi_memory_order(relaxed))
 #define mi_atomic_add_acq_rel(p,x)               mi_atomic(fetch_add_explicit)(p,x,mi_memory_order(acq_rel))
+#define mi_atomic_sub_relaxed(p,x)               mi_atomic(fetch_sub_explicit)(p,x,mi_memory_order(relaxed))
 #define mi_atomic_sub_acq_rel(p,x)               mi_atomic(fetch_sub_explicit)(p,x,mi_memory_order(acq_rel))
+#define mi_atomic_and_relaxed(p,x)               mi_atomic(fetch_and_explicit)(p,x,mi_memory_order(relaxed))
 #define mi_atomic_and_acq_rel(p,x)               mi_atomic(fetch_and_explicit)(p,x,mi_memory_order(acq_rel))
+#define mi_atomic_or_relaxed(p,x)                mi_atomic(fetch_or_explicit)(p,x,mi_memory_order(relaxed))
 #define mi_atomic_or_acq_rel(p,x)                mi_atomic(fetch_or_explicit)(p,x,mi_memory_order(acq_rel))
 
 #define mi_atomic_increment_relaxed(p)           mi_atomic_add_relaxed(p,(uintptr_t)1)
@@ -268,6 +273,7 @@ static inline int64_t mi_atomic_addi64_relaxed(volatile _Atomic(int64_t)*p, int6
   return current;
 #endif
 }
+
 static inline void mi_atomic_void_addi64_relaxed(volatile int64_t* p, const volatile int64_t* padd) {
   const int64_t add = *padd;
   if (add != 0) {
@@ -358,14 +364,9 @@ typedef _Atomic(uintptr_t) mi_atomic_guard_t;
 // Yield
 // ----------------------------------------------------------------------
 
-#if defined(__cplusplus)
-#include <thread>
+#if defined(_WIN32)
 static inline void mi_atomic_yield(void) {
-  std::this_thread::yield();
-}
-#elif defined(_WIN32)
-static inline void mi_atomic_yield(void) {
-  YieldProcessor();
+  YieldProcessor();  // see issue #1215 and #1225 why this is preferred over __yield or SwitchToThread
 }
 #elif defined(__SSE2__)
 #include <emmintrin.h>
@@ -382,7 +383,7 @@ static inline void mi_atomic_yield(void) {
 }
 #elif defined(__aarch64__)
 static inline void mi_atomic_yield(void) {
-  __asm__ volatile("wfe");
+  __asm__ volatile("isb");
 }
 #elif defined(__arm__)
 #if __ARM_ARCH >= 7
@@ -406,7 +407,6 @@ static inline void mi_atomic_yield(void) {
 #endif
 #endif
 #elif defined(__sun)
-// Fallback for other archs
 #include <synch.h>
 static inline void mi_atomic_yield(void) {
   smt_pause();
@@ -415,6 +415,12 @@ static inline void mi_atomic_yield(void) {
 #include <sched.h>
 static inline void mi_atomic_yield(void) {
   sched_yield();
+}
+// Fallback for other archs
+#elif defined(__cplusplus)  
+#include <thread>
+static inline void mi_atomic_yield(void) {
+  std::this_thread::yield();
 }
 #else
 #include <unistd.h>
@@ -425,97 +431,116 @@ static inline void mi_atomic_yield(void) {
 
 
 // ----------------------------------------------------------------------
-// Locks 
-// These do not have to be recursive and should be light-weight 
-// in-process only locks. Only used for reserving arena's and to 
-// maintain the abandoned list.
+// Locks
+// These should be light-weight in-process only locks.
+// Only used for reserving arena's and to maintain the abandoned list.
 // ----------------------------------------------------------------------
 #if _MSC_VER
 #pragma warning(disable:26110)  // unlock with holding lock
 #endif
 
-#define mi_lock(lock)    for(bool _go = (mi_lock_acquire(lock),true); _go; (mi_lock_release(lock), _go=false) )
+#define mi_lock(lock)                  for(bool _go = (mi_lock_acquire(lock),true); _go; (mi_lock_release(lock), _go=false) )
+#define mi_lock_maybe(lock,acquire)    for(bool _go = (acquire ? (mi_lock_acquire(lock),true) : true); _go; _go = (acquire ? (mi_lock_release(lock),false) : false) )
 
 #if defined(_WIN32)
 
 #if 1
-#define mi_lock_t  SRWLOCK   // slim reader-writer lock
+
+typedef union mi_lock_u {
+  size_t   _init;    // for static initialization
+  SRWLOCK  mutex;    // slim reader-writer lock
+} mi_lock_t;
 
 static inline bool mi_lock_try_acquire(mi_lock_t* lock) {
-  return TryAcquireSRWLockExclusive(lock);
+  return TryAcquireSRWLockExclusive(&lock->mutex);
 }
 static inline void mi_lock_acquire(mi_lock_t* lock) {
-  AcquireSRWLockExclusive(lock);
+  AcquireSRWLockExclusive(&lock->mutex);
 }
 static inline void mi_lock_release(mi_lock_t* lock) {
-  ReleaseSRWLockExclusive(lock);
+  ReleaseSRWLockExclusive(&lock->mutex);
 }
 static inline void mi_lock_init(mi_lock_t* lock) {
-  InitializeSRWLock(lock);
+  InitializeSRWLock(&lock->mutex);
 }
 static inline void mi_lock_done(mi_lock_t* lock) {
   (void)(lock);
 }
 
 #else
-#define mi_lock_t  CRITICAL_SECTION
+
+typedef union mi_lock_u {
+  size_t           _init;    // for static initialization
+  CRITICAL_SECTION mutex;
+} mi_lock_t;
 
 static inline bool mi_lock_try_acquire(mi_lock_t* lock) {
-  return TryEnterCriticalSection(lock);
+  return TryEnterCriticalSection(&lock->mutex);
 }
 static inline void mi_lock_acquire(mi_lock_t* lock) {
-  EnterCriticalSection(lock);
+  EnterCriticalSection(&lock->mutex);
 }
 static inline void mi_lock_release(mi_lock_t* lock) {
-  LeaveCriticalSection(lock);
+  LeaveCriticalSection(&lock->mutex);
 }
 static inline void mi_lock_init(mi_lock_t* lock) {
-  InitializeCriticalSection(lock);
+  InitializeCriticalSection(&lock->mutex);
 }
 static inline void mi_lock_done(mi_lock_t* lock) {
-  DeleteCriticalSection(lock);
+  DeleteCriticalSection(&lock->mutex);
 }
 
 #endif
 
 #elif defined(MI_USE_PTHREADS)
 
+#include <string.h> // memcpy
 void _mi_error_message(int err, const char* fmt, ...);
 
-#define mi_lock_t  pthread_mutex_t
+typedef union mi_lock_u {
+  size_t          _init;    // for static initialization
+  pthread_mutex_t mutex;
+} mi_lock_t;
 
 static inline bool mi_lock_try_acquire(mi_lock_t* lock) {
-  return (pthread_mutex_trylock(lock) == 0);
+  return (pthread_mutex_trylock(&lock->mutex) == 0);
 }
 static inline void mi_lock_acquire(mi_lock_t* lock) {
-  const int err = pthread_mutex_lock(lock);
+  const int err = pthread_mutex_lock(&lock->mutex);
   if (err != 0) {
-    _mi_error_message(err, "internal error: lock cannot be acquired\n");
+    _mi_error_message(err, "internal error: lock cannot be acquired (err %i)\n", err);
   }
 }
 static inline void mi_lock_release(mi_lock_t* lock) {
-  pthread_mutex_unlock(lock);
+  pthread_mutex_unlock(&lock->mutex);
 }
 static inline void mi_lock_init(mi_lock_t* lock) {
-  pthread_mutex_init(lock, NULL);
+  if(lock==NULL) return;
+  // use instead of pthread_mutex_init since that can cause allocation on some platforms (and recursively initialize)
+  const pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;  
+  memcpy(&lock->mutex,&mutex,sizeof(mutex));
 }
 static inline void mi_lock_done(mi_lock_t* lock) {
-  pthread_mutex_destroy(lock);
+  pthread_mutex_destroy(&lock->mutex);
 }
 
 #elif defined(__cplusplus)
 
 #include <mutex>
-#define mi_lock_t  std::mutex
+typedef union mi_lock_u {
+  size_t     _init;    // for static initialization
+  std::mutex mutex;
+} mi_lock_t;
+
 
 static inline bool mi_lock_try_acquire(mi_lock_t* lock) {
-  return lock->try_lock();
+  return lock->mutex.try_lock();
 }
 static inline void mi_lock_acquire(mi_lock_t* lock) {
-  lock->lock();
+  lock->mutex.lock();
 }
 static inline void mi_lock_release(mi_lock_t* lock) {
-  lock->unlock();
+  lock->mutex.unlock();
 }
 static inline void mi_lock_init(mi_lock_t* lock) {
   (void)(lock);
@@ -529,23 +554,26 @@ static inline void mi_lock_done(mi_lock_t* lock) {
 // fall back to poor man's locks.
 // this should only be the case in a single-threaded environment (like __wasi__)
 
-#define mi_lock_t  _Atomic(uintptr_t)
+typedef union mi_lock_u {
+  size_t             _init;    // for static initialization
+  _Atomic(uintptr_t) mutex;
+} mi_lock_t;
 
 static inline bool mi_lock_try_acquire(mi_lock_t* lock) {
   uintptr_t expected = 0;
-  return mi_atomic_cas_strong_acq_rel(lock, &expected, (uintptr_t)1);
+  return mi_atomic_cas_strong_acq_rel(&lock->mutex, &expected, (uintptr_t)1);
 }
 static inline void mi_lock_acquire(mi_lock_t* lock) {
   for (int i = 0; i < 1000; i++) {  // for at most 1000 tries?
-    if (mi_lock_try_acquire(lock)) return;
+    if (mi_lock_try_acquire(&lock->mutex)) return;
     mi_atomic_yield();
   }
 }
 static inline void mi_lock_release(mi_lock_t* lock) {
-  mi_atomic_store_release(lock, (uintptr_t)0);
+  mi_atomic_store_release(&lock->mutex, (uintptr_t)0);
 }
 static inline void mi_lock_init(mi_lock_t* lock) {
-  mi_lock_release(lock);
+  mi_lock_release(&lock->mutex);
 }
 static inline void mi_lock_done(mi_lock_t* lock) {
   (void)(lock);
@@ -554,4 +582,4 @@ static inline void mi_lock_done(mi_lock_t* lock) {
 #endif
 
 
-#endif // __MIMALLOC_ATOMIC_H
+#endif // MI_ATOMIC_H
