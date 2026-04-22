@@ -693,8 +693,16 @@ else:
 
 USE_LIBS += [
     'nspr',
-    'zlib',
 ]
+
+if CONFIG['ZLIB_IN_MOZGLUE']:
+    USE_LIBS += [
+        'mozglue',
+    ]
+else:
+    USE_LIBS += [
+        'zlib',
+    ]
 
 
 if CONFIG['_MSC_VER']:
