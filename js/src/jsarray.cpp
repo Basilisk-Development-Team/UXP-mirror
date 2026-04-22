@@ -2083,6 +2083,7 @@ js::array_push(JSContext* cx, unsigned argc, Value* vp)
 {
     AutoSPSEntry pseudoFrame(cx->runtime(), "Array.prototype.push");
     CallArgs args = CallArgsFromVp(argc, vp);
+    const unsigned argCount = args.length();
 
     /* Step 1. */
     RootedObject obj(cx, ToObject(cx, args.thisv()));
@@ -2097,12 +2098,12 @@ js::array_push(JSContext* cx, unsigned argc, Value* vp)
     if (!ObjectMayHaveExtraIndexedProperties(obj)) {
         DenseElementResult result =
             SetOrExtendAnyBoxedOrUnboxedDenseElements(cx, obj, length,
-                                                      args.array(), args.length());
+                                                      args.array(), argCount);
         if (result != DenseElementResult::Incomplete) {
             if (result == DenseElementResult::Failure)
                 return false;
 
-            uint32_t newlength = length + args.length();
+            uint32_t newlength = length + argCount;
             args.rval().setNumber(newlength);
 
             // SetOrExtendAnyBoxedOrUnboxedDenseElements takes care of updating the
@@ -2120,11 +2121,11 @@ js::array_push(JSContext* cx, unsigned argc, Value* vp)
     }
 
     /* Steps 4-5. */
-    if (!InitArrayElements(cx, obj, length, args.length(), args.array()))
+    if (!InitArrayElements(cx, obj, length, argCount, args.array()))
         return false;
 
     /* Steps 6-7. */
-    double newlength = length + double(args.length());
+    double newlength = length + double(argCount);
     args.rval().setNumber(newlength);
     return SetLengthProperty(cx, obj, newlength);
 }
@@ -2482,6 +2483,8 @@ array_splice_impl(JSContext* cx, unsigned argc, Value* vp, bool returnValueIsUse
     if (!GetLengthProperty(cx, obj, &len))
         return false;
 
+    const unsigned argCount = args.length();
+
     /* Step 3. */
     double relativeStart;
     if (!ToInteger(cx, args.get(0), &relativeStart))
@@ -2496,10 +2499,10 @@ array_splice_impl(JSContext* cx, unsigned argc, Value* vp, bool returnValueIsUse
 
     /* Step 5. */
     uint32_t actualDeleteCount;
-    if (args.length() == 0) {
+    if (argCount == 0) {
         /* Step 5.b. */
         actualDeleteCount = 0;
-    } else if (args.length() == 1) {
+    } else if (argCount == 1) {
         /* Step 6.b. */
         actualDeleteCount = len - actualStart;
     } else {
@@ -2554,7 +2557,7 @@ array_splice_impl(JSContext* cx, unsigned argc, Value* vp, bool returnValueIsUse
     }
 
     /* Step 14. */
-    uint32_t itemCount = (args.length() >= 2) ? (args.length() - 2) : 0;
+    uint32_t itemCount = (argCount >= 2) ? (argCount - 2) : 0;
 
     if (itemCount < actualDeleteCount) {
         /* Step 15: the array is being shrunk. */
@@ -2945,6 +2948,7 @@ js::array_slice(JSContext* cx, unsigned argc, Value* vp)
 {
     AutoSPSEntry pseudoFrame(cx->runtime(), "Array.prototype.slice");
     CallArgs args = CallArgsFromVp(argc, vp);
+    const unsigned argCount = args.length();
 
     /* Step 1. */
     RootedObject obj(cx, ToObject(cx, args.thisv()));
@@ -2958,7 +2962,7 @@ js::array_slice(JSContext* cx, unsigned argc, Value* vp)
 
     uint32_t k = 0;
     uint32_t final = length;
-    if (args.length() > 0) {
+    if (argCount > 0) {
         double d;
         /* Step 3. */
         if (!ToInteger(cx, args[0], &d))
@@ -3100,7 +3104,8 @@ array_isArray(JSContext* cx, unsigned argc, Value* vp)
 static bool
 ArrayFromCallArgs(JSContext* cx, CallArgs& args, HandleObject proto = nullptr)
 {
-    JSObject* obj = NewCopiedArrayForCallingAllocationSite(cx, args.array(), args.length(), proto);
+    const unsigned argCount = args.length();
+    JSObject* obj = NewCopiedArrayForCallingAllocationSite(cx, args.array(), argCount, proto);
     if (!obj)
         return false;
 
@@ -3112,6 +3117,7 @@ static bool
 array_of(JSContext* cx, unsigned argc, Value* vp)
 {
     CallArgs args = CallArgsFromVp(argc, vp);
+    const unsigned argCount = args.length();
 
     if (IsArrayConstructor(args.thisv()) || !IsConstructor(args.thisv())) {
         // IsArrayConstructor(this) will usually be true in practice. This is
@@ -3124,20 +3130,20 @@ array_of(JSContext* cx, unsigned argc, Value* vp)
     {
         FixedConstructArgs<1> cargs(cx);
 
-        cargs[0].setNumber(args.length());
+        cargs[0].setNumber(argCount);
 
         if (!Construct(cx, args.thisv(), cargs, args.thisv(), &obj))
             return false;
     }
 
     // Step 8.
-    for (unsigned k = 0; k < args.length(); k++) {
+    for (unsigned k = 0; k < argCount; k++) {
         if (!DefineElement(cx, obj, k, args[k]))
             return false;
     }
 
     // Steps 9-10.
-    if (!SetLengthProperty(cx, obj, args.length()))
+    if (!SetLengthProperty(cx, obj, argCount))
         return false;
 
     // Step 11.
@@ -3249,6 +3255,8 @@ const JSPropertySpec array_static_props[] = {
 static inline bool
 ArrayConstructorImpl(JSContext* cx, CallArgs& args, bool isConstructor)
 {
+    const unsigned argCount = args.length();
+
     RootedObject proto(cx);
     if (isConstructor) {
         if (!GetPrototypeFromCallableConstructor(cx, args, &proto))
@@ -3261,7 +3269,7 @@ ArrayConstructorImpl(JSContext* cx, CallArgs& args, bool isConstructor)
             return false;
     }
 
-    if (args.length() != 1 || !args[0].isNumber())
+    if (argCount != 1 || !args[0].isNumber())
         return ArrayFromCallArgs(cx, args, proto);
 
     uint32_t length;
@@ -3301,8 +3309,9 @@ bool
 js::array_construct(JSContext* cx, unsigned argc, Value* vp)
 {
     CallArgs args = CallArgsFromVp(argc, vp);
+    const unsigned argCount = args.length();
     MOZ_ASSERT(!args.isConstructing());
-    MOZ_ASSERT(args.length() == 1);
+    MOZ_ASSERT(argCount == 1);
     MOZ_ASSERT(args[0].isNumber());
     return ArrayConstructorImpl(cx, args, /* isConstructor = */ false);
 }
@@ -3818,9 +3827,10 @@ bool
 js::ArrayInfo(JSContext* cx, unsigned argc, Value* vp)
 {
     CallArgs args = CallArgsFromVp(argc, vp);
+    const unsigned argCount = args.length();
     RootedObject obj(cx);
 
-    for (unsigned i = 0; i < args.length(); i++) {
+    for (unsigned i = 0; i < argCount; i++) {
         HandleValue arg = args[i];
 
         UniqueChars bytes = DecompileValueGenerator(cx, JSDVG_SEARCH_STACK, arg, nullptr);

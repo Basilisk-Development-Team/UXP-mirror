@@ -3352,9 +3352,10 @@ bool
 js::StringConstructor(JSContext* cx, unsigned argc, Value* vp)
 {
     CallArgs args = CallArgsFromVp(argc, vp);
+    const unsigned argCount = args.length();
 
     RootedString str(cx);
-    if (args.length() > 0) {
+    if (argCount > 0) {
         if (!args.isConstructing() && args[0].isSymbol())
             return js::SymbolDescriptiveString(cx, args[0].toSymbol(), args.rval());
 

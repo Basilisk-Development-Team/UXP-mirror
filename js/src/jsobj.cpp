@@ -527,7 +527,8 @@ js::SetIntegrityLevel(JSContext* cx, HandleObject obj, IntegrityLevel level)
         const unsigned AllowConfigureAndWritable = AllowConfigure & ~JSPROP_IGNORE_READONLY;
 
         // 8.a/9.a. The two different loops are merged here.
-        for (size_t i = 0; i < keys.length(); i++) {
+        const size_t keyCount = keys.length();
+        for (size_t i = 0; i < keyCount; i++) {
             id = keys[i];
 
             if (level == IntegrityLevel::Sealed) {
@@ -1062,7 +1063,8 @@ JS_CopyPropertiesFrom(JSContext* cx, HandleObject target, HandleObject obj)
     if (!GetPropertyKeys(cx, obj, JSITER_OWNONLY | JSITER_HIDDEN | JSITER_SYMBOLS, &props))
         return false;
 
-    for (size_t i = 0; i < props.length(); ++i) {
+    const size_t propCount = props.length();
+    for (size_t i = 0; i < propCount; ++i) {
         if (!JS_CopyPropertyFrom(cx, props[i], target, obj))
             return false;
     }
@@ -1158,6 +1160,7 @@ GetScriptPlainObjectProperties(ExclusiveContext* cx, HandleObject obj,
 {
     if (obj->is<PlainObject>()) {
         PlainObject* nobj = &obj->as<PlainObject>();
+        const size_t initLength = nobj->getDenseInitializedLength();
 
         if (!properties.appendN(IdValuePair(), nobj->slotSpan()))
             return false;
@@ -1170,7 +1173,7 @@ GetScriptPlainObjectProperties(ExclusiveContext* cx, HandleObject obj,
             properties[slot].get().value = nobj->getSlot(slot);
         }
 
-        for (size_t i = 0; i < nobj->getDenseInitializedLength(); i++) {
+        for (size_t i = 0; i < initLength; i++) {
             Value v = nobj->getDenseElement(i);
             if (!v.isMagic(JS_ELEMENTS_HOLE) && !properties.append(IdValuePair(INT_TO_JSID(i), v)))
                 return false;
@@ -1183,11 +1186,13 @@ GetScriptPlainObjectProperties(ExclusiveContext* cx, HandleObject obj,
         UnboxedPlainObject* nobj = &obj->as<UnboxedPlainObject>();
 
         const UnboxedLayout& layout = nobj->layout();
-        if (!properties.appendN(IdValuePair(), layout.properties().length()))
+        const auto& layoutProperties = layout.properties();
+        const size_t layoutPropertyCount = layoutProperties.length();
+        if (!properties.appendN(IdValuePair(), layoutPropertyCount))
             return false;
 
-        for (size_t i = 0; i < layout.properties().length(); i++) {
-            const UnboxedLayout::Property& property = layout.properties()[i];
+        for (size_t i = 0; i < layoutPropertyCount; i++) {
+            const UnboxedLayout::Property& property = layoutProperties[i];
             properties[i].get().id = NameToId(property.name);
             properties[i].get().value = nobj->getValue(property);
         }
@@ -1244,7 +1249,8 @@ js::DeepCloneObjectLiteral(JSContext* cx, HandleObject obj, NewObjectKind newKin
     if (!GetScriptPlainObjectProperties(cx, obj, &properties))
         return nullptr;
 
-    for (size_t i = 0; i < properties.length(); i++) {
+    const size_t propertyCount = properties.length();
+    for (size_t i = 0; i < propertyCount; i++) {
         if (!DeepCloneValue(cx, &properties[i].get().value, newKind))
             return nullptr;
     }

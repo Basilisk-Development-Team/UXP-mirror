@@ -566,9 +566,10 @@ bool
 js::math_max(JSContext* cx, unsigned argc, Value* vp)
 {
     CallArgs args = CallArgsFromVp(argc, vp);
+    const unsigned argCount = args.length();
 
     double maxval = NegativeInfinity<double>();
-    for (unsigned i = 0; i < args.length(); i++) {
+    for (unsigned i = 0; i < argCount; i++) {
         double x;
         if (!ToNumber(cx, args[i], &x))
             return false;
@@ -591,9 +592,10 @@ bool
 js::math_min(JSContext* cx, unsigned argc, Value* vp)
 {
     CallArgs args = CallArgsFromVp(argc, vp);
+    const unsigned argCount = args.length();
 
     double minval = PositiveInfinity<double>();
-    for (unsigned i = 0; i < args.length(); i++) {
+    for (unsigned i = 0; i < argCount; i++) {
         double x;
         if (!ToNumber(cx, args[i], &x))
             return false;
@@ -1263,9 +1265,11 @@ js::math_hypot(JSContext* cx, unsigned argc, Value* vp)
 bool
 js::math_hypot_handle(JSContext* cx, HandleValueArray args, MutableHandleValue res)
 {
+    const unsigned argCount = args.length();
+
     // IonMonkey calls the system hypot function directly if two arguments are
     // given. Do that here as well to get the same results.
-    if (args.length() == 2) {
+    if (argCount == 2) {
         double x, y;
         if (!ToNumber(cx, args[0], &x))
             return false;
@@ -1283,7 +1287,7 @@ js::math_hypot_handle(JSContext* cx, HandleValueArray args, MutableHandleValue r
     double scale = 0;
     double sumsq = 1;
 
-    for (unsigned i = 0; i < args.length(); i++) {
+    for (unsigned i = 0; i < argCount; i++) {
         double x;
         if (!ToNumber(cx, args[i], &x))
             return false;
