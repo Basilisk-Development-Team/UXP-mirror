@@ -564,14 +564,15 @@ js::SubstringKernel(JSContext* cx, HandleString str, int32_t beginInt, int32_t l
      */
     if (str->isRope()) {
         JSRope* rope = &str->asRope();
+        size_t leftLength = rope->leftChild()->length();
 
         /* Substring is totally in leftChild of rope. */
-        if (begin + len <= rope->leftChild()->length())
+        if (begin + len <= leftLength)
             return NewDependentString(cx, rope->leftChild(), begin, len);
 
         /* Substring is totally in rightChild of rope. */
-        if (begin >= rope->leftChild()->length()) {
-            begin -= rope->leftChild()->length();
+        if (begin >= leftLength) {
+            begin -= leftLength;
             return NewDependentString(cx, rope->rightChild(), begin, len);
         }
 
@@ -579,11 +580,11 @@ js::SubstringKernel(JSContext* cx, HandleString str, int32_t beginInt, int32_t l
          * Requested substring is partly in the left and partly in right child.
          * Create a rope of substrings for both childs.
          */
-        MOZ_ASSERT(begin < rope->leftChild()->length() &&
-                   begin + len > rope->leftChild()->length());
+        MOZ_ASSERT(begin < leftLength &&
+               begin + len > leftLength);
 
-        size_t lhsLength = rope->leftChild()->length() - begin;
-        size_t rhsLength = begin + len - rope->leftChild()->length();
+        size_t lhsLength = leftLength - begin;
+        size_t rhsLength = begin + len - leftLength;
 
         Rooted<JSRope*> ropeRoot(cx, rope);
         RootedString lhs(cx, NewDependentString(cx, ropeRoot->leftChild(), begin, lhsLength));
