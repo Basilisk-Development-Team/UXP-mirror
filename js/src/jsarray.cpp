@@ -705,7 +705,8 @@ js::ArraySetLength(JSContext* cx, Handle<ArrayObject*> arr, HandleId id,
                 if (!GetPropertyKeys(cx, arr, JSITER_OWNONLY | JSITER_HIDDEN, &props))
                     return false;
 
-                for (size_t i = 0; i < props.length(); i++) {
+                const size_t propCount = props.length();
+                for (size_t i = 0; i < propCount; i++) {
                     if (!CheckForInterrupt(cx))
                         return false;
 
@@ -2316,8 +2317,9 @@ js::array_unshift(JSContext* cx, unsigned argc, Value* vp)
     if (!GetLengthProperty(cx, obj, &length))
         return false;
 
+    const unsigned argCount = args.length();
     double newlen = length;
-    if (args.length() > 0) {
+    if (argCount > 0) {
         /* Slide up the array to make room for all args at the bottom. */
         if (length > 0) {
             // Only include a fast path for boxed arrays. Unboxed arrays can'nt
@@ -2332,22 +2334,22 @@ js::array_unshift(JSContext* cx, unsigned argc, Value* vp)
                 ArrayObject* aobj = &obj->as<ArrayObject>();
                 if (!aobj->lengthIsWritable())
                     break;
-                DenseElementResult result = aobj->ensureDenseElements(cx, length, args.length());
+                DenseElementResult result = aobj->ensureDenseElements(cx, length, argCount);
                 if (result != DenseElementResult::Success) {
                     if (result == DenseElementResult::Failure)
                         return false;
                     MOZ_ASSERT(result == DenseElementResult::Incomplete);
                     break;
                 }
-                aobj->moveDenseElements(args.length(), 0, length);
-                for (uint32_t i = 0; i < args.length(); i++)
+                aobj->moveDenseElements(argCount, 0, length);
+                for (uint32_t i = 0; i < argCount; i++)
                     aobj->setDenseElement(i, MagicValue(JS_ELEMENTS_HOLE));
                 optimized = true;
             } while (false);
 
             if (!optimized) {
                 double last = length;
-                double upperIndex = last + args.length();
+                double upperIndex = last + argCount;
                 RootedValue value(cx);
                 do {
                     --last, --upperIndex;
@@ -2368,10 +2370,10 @@ js::array_unshift(JSContext* cx, unsigned argc, Value* vp)
         }
 
         /* Copy from args to the bottom of the array. */
-        if (!InitArrayElements(cx, obj, 0, args.length(), args.array()))
+        if (!InitArrayElements(cx, obj, 0, argCount, args.array()))
             return false;
 
-        newlen += args.length();
+        newlen += argCount;
     }
     if (!SetLengthProperty(cx, obj, newlen))
         return false;
