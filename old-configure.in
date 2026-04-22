@@ -276,8 +276,8 @@ case "$target" in
 
         unset _MSVC_VER_FILTER
 
-        WRAP_STL_INCLUDES=1
-        STL_FLAGS="-I${DIST}/stl_wrappers"
+        WRAP_STL_INCLUDES=
+        STL_FLAGS=
         CFLAGS="$CFLAGS -D_HAS_EXCEPTIONS=0"
         CXXFLAGS="$CXXFLAGS -D_HAS_EXCEPTIONS=0"
     else
@@ -1231,8 +1231,8 @@ Darwin)
   ;;
 *)
   if test -z "$GNU_CC"; then
-    STL_FLAGS="-I${DIST}/stl_wrappers"
-    WRAP_STL_INCLUDES=1
+        STL_FLAGS=
+        WRAP_STL_INCLUDES=
   fi
   ;;
 esac

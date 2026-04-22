@@ -16,19 +16,8 @@ option('--enable-jemalloc', env='MOZ_MEMORY',
 def jemalloc(value, target, build_project, c_compiler):
     if value.origin != 'default':
         return bool(value) or None
-
-    if build_project == 'js':
-        return True
-
-    if target.kernel == 'Darwin' and target.cpu == 'x86_64':
-        # Don't enable by default on 32-bits OSX. See bug 702250.
-        return True
-
-    if target.kernel == 'WINNT' and c_compiler.type in ('msvc', 'clang-cl'):
-        return True
-
-    if target.kernel == 'Linux':
-        return True
+    # Default to the compiler/CRT allocator unless explicitly requested.
+    return None
 
 
 set_config('MOZ_MEMORY', jemalloc)
@@ -77,13 +66,11 @@ option('--enable-replace-malloc',
 
 @depends('--enable-replace-malloc', jemalloc, milestone, build_project)
 def replace_malloc(value, jemalloc, milestone, build_project):
-    # Enable on central for the debugging opportunities it adds.
     if value and not jemalloc:
         die('--enable-replace-malloc requires --enable-jemalloc')
     if value.origin != 'default':
         return bool(value) or None
-    if milestone.is_nightly and jemalloc and build_project != 'js':
-        return True
+    return None
 
 set_config('MOZ_REPLACE_MALLOC', replace_malloc)
 set_define('MOZ_REPLACE_MALLOC', replace_malloc)
