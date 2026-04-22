@@ -7,53 +7,18 @@ EXPORTS += [
     'mozzconf.h',
     'zconf.h',
     'zlib.h',
+    'zlib_name_mangling.h',
 ]
 
-if CONFIG['CPU_ARCH'] == 'arm':
-    DEFINES['ADLER32_SIMD_NEON'] = True
-    DEFINES['INFLATE_CHUNK_SIMD_NEON'] = True
-    SOURCES += [
-        'adler32_simd.c',
-        'inffast_chunk.c',
-    ]
+DEFINES['ZLIB_COMPAT'] = True
+DEFINES['WITH_GZFILEOP'] = True
+DEFINES['WITH_OPTIM'] = True
+DEFINES['WITH_NEW_STRATEGIES'] = True
 
-if CONFIG['INTEL_ARCHITECTURE']:
-    SOURCES += [
-        'x86.c',
-    ]
-
-    if CONFIG['OS_ARCH'] == 'Darwin':
-        # Keep SIMD/chunkcopy paths disabled on Darwin, but provide fallback
-        # helper symbols used by crc32/deflate call sites.
-        DEFINES['ADLER32_SIMD_SSSE3'] = False
-        DEFINES['INFLATE_CHUNK_SIMD_SSE2'] = False
-        DEFINES['CRC32_SIMD_SSE42_PCLMUL'] = False
-        SOURCES += [
-            'simd_darwin_stub.c',
-        ]
-    if CONFIG['OS_ARCH'] == 'Linux':
-        # Keep SIMD/chunkcopy paths disabled on Linux, but provide fallback
-        # helper symbols used by crc32/deflate call sites.
-        DEFINES['ADLER32_SIMD_SSSE3'] = False
-        DEFINES['INFLATE_CHUNK_SIMD_SSE2'] = False
-        DEFINES['CRC32_SIMD_SSE42_PCLMUL'] = False
-        SOURCES += [
-            'crc32_stub.c',
-            'simd_stub.c',
-        ]
-    else:
-        DEFINES['INFLATE_CHUNK_SIMD_SSE2'] = True
-        SOURCES += [
-            'adler32_simd.c',
-            'crc32_simd.c',
-            'crc_folding.c',
-            'fill_window_sse.c',
-            'inffast_chunk.c',
-        ]
-else:
-    SOURCES += [
-        'simd_stub.c',
-    ]
+# Keep the integration simple and portable across this tree's mixed toolchains:
+# use zlib-ng generic fallbacks and disable runtime CPU dispatch here.
+DEFINES['DISABLE_RUNTIME_CPU_DETECTION'] = True
+DEFINES['WITH_ALL_FALLBACKS'] = True
 
 if CONFIG['ZLIB_IN_MOZGLUE']:
     FINAL_LIBRARY = 'mozglue'
@@ -63,33 +28,33 @@ else:
 
 SOURCES += [
     'adler32.c',
+    'arch/generic/adler32_c.c',
+    'arch/generic/chunkset_c.c',
+    'arch/generic/compare256_c.c',
+    'arch/generic/crc32_braid_c.c',
+    'arch/generic/crc32_chorba_c.c',
+    'arch/generic/slide_hash_c.c',
     'compress.c',
     'crc32.c',
+    'crc32_braid_comb.c',
     'deflate.c',
-    'gzclose.c',
+    'deflate_fast.c',
+    'deflate_huff.c',
+    'deflate_medium.c',
+    'deflate_quick.c',
+    'deflate_rle.c',
+    'deflate_slow.c',
+    'deflate_stored.c',
     'gzlib.c',
     'gzread.c',
     'gzwrite.c',
     'infback.c',
-    'inffast.c',
+    'inflate.c',
     'inftrees.c',
+    'insert_string.c',
     'trees.c',
     'uncompr.c',
     'zutil.c',
 ]
-
-# Enable SIMD inflate only on Windows (WINNT). Disable on Linux, BSD, Darwin, etc.
-if CONFIG['OS_ARCH'] == 'WINNT':
-    SOURCES += [
-        'inflate_simd.c',
-    ]
-else:
-    SOURCES += [
-        'inflate.c',
-    ]
-
-if CONFIG['OS_ARCH'] == 'WINNT' and CONFIG['GNU_CC']:
-    SOURCES['crc32_simd.c'].flags += ['-msse4.2', '-mpclmul']
-    SOURCES['crc_folding.c'].flags += ['-msse4.2', '-mpclmul']
 
 
