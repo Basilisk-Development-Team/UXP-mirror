@@ -3253,7 +3253,8 @@ js::str_concat(JSContext* cx, unsigned argc, Value* vp)
     if (!str)
         return false;
 
-    for (unsigned i = 0; i < args.length(); i++) {
+    const unsigned argCount = args.length();
+    for (unsigned i = 0; i < argCount; i++) {
         JSString* argStr = ToString<NoGC>(cx, args[i]);
         if (!argStr) {
             RootedString strRoot(cx, str);
@@ -3385,15 +3386,16 @@ static bool
 str_fromCharCode_few_args(JSContext* cx, const CallArgs& args)
 {
     MOZ_ASSERT(args.length() <= JSFatInlineString::MAX_LENGTH_TWO_BYTE);
+    const unsigned argCount = args.length();
 
     char16_t chars[JSFatInlineString::MAX_LENGTH_TWO_BYTE];
-    for (unsigned i = 0; i < args.length(); i++) {
+    for (unsigned i = 0; i < argCount; i++) {
         uint16_t code;
         if (!ToUint16(cx, args[i], &code))
             return false;
         chars[i] = char16_t(code);
     }
-    JSString* str = NewStringCopyN<CanGC>(cx, chars, args.length());
+    JSString* str = NewStringCopyN<CanGC>(cx, chars, argCount);
     if (!str)
         return false;
     args.rval().setString(str);
@@ -3404,11 +3406,12 @@ bool
 js::str_fromCharCode(JSContext* cx, unsigned argc, Value* vp)
 {
     CallArgs args = CallArgsFromVp(argc, vp);
+    const unsigned argCount = args.length();
 
-    MOZ_ASSERT(args.length() <= ARGS_LENGTH_MAX);
+    MOZ_ASSERT(argCount <= ARGS_LENGTH_MAX);
 
     // Optimize the single-char case.
-    if (args.length() == 1)
+    if (argCount == 1)
         return str_fromCharCode_one_arg(cx, args[0], args.rval());
 
     // Optimize the case where the result will definitely fit in an inline
@@ -3416,13 +3419,13 @@ js::str_fromCharCode(JSContext* cx, unsigned argc, Value* vp)
     // cover some cases where args.length() goes up to
     // JSFatInlineString::MAX_LENGTH_LATIN1 if we also checked if the chars are
     // all Latin-1, but it doesn't seem worth the effort.)
-    if (args.length() <= JSFatInlineString::MAX_LENGTH_TWO_BYTE)
+    if (argCount <= JSFatInlineString::MAX_LENGTH_TWO_BYTE)
         return str_fromCharCode_few_args(cx, args);
 
-    char16_t* chars = cx->pod_malloc<char16_t>(args.length() + 1);
+    char16_t* chars = cx->pod_malloc<char16_t>(argCount + 1);
     if (!chars)
         return false;
-    for (unsigned i = 0; i < args.length(); i++) {
+    for (unsigned i = 0; i < argCount; i++) {
         uint16_t code;
         if (!ToUint16(cx, args[i], &code)) {
             js_free(chars);
@@ -3430,8 +3433,8 @@ js::str_fromCharCode(JSContext* cx, unsigned argc, Value* vp)
         }
         chars[i] = char16_t(code);
     }
-    chars[args.length()] = 0;
-    JSString* str = NewString<CanGC>(cx, chars, args.length());
+    chars[argCount] = 0;
+    JSString* str = NewString<CanGC>(cx, chars, argCount);
     if (!str) {
         js_free(chars);
         return false;
@@ -3516,6 +3519,7 @@ static bool
 str_fromCodePoint_few_args(JSContext* cx, const CallArgs& args)
 {
     MOZ_ASSERT(args.length() <= JSFatInlineString::MAX_LENGTH_TWO_BYTE / 2);
+    const unsigned argCount = args.length();
 
     // Steps 1-2 (omitted).
 
@@ -3524,7 +3528,7 @@ str_fromCodePoint_few_args(JSContext* cx, const CallArgs& args)
 
     // Steps 4-5.
     unsigned length = 0;
-    for (unsigned nextIndex = 0; nextIndex < args.length(); nextIndex++) {
+    for (unsigned nextIndex = 0; nextIndex < argCount; nextIndex++) {
         // Steps 5.a-d.
         uint32_t codePoint;
         if (!ToCodePoint(cx, args[nextIndex], &codePoint))
@@ -3549,9 +3553,10 @@ bool
 js::str_fromCodePoint(JSContext* cx, unsigned argc, Value* vp)
 {
     CallArgs args = CallArgsFromVp(argc, vp);
+    const unsigned argCount = args.length();
 
     // Optimize the single code-point case.
-    if (args.length() == 1)
+    if (argCount == 1)
         return str_fromCodePoint_one_arg(cx, args[0], args.rval());
 
     // Optimize the case where the result will definitely fit in an inline
@@ -3559,7 +3564,7 @@ js::str_fromCodePoint(JSContext* cx, unsigned argc, Value* vp)
     // cover some cases where |args.length()| goes up to
     // JSFatInlineString::MAX_LENGTH_LATIN1 / 2 if we also checked if the chars
     // are all Latin-1, but it doesn't seem worth the effort.)
-    if (args.length() <= JSFatInlineString::MAX_LENGTH_TWO_BYTE / 2)
+    if (argCount <= JSFatInlineString::MAX_LENGTH_TWO_BYTE / 2)
         return str_fromCodePoint_few_args(cx, args);
 
     // Steps 1-2 (omitted).
@@ -3567,13 +3572,13 @@ js::str_fromCodePoint(JSContext* cx, unsigned argc, Value* vp)
     // Step 3.
     static_assert(ARGS_LENGTH_MAX < std::numeric_limits<size_t>::max() / 2,
                   "|args.length() * 2 + 1| does not overflow");
-    char16_t* elements = cx->pod_malloc<char16_t>(args.length() * 2 + 1);
+    char16_t* elements = cx->pod_malloc<char16_t>(argCount * 2 + 1);
     if (!elements)
         return false;
 
     // Steps 4-5.
     unsigned length = 0;
-    for (unsigned nextIndex = 0; nextIndex < args.length(); nextIndex++) {
+    for (unsigned nextIndex = 0; nextIndex < argCount; nextIndex++) {
         // Steps 5.a-d.
         uint32_t codePoint;
         if (!ToCodePoint(cx, args[nextIndex], &codePoint)) {

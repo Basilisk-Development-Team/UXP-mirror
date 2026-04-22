@@ -3064,7 +3064,8 @@ IonBuilder::processBreak(JSOp op, jssrcnote* sn)
     DebugOnly<bool> found = false;
 
     if (SN_TYPE(sn) == SRC_BREAK2LABEL) {
-        for (size_t i = labels_.length() - 1; i < labels_.length(); i--) {
+        const size_t labelCount = labels_.length();
+        for (size_t i = labelCount - 1; i < labelCount; i--) {
             CFGState& cfg = cfgStack_[labels_[i].cfgEntry];
             MOZ_ASSERT(cfg.state == CFGState::LABEL);
             if (cfg.stopAt == target) {
@@ -3074,7 +3075,8 @@ IonBuilder::processBreak(JSOp op, jssrcnote* sn)
             }
         }
     } else {
-        for (size_t i = loops_.length() - 1; i < loops_.length(); i--) {
+        const size_t loopCount = loops_.length();
+        for (size_t i = loopCount - 1; i < loopCount; i--) {
             CFGState& cfg = cfgStack_[loops_[i].cfgEntry];
             MOZ_ASSERT(cfg.isLoop());
             if (cfg.loop.exitpc == target) {
@@ -3108,7 +3110,8 @@ IonBuilder::processContinue(JSOp op)
     // Find the target loop.
     CFGState* found = nullptr;
     jsbytecode* target = pc + GetJumpOffset(pc);
-    for (size_t i = loops_.length() - 1; i < loops_.length(); i--) {
+    const size_t loopCount = loops_.length();
+    for (size_t i = loopCount - 1; i < loopCount; i--) {
         // +1 to skip JSOP_JUMPTARGET.
         if (loops_[i].continuepc == target + 1 ||
             EffectiveContinue(loops_[i].continuepc) == target)
@@ -3138,7 +3141,8 @@ IonBuilder::processSwitchBreak(JSOp op)
     // Find the target switch.
     CFGState* found = nullptr;
     jsbytecode* target = pc + GetJumpOffset(pc);
-    for (size_t i = switches_.length() - 1; i < switches_.length(); i--) {
+    const size_t switchCount = switches_.length();
+    for (size_t i = switchCount - 1; i < switchCount; i--) {
         if (switches_[i].continuepc == target) {
             found = &cfgStack_[switches_[i].cfgEntry];
             break;
