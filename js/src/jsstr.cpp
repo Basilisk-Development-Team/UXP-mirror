@@ -3388,14 +3388,32 @@ str_fromCharCode_few_args(JSContext* cx, const CallArgs& args)
     MOZ_ASSERT(args.length() <= JSFatInlineString::MAX_LENGTH_TWO_BYTE);
     const unsigned argCount = args.length();
 
-    char16_t chars[JSFatInlineString::MAX_LENGTH_TWO_BYTE];
+    Latin1Char latin1Chars[JSFatInlineString::MAX_LENGTH_TWO_BYTE];
+    char16_t twoByteChars[JSFatInlineString::MAX_LENGTH_TWO_BYTE];
+    bool hasTwoByteChars = false;
+
     for (unsigned i = 0; i < argCount; i++) {
         uint16_t code;
         if (!ToUint16(cx, args[i], &code))
             return false;
-        chars[i] = char16_t(code);
+
+        if (!hasTwoByteChars && code <= JSString::MAX_LATIN1_CHAR) {
+            latin1Chars[i] = Latin1Char(code);
+            continue;
+        }
+
+        if (!hasTwoByteChars) {
+            for (unsigned j = 0; j < i; j++)
+                twoByteChars[j] = latin1Chars[j];
+            hasTwoByteChars = true;
+        }
+
+        twoByteChars[i] = char16_t(code);
     }
-    JSString* str = NewStringCopyN<CanGC>(cx, chars, argCount);
+
+    JSString* str = hasTwoByteChars
+                    ? NewStringCopyN<CanGC>(cx, twoByteChars, argCount)
+                    : NewStringCopyN<CanGC>(cx, latin1Chars, argCount);
     if (!str)
         return false;
     args.rval().setString(str);
@@ -3415,29 +3433,61 @@ js::str_fromCharCode(JSContext* cx, unsigned argc, Value* vp)
         return str_fromCharCode_one_arg(cx, args[0], args.rval());
 
     // Optimize the case where the result will definitely fit in an inline
-    // string (thin or fat) and so we don't need to malloc the chars. (We could
-    // cover some cases where args.length() goes up to
-    // JSFatInlineString::MAX_LENGTH_LATIN1 if we also checked if the chars are
-    // all Latin-1, but it doesn't seem worth the effort.)
+    // string (thin or fat) and so we don't need to malloc the chars.
     if (argCount <= JSFatInlineString::MAX_LENGTH_TWO_BYTE)
         return str_fromCharCode_few_args(cx, args);
 
-    char16_t* chars = cx->pod_malloc<char16_t>(argCount + 1);
-    if (!chars)
+    Latin1Char* latin1Chars = cx->pod_malloc<Latin1Char>(argCount + 1);
+    if (!latin1Chars)
         return false;
+
+    char16_t* twoByteChars = nullptr;
     for (unsigned i = 0; i < argCount; i++) {
         uint16_t code;
         if (!ToUint16(cx, args[i], &code)) {
-            js_free(chars);
+            js_free(latin1Chars);
+            if (twoByteChars)
+                js_free(twoByteChars);
             return false;
         }
-        chars[i] = char16_t(code);
+
+        if (!twoByteChars && code <= JSString::MAX_LATIN1_CHAR) {
+            latin1Chars[i] = Latin1Char(code);
+            continue;
+        }
+
+        if (!twoByteChars) {
+            twoByteChars = cx->pod_malloc<char16_t>(argCount + 1);
+            if (!twoByteChars) {
+                js_free(latin1Chars);
+                return false;
+            }
+
+            for (unsigned j = 0; j < i; j++)
+                twoByteChars[j] = latin1Chars[j];
+        }
+
+        twoByteChars[i] = char16_t(code);
     }
-    chars[argCount] = 0;
-    JSString* str = NewString<CanGC>(cx, chars, argCount);
-    if (!str) {
-        js_free(chars);
-        return false;
+
+    JSString* str;
+    if (!twoByteChars) {
+        latin1Chars[argCount] = 0;
+        str = NewString<CanGC>(cx, latin1Chars, argCount);
+        if (!str) {
+            js_free(latin1Chars);
+            return false;
+        }
+    } else {
+        twoByteChars[argCount] = 0;
+        str = NewString<CanGC>(cx, twoByteChars, argCount);
+        if (!str) {
+            js_free(latin1Chars);
+            js_free(twoByteChars);
+            return false;
+        }
+
+        js_free(latin1Chars);
     }
 
     args.rval().setString(str);
@@ -3524,22 +3574,37 @@ str_fromCodePoint_few_args(JSContext* cx, const CallArgs& args)
     // Steps 1-2 (omitted).
 
     // Step 3.
-    char16_t elements[JSFatInlineString::MAX_LENGTH_TWO_BYTE];
+    Latin1Char latin1Elements[JSFatInlineString::MAX_LENGTH_TWO_BYTE];
+    char16_t twoByteElements[JSFatInlineString::MAX_LENGTH_TWO_BYTE];
 
     // Steps 4-5.
     unsigned length = 0;
+    bool hasTwoByteChars = false;
     for (unsigned nextIndex = 0; nextIndex < argCount; nextIndex++) {
         // Steps 5.a-d.
         uint32_t codePoint;
         if (!ToCodePoint(cx, args[nextIndex], &codePoint))
             return false;
 
+        if (!hasTwoByteChars && codePoint <= JSString::MAX_LATIN1_CHAR) {
+            latin1Elements[length++] = Latin1Char(codePoint);
+            continue;
+        }
+
+        if (!hasTwoByteChars) {
+            for (unsigned i = 0; i < length; i++)
+                twoByteElements[i] = latin1Elements[i];
+            hasTwoByteChars = true;
+        }
+
         // Step 5.e.
-        unicode::UTF16Encode(codePoint, elements, &length);
+        unicode::UTF16Encode(codePoint, twoByteElements, &length);
     }
 
     // Step 6.
-    JSString* str = NewStringCopyN<CanGC>(cx, elements, length);
+    JSString* str = hasTwoByteChars
+                    ? NewStringCopyN<CanGC>(cx, twoByteElements, length)
+                    : NewStringCopyN<CanGC>(cx, latin1Elements, length);
     if (!str)
         return false;
 
@@ -3572,9 +3637,11 @@ js::str_fromCodePoint(JSContext* cx, unsigned argc, Value* vp)
     // Step 3.
     static_assert(ARGS_LENGTH_MAX < std::numeric_limits<size_t>::max() / 2,
                   "|args.length() * 2 + 1| does not overflow");
-    char16_t* elements = cx->pod_malloc<char16_t>(argCount * 2 + 1);
-    if (!elements)
+    Latin1Char* latin1Elements = cx->pod_malloc<Latin1Char>(argCount + 1);
+    if (!latin1Elements)
         return false;
+
+    char16_t* twoByteElements = nullptr;
 
     // Steps 4-5.
     unsigned length = 0;
@@ -3582,20 +3649,51 @@ js::str_fromCodePoint(JSContext* cx, unsigned argc, Value* vp)
         // Steps 5.a-d.
         uint32_t codePoint;
         if (!ToCodePoint(cx, args[nextIndex], &codePoint)) {
-            js_free(elements);
+            js_free(latin1Elements);
+            if (twoByteElements)
+                js_free(twoByteElements);
             return false;
         }
 
+        if (!twoByteElements && codePoint <= JSString::MAX_LATIN1_CHAR) {
+            latin1Elements[length++] = Latin1Char(codePoint);
+            continue;
+        }
+
+        if (!twoByteElements) {
+            twoByteElements = cx->pod_malloc<char16_t>(argCount * 2 + 1);
+            if (!twoByteElements) {
+                js_free(latin1Elements);
+                return false;
+            }
+
+            for (unsigned i = 0; i < length; i++)
+                twoByteElements[i] = latin1Elements[i];
+        }
+
         // Step 5.e.
-        unicode::UTF16Encode(codePoint, elements, &length);
+        unicode::UTF16Encode(codePoint, twoByteElements, &length);
     }
-    elements[length] = 0;
 
     // Step 6.
-    JSString* str = NewString<CanGC>(cx, elements, length);
-    if (!str) {
-        js_free(elements);
-        return false;
+    JSString* str;
+    if (!twoByteElements) {
+        latin1Elements[length] = 0;
+        str = NewString<CanGC>(cx, latin1Elements, length);
+        if (!str) {
+            js_free(latin1Elements);
+            return false;
+        }
+    } else {
+        twoByteElements[length] = 0;
+        str = NewString<CanGC>(cx, twoByteElements, length);
+        if (!str) {
+            js_free(latin1Elements);
+            js_free(twoByteElements);
+            return false;
+        }
+
+        js_free(latin1Elements);
     }
 
     args.rval().setString(str);
