@@ -681,7 +681,10 @@ BasePrincipal::GetUnknownAppId(bool* aUnknownAppId)
 bool
 BasePrincipal::AddonHasPermission(const nsAString& aPerm)
 {
-  if (mOriginAttributes.mAddonId.IsEmpty()) {
+  nsAutoString addonId;
+  NS_ENSURE_SUCCESS(GetAddonId(addonId), false);
+
+  if (addonId.IsEmpty()) {
     return false;
   }
   nsCOMPtr<nsIAddonPolicyService> aps =
@@ -689,7 +692,7 @@ BasePrincipal::AddonHasPermission(const nsAString& aPerm)
   NS_ENSURE_TRUE(aps, false);
 
   bool retval = false;
-  nsresult rv = aps->AddonHasPermission(mOriginAttributes.mAddonId, aPerm, &retval);
+  nsresult rv = aps->AddonHasPermission(addonId, aPerm, &retval);
   NS_ENSURE_SUCCESS(rv, false);
   return retval;
 }
@@ -767,7 +770,10 @@ BasePrincipal::CloneStrippingUserContextIdAndFirstPartyDomain()
 bool
 BasePrincipal::AddonAllowsLoad(nsIURI* aURI)
 {
-  if (mOriginAttributes.mAddonId.IsEmpty()) {
+  nsAutoString addonId;
+  NS_ENSURE_SUCCESS(GetAddonId(addonId), false);
+
+  if (addonId.IsEmpty()) {
     return false;
   }
 
@@ -775,7 +781,7 @@ BasePrincipal::AddonAllowsLoad(nsIURI* aURI)
   NS_ENSURE_TRUE(aps, false);
 
   bool allowed = false;
-  nsresult rv = aps->AddonMayLoadURI(mOriginAttributes.mAddonId, aURI, &allowed);
+  nsresult rv = aps->AddonMayLoadURI(addonId, aURI, &allowed);
   return NS_SUCCEEDED(rv) && allowed;
 }
 

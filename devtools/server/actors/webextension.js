@@ -309,7 +309,15 @@ WebExtensionActor.prototype._shouldAddNewGlobalAsDebuggee = function (newGlobal)
   const global = unwrapDebuggerObjectGlobal(newGlobal);
 
   if (global instanceof Ci.nsIDOMWindow) {
-    return global.document.nodePrincipal.originAttributes.addonId == this.id;
+    try {
+      global.document;
+    } catch (e) {
+      // Sandboxes can expose a window in their prototype chain without
+      // having permission to access their own proto after navigation.
+      return false;
+    }
+
+    return global.document.nodePrincipal.addonId == this.id;
   }
 
   try {
