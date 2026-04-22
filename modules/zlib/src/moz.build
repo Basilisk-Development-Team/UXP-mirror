@@ -1,0 +1,60 @@
+# -*- Mode: python; indent-tabs-mode: nil; tab-width: 40 -*-
+# This Source Code Form is subject to the terms of the Mozilla Public
+# License, v. 2.0. If a copy of the MPL was not distributed with this
+# file, You can obtain one at http://mozilla.org/MPL/2.0/.
+
+EXPORTS += [
+    'mozzconf.h',
+    'zconf.h',
+    'zlib.h',
+    'zlib_name_mangling.h',
+]
+
+DEFINES['ZLIB_COMPAT'] = True
+DEFINES['WITH_GZFILEOP'] = True
+DEFINES['WITH_OPTIM'] = True
+DEFINES['WITH_NEW_STRATEGIES'] = True
+
+# Keep the integration simple and portable across this tree's mixed toolchains:
+# use zlib-ng generic fallbacks and disable runtime CPU dispatch here.
+DEFINES['DISABLE_RUNTIME_CPU_DETECTION'] = True
+DEFINES['WITH_ALL_FALLBACKS'] = True
+
+if CONFIG['ZLIB_IN_MOZGLUE']:
+    FINAL_LIBRARY = 'mozglue'
+    DEFINES['IMPL_MFBT'] = True
+else:
+    FINAL_LIBRARY = 'zlib'
+
+SOURCES += [
+    'adler32.c',
+    'arch/generic/adler32_c.c',
+    'arch/generic/chunkset_c.c',
+    'arch/generic/compare256_c.c',
+    'arch/generic/crc32_braid_c.c',
+    'arch/generic/crc32_chorba_c.c',
+    'arch/generic/slide_hash_c.c',
+    'compress.c',
+    'crc32.c',
+    'crc32_braid_comb.c',
+    'deflate.c',
+    'deflate_fast.c',
+    'deflate_huff.c',
+    'deflate_medium.c',
+    'deflate_quick.c',
+    'deflate_rle.c',
+    'deflate_slow.c',
+    'deflate_stored.c',
+    'gzlib.c',
+    'gzread.c',
+    'gzwrite.c',
+    'infback.c',
+    'inflate.c',
+    'inftrees.c',
+    'insert_string.c',
+    'trees.c',
+    'uncompr.c',
+    'zutil.c',
+]
+
+
