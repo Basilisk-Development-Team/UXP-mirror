@@ -14,9 +14,8 @@
 #include "jit/loongarch64/SharedICRegisters-loongarch64.h"
 #include "jit/MacroAssembler.h"
 #include "jit/MoveEmitter.h"
-#include "util/Memory.h"
-#include "vm/JitActivation.h"  // js::jit::JitActivation
-#include "vm/JSContext.h"
+#include "vm/Stack.h"
+#include "jscntxt.h"
 
 #include "jit/MacroAssembler-inl.h"
 

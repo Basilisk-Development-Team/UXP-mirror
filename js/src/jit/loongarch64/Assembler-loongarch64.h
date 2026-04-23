@@ -19,7 +19,6 @@
 
 namespace js { namespace jit { class Operand; } }
 
-#include "jit/Disassembler.h"
 #include "jit/shared/IonAssemblerBuffer.h"
 #include "wasm/WasmTypes.h"
 
