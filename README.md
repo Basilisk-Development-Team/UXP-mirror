@@ -29,7 +29,7 @@ If I've forgotten to put your name here, please let me know and I'll add it.
 Major core browser engine contributions:
 - [Stossy11](https://www.github.com/stossy11) - Helping to develop and fix the macOS build.
 - [Eclipse Community](https://www.github.com/Eclipse-Community/UXP) - For creating Hydra and Lun3r, the bases of this fork.
-- [Jeff Bai and LoongFans members](https://loongfans.cn/en/) - Providing a LoongArch VM and general assistance in porting to LoongArch
+- ["Loongson Hobbists' community](https://loongfans.cn/en/) - Providing a LoongArch VM and general assistance in porting to LoongArch
 - [Basilisk-Dev](https://repo.palemoon.org/Basilisk-Dev) - For supporting and maintaining Basilisk, aswell as general advice for developing this browser.
 - [roytam1](https://github.com/roytam1) - Windows XP support code, e10s, WebExtensions, and more for UXP.
 - [Moonchild Productions](https://repo.palemoon.org/MoonchildProductions) - For creating the Unified XUL Platform and Basilisk, the core of this project.
