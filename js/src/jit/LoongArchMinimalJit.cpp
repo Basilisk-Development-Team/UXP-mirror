@@ -349,6 +349,31 @@ class MinimalLoongArchCompiler
         MOZ_CRASH("bad shift opcode");
     }
 
+    bool emitMul(LoongArchReg lhs, LoongArchReg rhs, LoongArchReg out) {
+        if (!emit(EncodeThreeReg(0x001c8000, WideScratch, lhs, rhs)))
+            return false;
+        if (!emit(EncodeThreeReg(0x001c0000, out, lhs, rhs)))
+            return false;
+        if (!emitLoadImm32(NarrowScratch, 31))
+            return false;
+        if (!emit(EncodeThreeReg(0x00180000, NarrowScratch, out, NarrowScratch)))
+            return false;
+        if (!emitFailureBranch())
+            return false;
+
+        if (!emitEq(out, zero, WideScratch, false))
+            return false;
+        if (!emit(EncodeThreeReg(0x00150000, NarrowScratch, lhs, rhs)))
+            return false;
+        if (!emit(EncodeThreeReg(0x00120000, NarrowScratch, NarrowScratch, zero)))
+            return false;
+        if (!emit(EncodeThreeReg(0x00148000, WideScratch, WideScratch, NarrowScratch)))
+            return false;
+        if (!emitMove(NarrowScratch, zero))
+            return false;
+        return emitFailureBranch();
+    }
+
     bool emitBranch(BranchKind kind, LoongArchReg reg, uint32_t targetPcOffset) {
         BranchPatch patch = { wordCount_, targetPcOffset, kind, reg };
         if (!branchPatches_.append(patch))
@@ -608,7 +633,8 @@ class MinimalLoongArchCompiler
               case JSOP_NOP:
                 break;
               case JSOP_ADD:
-              case JSOP_SUB: {
+              case JSOP_SUB:
+              case JSOP_MUL: {
                 StackValue rhs;
                 StackValue lhs;
                 if (!pop(&rhs) || !pop(&lhs))
@@ -616,8 +642,13 @@ class MinimalLoongArchCompiler
                 if (!IsNumericKind(lhs.kind) || !IsNumericKind(rhs.kind))
                     return false;
                 LoongArchReg out = allocStackReg();
-                if (!emitCheckedBinary(op, lhs.reg, rhs.reg, out))
-                    return false;
+                if (op == JSOP_MUL) {
+                    if (!emitMul(lhs.reg, rhs.reg, out))
+                        return false;
+                } else {
+                    if (!emitCheckedBinary(op, lhs.reg, rhs.reg, out))
+                        return false;
+                }
                 stack_[stackDepth_++] = { out, MinimalValueKind::Int32 };
                 break;
               }

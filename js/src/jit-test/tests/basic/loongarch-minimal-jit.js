@@ -80,6 +80,14 @@ function unsignedRightShift(a, b) {
   return a >>> b;
 }
 
+function multiply(a, b) {
+  return a * b;
+}
+
+function multiplyZero(a) {
+  return a * 0;
+}
+
 function assignArg(a, b) {
   a = a < b;
   return a;
@@ -150,6 +158,11 @@ assertEq(leftShift(1, 33), 2);
 assertEq(rightShift(-8, 1), -4);
 assertEq(unsignedRightShift(-1, 1), 2147483647);
 assertEq(unsignedRightShift(-1, 0), 4294967295);
+assertEq(multiply(6, 7), 42);
+assertEq(multiply(-3, 7), -21);
+assertEq(multiply(1073741824, 4), 4294967296);
+assertEq(multiplyZero(3), 0);
+assertEq(1 / multiplyZero(-3), -Infinity);
 assertEq(assignArg(2, 3), true);
 assertEq(assignArg(3, 2), false);
 assertEq(boolToNumeric(2, 3), 1);
