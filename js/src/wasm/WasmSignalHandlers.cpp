@@ -308,7 +308,7 @@ struct macos_aarch64_context {
 # define PC_sig(p) R15_sig(p)
 #elif defined(__aarch64__)
 # define PC_sig(p) EPC_sig(p)
-#elif defined(JS_CPU_MIPS)
+#elif defined(JS_CPU_MIPS) || defined(JS_CPU_LOONGARCH64)
 # define PC_sig(p) EPC_sig(p)
 #endif
 
