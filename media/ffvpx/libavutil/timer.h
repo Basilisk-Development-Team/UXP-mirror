@@ -26,22 +26,26 @@
 #ifndef AVUTIL_TIMER_H
 #define AVUTIL_TIMER_H
 
+#include <stdint.h>
 #include "config.h"
 
 #if HAVE_INLINE_ASM
+
+#if ARCH_LOONGARCH64
 
 #define AV_READ_TIME read_time
 
 static inline uint64_t read_time(void)
 {
-
-#if ARCH_LOONGARCH64
     uint64_t a, id;
     __asm__ volatile ( "rdtime.d  %0, %1" : "=r"(a), "=r"(id) :: );
     return a;
+}
 #else
 #define START_TIMER
 #define STOP_TIMER(id) { }
 #endif
+
+#endif /* HAVE_INLINE_ASM */
 
 #endif /* AVUTIL_TIMER_H */
