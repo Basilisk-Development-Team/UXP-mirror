@@ -192,6 +192,70 @@ function sumRange(n) {
   return total;
 }
 
+function coalesceArg(a) {
+  return a ?? 9;
+}
+
+function coalesceLocal() {
+  var x;
+  return x ?? 5;
+}
+
+function coalesceNull() {
+  return null ?? 5;
+}
+
+function sparseSwitchValue(a) {
+  var out = -1;
+  switch (a) {
+    case 1:
+      out = 10;
+      break;
+    case 4:
+      out = 40;
+      break;
+    default:
+      out = 99;
+      break;
+  }
+  return out;
+}
+
+function denseSwitchValue(a) {
+  var out = -1;
+  switch (a) {
+    case 0:
+      out = 7;
+      break;
+    case 1:
+      out = 8;
+      break;
+    case 2:
+      out = 9;
+      break;
+    default:
+      out = 11;
+      break;
+  }
+  return out;
+}
+
+function groupedSwitchValue(a) {
+  var out = 0;
+  switch (a) {
+    case 0:
+    case 1:
+      out = 10;
+      break;
+    case 3:
+      out = 30;
+    default:
+      out = out + 1;
+      break;
+  }
+  return out;
+}
+
 for (var i = 0; i < 100; i++) {
   assertEq(add(i, i + 1), (i + i + 1));
   assertEq(withLocal(i, 7), i + 7);
@@ -272,6 +336,21 @@ assertEq(chooseOrder(2, 3), true);
 assertEq(chooseOrder(3, 2), false);
 assertEq(sumRange(0), 0);
 assertEq(sumRange(5), 10);
+assertEq(coalesceArg(0), 0);
+assertEq(coalesceArg(7), 7);
+assertEq(coalesceLocal(), 5);
+assertEq(coalesceNull(), 5);
+assertEq(sparseSwitchValue(1), 10);
+assertEq(sparseSwitchValue(4), 40);
+assertEq(sparseSwitchValue(2), 99);
+assertEq(denseSwitchValue(0), 7);
+assertEq(denseSwitchValue(1), 8);
+assertEq(denseSwitchValue(2), 9);
+assertEq(denseSwitchValue(5), 11);
+assertEq(groupedSwitchValue(0), 10);
+assertEq(groupedSwitchValue(1), 10);
+assertEq(groupedSwitchValue(3), 31);
+assertEq(groupedSwitchValue(5), 1);
 
 (function testPropertyWrappers() {
     function getX(obj) { return obj.x; }

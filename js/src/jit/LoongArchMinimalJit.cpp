@@ -854,7 +854,22 @@ class MinimalLoongArchCompiler
               case JSOP_LOOPENTRY:
               case JSOP_JUMPTARGET:
               case JSOP_NOP:
+              case JSOP_CONDSWITCH:
                 break;
+              case JSOP_COALESCE: {
+                if (!stackDepth_)
+                    return false;
+                MinimalValueKind kind = stack_[stackDepth_ - 1].kind;
+                if (kind == MinimalValueKind::Null || kind == MinimalValueKind::Undefined)
+                    break;
+                uint32_t target = uint32_t(int32_t(pcOffset) + GET_JUMP_OFFSET(pc));
+                if (!recordTargetState(target))
+                    return false;
+                if (!emitBranch(BranchKind::Always, zero, target))
+                    return false;
+                reachable_ = false;
+                break;
+              }
               case JSOP_OR:
               case JSOP_AND: {
                 if (!stackDepth_)
@@ -865,6 +880,87 @@ class MinimalLoongArchCompiler
                 BranchKind kind = (op == JSOP_OR) ? BranchKind::IfTrue : BranchKind::IfFalse;
                 if (!emitBranch(kind, stack_[stackDepth_ - 1].reg, target))
                     return false;
+                break;
+              }
+              case JSOP_CASE: {
+                StackValue rhs;
+                StackValue lhs;
+                if (!pop(&rhs) || !pop(&lhs))
+                    return false;
+                uint32_t target = uint32_t(int32_t(pcOffset) + GET_JUMP_OFFSET(pc));
+                if (lhs.kind != rhs.kind) {
+                    stack_[stackDepth_++] = lhs;
+                    break;
+                }
+                if (!recordTargetState(target))
+                    return false;
+                if (lhs.kind == MinimalValueKind::Null || lhs.kind == MinimalValueKind::Undefined) {
+                    if (!emitBranch(BranchKind::Always, zero, target))
+                        return false;
+                    reachable_ = false;
+                    break;
+                }
+                if (!emitEq(lhs.reg, rhs.reg, WideScratch, false))
+                    return false;
+                if (!emitBranch(BranchKind::IfTrue, WideScratch, target))
+                    return false;
+                stack_[stackDepth_++] = lhs;
+                break;
+              }
+              case JSOP_TABLESWITCH: {
+                StackValue input;
+                if (!pop(&input))
+                    return false;
+                if (input.kind != MinimalValueKind::Int32)
+                    return false;
+
+                uint32_t defaultTarget = uint32_t(int32_t(pcOffset) + GET_JUMP_OFFSET(pc));
+                if (!recordTargetState(defaultTarget))
+                    return false;
+
+                jsbytecode* tablePc = pc + JUMP_OFFSET_LEN;
+                int32_t low = GET_JUMP_OFFSET(tablePc);
+                tablePc += JUMP_OFFSET_LEN;
+                int32_t high = GET_JUMP_OFFSET(tablePc);
+                tablePc += JUMP_OFFSET_LEN;
+                if (high < low)
+                    return false;
+
+                if (!emitLoadImm32(NarrowScratch, low))
+                    return false;
+                if (!emitCompare(JSOP_LT, input.reg, NarrowScratch, WideScratch))
+                    return false;
+                if (!emitBranch(BranchKind::IfTrue, WideScratch, defaultTarget))
+                    return false;
+
+                if (!emitLoadImm32(NarrowScratch, high))
+                    return false;
+                if (!emitCompare(JSOP_GT, input.reg, NarrowScratch, WideScratch))
+                    return false;
+                if (!emitBranch(BranchKind::IfTrue, WideScratch, defaultTarget))
+                    return false;
+
+                uint32_t caseCount = uint32_t(high - low + 1);
+                for (uint32_t i = 0; i < caseCount; i++) {
+                    int32_t rel = GET_JUMP_OFFSET(tablePc);
+                    tablePc += JUMP_OFFSET_LEN;
+                    if (!rel)
+                        continue;
+
+                    uint32_t target = uint32_t(int32_t(pcOffset) + rel);
+                    if (!recordTargetState(target))
+                        return false;
+                    if (!emitLoadImm32(NarrowScratch, low + int32_t(i)))
+                        return false;
+                    if (!emitEq(input.reg, NarrowScratch, WideScratch, false))
+                        return false;
+                    if (!emitBranch(BranchKind::IfTrue, WideScratch, target))
+                        return false;
+                }
+
+                if (!emitBranch(BranchKind::Always, zero, defaultTarget))
+                    return false;
+                reachable_ = false;
                 break;
               }
               case JSOP_ADD:
@@ -1031,7 +1127,12 @@ class MinimalLoongArchCompiler
                     return false;
                 stack_[stackDepth_ - 1].kind = MinimalValueKind::Int32;
                 break;
+              case JSOP_DEFAULT:
               case JSOP_GOTO: {
+                if (!stackDepth_ && op == JSOP_DEFAULT)
+                    return false;
+                if (op == JSOP_DEFAULT)
+                    stackDepth_--;
                 uint32_t target = uint32_t(int32_t(pcOffset) + GET_JUMP_OFFSET(pc));
                 if (!recordTargetState(target))
                     return false;
