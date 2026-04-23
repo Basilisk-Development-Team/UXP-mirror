@@ -12,6 +12,7 @@
 
 #include "jit/CompactBuffer.h"
 #include "jit/IonCode.h"
+#include "jit/JitCompartment.h"
 #include "jit/JitSpewer.h"
 #include "jit/loongarch64/Architecture-loongarch64.h"
 #include "jit/shared/Assembler-shared.h"
@@ -1448,6 +1449,7 @@ class AssemblerLOONGARCH64 : public AssemblerShared {
     return false;
 #endif
   }
+  static bool SupportsSimd() { return false; }
   static bool SupportsUnalignedAccesses() { return true; }
   static bool SupportsFastUnalignedFPAccesses() { return true; }
 
@@ -1880,6 +1882,16 @@ static inline bool GetTempRegForIntArg(uint32_t usedIntArgs,
   }
   *out = CallTempNonArgRegs[usedIntArgs];
   return true;
+}
+
+void PatchJump(CodeLocationJump& jump_, CodeLocationLabel label,
+               ReprotectCode reprotect = DontReprotect);
+
+static inline void PatchBackedge(CodeLocationJump& jump_,
+                                 CodeLocationLabel label,
+                                 JitRuntime::BackedgeTarget target) {
+  (void)target;
+  PatchJump(jump_, label);
 }
 
 }  // namespace jit

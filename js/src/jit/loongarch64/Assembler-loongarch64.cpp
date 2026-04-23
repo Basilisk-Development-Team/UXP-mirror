@@ -19,6 +19,14 @@ using mozilla::DebugOnly;
 using namespace js;
 using namespace js::jit;
 
+void js::jit::PatchJump(CodeLocationJump& jump_, CodeLocationLabel label,
+                        ReprotectCode reprotect) {
+  (void)jump_;
+  (void)label;
+  (void)reprotect;
+  MOZ_CRASH("Ion patching is not supported on loongarch64");
+}
+
 // Note this is used for inter-wasm calls and may pass arguments and results
 // in floating point registers even if the system ABI does not.
 
