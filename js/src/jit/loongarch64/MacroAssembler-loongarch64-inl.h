@@ -535,11 +535,20 @@ void MacroAssembler::rotateLeft(Imm32 count, Register input, Register dest) {
 }
 
 void MacroAssembler::rotateLeft64(Register count, Register64 src,
+                                  Register64 dest) {
+  rotateLeft64(count, src, dest, Register::Invalid());
+}
+
+void MacroAssembler::rotateLeft64(Register count, Register64 src,
                                   Register64 dest, Register temp) {
   MOZ_ASSERT(temp == Register::Invalid());
   ScratchRegisterScope scratch(asMasm());
   as_sub_d(scratch, zero, count);
   as_rotr_d(dest.reg, src.reg, scratch);
+}
+
+void MacroAssembler::rotateLeft64(Imm32 count, Register64 src, Register64 dest) {
+  rotateLeft64(count, src, dest, Register::Invalid());
 }
 
 void MacroAssembler::rotateLeft64(Imm32 count, Register64 src, Register64 dest,
@@ -558,9 +567,18 @@ void MacroAssembler::rotateRight(Imm32 count, Register input, Register dest) {
 }
 
 void MacroAssembler::rotateRight64(Register count, Register64 src,
+                                   Register64 dest) {
+  rotateRight64(count, src, dest, Register::Invalid());
+}
+
+void MacroAssembler::rotateRight64(Register count, Register64 src,
                                    Register64 dest, Register temp) {
   MOZ_ASSERT(temp == Register::Invalid());
   as_rotr_d(dest.reg, src.reg, count);
+}
+
+void MacroAssembler::rotateRight64(Imm32 count, Register64 src, Register64 dest) {
+  rotateRight64(count, src, dest, Register::Invalid());
 }
 
 void MacroAssembler::rotateRight64(Imm32 count, Register64 src, Register64 dest,

@@ -550,6 +550,7 @@ class MacroAssemblerLOONGARCH64Compat : public MacroAssemblerLOONGARCH64 {
   }
 
   void jump(JitCode* code) { branch(code); }
+  void jump(wasm::TrapDesc target) { ma_b(target); }
 
   void jump(ImmPtr ptr) {
     BufferOffset bo = m_buffer.nextOffset();

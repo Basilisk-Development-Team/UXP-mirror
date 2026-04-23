@@ -12,7 +12,6 @@
 #include "gc/Marking.h"
 #include "jit/JitCompartment.h"
 #include "jit/ExecutableAllocator.h"
-#include "vm/Realm.h"
 
 using mozilla::DebugOnly;
 
@@ -39,9 +38,7 @@ ABIArg ABIArgGenerator::next(MIRType type) {
   switch (type) {
     case MIRType::Int32:
     case MIRType::Int64:
-    case MIRType::Pointer:
-    case MIRType::RefOrNull:
-    case MIRType::StackResults: {
+    case MIRType::Pointer: {
       if (intRegIndex_ == NumIntArgRegs) {
         current_ = ABIArg(stackOffset_);
         stackOffset_ += sizeof(uintptr_t);
@@ -63,10 +60,6 @@ ABIArg ABIArgGenerator::next(MIRType type) {
           type == MIRType::Double ? FloatRegisters::Double
                                   : FloatRegisters::Single));
       floatRegIndex_++;
-      break;
-    }
-    case MIRType::Simd128: {
-      MOZ_CRASH("LoongArch does not support simd yet.");
       break;
     }
     default:
@@ -2283,7 +2276,7 @@ void Assembler::bind(RepatchLabel* label) {
   label->bind(dest.getOffset());
 }
 
-void Assembler::Bind(uint8_t* rawCode, const CodeLabel& label) {
+void Assembler::Bind(uint8_t* rawCode, CodeLabel label) {
   if (label.patchAt()->bound()) {
     intptr_t offset = label.patchAt()->offset();
     intptr_t target = label.target()->offset();
