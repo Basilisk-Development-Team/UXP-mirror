@@ -374,6 +374,72 @@ class MinimalLoongArchCompiler
         return emitFailureBranch();
     }
 
+    bool emitDiv(LoongArchReg lhs, LoongArchReg rhs, LoongArchReg out) {
+        if (!emitNot(rhs, WideScratch))
+            return false;
+        if (!emitMove(NarrowScratch, zero))
+            return false;
+        if (!emitFailureBranch())
+            return false;
+
+        if (!emitNot(lhs, WideScratch))
+            return false;
+        if (!emit(EncodeThreeReg(0x00120000, NarrowScratch, rhs, zero)))
+            return false;
+        if (!emit(EncodeThreeReg(0x00148000, WideScratch, WideScratch, NarrowScratch)))
+            return false;
+        if (!emitMove(NarrowScratch, zero))
+            return false;
+        if (!emitFailureBranch())
+            return false;
+
+        if (!emitLoadImm32(NarrowScratch, -1))
+            return false;
+        if (!emitEq(rhs, NarrowScratch, WideScratch, false))
+            return false;
+        if (!emitLoadImm32(NarrowScratch, INT32_MIN))
+            return false;
+        if (!emit(EncodeThreeReg(0x00158000, NarrowScratch, lhs, NarrowScratch)))
+            return false;
+        if (!emitSltui(NarrowScratch, NarrowScratch, 1))
+            return false;
+        if (!emit(EncodeThreeReg(0x00148000, WideScratch, WideScratch, NarrowScratch)))
+            return false;
+        if (!emitMove(NarrowScratch, zero))
+            return false;
+        if (!emitFailureBranch())
+            return false;
+
+        if (!emit(EncodeThreeReg(0x00200000, out, lhs, rhs)))
+            return false;
+        if (!emit(EncodeThreeReg(0x00208000, WideScratch, lhs, rhs)))
+            return false;
+        if (!emitMove(NarrowScratch, zero))
+            return false;
+        return emitFailureBranch();
+    }
+
+    bool emitMod(LoongArchReg lhs, LoongArchReg rhs, LoongArchReg out) {
+        if (!emitNot(rhs, WideScratch))
+            return false;
+        if (!emitMove(NarrowScratch, zero))
+            return false;
+        if (!emitFailureBranch())
+            return false;
+
+        if (!emit(EncodeThreeReg(0x00208000, out, lhs, rhs)))
+            return false;
+        if (!emitNot(out, WideScratch))
+            return false;
+        if (!emit(EncodeThreeReg(0x00120000, NarrowScratch, lhs, zero)))
+            return false;
+        if (!emit(EncodeThreeReg(0x00148000, WideScratch, WideScratch, NarrowScratch)))
+            return false;
+        if (!emitMove(NarrowScratch, zero))
+            return false;
+        return emitFailureBranch();
+    }
+
     bool emitBranch(BranchKind kind, LoongArchReg reg, uint32_t targetPcOffset) {
         BranchPatch patch = { wordCount_, targetPcOffset, kind, reg };
         if (!branchPatches_.append(patch))
@@ -634,7 +700,9 @@ class MinimalLoongArchCompiler
                 break;
               case JSOP_ADD:
               case JSOP_SUB:
-              case JSOP_MUL: {
+              case JSOP_MUL:
+              case JSOP_DIV:
+              case JSOP_MOD: {
                 StackValue rhs;
                 StackValue lhs;
                 if (!pop(&rhs) || !pop(&lhs))
@@ -642,12 +710,23 @@ class MinimalLoongArchCompiler
                 if (!IsNumericKind(lhs.kind) || !IsNumericKind(rhs.kind))
                     return false;
                 LoongArchReg out = allocStackReg();
-                if (op == JSOP_MUL) {
+                switch (op) {
+                  case JSOP_MUL:
                     if (!emitMul(lhs.reg, rhs.reg, out))
                         return false;
-                } else {
+                    break;
+                  case JSOP_DIV:
+                    if (!emitDiv(lhs.reg, rhs.reg, out))
+                        return false;
+                    break;
+                  case JSOP_MOD:
+                    if (!emitMod(lhs.reg, rhs.reg, out))
+                        return false;
+                    break;
+                  default:
                     if (!emitCheckedBinary(op, lhs.reg, rhs.reg, out))
                         return false;
+                    break;
                 }
                 stack_[stackDepth_++] = { out, MinimalValueKind::Int32 };
                 break;

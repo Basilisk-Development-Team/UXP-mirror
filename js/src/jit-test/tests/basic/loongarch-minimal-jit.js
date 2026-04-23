@@ -88,6 +88,22 @@ function multiplyZero(a) {
   return a * 0;
 }
 
+function divide(a, b) {
+  return a / b;
+}
+
+function divideNegativeZero(a) {
+  return 0 / a;
+}
+
+function remainder(a, b) {
+  return a % b;
+}
+
+function remainderNegativeZero(a) {
+  return a % 2;
+}
+
 function assignArg(a, b) {
   a = a < b;
   return a;
@@ -163,6 +179,14 @@ assertEq(multiply(-3, 7), -21);
 assertEq(multiply(1073741824, 4), 4294967296);
 assertEq(multiplyZero(3), 0);
 assertEq(1 / multiplyZero(-3), -Infinity);
+assertEq(divide(8, 2), 4);
+assertEq(divide(-9, 3), -3);
+assertEq(divide(7, 2), 3.5);
+assertEq(1 / divideNegativeZero(-3), -Infinity);
+assertEq(divide(-2147483648, -1), 2147483648);
+assertEq(remainder(7, 3), 1);
+assertEq(remainder(8, 2), 0);
+assertEq(1 / remainderNegativeZero(-4), -Infinity);
 assertEq(assignArg(2, 3), true);
 assertEq(assignArg(3, 2), false);
 assertEq(boolToNumeric(2, 3), 1);
