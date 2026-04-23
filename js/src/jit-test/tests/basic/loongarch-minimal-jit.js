@@ -24,6 +24,80 @@ function negativeResult(a) {
   return a - 300;
 }
 
+function lessThan(a, b) {
+  return a < b;
+}
+
+function lessEqual(a, b) {
+  return a <= b;
+}
+
+function greaterThan(a, b) {
+  return a > b;
+}
+
+function greaterEqual(a, b) {
+  return a >= b;
+}
+
+function notLess(a, b) {
+  return !(a < b);
+}
+
+function boolStrictEq(a, b) {
+  return (a < b) === (b > a);
+}
+
+function boolLooseEq(a, b) {
+  return (a < b) == 1;
+}
+
+function boolLooseNe(a, b) {
+  return (a < b) != 1;
+}
+
+function bitMix(a, b) {
+  return (a & b) ^ (a | 8);
+}
+
+function invertBits(a) {
+  return ~a;
+}
+
+function assignArg(a, b) {
+  a = a < b;
+  return a;
+}
+
+function boolToNumeric(a, b) {
+  var flag = a < b;
+  return +flag;
+}
+
+function nullValue() {
+  return null;
+}
+
+function voidValue(a) {
+  return void a;
+}
+
+function unsetLocal() {
+  var x;
+  return x;
+}
+
+function unsetLooseEqNull() {
+  var x;
+  return x == null;
+}
+
+function conditional(a, b) {
+  if (a < b)
+    return true;
+  return false;
+}
+
 for (var i = 0; i < 100; i++) {
   assertEq(add(i, i + 1), (i + i + 1));
   assertEq(withLocal(i, 7), i + 7);
@@ -33,6 +107,34 @@ assertEq(overflow(2147483647, 1), 2147483648);
 assertEq(unsupported(2, 3), 5.5);
 assertEq(largeResult(7), 307);
 assertEq(negativeResult(7), -293);
+assertEq(lessThan(2, 3), true);
+assertEq(lessThan(3, 2), false);
+assertEq(lessEqual(3, 3), true);
+assertEq(lessEqual(4, 3), false);
+assertEq(greaterThan(4, 3), true);
+assertEq(greaterThan(2, 3), false);
+assertEq(greaterEqual(4, 4), true);
+assertEq(greaterEqual(2, 3), false);
+assertEq(notLess(2, 3), false);
+assertEq(notLess(3, 2), true);
+assertEq(boolStrictEq(2, 3), true);
+assertEq(boolStrictEq(3, 2), true);
+assertEq(boolLooseEq(2, 3), true);
+assertEq(boolLooseEq(3, 2), false);
+assertEq(boolLooseNe(2, 3), false);
+assertEq(boolLooseNe(3, 2), true);
+assertEq(bitMix(6, 3), (6 & 3) ^ (6 | 8));
+assertEq(invertBits(6), ~6);
+assertEq(assignArg(2, 3), true);
+assertEq(assignArg(3, 2), false);
+assertEq(boolToNumeric(2, 3), 1);
+assertEq(boolToNumeric(3, 2), 0);
+assertEq(nullValue(), null);
+assertEq(voidValue(7), undefined);
+assertEq(unsetLocal(), undefined);
+assertEq(unsetLooseEqNull(), true);
+assertEq(conditional(2, 3), true);
+assertEq(conditional(3, 2), false);
 
 (function testPropertyWrappers() {
     function getX(obj) { return obj.x; }

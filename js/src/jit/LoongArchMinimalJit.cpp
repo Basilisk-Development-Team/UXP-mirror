@@ -54,7 +54,29 @@ static constexpr LoongArchReg StackRegs[] = { t0, t1, t2, t3, t4, t5, t6 };
 static constexpr LoongArchReg WideScratch = t7;
 static constexpr LoongArchReg NarrowScratch = t8;
 
-using TinyLoongArchJitCode = bool (*)(int32_t arg0, int32_t arg1, int32_t* out);
+enum class MinimalValueKind : uint32_t {
+    Int32 = 0,
+    Boolean = 1,
+    Undefined = 2,
+    Null = 3
+};
+
+struct MinimalJitResult
+{
+    uint32_t payload;
+    MinimalValueKind kind;
+};
+
+static_assert(sizeof(MinimalJitResult) == 8,
+              "Minimal JIT results must stay ABI-stable");
+
+static inline bool
+IsNumericKind(MinimalValueKind kind)
+{
+    return kind == MinimalValueKind::Int32 || kind == MinimalValueKind::Boolean;
+}
+
+using TinyLoongArchJitCode = bool (*)(int32_t arg0, int32_t arg1, MinimalJitResult* out);
 
 enum MinimalFastPathKind : uint8_t {
     MinimalFastPathUninitialized = 0,
@@ -159,12 +181,20 @@ struct BranchPatch
 
 class MinimalLoongArchCompiler
 {
+    struct StackValue
+    {
+        LoongArchReg reg;
+        MinimalValueKind kind;
+    };
+
     JSScript* script_;
     uint32_t words_[512];
     size_t wordCount_;
     size_t failPatches_[128];
     size_t failPatchCount_;
-    LoongArchReg stack_[16];
+    StackValue stack_[mozilla::ArrayLength(StackRegs)];
+    MinimalValueKind argKinds_[mozilla::ArrayLength(ArgRegs)];
+    MinimalValueKind localKinds_[mozilla::ArrayLength(LocalRegs)];
     size_t stackDepth_;
     bool sawReturn_;
     Vector<int32_t, 0, SystemAllocPolicy> pcToWord_;
@@ -205,6 +235,14 @@ class MinimalLoongArchCompiler
         return emit(EncodeUnsignedImm12(0x03800000, dst, dst, low12));
     }
 
+    bool emitXori(LoongArchReg dst, LoongArchReg src, uint32_t imm) {
+        return emit(EncodeUnsignedImm12(0x03c00000, dst, src, imm));
+    }
+
+    bool emitSltui(LoongArchReg dst, LoongArchReg src, uint32_t imm) {
+        return emit(EncodeUnsignedImm12(0x02400000, dst, src, imm));
+    }
+
     bool emitFailureBranch() {
         if (failPatchCount_ >= mozilla::ArrayLength(failPatches_))
             return false;
@@ -239,8 +277,45 @@ class MinimalLoongArchCompiler
         return emitMove(srcDst, NarrowScratch);
     }
 
-    bool emitCompareLessThan(LoongArchReg lhs, LoongArchReg rhs, LoongArchReg out) {
-        return emit(EncodeThreeReg(0x00120000, out, lhs, rhs));
+    bool emitCompare(JSOp op, LoongArchReg lhs, LoongArchReg rhs, LoongArchReg out) {
+        switch (op) {
+          case JSOP_LT:
+            return emit(EncodeThreeReg(0x00120000, out, lhs, rhs));
+          case JSOP_LE:
+            if (!emit(EncodeThreeReg(0x00120000, out, rhs, lhs)))
+                return false;
+            return emitXori(out, out, 1);
+          case JSOP_GT:
+            return emit(EncodeThreeReg(0x00120000, out, rhs, lhs));
+          case JSOP_GE:
+            if (!emit(EncodeThreeReg(0x00120000, out, lhs, rhs)))
+                return false;
+            return emitXori(out, out, 1);
+          default:
+            break;
+        }
+
+        MOZ_CRASH("bad comparison opcode");
+    }
+
+    bool emitEq(LoongArchReg lhs, LoongArchReg rhs, LoongArchReg out, bool invert) {
+        if (!emit(EncodeThreeReg(0x00158000, NarrowScratch, lhs, rhs)))
+            return false;
+        if (invert)
+            return emit(EncodeThreeReg(0x00128000, out, zero, NarrowScratch));
+        return emitSltui(out, NarrowScratch, 1);
+    }
+
+    bool emitBitBinary(uint32_t opcode, LoongArchReg lhs, LoongArchReg rhs, LoongArchReg out) {
+        return emit(EncodeThreeReg(opcode, out, lhs, rhs));
+    }
+
+    bool emitBitNot(LoongArchReg src, LoongArchReg out) {
+        return emit(EncodeThreeReg(0x00140000, out, src, zero));
+    }
+
+    bool emitNot(LoongArchReg src, LoongArchReg out) {
+        return emitSltui(out, src, 1);
     }
 
     bool emitBranch(BranchKind kind, LoongArchReg reg, uint32_t targetPcOffset) {
@@ -260,9 +335,12 @@ class MinimalLoongArchCompiler
         MOZ_CRASH("bad branch kind");
     }
 
-    bool emitReturn(LoongArchReg result) {
-        // Write the full int32 result back to the out-parameter.
-        if (!emit(EncodeUnsignedImm12(0x29800000, result, a2, 0)))
+    bool emitReturn(const StackValue& result) {
+        if (!emit(EncodeUnsignedImm12(0x29800000, result.reg, a2, 0)))
+            return false;
+        if (!emitLoadImm32(NarrowScratch, int32_t(result.kind)))
+            return false;
+        if (!emit(EncodeUnsignedImm12(0x29800000, NarrowScratch, a2, sizeof(uint32_t))))
             return false;
         if (!emit(EncodeImm12(0x02800000, a0, zero, 1)))
             return false;
@@ -273,47 +351,60 @@ class MinimalLoongArchCompiler
     }
 
     LoongArchReg allocStackReg() {
-        MOZ_ASSERT(stackDepth_ < mozilla::ArrayLength(stack_));
+        MOZ_ASSERT(stackDepth_ < mozilla::ArrayLength(StackRegs));
         return StackRegs[stackDepth_];
     }
 
-    bool pushTempFromReg(LoongArchReg src) {
+    bool pushTempFromReg(LoongArchReg src, MinimalValueKind kind) {
         if (stackDepth_ >= mozilla::ArrayLength(StackRegs))
             return false;
         LoongArchReg dst = allocStackReg();
         if (!emitMove(dst, src))
             return false;
-        stack_[stackDepth_++] = dst;
+        stack_[stackDepth_++] = { dst, kind };
         return true;
     }
 
-    bool pushTempFromImm(int32_t imm) {
+    bool pushTempFromImm(int32_t imm, MinimalValueKind kind) {
         if (stackDepth_ >= mozilla::ArrayLength(StackRegs))
             return false;
         LoongArchReg dst = allocStackReg();
         if (!emitLoadImm32(dst, imm))
             return false;
-        stack_[stackDepth_++] = dst;
+        stack_[stackDepth_++] = { dst, kind };
         return true;
     }
 
     bool duplicateTop() {
         if (!stackDepth_)
             return false;
-        return pushTempFromReg(stack_[stackDepth_ - 1]);
+        const StackValue& top = stack_[stackDepth_ - 1];
+        return pushTempFromReg(top.reg, top.kind);
     }
 
-    bool pop(LoongArchReg* reg) {
+    bool pop(StackValue* value) {
         if (!stackDepth_)
             return false;
-        *reg = stack_[--stackDepth_];
+        *value = stack_[--stackDepth_];
         return true;
     }
 
     bool emitStoreLocal(uint32_t slot) {
         if (slot >= script_->nfixed() || !stackDepth_)
             return false;
-        return emitMove(LocalRegs[slot], stack_[stackDepth_ - 1]);
+        if (!emitMove(LocalRegs[slot], stack_[stackDepth_ - 1].reg))
+            return false;
+        localKinds_[slot] = stack_[stackDepth_ - 1].kind;
+        return true;
+    }
+
+    bool emitStoreArg(uint32_t slot) {
+        if (slot >= script_->numArgs() || !stackDepth_)
+            return false;
+        if (!emitMove(ArgRegs[slot], stack_[stackDepth_ - 1].reg))
+            return false;
+        argKinds_[slot] = stack_[stackDepth_ - 1].kind;
+        return true;
     }
 
     bool supportedScriptShape() const {
@@ -366,7 +457,12 @@ class MinimalLoongArchCompiler
         failPatchCount_(0),
         stackDepth_(0),
         sawReturn_(false)
-    { }
+    {
+        for (size_t i = 0; i < mozilla::ArrayLength(argKinds_); i++)
+            argKinds_[i] = MinimalValueKind::Int32;
+        for (size_t i = 0; i < mozilla::ArrayLength(localKinds_); i++)
+            localKinds_[i] = MinimalValueKind::Undefined;
+    }
 
     bool compile() {
         if (!supportedScriptShape())
@@ -374,6 +470,11 @@ class MinimalLoongArchCompiler
 
         if (!pcToWord_.appendN(-1, script_->length() + 1))
             return false;
+
+        for (size_t i = 0; i < script_->nfixed(); i++) {
+            if (!emitLoadImm32(LocalRegs[i], 0))
+                return false;
+        }
 
         jsbytecode* pc = script_->code();
         while (pc < script_->codeEnd()) {
@@ -383,37 +484,61 @@ class MinimalLoongArchCompiler
             uint32_t pcOffset = uint32_t(pc - script_->code());
             JSOp op = JSOp(*pc);
             switch (op) {
-              case JSOP_GETARG:
-                if (GET_ARGNO(pc) >= script_->numArgs())
+              case JSOP_GETARG: {
+                uint32_t arg = GET_ARGNO(pc);
+                if (arg >= script_->numArgs())
                     return false;
-                if (!pushTempFromReg(ArgRegs[GET_ARGNO(pc)]))
-                    return false;
-                break;
-              case JSOP_GETLOCAL:
-                if (GET_LOCALNO(pc) >= script_->nfixed())
-                    return false;
-                if (!pushTempFromReg(LocalRegs[GET_LOCALNO(pc)]))
+                if (!pushTempFromReg(ArgRegs[arg], argKinds_[arg]))
                     return false;
                 break;
+              }
+              case JSOP_SETARG:
+                if (!emitStoreArg(GET_ARGNO(pc)))
+                    return false;
+                break;
+              case JSOP_GETLOCAL: {
+                uint32_t local = GET_LOCALNO(pc);
+                if (local >= script_->nfixed())
+                    return false;
+                if (!pushTempFromReg(LocalRegs[local], localKinds_[local]))
+                    return false;
+                break;
+              }
               case JSOP_SETLOCAL:
               case JSOP_INITLEXICAL:
                 if (!emitStoreLocal(GET_LOCALNO(pc)))
                     return false;
                 break;
               case JSOP_ZERO:
-                if (!pushTempFromImm(0))
+                if (!pushTempFromImm(0, MinimalValueKind::Int32))
                     return false;
                 break;
               case JSOP_ONE:
-                if (!pushTempFromImm(1))
+                if (!pushTempFromImm(1, MinimalValueKind::Int32))
+                    return false;
+                break;
+              case JSOP_FALSE:
+                if (!pushTempFromImm(0, MinimalValueKind::Boolean))
+                    return false;
+                break;
+              case JSOP_TRUE:
+                if (!pushTempFromImm(1, MinimalValueKind::Boolean))
+                    return false;
+                break;
+              case JSOP_NULL:
+                if (!pushTempFromImm(0, MinimalValueKind::Null))
+                    return false;
+                break;
+              case JSOP_UNDEFINED:
+                if (!pushTempFromImm(0, MinimalValueKind::Undefined))
                     return false;
                 break;
               case JSOP_INT8:
-                if (!pushTempFromImm(GET_INT8(pc)))
+                if (!pushTempFromImm(GET_INT8(pc), MinimalValueKind::Int32))
                     return false;
                 break;
               case JSOP_INT32:
-                if (!pushTempFromImm(GET_INT32(pc)))
+                if (!pushTempFromImm(GET_INT32(pc), MinimalValueKind::Int32))
                     return false;
                 break;
               case JSOP_POP:
@@ -428,12 +553,24 @@ class MinimalLoongArchCompiler
               case JSOP_SWAP: {
                 if (stackDepth_ < 2)
                     return false;
-                LoongArchReg tmp = stack_[stackDepth_ - 1];
+                StackValue tmp = stack_[stackDepth_ - 1];
                 stack_[stackDepth_ - 1] = stack_[stackDepth_ - 2];
                 stack_[stackDepth_ - 2] = tmp;
                 break;
               }
               case JSOP_TONUMERIC:
+              case JSOP_POS:
+                if (!stackDepth_ || !IsNumericKind(stack_[stackDepth_ - 1].kind))
+                    return false;
+                stack_[stackDepth_ - 1].kind = MinimalValueKind::Int32;
+                break;
+              case JSOP_VOID:
+                if (!stackDepth_)
+                    return false;
+                if (!emitLoadImm32(stack_[stackDepth_ - 1].reg, 0))
+                    return false;
+                stack_[stackDepth_ - 1].kind = MinimalValueKind::Undefined;
+                break;
               case JSOP_CHECKLEXICAL:
               case JSOP_LOOPENTRY:
               case JSOP_JUMPTARGET:
@@ -441,46 +578,141 @@ class MinimalLoongArchCompiler
                 break;
               case JSOP_ADD:
               case JSOP_SUB: {
-                LoongArchReg rhs;
-                LoongArchReg lhs;
+                StackValue rhs;
+                StackValue lhs;
                 if (!pop(&rhs) || !pop(&lhs))
                     return false;
-                LoongArchReg out = allocStackReg();
-                if (!emitCheckedBinary(op, lhs, rhs, out))
+                if (!IsNumericKind(lhs.kind) || !IsNumericKind(rhs.kind))
                     return false;
-                stack_[stackDepth_++] = out;
+                LoongArchReg out = allocStackReg();
+                if (!emitCheckedBinary(op, lhs.reg, rhs.reg, out))
+                    return false;
+                stack_[stackDepth_++] = { out, MinimalValueKind::Int32 };
                 break;
               }
               case JSOP_INC:
               case JSOP_DEC:
-                if (!stackDepth_)
+                if (!stackDepth_ || !IsNumericKind(stack_[stackDepth_ - 1].kind))
                     return false;
-                if (!emitCheckedIncDec(op, stack_[stackDepth_ - 1]))
+                if (!emitCheckedIncDec(op, stack_[stackDepth_ - 1].reg))
                     return false;
+                stack_[stackDepth_ - 1].kind = MinimalValueKind::Int32;
                 break;
-              case JSOP_LT: {
-                LoongArchReg rhs;
-                LoongArchReg lhs;
+              case JSOP_LT:
+              case JSOP_LE:
+              case JSOP_GT:
+              case JSOP_GE: {
+                StackValue rhs;
+                StackValue lhs;
+                if (!pop(&rhs) || !pop(&lhs))
+                    return false;
+                if (!IsNumericKind(lhs.kind) || !IsNumericKind(rhs.kind))
+                    return false;
+                LoongArchReg out = allocStackReg();
+                if (!emitCompare(op, lhs.reg, rhs.reg, out))
+                    return false;
+                stack_[stackDepth_++] = { out, MinimalValueKind::Boolean };
+                break;
+              }
+              case JSOP_EQ:
+              case JSOP_NE:
+              case JSOP_STRICTEQ:
+              case JSOP_STRICTNE: {
+                StackValue rhs;
+                StackValue lhs;
                 if (!pop(&rhs) || !pop(&lhs))
                     return false;
                 LoongArchReg out = allocStackReg();
-                if (!emitCompareLessThan(lhs, rhs, out))
-                    return false;
-                stack_[stackDepth_++] = out;
+                bool invert = op == JSOP_NE || op == JSOP_STRICTNE;
+                bool strict = op == JSOP_STRICTEQ || op == JSOP_STRICTNE;
+                if (IsNumericKind(lhs.kind) && IsNumericKind(rhs.kind)) {
+                    if (!emitEq(lhs.reg, rhs.reg, out, invert))
+                        return false;
+                } else {
+                    bool equal = false;
+                    if (strict) {
+                        equal = lhs.kind == rhs.kind &&
+                                (lhs.kind == MinimalValueKind::Null ||
+                                 lhs.kind == MinimalValueKind::Undefined);
+                    } else {
+                        equal = (lhs.kind == rhs.kind &&
+                                 (lhs.kind == MinimalValueKind::Null ||
+                                  lhs.kind == MinimalValueKind::Undefined)) ||
+                                ((lhs.kind == MinimalValueKind::Null &&
+                                  rhs.kind == MinimalValueKind::Undefined) ||
+                                 (lhs.kind == MinimalValueKind::Undefined &&
+                                  rhs.kind == MinimalValueKind::Null));
+                    }
+                    if (!emitLoadImm32(out, invert ? !equal : equal))
+                        return false;
+                }
+                stack_[stackDepth_++] = { out, MinimalValueKind::Boolean };
                 break;
               }
-              case JSOP_GOTO:
-                if (!emitBranch(BranchKind::Always, zero, uint32_t(int32_t(pcOffset) + GET_JUMP_OFFSET(pc))))
+              case JSOP_NOT: {
+                StackValue input;
+                if (!pop(&input))
                     return false;
+                LoongArchReg out = allocStackReg();
+                if (!emitNot(input.reg, out))
+                    return false;
+                stack_[stackDepth_++] = { out, MinimalValueKind::Boolean };
+                break;
+              }
+              case JSOP_BITAND:
+              case JSOP_BITOR:
+              case JSOP_BITXOR: {
+                StackValue rhs;
+                StackValue lhs;
+                if (!pop(&rhs) || !pop(&lhs))
+                    return false;
+                if (!IsNumericKind(lhs.kind) || !IsNumericKind(rhs.kind))
+                    return false;
+                uint32_t opcode = 0;
+                switch (op) {
+                  case JSOP_BITAND:
+                    opcode = 0x00148000;
+                    break;
+                  case JSOP_BITOR:
+                    opcode = 0x00150000;
+                    break;
+                  case JSOP_BITXOR:
+                    opcode = 0x00158000;
+                    break;
+                  default:
+                    MOZ_CRASH("unexpected bitwise opcode");
+                }
+                LoongArchReg out = allocStackReg();
+                if (!emitBitBinary(opcode, lhs.reg, rhs.reg, out))
+                    return false;
+                stack_[stackDepth_++] = { out, MinimalValueKind::Int32 };
+                break;
+              }
+              case JSOP_BITNOT:
+                if (!stackDepth_ || !IsNumericKind(stack_[stackDepth_ - 1].kind))
+                    return false;
+                if (!emitBitNot(stack_[stackDepth_ - 1].reg, stack_[stackDepth_ - 1].reg))
+                    return false;
+                stack_[stackDepth_ - 1].kind = MinimalValueKind::Int32;
+                break;
+              case JSOP_GOTO:
+                if (!emitBranch(BranchKind::Always, zero,
+                                uint32_t(int32_t(pcOffset) + GET_JUMP_OFFSET(pc))))
+                {
+                    return false;
+                }
                 break;
               case JSOP_IFEQ:
               case JSOP_IFNE: {
-                LoongArchReg cond;
+                StackValue cond;
                 if (!pop(&cond))
                     return false;
                 BranchKind kind = (op == JSOP_IFNE) ? BranchKind::IfTrue : BranchKind::IfFalse;
-                if (!emitBranch(kind, cond, uint32_t(int32_t(pcOffset) + GET_JUMP_OFFSET(pc))))
+                if (!emitBranch(kind, cond.reg,
+                                uint32_t(int32_t(pcOffset) + GET_JUMP_OFFSET(pc))))
+                {
                     return false;
+                }
                 break;
               }
               case JSOP_RETURN:
@@ -699,6 +931,23 @@ CanUseMinimalJit(RunState& state, InvokeState& invoke)
     return CanUseMinimalJit(state.script(), invoke.args());
 }
 
+static Value
+MinimalJitResultToValue(const MinimalJitResult& result)
+{
+    switch (result.kind) {
+      case MinimalValueKind::Int32:
+        return JS::Int32Value(int32_t(result.payload));
+      case MinimalValueKind::Boolean:
+        return JS::BooleanValue(bool(result.payload));
+      case MinimalValueKind::Undefined:
+        return JS::UndefinedValue();
+      case MinimalValueKind::Null:
+        return JS::NullValue();
+    }
+
+    MOZ_CRASH("bad minimal JIT value kind");
+}
+
 static bool
 LookupOrCompileMinimalJit(JSContext* cx, JSScript* script, TinyLoongArchJitCode* fnOut)
 {
@@ -746,13 +995,13 @@ TryCallLoongArchMinimalJit(JSContext* cx, HandleFunction fun, const CallArgs& ar
     if (!LookupOrCompileMinimalJit(cx, script, &fn))
         return true;
 
-    int32_t result = 0;
+    MinimalJitResult result = { 0, MinimalValueKind::Int32 };
     int32_t arg0 = script->numArgs() >= 1 ? args[0].toInt32() : 0;
     int32_t arg1 = script->numArgs() >= 2 ? args[1].toInt32() : 0;
     if (!fn(arg0, arg1, &result))
         return true;
 
-    args.rval().setInt32(result);
+    args.rval().set(MinimalJitResultToValue(result));
     *handled = true;
     return true;
 }
@@ -779,15 +1028,13 @@ TryEnterLoongArchMinimalJit(JSContext* cx, RunState& state)
     if (!LookupOrCompileMinimalJit(cx, state.script(), &fn))
         return false;
 
-    int32_t result = 0;
+    MinimalJitResult result = { 0, MinimalValueKind::Int32 };
     int32_t arg0 = state.script()->numArgs() >= 1 ? invoke.args()[0].toInt32() : 0;
     int32_t arg1 = state.script()->numArgs() >= 2 ? invoke.args()[1].toInt32() : 0;
     if (!fn(arg0, arg1, &result))
         return false;
 
-    Value value;
-    value.setInt32(result);
-    state.setReturnValue(value);
+    state.setReturnValue(MinimalJitResultToValue(result));
     return true;
 }
 
