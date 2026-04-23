@@ -189,6 +189,7 @@
 #include <cmath>
 #include <cstdarg>
 #include <cstddef>
+#include <new>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
