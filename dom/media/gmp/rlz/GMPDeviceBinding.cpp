@@ -7,6 +7,7 @@
 #include "mozilla/Attributes.h"
 #include "prenv.h"
 
+#include <cstdint>
 #include <string>
 
 #ifdef XP_WIN

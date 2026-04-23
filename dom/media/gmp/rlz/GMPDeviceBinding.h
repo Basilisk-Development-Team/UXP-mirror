@@ -6,6 +6,7 @@
 #ifndef GMP_DEVICE_BINDING_h_
 #define GMP_DEVICE_BINDING_h_
 
+#include <cstdint>
 #include <string>
 
 namespace mozilla {
