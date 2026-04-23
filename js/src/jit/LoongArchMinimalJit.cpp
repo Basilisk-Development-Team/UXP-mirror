@@ -179,6 +179,21 @@ struct BranchPatch
     LoongArchReg reg;
 };
 
+struct ControlFlowState
+{
+    bool initialized;
+    size_t stackDepth;
+    LoongArchReg stackRegs[mozilla::ArrayLength(StackRegs)];
+    MinimalValueKind stackKinds[mozilla::ArrayLength(StackRegs)];
+    MinimalValueKind argKinds[mozilla::ArrayLength(ArgRegs)];
+    MinimalValueKind localKinds[mozilla::ArrayLength(LocalRegs)];
+
+    ControlFlowState()
+      : initialized(false),
+        stackDepth(0)
+    { }
+};
+
 class MinimalLoongArchCompiler
 {
     struct StackValue
@@ -196,8 +211,10 @@ class MinimalLoongArchCompiler
     MinimalValueKind argKinds_[mozilla::ArrayLength(ArgRegs)];
     MinimalValueKind localKinds_[mozilla::ArrayLength(LocalRegs)];
     size_t stackDepth_;
+    bool reachable_;
     bool sawReturn_;
     Vector<int32_t, 0, SystemAllocPolicy> pcToWord_;
+    Vector<ControlFlowState, 0, SystemAllocPolicy> pcStates_;
     Vector<BranchPatch, 0, SystemAllocPolicy> branchPatches_;
 
     bool emit(uint32_t word) {
@@ -207,11 +224,78 @@ class MinimalLoongArchCompiler
         return true;
     }
 
+    bool restoreState(const ControlFlowState& state) {
+        stackDepth_ = state.stackDepth;
+        for (size_t i = 0; i < stackDepth_; i++) {
+            stack_[i].reg = state.stackRegs[i];
+            stack_[i].kind = state.stackKinds[i];
+        }
+        for (size_t i = 0; i < mozilla::ArrayLength(argKinds_); i++)
+            argKinds_[i] = state.argKinds[i];
+        for (size_t i = 0; i < mozilla::ArrayLength(localKinds_); i++)
+            localKinds_[i] = state.localKinds[i];
+        return true;
+    }
+
+    bool stateMatches(const ControlFlowState& state) const {
+        if (stackDepth_ != state.stackDepth)
+            return false;
+        for (size_t i = 0; i < stackDepth_; i++) {
+            if (stack_[i].reg != state.stackRegs[i] ||
+                stack_[i].kind != state.stackKinds[i])
+            {
+                return false;
+            }
+        }
+        for (size_t i = 0; i < mozilla::ArrayLength(argKinds_); i++) {
+            if (argKinds_[i] != state.argKinds[i])
+                return false;
+        }
+        for (size_t i = 0; i < mozilla::ArrayLength(localKinds_); i++) {
+            if (localKinds_[i] != state.localKinds[i])
+                return false;
+        }
+        return true;
+    }
+
+    bool captureState(ControlFlowState* state) const {
+        state->initialized = true;
+        state->stackDepth = stackDepth_;
+        for (size_t i = 0; i < stackDepth_; i++) {
+            state->stackRegs[i] = stack_[i].reg;
+            state->stackKinds[i] = stack_[i].kind;
+        }
+        for (size_t i = 0; i < mozilla::ArrayLength(argKinds_); i++)
+            state->argKinds[i] = argKinds_[i];
+        for (size_t i = 0; i < mozilla::ArrayLength(localKinds_); i++)
+            state->localKinds[i] = localKinds_[i];
+        return true;
+    }
+
+    bool recordTargetState(uint32_t targetPcOffset) {
+        if (targetPcOffset >= pcStates_.length())
+            return false;
+
+        ControlFlowState& state = pcStates_[targetPcOffset];
+        if (state.initialized)
+            return stateMatches(state);
+        return captureState(&state);
+    }
+
     bool markBytecode(jsbytecode* pc) {
         uint32_t offset = uint32_t(pc - script_->code());
         MOZ_ASSERT(offset < pcToWord_.length());
         pcToWord_[offset] = int32_t(wordCount_);
-        return true;
+
+        ControlFlowState& state = pcStates_[offset];
+        if (!state.initialized)
+            return true;
+
+        if (reachable_)
+            return stateMatches(state);
+
+        reachable_ = true;
+        return restoreState(state);
     }
 
     bool emitMove(LoongArchReg dst, LoongArchReg src) {
@@ -614,6 +698,7 @@ class MinimalLoongArchCompiler
         wordCount_(0),
         failPatchCount_(0),
         stackDepth_(0),
+        reachable_(true),
         sawReturn_(false)
     {
         for (size_t i = 0; i < mozilla::ArrayLength(argKinds_); i++)
@@ -628,6 +713,8 @@ class MinimalLoongArchCompiler
 
         if (!pcToWord_.appendN(-1, script_->length() + 1))
             return false;
+        if (!pcStates_.appendN(ControlFlowState(), script_->length() + 1))
+            return false;
 
         for (size_t i = 0; i < script_->nfixed(); i++) {
             if (!emitLoadImm32(LocalRegs[i], 0))
@@ -640,6 +727,11 @@ class MinimalLoongArchCompiler
                 return false;
 
             uint32_t pcOffset = uint32_t(pc - script_->code());
+            if (!reachable_) {
+                pc += GetBytecodeLength(pc);
+                continue;
+            }
+
             JSOp op = JSOp(*pc);
             switch (op) {
               case JSOP_GETARG: {
@@ -763,6 +855,18 @@ class MinimalLoongArchCompiler
               case JSOP_JUMPTARGET:
               case JSOP_NOP:
                 break;
+              case JSOP_OR:
+              case JSOP_AND: {
+                if (!stackDepth_)
+                    return false;
+                uint32_t target = uint32_t(int32_t(pcOffset) + GET_JUMP_OFFSET(pc));
+                if (!recordTargetState(target))
+                    return false;
+                BranchKind kind = (op == JSOP_OR) ? BranchKind::IfTrue : BranchKind::IfFalse;
+                if (!emitBranch(kind, stack_[stackDepth_ - 1].reg, target))
+                    return false;
+                break;
+              }
               case JSOP_ADD:
               case JSOP_SUB:
               case JSOP_MUL:
@@ -927,24 +1031,26 @@ class MinimalLoongArchCompiler
                     return false;
                 stack_[stackDepth_ - 1].kind = MinimalValueKind::Int32;
                 break;
-              case JSOP_GOTO:
-                if (!emitBranch(BranchKind::Always, zero,
-                                uint32_t(int32_t(pcOffset) + GET_JUMP_OFFSET(pc))))
-                {
+              case JSOP_GOTO: {
+                uint32_t target = uint32_t(int32_t(pcOffset) + GET_JUMP_OFFSET(pc));
+                if (!recordTargetState(target))
                     return false;
-                }
+                if (!emitBranch(BranchKind::Always, zero, target))
+                    return false;
+                reachable_ = false;
                 break;
+              }
               case JSOP_IFEQ:
               case JSOP_IFNE: {
                 StackValue cond;
                 if (!pop(&cond))
                     return false;
-                BranchKind kind = (op == JSOP_IFNE) ? BranchKind::IfTrue : BranchKind::IfFalse;
-                if (!emitBranch(kind, cond.reg,
-                                uint32_t(int32_t(pcOffset) + GET_JUMP_OFFSET(pc))))
-                {
+                uint32_t target = uint32_t(int32_t(pcOffset) + GET_JUMP_OFFSET(pc));
+                if (!recordTargetState(target))
                     return false;
-                }
+                BranchKind kind = (op == JSOP_IFNE) ? BranchKind::IfTrue : BranchKind::IfFalse;
+                if (!emitBranch(kind, cond.reg, target))
+                    return false;
                 break;
               }
               case JSOP_RETURN:

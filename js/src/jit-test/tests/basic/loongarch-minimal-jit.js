@@ -158,6 +158,40 @@ function conditional(a, b) {
   return false;
 }
 
+function logicalOr(a, b) {
+  return a || b;
+}
+
+function logicalAnd(a, b) {
+  return a && b;
+}
+
+function logicalBoolOr(a, b) {
+  return (a < b) || (b < a);
+}
+
+function logicalBoolAnd(a, b) {
+  return (a < b) && (b < 10);
+}
+
+function minValue(a, b) {
+  return a < b ? a : b;
+}
+
+function chooseOrder(a, b) {
+  return a < b ? true : false;
+}
+
+function sumRange(n) {
+  var i = 0;
+  var total = 0;
+  while (i < n) {
+    total = total + i;
+    i = i + 1;
+  }
+  return total;
+}
+
 for (var i = 0; i < 100; i++) {
   assertEq(add(i, i + 1), (i + i + 1));
   assertEq(withLocal(i, 7), i + 7);
@@ -224,6 +258,20 @@ assertEq(unsetLocal(), undefined);
 assertEq(unsetLooseEqNull(), true);
 assertEq(conditional(2, 3), true);
 assertEq(conditional(3, 2), false);
+assertEq(logicalOr(0, 7), 7);
+assertEq(logicalOr(5, 7), 5);
+assertEq(logicalAnd(0, 7), 0);
+assertEq(logicalAnd(5, 7), 7);
+assertEq(logicalBoolOr(2, 3), true);
+assertEq(logicalBoolOr(3, 3), false);
+assertEq(logicalBoolAnd(2, 3), true);
+assertEq(logicalBoolAnd(3, 2), false);
+assertEq(minValue(2, 3), 2);
+assertEq(minValue(5, 1), 1);
+assertEq(chooseOrder(2, 3), true);
+assertEq(chooseOrder(3, 2), false);
+assertEq(sumRange(0), 0);
+assertEq(sumRange(5), 10);
 
 (function testPropertyWrappers() {
     function getX(obj) { return obj.x; }
