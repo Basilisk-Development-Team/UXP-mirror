@@ -8,6 +8,15 @@ function withLocal(a, b) {
   return d + 1;
 }
 
+function addEight(a, b, c, d, e, f, g, h) {
+  return a + b + c + d + e + f + g + h;
+}
+
+function assignSixthArg(a, b, c, d, e, f) {
+  f = a + e;
+  return f;
+}
+
 function overflow(a, b) {
   return a + b;
 }
@@ -259,7 +268,11 @@ function groupedSwitchValue(a) {
 for (var i = 0; i < 100; i++) {
   assertEq(add(i, i + 1), (i + i + 1));
   assertEq(withLocal(i, 7), i + 7);
+  assertEq(addEight(i, 1, 2, 3, 4, 5, 6, 7), i + 28);
 }
+
+assertEq(assignSixthArg(2, 0, 0, 0, 5, 99), 7);
+assertEq(assignSixthArg(-3, 0, 0, 0, 8, 11), 5);
 
 assertEq(overflow(2147483647, 1), 2147483648);
 assertEq(unsupported(2, 3), 5.5);

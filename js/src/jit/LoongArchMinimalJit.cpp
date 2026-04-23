@@ -48,8 +48,10 @@ enum LoongArchReg : uint8_t {
     t8 = 20
 };
 
-static constexpr LoongArchReg ArgRegs[] = { a0, a1 };
-static constexpr LoongArchReg LocalRegs[] = { a3, a4, a5, a6, a7 };
+static constexpr size_t MaxArgCount = 16;
+static constexpr LoongArchReg ArgsPointerReg = a0;
+static constexpr LoongArchReg ResultPointerReg = a1;
+static constexpr LoongArchReg LocalRegs[] = { a2, a3, a4, a5, a6, a7 };
 static constexpr LoongArchReg StackRegs[] = { t0, t1, t2, t3, t4, t5, t6 };
 static constexpr LoongArchReg WideScratch = t7;
 static constexpr LoongArchReg NarrowScratch = t8;
@@ -76,7 +78,7 @@ IsNumericKind(MinimalValueKind kind)
     return kind == MinimalValueKind::Int32 || kind == MinimalValueKind::Boolean;
 }
 
-using TinyLoongArchJitCode = bool (*)(int32_t arg0, int32_t arg1, MinimalJitResult* out);
+using TinyLoongArchJitCode = bool (*)(int32_t* args, MinimalJitResult* out);
 
 enum MinimalFastPathKind : uint8_t {
     MinimalFastPathUninitialized = 0,
@@ -185,7 +187,7 @@ struct ControlFlowState
     size_t stackDepth;
     LoongArchReg stackRegs[mozilla::ArrayLength(StackRegs)];
     MinimalValueKind stackKinds[mozilla::ArrayLength(StackRegs)];
-    MinimalValueKind argKinds[mozilla::ArrayLength(ArgRegs)];
+    MinimalValueKind argKinds[MaxArgCount];
     MinimalValueKind localKinds[mozilla::ArrayLength(LocalRegs)];
 
     ControlFlowState()
@@ -208,7 +210,7 @@ class MinimalLoongArchCompiler
     size_t failPatches_[128];
     size_t failPatchCount_;
     StackValue stack_[mozilla::ArrayLength(StackRegs)];
-    MinimalValueKind argKinds_[mozilla::ArrayLength(ArgRegs)];
+    MinimalValueKind argKinds_[MaxArgCount];
     MinimalValueKind localKinds_[mozilla::ArrayLength(LocalRegs)];
     size_t stackDepth_;
     bool reachable_;
@@ -230,7 +232,7 @@ class MinimalLoongArchCompiler
             stack_[i].reg = state.stackRegs[i];
             stack_[i].kind = state.stackKinds[i];
         }
-        for (size_t i = 0; i < mozilla::ArrayLength(argKinds_); i++)
+        for (size_t i = 0; i < MaxArgCount; i++)
             argKinds_[i] = state.argKinds[i];
         for (size_t i = 0; i < mozilla::ArrayLength(localKinds_); i++)
             localKinds_[i] = state.localKinds[i];
@@ -247,7 +249,7 @@ class MinimalLoongArchCompiler
                 return false;
             }
         }
-        for (size_t i = 0; i < mozilla::ArrayLength(argKinds_); i++) {
+        for (size_t i = 0; i < MaxArgCount; i++) {
             if (argKinds_[i] != state.argKinds[i])
                 return false;
         }
@@ -265,7 +267,7 @@ class MinimalLoongArchCompiler
             state->stackRegs[i] = stack_[i].reg;
             state->stackKinds[i] = stack_[i].kind;
         }
-        for (size_t i = 0; i < mozilla::ArrayLength(argKinds_); i++)
+        for (size_t i = 0; i < MaxArgCount; i++)
             state->argKinds[i] = argKinds_[i];
         for (size_t i = 0; i < mozilla::ArrayLength(localKinds_); i++)
             state->localKinds[i] = localKinds_[i];
@@ -321,6 +323,19 @@ class MinimalLoongArchCompiler
 
     bool emitXori(LoongArchReg dst, LoongArchReg src, uint32_t imm) {
         return emit(EncodeUnsignedImm12(0x03c00000, dst, src, imm));
+    }
+
+    bool emitLoadWord(LoongArchReg dst, LoongArchReg base, uint32_t offset) {
+        return emit(EncodeUnsignedImm12(0x28800000, dst, base, offset));
+    }
+
+    bool emitStoreWord(LoongArchReg src, LoongArchReg base, uint32_t offset) {
+        return emit(EncodeUnsignedImm12(0x29800000, src, base, offset));
+    }
+
+    bool emitLoadArg(LoongArchReg dst, uint32_t slot) {
+        MOZ_ASSERT(slot < MaxArgCount);
+        return emitLoadWord(dst, ArgsPointerReg, slot * sizeof(int32_t));
     }
 
     bool emitSltui(LoongArchReg dst, LoongArchReg src, uint32_t imm) {
@@ -542,11 +557,11 @@ class MinimalLoongArchCompiler
     }
 
     bool emitReturn(const StackValue& result) {
-        if (!emit(EncodeUnsignedImm12(0x29800000, result.reg, a2, 0)))
+        if (!emitStoreWord(result.reg, ResultPointerReg, 0))
             return false;
         if (!emitLoadImm32(NarrowScratch, int32_t(result.kind)))
             return false;
-        if (!emit(EncodeUnsignedImm12(0x29800000, NarrowScratch, a2, sizeof(uint32_t))))
+        if (!emitStoreWord(NarrowScratch, ResultPointerReg, sizeof(uint32_t)))
             return false;
         if (!emit(EncodeImm12(0x02800000, a0, zero, 1)))
             return false;
@@ -643,14 +658,14 @@ class MinimalLoongArchCompiler
     bool emitStoreArg(uint32_t slot) {
         if (slot >= script_->numArgs() || !stackDepth_)
             return false;
-        if (!emitMove(ArgRegs[slot], stack_[stackDepth_ - 1].reg))
+        if (!emitStoreWord(stack_[stackDepth_ - 1].reg, ArgsPointerReg, slot * sizeof(int32_t)))
             return false;
         argKinds_[slot] = stack_[stackDepth_ - 1].kind;
         return true;
     }
 
     bool supportedScriptShape() const {
-        return script_->numArgs() <= 2 &&
+        return script_->numArgs() <= MaxArgCount &&
                script_->nfixed() <= mozilla::ArrayLength(LocalRegs) &&
                !script_->isAsync() &&
                !script_->isStarGenerator() &&
@@ -701,7 +716,9 @@ class MinimalLoongArchCompiler
         reachable_(true),
         sawReturn_(false)
     {
-        for (size_t i = 0; i < mozilla::ArrayLength(argKinds_); i++)
+        for (size_t i = 0; i < MaxArgCount; i++)
+            argKinds_[i] = MinimalValueKind::Undefined;
+        for (size_t i = 0; i < script_->numArgs(); i++)
             argKinds_[i] = MinimalValueKind::Int32;
         for (size_t i = 0; i < mozilla::ArrayLength(localKinds_); i++)
             localKinds_[i] = MinimalValueKind::Undefined;
@@ -738,8 +755,12 @@ class MinimalLoongArchCompiler
                 uint32_t arg = GET_ARGNO(pc);
                 if (arg >= script_->numArgs())
                     return false;
-                if (!pushTempFromReg(ArgRegs[arg], argKinds_[arg]))
+                if (stackDepth_ >= mozilla::ArrayLength(StackRegs))
                     return false;
+                LoongArchReg dst = allocStackReg();
+                if (!emitLoadArg(dst, arg))
+                    return false;
+                stack_[stackDepth_++] = { dst, argKinds_[arg] };
                 break;
               }
               case JSOP_SETARG:
@@ -853,6 +874,7 @@ class MinimalLoongArchCompiler
               case JSOP_CHECKLEXICAL:
               case JSOP_LOOPENTRY:
               case JSOP_JUMPTARGET:
+              case JSOP_LINENO:
               case JSOP_NOP:
               case JSOP_CONDSWITCH:
                 break;
@@ -1201,7 +1223,7 @@ class MinimalLoongArchCompiler
 static bool
 CanUseMinimalJit(JSScript* script, const CallArgs& args)
 {
-    if (!script || script->numArgs() > 2)
+    if (!script || script->numArgs() > MaxArgCount)
         return false;
 
     if (args.length() < script->numArgs())
@@ -1435,9 +1457,10 @@ TryCallLoongArchMinimalJit(JSContext* cx, HandleFunction fun, const CallArgs& ar
         return true;
 
     MinimalJitResult result = { 0, MinimalValueKind::Int32 };
-    int32_t arg0 = script->numArgs() >= 1 ? args[0].toInt32() : 0;
-    int32_t arg1 = script->numArgs() >= 2 ? args[1].toInt32() : 0;
-    if (!fn(arg0, arg1, &result))
+    int32_t argPayloads[MaxArgCount] = { 0 };
+    for (uint32_t i = 0; i < script->numArgs(); i++)
+        argPayloads[i] = args[i].toInt32();
+    if (!fn(argPayloads, &result))
         return true;
 
     args.rval().set(MinimalJitResultToValue(result));
@@ -1468,9 +1491,10 @@ TryEnterLoongArchMinimalJit(JSContext* cx, RunState& state)
         return false;
 
     MinimalJitResult result = { 0, MinimalValueKind::Int32 };
-    int32_t arg0 = state.script()->numArgs() >= 1 ? invoke.args()[0].toInt32() : 0;
-    int32_t arg1 = state.script()->numArgs() >= 2 ? invoke.args()[1].toInt32() : 0;
-    if (!fn(arg0, arg1, &result))
+    int32_t argPayloads[MaxArgCount] = { 0 };
+    for (uint32_t i = 0; i < state.script()->numArgs(); i++)
+        argPayloads[i] = invoke.args()[i].toInt32();
+    if (!fn(argPayloads, &result))
         return false;
 
     state.setReturnValue(MinimalJitResultToValue(result));
