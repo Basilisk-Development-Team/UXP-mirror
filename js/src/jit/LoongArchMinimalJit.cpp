@@ -261,7 +261,8 @@ class MinimalLoongArchCompiler
     }
 
     bool emitReturn(LoongArchReg result) {
-        if (!emit(EncodeUnsignedImm12(0x29000000, result, a2, 0)))
+        // Write the full int32 result back to the out-parameter.
+        if (!emit(EncodeUnsignedImm12(0x29800000, result, a2, 0)))
             return false;
         if (!emit(EncodeImm12(0x02800000, a0, zero, 1)))
             return false;
@@ -799,6 +800,13 @@ bool
 js::jit::TryEnterLoongArchMinimalJit(JSContext*, RunState&)
 {
     return false;
+}
+
+bool
+js::jit::TryCallLoongArchMinimalJit(JSContext*, HandleFunction, const CallArgs&, bool* handled)
+{
+    *handled = false;
+    return true;
 }
 
 #endif
