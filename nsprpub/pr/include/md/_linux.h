@@ -63,6 +63,11 @@
 #define _PR_SI_ARCHITECTURE "riscv32"
 #elif defined(__riscv) && (__riscv_xlen == 64)
 #define _PR_SI_ARCHITECTURE "riscv64"
+#elif defined(__loongarch__) && defined(__loongarch_grlen) \
+    && (__loongarch_grlen == 32)
+#define _PR_SI_ARCHITECTURE "loongarch32"
+#elif defined(__loongarch__)
+#define _PR_SI_ARCHITECTURE "loongarch64"
 #elif defined(__arc__)
 #define _PR_SI_ARCHITECTURE "arc"
 #elif defined(__nios2__)
@@ -81,7 +86,7 @@
 #define _MD_DEFAULT_STACK_SIZE  65536L
 #define _MD_MMAP_FLAGS          MAP_PRIVATE
 
-#if defined(__aarch64__) || defined(__mips__)
+#if defined(__aarch64__) || defined(__mips__) || defined(__loongarch__)
 #define _MD_MINIMUM_STACK_SIZE  0x20000
 #endif
 
