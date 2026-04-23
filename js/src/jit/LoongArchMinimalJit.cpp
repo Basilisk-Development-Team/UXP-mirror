@@ -318,6 +318,37 @@ class MinimalLoongArchCompiler
         return emitSltui(out, src, 1);
     }
 
+    bool emitNeg(LoongArchReg src, LoongArchReg out) {
+        if (!emit(EncodeThreeReg(0x00110000, out, zero, src)))
+            return false;
+        if (!emitEq(out, src, WideScratch, false))
+            return false;
+        if (!emitMove(NarrowScratch, zero))
+            return false;
+        return emitFailureBranch();
+    }
+
+    bool emitShift(JSOp op, LoongArchReg lhs, LoongArchReg rhs, LoongArchReg out) {
+        switch (op) {
+          case JSOP_LSH:
+            return emit(EncodeThreeReg(0x00170000, out, lhs, rhs));
+          case JSOP_RSH:
+            return emit(EncodeThreeReg(0x00180000, out, lhs, rhs));
+          case JSOP_URSH:
+            if (!emit(EncodeThreeReg(0x00178000, out, lhs, rhs)))
+                return false;
+            if (!emit(EncodeThreeReg(0x00120000, WideScratch, out, zero)))
+                return false;
+            if (!emitMove(NarrowScratch, zero))
+                return false;
+            return emitFailureBranch();
+          default:
+            break;
+        }
+
+        MOZ_CRASH("bad shift opcode");
+    }
+
     bool emitBranch(BranchKind kind, LoongArchReg reg, uint32_t targetPcOffset) {
         BranchPatch patch = { wordCount_, targetPcOffset, kind, reg };
         if (!branchPatches_.append(patch))
@@ -649,6 +680,13 @@ class MinimalLoongArchCompiler
                 stack_[stackDepth_++] = { out, MinimalValueKind::Boolean };
                 break;
               }
+              case JSOP_NEG:
+                if (!stackDepth_ || !IsNumericKind(stack_[stackDepth_ - 1].kind))
+                    return false;
+                if (!emitNeg(stack_[stackDepth_ - 1].reg, stack_[stackDepth_ - 1].reg))
+                    return false;
+                stack_[stackDepth_ - 1].kind = MinimalValueKind::Int32;
+                break;
               case JSOP_NOT: {
                 StackValue input;
                 if (!pop(&input))
@@ -657,6 +695,21 @@ class MinimalLoongArchCompiler
                 if (!emitNot(input.reg, out))
                     return false;
                 stack_[stackDepth_++] = { out, MinimalValueKind::Boolean };
+                break;
+              }
+              case JSOP_LSH:
+              case JSOP_RSH:
+              case JSOP_URSH: {
+                StackValue rhs;
+                StackValue lhs;
+                if (!pop(&rhs) || !pop(&lhs))
+                    return false;
+                if (!IsNumericKind(lhs.kind) || !IsNumericKind(rhs.kind))
+                    return false;
+                LoongArchReg out = allocStackReg();
+                if (!emitShift(op, lhs.reg, rhs.reg, out))
+                    return false;
+                stack_[stackDepth_++] = { out, MinimalValueKind::Int32 };
                 break;
               }
               case JSOP_BITAND:

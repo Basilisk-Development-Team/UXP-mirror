@@ -64,6 +64,22 @@ function invertBits(a) {
   return ~a;
 }
 
+function negate(a) {
+  return -a;
+}
+
+function leftShift(a, b) {
+  return a << b;
+}
+
+function rightShift(a, b) {
+  return a >> b;
+}
+
+function unsignedRightShift(a, b) {
+  return a >>> b;
+}
+
 function assignArg(a, b) {
   a = a < b;
   return a;
@@ -125,6 +141,15 @@ assertEq(boolLooseNe(2, 3), false);
 assertEq(boolLooseNe(3, 2), true);
 assertEq(bitMix(6, 3), (6 & 3) ^ (6 | 8));
 assertEq(invertBits(6), ~6);
+assertEq(negate(3), -3);
+assertEq(negate(-4), 4);
+assertEq(1 / negate(0), -Infinity);
+assertEq(negate(-2147483648), 2147483648);
+assertEq(leftShift(3, 2), 12);
+assertEq(leftShift(1, 33), 2);
+assertEq(rightShift(-8, 1), -4);
+assertEq(unsignedRightShift(-1, 1), 2147483647);
+assertEq(unsignedRightShift(-1, 0), 4294967295);
 assertEq(assignArg(2, 3), true);
 assertEq(assignArg(3, 2), false);
 assertEq(boolToNumeric(2, 3), 1);
