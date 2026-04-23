@@ -504,6 +504,42 @@ class MinimalLoongArchCompiler
         return pushTempFromReg(top.reg, top.kind);
     }
 
+    bool duplicateTopTwo() {
+        if (stackDepth_ < 2)
+            return false;
+        StackValue lhs = stack_[stackDepth_ - 2];
+        StackValue rhs = stack_[stackDepth_ - 1];
+        return pushTempFromReg(lhs.reg, lhs.kind) &&
+               pushTempFromReg(rhs.reg, rhs.kind);
+    }
+
+    bool duplicateAt(uint32_t index) {
+        if (index >= stackDepth_)
+            return false;
+        const StackValue& value = stack_[stackDepth_ - index - 1];
+        return pushTempFromReg(value.reg, value.kind);
+    }
+
+    bool pick(uint32_t index) {
+        if (index >= stackDepth_)
+            return false;
+        StackValue value = stack_[stackDepth_ - index - 1];
+        for (size_t i = stackDepth_ - index - 1; i + 1 < stackDepth_; i++)
+            stack_[i] = stack_[i + 1];
+        stack_[stackDepth_ - 1] = value;
+        return true;
+    }
+
+    bool unpick(uint32_t index) {
+        if (index >= stackDepth_)
+            return false;
+        StackValue value = stack_[stackDepth_ - 1];
+        for (size_t i = stackDepth_ - 1; i > stackDepth_ - index - 1; i--)
+            stack_[i] = stack_[i - 1];
+        stack_[stackDepth_ - index - 1] = value;
+        return true;
+    }
+
     bool pop(StackValue* value) {
         if (!stackDepth_)
             return false;
@@ -659,6 +695,14 @@ class MinimalLoongArchCompiler
                 if (!pushTempFromImm(GET_INT8(pc), MinimalValueKind::Int32))
                     return false;
                 break;
+              case JSOP_UINT16:
+                if (!pushTempFromImm(GET_UINT16(pc), MinimalValueKind::Int32))
+                    return false;
+                break;
+              case JSOP_UINT24:
+                if (!pushTempFromImm(GET_UINT24(pc), MinimalValueKind::Int32))
+                    return false;
+                break;
               case JSOP_INT32:
                 if (!pushTempFromImm(GET_INT32(pc), MinimalValueKind::Int32))
                     return false;
@@ -668,8 +712,21 @@ class MinimalLoongArchCompiler
                     return false;
                 stackDepth_--;
                 break;
+              case JSOP_POPN:
+                if (GET_UINT16(pc) > stackDepth_)
+                    return false;
+                stackDepth_ -= GET_UINT16(pc);
+                break;
               case JSOP_DUP:
                 if (!duplicateTop())
+                    return false;
+                break;
+              case JSOP_DUP2:
+                if (!duplicateTopTwo())
+                    return false;
+                break;
+              case JSOP_DUPAT:
+                if (!duplicateAt(GET_UINT24(pc)))
                     return false;
                 break;
               case JSOP_SWAP: {
@@ -680,6 +737,14 @@ class MinimalLoongArchCompiler
                 stack_[stackDepth_ - 2] = tmp;
                 break;
               }
+              case JSOP_PICK:
+                if (!pick(GET_UINT8(pc)))
+                    return false;
+                break;
+              case JSOP_UNPICK:
+                if (!unpick(GET_UINT8(pc)))
+                    return false;
+                break;
               case JSOP_TONUMERIC:
               case JSOP_POS:
                 if (!stackDepth_ || !IsNumericKind(stack_[stackDepth_ - 1].kind))
@@ -767,8 +832,12 @@ class MinimalLoongArchCompiler
                 bool invert = op == JSOP_NE || op == JSOP_STRICTNE;
                 bool strict = op == JSOP_STRICTEQ || op == JSOP_STRICTNE;
                 if (IsNumericKind(lhs.kind) && IsNumericKind(rhs.kind)) {
-                    if (!emitEq(lhs.reg, rhs.reg, out, invert))
+                    if (strict && lhs.kind != rhs.kind) {
+                        if (!emitLoadImm32(out, invert ? 1 : 0))
+                            return false;
+                    } else if (!emitEq(lhs.reg, rhs.reg, out, invert)) {
                         return false;
+                    }
                 } else {
                     bool equal = false;
                     if (strict) {

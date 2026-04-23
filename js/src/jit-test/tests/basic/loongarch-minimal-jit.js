@@ -48,6 +48,14 @@ function boolStrictEq(a, b) {
   return (a < b) === (b > a);
 }
 
+function strictBoolIntEq(a, b) {
+  return (a < b) === 1;
+}
+
+function strictBoolIntNe(a, b) {
+  return (a < b) !== 1;
+}
+
 function boolLooseEq(a, b) {
   return (a < b) == 1;
 }
@@ -102,6 +110,18 @@ function remainder(a, b) {
 
 function remainderNegativeZero(a) {
   return a % 2;
+}
+
+function uint16Const() {
+  return 50000;
+}
+
+function uint24Const() {
+  return 70000;
+}
+
+function popMany(a, b) {
+  return (a + 1, b + 2, a + 3, b + 4, a + b);
 }
 
 function assignArg(a, b) {
@@ -159,6 +179,10 @@ assertEq(notLess(2, 3), false);
 assertEq(notLess(3, 2), true);
 assertEq(boolStrictEq(2, 3), true);
 assertEq(boolStrictEq(3, 2), true);
+assertEq(strictBoolIntEq(2, 3), false);
+assertEq(strictBoolIntEq(3, 2), false);
+assertEq(strictBoolIntNe(2, 3), true);
+assertEq(strictBoolIntNe(3, 2), true);
 assertEq(boolLooseEq(2, 3), true);
 assertEq(boolLooseEq(3, 2), false);
 assertEq(boolLooseNe(2, 3), false);
@@ -187,6 +211,9 @@ assertEq(divide(-2147483648, -1), 2147483648);
 assertEq(remainder(7, 3), 1);
 assertEq(remainder(8, 2), 0);
 assertEq(1 / remainderNegativeZero(-4), -Infinity);
+assertEq(uint16Const(), 50000);
+assertEq(uint24Const(), 70000);
+assertEq(popMany(3, 4), 7);
 assertEq(assignArg(2, 3), true);
 assertEq(assignArg(3, 2), false);
 assertEq(boolToNumeric(2, 3), 1);
