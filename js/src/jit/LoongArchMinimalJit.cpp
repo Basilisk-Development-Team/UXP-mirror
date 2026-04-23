@@ -48,13 +48,17 @@ enum LoongArchReg : uint8_t {
     t8 = 20
 };
 
-static constexpr size_t MaxArgCount = 16;
+static constexpr size_t MaxArgCount = 32;
 static constexpr LoongArchReg ArgsPointerReg = a0;
 static constexpr LoongArchReg ResultPointerReg = a1;
 static constexpr LoongArchReg LocalRegs[] = { a2, a3, a4, a5, a6, a7 };
 static constexpr LoongArchReg StackRegs[] = { t0, t1, t2, t3, t4, t5, t6 };
 static constexpr LoongArchReg WideScratch = t7;
 static constexpr LoongArchReg NarrowScratch = t8;
+static constexpr size_t MaxLocalCount = 24;
+static constexpr size_t LocalScratchBase = MaxArgCount;
+static constexpr size_t LocalScratchSlotCount = MaxLocalCount - mozilla::ArrayLength(LocalRegs);
+static constexpr size_t FrameSlotCount = LocalScratchBase + LocalScratchSlotCount;
 
 enum class MinimalValueKind : uint32_t {
     Int32 = 0,
@@ -188,7 +192,7 @@ struct ControlFlowState
     LoongArchReg stackRegs[mozilla::ArrayLength(StackRegs)];
     MinimalValueKind stackKinds[mozilla::ArrayLength(StackRegs)];
     MinimalValueKind argKinds[MaxArgCount];
-    MinimalValueKind localKinds[mozilla::ArrayLength(LocalRegs)];
+    MinimalValueKind localKinds[MaxLocalCount];
 
     ControlFlowState()
       : initialized(false),
@@ -211,7 +215,7 @@ class MinimalLoongArchCompiler
     size_t failPatchCount_;
     StackValue stack_[mozilla::ArrayLength(StackRegs)];
     MinimalValueKind argKinds_[MaxArgCount];
-    MinimalValueKind localKinds_[mozilla::ArrayLength(LocalRegs)];
+    MinimalValueKind localKinds_[MaxLocalCount];
     size_t stackDepth_;
     bool reachable_;
     bool sawReturn_;
@@ -336,6 +340,13 @@ class MinimalLoongArchCompiler
     bool emitLoadArg(LoongArchReg dst, uint32_t slot) {
         MOZ_ASSERT(slot < MaxArgCount);
         return emitLoadWord(dst, ArgsPointerReg, slot * sizeof(int32_t));
+    }
+
+    static uint32_t localScratchOffset(uint32_t slot) {
+        MOZ_ASSERT(slot >= mozilla::ArrayLength(LocalRegs));
+        MOZ_ASSERT(slot < MaxLocalCount);
+        uint32_t scratchSlot = uint32_t(LocalScratchBase + slot - mozilla::ArrayLength(LocalRegs));
+        return scratchSlot * sizeof(int32_t);
     }
 
     bool emitSltui(LoongArchReg dst, LoongArchReg src, uint32_t imm) {
@@ -649,8 +660,13 @@ class MinimalLoongArchCompiler
     bool emitStoreLocal(uint32_t slot) {
         if (slot >= script_->nfixed() || !stackDepth_)
             return false;
-        if (!emitMove(LocalRegs[slot], stack_[stackDepth_ - 1].reg))
-            return false;
+        if (slot < mozilla::ArrayLength(LocalRegs)) {
+            if (!emitMove(LocalRegs[slot], stack_[stackDepth_ - 1].reg))
+                return false;
+        } else {
+            if (!emitStoreWord(stack_[stackDepth_ - 1].reg, ArgsPointerReg, localScratchOffset(slot)))
+                return false;
+        }
         localKinds_[slot] = stack_[stackDepth_ - 1].kind;
         return true;
     }
@@ -666,7 +682,7 @@ class MinimalLoongArchCompiler
 
     bool supportedScriptShape() const {
         return script_->numArgs() <= MaxArgCount &&
-               script_->nfixed() <= mozilla::ArrayLength(LocalRegs) &&
+               script_->nfixed() <= MaxLocalCount &&
                !script_->isAsync() &&
                !script_->isStarGenerator() &&
                !script_->isLegacyGenerator() &&
@@ -733,7 +749,7 @@ class MinimalLoongArchCompiler
         if (!pcStates_.appendN(ControlFlowState(), script_->length() + 1))
             return false;
 
-        for (size_t i = 0; i < script_->nfixed(); i++) {
+        for (size_t i = 0; i < script_->nfixed() && i < mozilla::ArrayLength(LocalRegs); i++) {
             if (!emitLoadImm32(LocalRegs[i], 0))
                 return false;
         }
@@ -771,8 +787,17 @@ class MinimalLoongArchCompiler
                 uint32_t local = GET_LOCALNO(pc);
                 if (local >= script_->nfixed())
                     return false;
-                if (!pushTempFromReg(LocalRegs[local], localKinds_[local]))
-                    return false;
+                if (local < mozilla::ArrayLength(LocalRegs)) {
+                    if (!pushTempFromReg(LocalRegs[local], localKinds_[local]))
+                        return false;
+                } else {
+                    if (stackDepth_ >= mozilla::ArrayLength(StackRegs))
+                        return false;
+                    LoongArchReg dst = allocStackReg();
+                    if (!emitLoadWord(dst, ArgsPointerReg, localScratchOffset(local)))
+                        return false;
+                    stack_[stackDepth_++] = { dst, localKinds_[local] };
+                }
                 break;
               }
               case JSOP_SETLOCAL:
@@ -1457,10 +1482,10 @@ TryCallLoongArchMinimalJit(JSContext* cx, HandleFunction fun, const CallArgs& ar
         return true;
 
     MinimalJitResult result = { 0, MinimalValueKind::Int32 };
-    int32_t argPayloads[MaxArgCount] = { 0 };
+    int32_t frameSlots[FrameSlotCount] = { 0 };
     for (uint32_t i = 0; i < script->numArgs(); i++)
-        argPayloads[i] = args[i].toInt32();
-    if (!fn(argPayloads, &result))
+        frameSlots[i] = args[i].toInt32();
+    if (!fn(frameSlots, &result))
         return true;
 
     args.rval().set(MinimalJitResultToValue(result));
@@ -1491,10 +1516,10 @@ TryEnterLoongArchMinimalJit(JSContext* cx, RunState& state)
         return false;
 
     MinimalJitResult result = { 0, MinimalValueKind::Int32 };
-    int32_t argPayloads[MaxArgCount] = { 0 };
+    int32_t frameSlots[FrameSlotCount] = { 0 };
     for (uint32_t i = 0; i < state.script()->numArgs(); i++)
-        argPayloads[i] = invoke.args()[i].toInt32();
-    if (!fn(argPayloads, &result))
+        frameSlots[i] = invoke.args()[i].toInt32();
+    if (!fn(frameSlots, &result))
         return false;
 
     state.setReturnValue(MinimalJitResultToValue(result));
