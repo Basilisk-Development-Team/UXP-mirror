@@ -172,6 +172,18 @@ ICUnaryArith_Int32::Compiler::generateStubCode(MacroAssembler& masm)
         masm.neg32(ExtractTemp0);
         masm.tagValue(JSVAL_TYPE_INT32, ExtractTemp0, R0);
         break;
+      case JSOP_INC: {
+        RegisterOrInt32Constant rval = RegisterOrInt32Constant(R0.valueReg());
+        masm.inc32(&rval);
+        masm.tagValue(JSVAL_TYPE_INT32, R0.valueReg(), R0);
+        break;
+      }
+      case JSOP_DEC: {
+        RegisterOrInt32Constant rval = RegisterOrInt32Constant(R0.valueReg());
+        masm.dec32(&rval);
+        masm.tagValue(JSVAL_TYPE_INT32, R0.valueReg(), R0);
+        break;
+      }
       default:
         MOZ_CRASH("Unexpected op");
         return false;
