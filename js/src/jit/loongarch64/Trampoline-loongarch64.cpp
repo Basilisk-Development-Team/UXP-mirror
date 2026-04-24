@@ -62,41 +62,26 @@ GenerateReturn(MacroAssembler& masm, int returnCode)
 {
     MOZ_ASSERT(masm.framePushed() == sizeof(EnterJITRegs));
 
-    if (isLoongson()) {
-        // Restore non-volatile registers
-        masm.as_ld(s0, StackPointer, offsetof(EnterJITRegs, s0));
-        masm.as_gslq(s1, s2, StackPointer, offsetof(EnterJITRegs, s2));
-        masm.as_gslq(s3, s4, StackPointer, offsetof(EnterJITRegs, s4));
-        masm.as_gslq(s5, s6, StackPointer, offsetof(EnterJITRegs, s6));
-        masm.as_gslq(s7, ra, StackPointer, offsetof(EnterJITRegs, ra));
+    // Restore non-volatile registers.
+    masm.loadPtr(Address(StackPointer, offsetof(EnterJITRegs, s0)), s0);
+    masm.loadPtr(Address(StackPointer, offsetof(EnterJITRegs, s1)), s1);
+    masm.loadPtr(Address(StackPointer, offsetof(EnterJITRegs, s2)), s2);
+    masm.loadPtr(Address(StackPointer, offsetof(EnterJITRegs, s3)), s3);
+    masm.loadPtr(Address(StackPointer, offsetof(EnterJITRegs, s4)), s4);
+    masm.loadPtr(Address(StackPointer, offsetof(EnterJITRegs, s5)), s5);
+    masm.loadPtr(Address(StackPointer, offsetof(EnterJITRegs, s6)), s6);
+    masm.loadPtr(Address(StackPointer, offsetof(EnterJITRegs, s7)), s7);
+    masm.loadPtr(Address(StackPointer, offsetof(EnterJITRegs, ra)), ra);
 
-        // Restore non-volatile floating point registers
-        masm.as_gslq(f24, f25, StackPointer, offsetof(EnterJITRegs, f25));
-        masm.as_gslq(f26, f27, StackPointer, offsetof(EnterJITRegs, f27));
-        masm.as_gslq(f28, f29, StackPointer, offsetof(EnterJITRegs, f29));
-        masm.as_gslq(f30, f31, StackPointer, offsetof(EnterJITRegs, f31));
-    } else {
-        // Restore non-volatile registers
-        masm.as_ld(s0, StackPointer, offsetof(EnterJITRegs, s0));
-        masm.as_ld(s1, StackPointer, offsetof(EnterJITRegs, s1));
-        masm.as_ld(s2, StackPointer, offsetof(EnterJITRegs, s2));
-        masm.as_ld(s3, StackPointer, offsetof(EnterJITRegs, s3));
-        masm.as_ld(s4, StackPointer, offsetof(EnterJITRegs, s4));
-        masm.as_ld(s5, StackPointer, offsetof(EnterJITRegs, s5));
-        masm.as_ld(s6, StackPointer, offsetof(EnterJITRegs, s6));
-        masm.as_ld(s7, StackPointer, offsetof(EnterJITRegs, s7));
-        masm.as_ld(ra, StackPointer, offsetof(EnterJITRegs, ra));
-
-        // Restore non-volatile floating point registers
-        masm.as_ld(f24, StackPointer, offsetof(EnterJITRegs, f24));
-        masm.as_ld(f25, StackPointer, offsetof(EnterJITRegs, f25));
-        masm.as_ld(f26, StackPointer, offsetof(EnterJITRegs, f26));
-        masm.as_ld(f27, StackPointer, offsetof(EnterJITRegs, f27));
-        masm.as_ld(f28, StackPointer, offsetof(EnterJITRegs, f28));
-        masm.as_ld(f29, StackPointer, offsetof(EnterJITRegs, f29));
-        masm.as_ld(f30, StackPointer, offsetof(EnterJITRegs, f30));
-        masm.as_ld(f31, StackPointer, offsetof(EnterJITRegs, f31));
-    }
+    // Restore non-volatile floating point registers.
+    masm.loadDouble(Address(StackPointer, offsetof(EnterJITRegs, f24)), f24);
+    masm.loadDouble(Address(StackPointer, offsetof(EnterJITRegs, f25)), f25);
+    masm.loadDouble(Address(StackPointer, offsetof(EnterJITRegs, f26)), f26);
+    masm.loadDouble(Address(StackPointer, offsetof(EnterJITRegs, f27)), f27);
+    masm.loadDouble(Address(StackPointer, offsetof(EnterJITRegs, f28)), f28);
+    masm.loadDouble(Address(StackPointer, offsetof(EnterJITRegs, f29)), f29);
+    masm.loadDouble(Address(StackPointer, offsetof(EnterJITRegs, f30)), f30);
+    masm.loadDouble(Address(StackPointer, offsetof(EnterJITRegs, f31)), f31);
 
     masm.freeStack(sizeof(EnterJITRegs));
 
@@ -108,41 +93,26 @@ GeneratePrologue(MacroAssembler& masm)
 {
     masm.reserveStack(sizeof(EnterJITRegs));
 
-    if (isLoongson()) {
-        masm.as_gssq(a7, s0, StackPointer, offsetof(EnterJITRegs, s0));
-        masm.as_gssq(s1, s2, StackPointer, offsetof(EnterJITRegs, s2));
-        masm.as_gssq(s3, s4, StackPointer, offsetof(EnterJITRegs, s4));
-        masm.as_gssq(s5, s6, StackPointer, offsetof(EnterJITRegs, s6));
-        masm.as_gssq(s7, ra, StackPointer, offsetof(EnterJITRegs, ra));
+    masm.storePtr(s0, Address(StackPointer, offsetof(EnterJITRegs, s0)));
+    masm.storePtr(s1, Address(StackPointer, offsetof(EnterJITRegs, s1)));
+    masm.storePtr(s2, Address(StackPointer, offsetof(EnterJITRegs, s2)));
+    masm.storePtr(s3, Address(StackPointer, offsetof(EnterJITRegs, s3)));
+    masm.storePtr(s4, Address(StackPointer, offsetof(EnterJITRegs, s4)));
+    masm.storePtr(s5, Address(StackPointer, offsetof(EnterJITRegs, s5)));
+    masm.storePtr(s6, Address(StackPointer, offsetof(EnterJITRegs, s6)));
+    masm.storePtr(s7, Address(StackPointer, offsetof(EnterJITRegs, s7)));
+    masm.storePtr(ra, Address(StackPointer, offsetof(EnterJITRegs, ra)));
+    masm.storePtr(a7, Address(StackPointer, offsetof(EnterJITRegs, a7)));
 
-        masm.as_gssq(f24, f25, StackPointer, offsetof(EnterJITRegs, f25));
-        masm.as_gssq(f26, f27, StackPointer, offsetof(EnterJITRegs, f27));
-        masm.as_gssq(f28, f29, StackPointer, offsetof(EnterJITRegs, f29));
-        masm.as_gssq(f30, f31, StackPointer, offsetof(EnterJITRegs, f31));
-        return;
-    }
-
-    masm.as_sd(s0, StackPointer, offsetof(EnterJITRegs, s0));
-    masm.as_sd(s1, StackPointer, offsetof(EnterJITRegs, s1));
-    masm.as_sd(s2, StackPointer, offsetof(EnterJITRegs, s2));
-    masm.as_sd(s3, StackPointer, offsetof(EnterJITRegs, s3));
-    masm.as_sd(s4, StackPointer, offsetof(EnterJITRegs, s4));
-    masm.as_sd(s5, StackPointer, offsetof(EnterJITRegs, s5));
-    masm.as_sd(s6, StackPointer, offsetof(EnterJITRegs, s6));
-    masm.as_sd(s7, StackPointer, offsetof(EnterJITRegs, s7));
-    masm.as_sd(ra, StackPointer, offsetof(EnterJITRegs, ra));
-    masm.as_sd(a7, StackPointer, offsetof(EnterJITRegs, a7));
-
-    masm.as_sd(f24, StackPointer, offsetof(EnterJITRegs, f24));
-    masm.as_sd(f25, StackPointer, offsetof(EnterJITRegs, f25));
-    masm.as_sd(f26, StackPointer, offsetof(EnterJITRegs, f26));
-    masm.as_sd(f27, StackPointer, offsetof(EnterJITRegs, f27));
-    masm.as_sd(f28, StackPointer, offsetof(EnterJITRegs, f28));
-    masm.as_sd(f29, StackPointer, offsetof(EnterJITRegs, f29));
-    masm.as_sd(f30, StackPointer, offsetof(EnterJITRegs, f30));
-    masm.as_sd(f31, StackPointer, offsetof(EnterJITRegs, f31));
+    masm.storeDouble(f24, Address(StackPointer, offsetof(EnterJITRegs, f24)));
+    masm.storeDouble(f25, Address(StackPointer, offsetof(EnterJITRegs, f25)));
+    masm.storeDouble(f26, Address(StackPointer, offsetof(EnterJITRegs, f26)));
+    masm.storeDouble(f27, Address(StackPointer, offsetof(EnterJITRegs, f27)));
+    masm.storeDouble(f28, Address(StackPointer, offsetof(EnterJITRegs, f28)));
+    masm.storeDouble(f29, Address(StackPointer, offsetof(EnterJITRegs, f29)));
+    masm.storeDouble(f30, Address(StackPointer, offsetof(EnterJITRegs, f30)));
+    masm.storeDouble(f31, Address(StackPointer, offsetof(EnterJITRegs, f31)));
 }
-
 
 // Generates a trampoline for calling Jit compiled code from a C++ function.
 // The trampoline use the EnterJitCode signature, with the standard x64 fastcall
@@ -191,10 +161,10 @@ JitRuntime::generateEnterJIT(JSContext* cx, EnterJitType type)
 
     // Make stack algined
     masm.ma_and(s0, reg_argc, Imm32(1));
-    masm.ma_dsubu(s1, StackPointer, Imm32(sizeof(Value)));
-    masm.as_movn(StackPointer, s1, s0);
+    masm.ma_sub_d(s1, StackPointer, Imm32(sizeof(Value)));
+    masm.moveIfNotZero(StackPointer, s1, s0);
 
-    masm.as_dsll(s0, reg_argc, 3); // Value* argv
+    masm.as_slli_d(s0, reg_argc, 3); // Value* argv
     masm.addPtr(reg_argv, s0); // s0 = &argv[argc]
 
     // Loop over arguments, copying them from an unknown buffer onto the Ion
@@ -257,7 +227,7 @@ JitRuntime::generateEnterJIT(JSContext* cx, EnterJitType type)
         masm.movePtr(StackPointer, framePtr);
 
         // Reserve space for locals and stack values.
-        masm.ma_dsll(scratch, numStackValues, Imm32(3));
+        masm.as_slli_d(scratch, numStackValues, 3);
         masm.subPtr(scratch, StackPointer);
 
         // Enter exit frame.
@@ -301,7 +271,7 @@ JitRuntime::generateEnterJIT(JSContext* cx, EnterJitType type)
             AbsoluteAddress addressOfEnabled(cx->runtime()->spsProfiler.addressOfEnabled());
             masm.branch32(Assembler::Equal, addressOfEnabled, Imm32(0),
                           &skipProfilingInstrumentation);
-            masm.ma_daddu(realFramePtr, framePtr, Imm32(sizeof(void*)));
+            masm.ma_add_d(realFramePtr, framePtr, Imm32(sizeof(void*)));
             masm.profilerEnterFrame(realFramePtr, scratch);
             masm.bind(&skipProfilingInstrumentation);
         }
@@ -320,7 +290,7 @@ JitRuntime::generateEnterJIT(JSContext* cx, EnterJitType type)
         masm.bind(&notOsr);
         // Load the scope chain in R1.
         MOZ_ASSERT(R1.scratchReg() != reg_code);
-        masm.ma_move(R1.scratchReg(), reg_chain);
+        masm.movePtr(reg_chain, R1.scratchReg());
     }
 
     // The call will push the return address on the stack, thus we check that
@@ -345,7 +315,7 @@ JitRuntime::generateEnterJIT(JSContext* cx, EnterJitType type)
     masm.addPtr(s0, StackPointer);
 
     // Store the returned value into the vp
-    masm.as_ld(reg_vp, StackPointer, offsetof(EnterJITRegs, a7));
+    masm.loadPtr(Address(StackPointer, offsetof(EnterJITRegs, a7)), reg_vp);
     masm.storeValue(JSReturnOperand, Address(reg_vp, 0));
 
     // Restore non-volatile registers and return.
@@ -379,7 +349,7 @@ JitRuntime::generateInvalidator(JSContext* cx)
     // Reserve place for return value and BailoutInfo pointer
     masm.subPtr(Imm32(2 * sizeof(uintptr_t)), StackPointer);
     // Pass pointer to return value.
-    masm.ma_daddu(a1, StackPointer, Imm32(sizeof(uintptr_t)));
+    masm.ma_add_d(a1, StackPointer, Imm32(sizeof(uintptr_t)));
     // Pass pointer to BailoutInfo
     masm.movePtr(StackPointer, a2);
 
@@ -451,7 +421,7 @@ JitRuntime::generateArgumentsRectifier(JSContext* cx, void** returnAddrOut)
     static_assert(CalleeToken_FunctionConstructing == 1,
       "Ensure that we can use the constructing bit to count the value");
     masm.mov(calleeTokenReg, t2);
-    masm.ma_and(t2, Imm32(uint32_t(CalleeToken_FunctionConstructing)));
+    masm.ma_and(t2, t2, Imm32(uint32_t(CalleeToken_FunctionConstructing)));
 
     // Including |this|, and |new.target|, there are (|nformals| + 1 + isConstructing)
     // arguments to push to the stack.  Then we push a JitFrameLayout.  We
@@ -468,7 +438,7 @@ JitRuntime::generateArgumentsRectifier(JSContext* cx, void** returnAddrOut)
     masm.and32(Imm32(~(JitStackValueAlignment - 1)), numArgsReg);
 
     // Load the number of |undefined|s to push into t1.
-    masm.as_dsubu(t1, numArgsReg, s3);
+    masm.as_sub_d(t1, numArgsReg, s3);
 
     // Caller:
     // [arg2] [arg1] [this] [[argc] [callee] [descr] [raddr]] <- sp <- t2
@@ -504,8 +474,8 @@ JitRuntime::generateArgumentsRectifier(JSContext* cx, void** returnAddrOut)
 
     // | - sizeof(Value)| is used to put rcx such that we can read the last
     // argument, and not the value which is after.
-    masm.ma_dsll(t0, s3, Imm32(3)); // t0 <- nargs * 8
-    masm.as_daddu(t1, t2, t0); // t1 <- t2(saved sp) + nargs * 8
+    masm.as_slli_d(t0, s3, 3); // t0 <- nargs * 8
+    masm.as_add_d(t1, t2, t0); // t1 <- t2(saved sp) + nargs * 8
     masm.addPtr(Imm32(sizeof(RectifierFrameLayout) - sizeof(Value)), t1);
 
     // Copy & Push arguments, |nargs| + 1 times (to include |this|).
@@ -713,7 +683,7 @@ JitRuntime::generateVMWrapper(JSContext* cx, const VMFunction& f)
     if (f.explicitArgs) {
         argsBase = t1; // Use temporary register.
         regs.take(argsBase);
-        masm.ma_daddu(argsBase, StackPointer, Imm32(ExitFrameLayout::SizeWithFooter()));
+        masm.ma_add_d(argsBase, StackPointer, Imm32(ExitFrameLayout::SizeWithFooter()));
     }
 
     // Reserve space for the outparameter.
@@ -799,11 +769,11 @@ JitRuntime::generateVMWrapper(JSContext* cx, const VMFunction& f)
     // Test for failure.
     switch (f.failType()) {
       case Type_Object:
-        masm.branchTestPtr(Assembler::Zero, v0, v0, masm.failureLabel());
+        masm.branchTestPtr(Assembler::Zero, ReturnReg, ReturnReg, masm.failureLabel());
         break;
       case Type_Bool:
         // Called functions return bools, which are 0/false and non-zero/true
-        masm.branchIfFalseBool(v0, masm.failureLabel());
+        masm.branchIfFalseBool(ReturnReg, masm.failureLabel());
         break;
       default:
         MOZ_CRASH("unknown failure kind");
@@ -837,7 +807,7 @@ JitRuntime::generateVMWrapper(JSContext* cx, const VMFunction& f)
 
       case Type_Double:
         if (cx->runtime()->jitSupportsFloatingPoint) {
-            masm.as_ld(ReturnDoubleReg, StackPointer, 0);
+            masm.loadDouble(Address(StackPointer, 0), ReturnDoubleReg);
         } else {
             masm.assumeUnreachable("Unable to load into float reg, with no FP support.");
         }
@@ -1148,8 +1118,8 @@ JitRuntime::generateProfilerExitFrameTailStub(JSContext* cx)
 
         // Store return frame in lastProfilingFrame.
         // scratch2 := StackPointer + Descriptor.size*1 + JitFrameLayout::Size();
-        masm.as_daddu(scratch2, StackPointer, scratch1);
-        masm.ma_daddu(scratch2, scratch2, Imm32(JitFrameLayout::Size()));
+        masm.as_add_d(scratch2, StackPointer, scratch1);
+        masm.ma_add_d(scratch2, scratch2, Imm32(JitFrameLayout::Size()));
         masm.storePtr(scratch2, lastProfilingFrame);
         masm.ret();
     }
@@ -1182,7 +1152,7 @@ JitRuntime::generateProfilerExitFrameTailStub(JSContext* cx)
     //
     masm.bind(&handle_BaselineStub);
     {
-        masm.as_daddu(scratch3, StackPointer, scratch1);
+        masm.as_add_d(scratch3, StackPointer, scratch1);
         Address stubFrameReturnAddr(scratch3,
                                     JitFrameLayout::Size() +
                                     BaselineStubFrameLayout::offsetOfReturnAddress());
@@ -1239,10 +1209,10 @@ JitRuntime::generateProfilerExitFrameTailStub(JSContext* cx)
     masm.bind(&handle_Rectifier);
     {
         // scratch2 := StackPointer + Descriptor.size*1 + JitFrameLayout::Size();
-        masm.as_daddu(scratch2, StackPointer, scratch1);
+        masm.as_add_d(scratch2, StackPointer, scratch1);
         masm.addPtr(Imm32(JitFrameLayout::Size()), scratch2);
         masm.loadPtr(Address(scratch2, RectifierFrameLayout::offsetOfDescriptor()), scratch3);
-        masm.ma_dsrl(scratch1, scratch3, Imm32(FRAMESIZE_SHIFT));
+        masm.as_srli_d(scratch1, scratch3, FRAMESIZE_SHIFT);
         masm.and32(Imm32((1 << FRAMETYPE_BITS) - 1), scratch3);
 
         // Now |scratch1| contains Rect-Descriptor.Size
@@ -1260,7 +1230,7 @@ JitRuntime::generateProfilerExitFrameTailStub(JSContext* cx)
         masm.storePtr(scratch3, lastProfilingCallSite);
 
         // scratch3 := RectFrame + Rect-Descriptor.Size + RectifierFrameLayout::Size()
-        masm.as_daddu(scratch3, scratch2, scratch1);
+        masm.as_add_d(scratch3, scratch2, scratch1);
         masm.addPtr(Imm32(RectifierFrameLayout::Size()), scratch3);
         masm.storePtr(scratch3, lastProfilingFrame);
         masm.ret();
@@ -1275,7 +1245,7 @@ JitRuntime::generateProfilerExitFrameTailStub(JSContext* cx)
             masm.bind(&checkOk);
         }
 #endif
-        masm.as_daddu(scratch3, scratch2, scratch1);
+        masm.as_add_d(scratch3, scratch2, scratch1);
         Address stubFrameReturnAddr(scratch3, RectifierFrameLayout::Size() +
                                               BaselineStubFrameLayout::offsetOfReturnAddress());
         masm.loadPtr(stubFrameReturnAddr, scratch2);
@@ -1307,7 +1277,7 @@ JitRuntime::generateProfilerExitFrameTailStub(JSContext* cx)
     masm.bind(&handle_IonAccessorIC);
     {
         // scratch2 := StackPointer + Descriptor.size + JitFrameLayout::Size()
-        masm.as_daddu(scratch2, StackPointer, scratch1);
+        masm.as_add_d(scratch2, StackPointer, scratch1);
         masm.addPtr(Imm32(JitFrameLayout::Size()), scratch2);
 
         // scratch3 := AccFrame-Descriptor.Size
@@ -1331,7 +1301,7 @@ JitRuntime::generateProfilerExitFrameTailStub(JSContext* cx)
 
         // lastProfilingFrame := AccessorFrame + AccFrame-Descriptor.Size +
         //                       IonAccessorICFrameLayout::Size()
-        masm.as_daddu(scratch1, scratch2, scratch3);
+        masm.as_add_d(scratch1, scratch2, scratch3);
         masm.addPtr(Imm32(IonAccessorICFrameLayout::Size()), scratch1);
         masm.storePtr(scratch1, lastProfilingFrame);
         masm.ret();

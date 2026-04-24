@@ -1431,6 +1431,7 @@ class AssemblerLOONGARCH64 : public AssemblerShared {
   // label operations
   void bind(Label* label, BufferOffset boff = BufferOffset());
   virtual void bind(InstImm* inst, uintptr_t branch, uintptr_t target) = 0;
+  void bind(CodeOffset* label) { label->bind(currentOffset()); }
   void bind(CodeLabel* label) { label->target()->bind(currentOffset()); }
   uint32_t currentOffset() { return nextOffset().getOffset(); }
   void retarget(Label* label, Label* target);

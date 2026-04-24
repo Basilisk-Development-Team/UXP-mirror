@@ -84,7 +84,8 @@ class MacroAssemblerLOONGARCH64 : public Assembler {
                             FPConditionBit fcc = FCC0);
 
  public:
-  void ma_li(Register dest, CodeLabel* label);
+  void ma_li(Register dest, CodeOffset* label);
+  void ma_li(Register dest, CodeLabel* label) { ma_li(dest, label->patchAt()); }
   void ma_li(Register dest, ImmWord imm);
   void ma_liPatchable(Register dest, ImmPtr imm);
   void ma_liPatchable(Register dest, ImmWord imm, LiFlags flags = Li48);
@@ -878,7 +879,7 @@ class MacroAssemblerLOONGARCH64Compat : public MacroAssemblerLOONGARCH64 {
   }
   void pushValue(const Address& addr);
 
-  void handleFailureWithHandlerTail(Label* profilerExitTail);
+  void handleFailureWithHandlerTail(void* handler);
 
   /////////////////////////////////////////////////////////////////
   // Common interface.

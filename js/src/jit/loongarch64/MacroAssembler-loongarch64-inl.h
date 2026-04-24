@@ -849,6 +849,32 @@ void MacroAssembler::branchPtr(Condition cond, wasm::SymbolicAddress lhs,
   branchPtr(cond, scratch2, rhs, label);
 }
 
+template <typename T>
+CodeOffsetJump MacroAssembler::branchPtrWithPatch(Condition cond, Register lhs,
+                                                  T rhs,
+                                                  RepatchLabel* label) {
+  movePtr(rhs, ScratchRegister);
+  Label skipJump;
+  ma_b(lhs, ScratchRegister, &skipJump, InvertCondition(cond), ShortJump);
+  CodeOffsetJump off = jumpWithPatch(label);
+  bind(&skipJump);
+  return off;
+}
+
+template <typename T>
+CodeOffsetJump MacroAssembler::branchPtrWithPatch(Condition cond, Address lhs,
+                                                  T rhs,
+                                                  RepatchLabel* label) {
+  loadPtr(lhs, SecondScratchReg);
+  movePtr(rhs, ScratchRegister);
+  Label skipJump;
+  ma_b(SecondScratchReg, ScratchRegister, &skipJump, InvertCondition(cond),
+       ShortJump);
+  CodeOffsetJump off = jumpWithPatch(label);
+  bind(&skipJump);
+  return off;
+}
+
 void MacroAssembler::branchPrivatePtr(Condition cond, const Address& lhs,
                                       Register rhs, Label* label) {
   branchPtr(cond, lhs, rhs, label);
@@ -1371,6 +1397,56 @@ void MacroAssembler::branchTestMagic(Condition cond, const Address& valaddr,
   SecondScratchRegisterScope scratch(*this);
   loadPtr(valaddr, scratch);
   ma_b(scratch, ImmWord(magic), label, cond);
+}
+
+void MacroAssembler::storeUncanonicalizedDouble(FloatRegister src,
+                                                const Address& addr) {
+  ma_fst_d(src, addr);
+}
+
+void MacroAssembler::storeUncanonicalizedDouble(FloatRegister src,
+                                                const BaseIndex& addr) {
+  MOZ_ASSERT(addr.offset == 0);
+  ma_fst_d(src, addr);
+}
+
+void MacroAssembler::storeUncanonicalizedFloat32(FloatRegister src,
+                                                 const Address& addr) {
+  ma_fst_s(src, addr);
+}
+
+void MacroAssembler::storeUncanonicalizedFloat32(FloatRegister src,
+                                                 const BaseIndex& addr) {
+  MOZ_ASSERT(addr.offset == 0);
+  ma_fst_s(src, addr);
+}
+
+void MacroAssembler::clampIntToUint8(Register reg) {
+  ScratchRegisterScope scratch(asMasm());
+  SecondScratchRegisterScope scratch2(asMasm());
+  MOZ_ASSERT(reg != scratch && reg != scratch2);
+
+  as_slt(scratch, reg, zero);
+  moveIfNotZero(reg, zero, scratch);
+
+  ma_li(scratch2, Imm32(255));
+  as_sltui(scratch, reg, 255);
+  moveIfZero(reg, scratch2, scratch);
+}
+
+template <class L>
+void MacroAssembler::wasmBoundsCheck(Condition cond, Register index, L label) {
+  (void)cond;
+  (void)index;
+  (void)label;
+  MOZ_CRASH("wasm bounds checks are not supported on loongarch64 yet");
+}
+
+void MacroAssembler::memoryBarrier(MemoryBarrierBits barrier) {
+  if (barrier == MembarNobits) {
+    return;
+  }
+  as_dbar(0);
 }
 
 //}}} check_macroassembler_style
