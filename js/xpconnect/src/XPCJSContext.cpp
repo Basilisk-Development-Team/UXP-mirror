@@ -1420,6 +1420,14 @@ ReloadPrefsCallback(const char* pref, void* data)
                                                               "throw_on_asmjs_validation_failure");
     bool useNativeRegExp = Preferences::GetBool(JS_OPTIONS_DOT_STR "native_regexp") && !safeMode;
 
+#if defined(JS_CODEGEN_LOONGARCH64)
+    // The loongarch64 port is baseline-only for now.
+    useIon = false;
+    useAsmJS = false;
+    useWasm = false;
+    useWasmBaseline = false;
+#endif
+
     bool parallelParsing = Preferences::GetBool(JS_OPTIONS_DOT_STR "parallel_parsing");
     bool offthreadIonCompilation = Preferences::GetBool(JS_OPTIONS_DOT_STR
                                                        "ion.offthread_compilation");

@@ -290,13 +290,24 @@ LoadContextOptions(const char* aPrefName, void* /* aClosure */)
   }
 
   // Context options.
+  bool useAsmJS = GetWorkerPref<bool>(NS_LITERAL_CSTRING("asmjs"));
+  bool useWasm = GetWorkerPref<bool>(NS_LITERAL_CSTRING("wasm"));
+  bool useIon = GetWorkerPref<bool>(NS_LITERAL_CSTRING("ion"));
+
+#if defined(JS_CODEGEN_LOONGARCH64)
+  // The loongarch64 port is baseline-only for now.
+  useAsmJS = false;
+  useWasm = false;
+  useIon = false;
+#endif
+
   JS::ContextOptions contextOptions;
-  contextOptions.setAsmJS(GetWorkerPref<bool>(NS_LITERAL_CSTRING("asmjs")))
-                .setWasm(GetWorkerPref<bool>(NS_LITERAL_CSTRING("wasm")))
+  contextOptions.setAsmJS(useAsmJS)
+                .setWasm(useWasm)
                 .setThrowOnAsmJSValidationFailure(GetWorkerPref<bool>(
                       NS_LITERAL_CSTRING("throw_on_asmjs_validation_failure")))
                 .setBaseline(GetWorkerPref<bool>(NS_LITERAL_CSTRING("baselinejit")))
-                .setIon(GetWorkerPref<bool>(NS_LITERAL_CSTRING("ion")))
+                .setIon(useIon)
                 .setNativeRegExp(GetWorkerPref<bool>(NS_LITERAL_CSTRING("native_regexp")))
                 .setAsyncStack(GetWorkerPref<bool>(NS_LITERAL_CSTRING("asyncstack")))
                 .setWerror(GetWorkerPref<bool>(NS_LITERAL_CSTRING("werror")))
