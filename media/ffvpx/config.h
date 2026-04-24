@@ -28,8 +28,6 @@
 #elif defined(XP_DARWIN)
 #include "config_darwin64.h"
 #elif defined(XP_UNIX)
-<<<<<<< HEAD
-=======
 #if defined(__aarch64__)
 #include "config_unix_aarch64.h"
 #elif defined(__alpha) || defined(__alpha__)
@@ -41,7 +39,6 @@
 #elif defined(__loongarch64)
 #include "config_unix_loongarch64.h"
 #else
->>>>>>> fb438829b5 (MoonchildProductions/UXP#2897: Fix ffvpx build on loongarch64)
 #if defined(HAVE_64BIT_BUILD)
 #include "config_unix64.h"
 #else
