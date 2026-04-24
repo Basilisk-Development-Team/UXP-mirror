@@ -669,7 +669,7 @@ class MacroAssemblerLOONGARCH64Compat : public MacroAssemblerLOONGARCH64 {
   void unboxObject(Register src, Register dest);
   void unboxObject(const Address& src, Register dest);
   void unboxObject(const BaseIndex& src, Register dest) {
-    unboxNonDouble(src, dest, JSVAL_TYPE_OBJECT);
+    unboxNonDouble(src, dest);
   }
   void unboxValue(const ValueOperand& src, AnyRegister dest);
 

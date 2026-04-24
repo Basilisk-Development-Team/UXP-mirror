@@ -2931,6 +2931,7 @@ void MacroAssemblerLOONGARCH64Compat::loadPtr(wasm::SymbolicAddress address,
 void MacroAssemblerLOONGARCH64Compat::loadPrivate(const Address& address,
                                               Register dest) {
   loadPtr(address, dest);
+  as_slli_d(dest, dest, 1);
 }
 
 void MacroAssemblerLOONGARCH64Compat::store8(Imm32 imm, const Address& address) {
@@ -3159,58 +3160,58 @@ void MacroAssemblerLOONGARCH64Compat::unboxDouble(const BaseIndex& src,
 
 void MacroAssemblerLOONGARCH64Compat::unboxString(const ValueOperand& operand,
                                               Register dest) {
-  unboxNonDouble(operand, dest, JSVAL_TYPE_STRING);
+  unboxNonDouble(operand, dest);
 }
 
 void MacroAssemblerLOONGARCH64Compat::unboxString(Register src, Register dest) {
-  unboxNonDouble(src, dest, JSVAL_TYPE_STRING);
+  as_bstrpick_d(dest, src, JSVAL_TAG_SHIFT - 1, 0);
 }
 
 void MacroAssemblerLOONGARCH64Compat::unboxString(const Address& src,
                                               Register dest) {
-  unboxNonDouble(src, dest, JSVAL_TYPE_STRING);
+  unboxNonDouble(src, dest);
 }
 
 void MacroAssemblerLOONGARCH64Compat::unboxSymbol(const ValueOperand& operand,
                                               Register dest) {
-  unboxNonDouble(operand, dest, JSVAL_TYPE_SYMBOL);
+  unboxNonDouble(operand, dest);
 }
 
 void MacroAssemblerLOONGARCH64Compat::unboxSymbol(Register src, Register dest) {
-  unboxNonDouble(src, dest, JSVAL_TYPE_SYMBOL);
+  as_bstrpick_d(dest, src, JSVAL_TAG_SHIFT - 1, 0);
 }
 
 void MacroAssemblerLOONGARCH64Compat::unboxSymbol(const Address& src,
                                               Register dest) {
-  unboxNonDouble(src, dest, JSVAL_TYPE_SYMBOL);
+  unboxNonDouble(src, dest);
 }
 
 void MacroAssemblerLOONGARCH64Compat::unboxBigInt(const ValueOperand& operand,
                                               Register dest) {
-  unboxNonDouble(operand, dest, JSVAL_TYPE_BIGINT);
+  unboxNonDouble(operand, dest);
 }
 
 void MacroAssemblerLOONGARCH64Compat::unboxBigInt(Register src, Register dest) {
-  unboxNonDouble(src, dest, JSVAL_TYPE_BIGINT);
+  as_bstrpick_d(dest, src, JSVAL_TAG_SHIFT - 1, 0);
 }
 
 void MacroAssemblerLOONGARCH64Compat::unboxBigInt(const Address& src,
                                               Register dest) {
-  unboxNonDouble(src, dest, JSVAL_TYPE_BIGINT);
+  unboxNonDouble(src, dest);
 }
 
 void MacroAssemblerLOONGARCH64Compat::unboxObject(const ValueOperand& src,
                                               Register dest) {
-  unboxNonDouble(src, dest, JSVAL_TYPE_OBJECT);
+  unboxNonDouble(src, dest);
 }
 
 void MacroAssemblerLOONGARCH64Compat::unboxObject(Register src, Register dest) {
-  unboxNonDouble(src, dest, JSVAL_TYPE_OBJECT);
+  as_bstrpick_d(dest, src, JSVAL_TAG_SHIFT - 1, 0);
 }
 
 void MacroAssemblerLOONGARCH64Compat::unboxObject(const Address& src,
                                               Register dest) {
-  unboxNonDouble(src, dest, JSVAL_TYPE_OBJECT);
+  unboxNonDouble(src, dest);
 }
 
 void MacroAssemblerLOONGARCH64Compat::unboxNonDouble(const ValueOperand& operand,
@@ -3513,8 +3514,6 @@ void MacroAssemblerLOONGARCH64Compat::handleFailureWithHandlerTail(void* handler
   asMasm().moveValue(MagicValue(JS_ION_ERROR), JSReturnOperand);
   loadPtr(Address(StackPointer, offsetof(ResumeFromException, stackPointer)),
           StackPointer);
-  loadPtr(Address(StackPointer, 0), ra);
-  asMasm().addPtr(Imm32(sizeof(intptr_t)), StackPointer);
   ret();
 
   // If we found a catch handler, this must be a baseline frame. Restore
