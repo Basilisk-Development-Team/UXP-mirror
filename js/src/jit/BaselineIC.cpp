@@ -679,9 +679,15 @@ ICToBool_Object::Compiler::generateStubCode(MacroAssembler& masm)
     EmitReturnFromIC(masm);
 
     masm.bind(&slowPath);
+#ifdef JS_CODEGEN_LOONGARCH64
+    masm.push(ra);
+#endif
     masm.setupUnalignedABICall(scratch);
     masm.passABIArg(objReg);
     masm.callWithABI(JS_FUNC_TO_DATA_PTR(void*, js::EmulatesUndefined));
+#ifdef JS_CODEGEN_LOONGARCH64
+    masm.pop(ra);
+#endif
     masm.convertBoolToInt32(ReturnReg, ReturnReg);
     masm.xor32(Imm32(1), ReturnReg);
     masm.tagValue(JSVAL_TYPE_BOOLEAN, ReturnReg, R0);
@@ -7468,6 +7474,9 @@ ICTableSwitch::Compiler::generateStubCode(MacroAssembler& masm)
         masm.convertDoubleToInt32(FloatReg0, key, &outOfRange, /* negativeZeroCheck = */ false);
     } else {
         // Pass pointer to double value.
+#ifdef JS_CODEGEN_LOONGARCH64
+        masm.push(ra);
+#endif
         masm.pushValue(R0);
         masm.moveStackPtrTo(R0.scratchReg());
 
@@ -7479,6 +7488,9 @@ ICTableSwitch::Compiler::generateStubCode(MacroAssembler& masm)
         // int32.
         masm.movePtr(ReturnReg, scratch);
         masm.popValue(R0);
+#ifdef JS_CODEGEN_LOONGARCH64
+        masm.pop(ra);
+#endif
         masm.branchIfFalseBool(scratch, &outOfRange);
         masm.unboxInt32(R0, key);
     }
