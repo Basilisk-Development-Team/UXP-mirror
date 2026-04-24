@@ -83,7 +83,7 @@ static const LiveRegisterSet NonVolatileRegs =
 static const unsigned FramePushedAfterSave = NonVolatileRegs.gprs().size() * sizeof(intptr_t) +
                                              NonVolatileRegs.fpus().getPushSizeInBytes() +
                                              sizeof(double);
-#elif defined(JS_CODEGEN_NONE)
+#elif defined(JS_CODEGEN_NONE) || defined(JS_CODEGEN_LOONGARCH64)
 static const unsigned FramePushedAfterSave = 0;
 #else
 static const unsigned FramePushedAfterSave = NonVolatileRegs.gprs().size() * sizeof(intptr_t)
@@ -586,6 +586,10 @@ static const unsigned SavedTlsReg = sizeof(void*);
 ProfilingOffsets
 wasm::GenerateImportJitExit(MacroAssembler& masm, const FuncImport& fi, Label* throwLabel)
 {
+#if defined(JS_CODEGEN_LOONGARCH64)
+    MOZ_CRASH("wasm import JIT exits are unsupported on loongarch64");
+    return ProfilingOffsets();
+#else
     masm.setFramePushed(0);
 
     // JIT calls use the following stack layout (sp grows to the left):
@@ -808,6 +812,7 @@ wasm::GenerateImportJitExit(MacroAssembler& masm, const FuncImport& fi, Label* t
 
     offsets.end = masm.currentOffset();
     return offsets;
+#endif
 }
 
 // Generate a stub that calls into ReportTrap with the right trap reason.
@@ -1049,7 +1054,7 @@ wasm::GenerateInterruptExit(MacroAssembler& masm, Label* throwLabel)
     masm.ret();
 #elif defined(JS_CODEGEN_ARM64)
     MOZ_CRASH();
-#elif defined (JS_CODEGEN_NONE)
+#elif defined (JS_CODEGEN_NONE) || defined(JS_CODEGEN_LOONGARCH64)
     MOZ_CRASH();
 #else
 # error "Unknown architecture!"

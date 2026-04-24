@@ -20,7 +20,7 @@
 
 using namespace js;
 
-#if defined(__loongarch64)
+#if defined(__loongarch64) && !defined(JS_CODEGEN_LOONGARCH64)
 
 namespace js {
 namespace jit {

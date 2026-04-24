@@ -2224,6 +2224,51 @@ void Assembler::TraceJumpRelocations(JSTracer* trc, JitCode* code,
   }
 }
 
+static void TraceBufferDataRelocations(JSTracer* trc,
+                                       LOONGBufferWithExecutableCopy* buffer,
+                                       CompactBufferReader& reader);
+
+void Assembler::trace(JSTracer* trc) {
+  for (size_t i = 0; i < jumps_.length(); i++) {
+    RelativePatch& rp = jumps_[i];
+    if (rp.kind == Relocation::JITCODE) {
+      JitCode* code = JitCode::FromExecutable((uint8_t*)rp.target);
+      TraceManuallyBarrieredEdge(trc, &code, "masmrel32");
+      MOZ_ASSERT(code == JitCode::FromExecutable((uint8_t*)rp.target));
+    }
+  }
+  if (dataRelocations_.length()) {
+    CompactBufferReader reader(dataRelocations_);
+    TraceBufferDataRelocations(trc, &m_buffer, reader);
+  }
+}
+
+static void TraceOneDataRelocation(JSTracer* trc, Instruction* inst) {
+  void* ptr = (void*)Assembler::ExtractLoad64Value(inst);
+  void* prior = ptr;
+
+  // Data relocations can be for Values or for raw pointers. If a Value is
+  // zero-tagged, we can trace it as if it were a raw pointer. If a Value
+  // is not zero-tagged, we have to interpret it as a Value to ensure that the
+  // tag bits are masked off to recover the actual pointer.
+  uintptr_t word = reinterpret_cast<uintptr_t>(ptr);
+  if (word >> JSVAL_TAG_SHIFT) {
+    // This relocation is a Value with a non-zero tag.
+    Value v = Value::fromRawBits(word);
+    TraceManuallyBarrieredEdge(trc, &v, "jit-masm-value");
+    ptr = (void*)v.bitsAsPunboxPointer();
+  } else {
+    // This relocation is a raw pointer or a Value with a zero tag.
+    // No barrier needed since these are constants.
+    TraceManuallyBarrieredGenericPointerEdge(
+        trc, reinterpret_cast<gc::Cell**>(&ptr), "jit-masm-ptr");
+  }
+
+  if (ptr != prior) {
+    Assembler::UpdateLoad64Value(inst, uint64_t(ptr));
+  }
+}
+
 static void TraceOneDataRelocation(JSTracer* trc,
                                    mozilla::Maybe<AutoWritableJitCode>& awjc,
                                    JitCode* code, Instruction* inst) {
@@ -2252,6 +2297,15 @@ static void TraceOneDataRelocation(JSTracer* trc,
       awjc.emplace(code);
     }
     Assembler::UpdateLoad64Value(inst, uint64_t(ptr));
+  }
+}
+
+static void TraceBufferDataRelocations(JSTracer* trc,
+                                       LOONGBufferWithExecutableCopy* buffer,
+                                       CompactBufferReader& reader) {
+  while (reader.more()) {
+    BufferOffset bo(reader.readUnsigned());
+    TraceOneDataRelocation(trc, buffer->getInst(bo));
   }
 }
 
@@ -2463,6 +2517,10 @@ void Assembler::PatchDataWithValueCheck(CodeLocationLabel label,
 
   // Replace with new value
   Assembler::UpdateLoad64Value(inst, uint64_t(newValue.value));
+}
+
+void Assembler::PatchInstructionImmediate(uint8_t* code, PatchedImmPtr imm) {
+  Assembler::UpdateLoad64Value((Instruction*)code, uint64_t(imm.value));
 }
 
 uint64_t Assembler::ExtractInstructionImmediate(uint8_t* code) {

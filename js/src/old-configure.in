@@ -1709,7 +1709,7 @@ if test -n "$JS_SIMULATOR"; then
     esac
 fi
 
-if test -z "$ENABLE_ION"; then
+if test -z "$ENABLE_ION" && test "$CPU_ARCH" != "loongarch64"; then
     AC_DEFINE(JS_CODEGEN_NONE)
     JS_CODEGEN_NONE=1
 elif test "$JS_SIMULATOR" = arm; then

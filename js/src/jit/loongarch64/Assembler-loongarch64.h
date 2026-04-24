@@ -215,6 +215,12 @@ static constexpr Register WasmJitEntryReturnScratch = t1;
 
 static constexpr uint32_t ABIStackAlignment = 16;
 static constexpr uint32_t CodeAlignment = 16;
+
+// This boolean indicates whether we support SIMD instructions flavoured for
+// this architecture or not. Rather than a method in the LIRGenerator, it is
+// here such that it is accessible from the entire codebase. Once full support
+// for SIMD is reached on all tier-1 platforms, this constant can be deleted.
+static constexpr bool SupportsSimd = false;
 static constexpr uint32_t JitStackAlignment = 16;
 
 static constexpr uint32_t JitStackValueAlignment =
@@ -819,6 +825,19 @@ class LOONGBufferWithExecutableCopy : public LOONGBuffer {
       memcpy(buffer, &cur->instructions, cur->length());
       buffer += cur->length();
     }
+  }
+
+  bool appendBuffer(const LOONGBufferWithExecutableCopy& other) {
+    if (this->oom() || other.oom()) {
+      return false;
+    }
+
+    for (Slice* cur = other.head; cur != nullptr; cur = cur->getNext()) {
+      if (!appendRawCode(cur->instructions.begin(), cur->length())) {
+        return false;
+      }
+    }
+    return !this->oom();
   }
 
   bool appendRawCode(const uint8_t* code, size_t numBytes) {
@@ -1800,6 +1819,9 @@ class Assembler : public AssemblerLOONGARCH64 {
  public:
   Assembler() : AssemblerLOONGARCH64() {}
 
+  // MacroAssemblers hold onto gcthings, so they are traced by the GC.
+  void trace(JSTracer* trc);
+
   static uintptr_t GetPointer(uint8_t*);
 
   using AssemblerLOONGARCH64::bind;
@@ -1840,6 +1862,7 @@ class Assembler : public AssemblerLOONGARCH64 {
                                       PatchedImmPtr newValue,
                                       PatchedImmPtr expectedValue);
 
+  static void PatchInstructionImmediate(uint8_t* code, PatchedImmPtr imm);
   static uint64_t ExtractInstructionImmediate(uint8_t* code);
 
   static void ToggleCall(CodeLocationLabel inst_, bool enabled);

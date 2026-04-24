@@ -315,7 +315,7 @@ struct macos_aarch64_context {
 static uint8_t**
 ContextToPC(CONTEXT* context)
 {
-#ifdef JS_CODEGEN_NONE
+#if defined(JS_CODEGEN_NONE) || defined(JS_CODEGEN_LOONGARCH64)
     MOZ_CRASH();
 #else
     return reinterpret_cast<uint8_t**>(&PC_sig(context));

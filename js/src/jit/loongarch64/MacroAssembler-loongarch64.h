@@ -394,6 +394,18 @@ class MacroAssemblerLOONGARCH64Compat : public MacroAssemblerLOONGARCH64 {
 
   MacroAssemblerLOONGARCH64Compat() {}
 
+  struct AutoPrepareForPatching {
+    explicit AutoPrepareForPatching(MacroAssemblerLOONGARCH64Compat&) {}
+  };
+
+  bool asmMergeWith(const MacroAssemblerLOONGARCH64Compat& other) {
+    if (!AssemblerShared::asmMergeWith(size(), other))
+      return false;
+    return m_buffer.appendBuffer(other.m_buffer);
+  }
+
+  size_t labelToPatchOffset(CodeOffset label) { return label.offset(); }
+
   void convertBoolToInt32(Register src, Register dest) {
     ma_and(dest, src, Imm32(0xff));
   };
@@ -502,6 +514,11 @@ class MacroAssemblerLOONGARCH64Compat : public MacroAssemblerLOONGARCH64 {
   void push(FloatRegister reg) { ma_push(reg); }
   void pop(Register reg) { ma_pop(reg); }
   void pop(FloatRegister reg) { ma_pop(reg); }
+  void pop(const Address& address) {
+    ScratchRegisterScope scratch(asMasm());
+    ma_pop(scratch);
+    storePtr(scratch, address);
+  }
 
   // Emit a branch that can be toggled to a non-operation. On LOONGARCH64 we use
   // "andi" instruction to toggle the branch.

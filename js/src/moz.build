@@ -351,7 +351,6 @@ main_deunified_sources = [
     'vm/WeakMapPtr.cpp',
     'vm/Xdr.cpp',
     'wasm/AsmJS.cpp',
-    'wasm/WasmBaselineCompile.cpp',
     'wasm/WasmBinaryFormat.cpp',
     'wasm/WasmBinaryIterator.cpp',
     'wasm/WasmBinaryToAST.cpp',
@@ -363,7 +362,6 @@ main_deunified_sources = [
     'wasm/WasmFrameIterator.cpp',
     'wasm/WasmGenerator.cpp',
     'wasm/WasmInstance.cpp',
-    'wasm/WasmIonCompile.cpp',
     'wasm/WasmJS.cpp',
     'wasm/WasmModule.cpp',
     'wasm/WasmSignalHandlers.cpp',
@@ -373,6 +371,12 @@ main_deunified_sources = [
     'wasm/WasmTextUtils.cpp',
     'wasm/WasmTypes.cpp'
 ]
+
+if not CONFIG['JS_CODEGEN_LOONGARCH64']:
+    SOURCES += [
+        'wasm/WasmBaselineCompile.cpp',
+        'wasm/WasmIonCompile.cpp',
+    ]
 
 # jsarray.cpp and jsatom.cpp cannot be built in unified mode because
 # xpcshell is broken during packaging when compiled with gcc-4.8.2
@@ -424,7 +428,7 @@ if CONFIG['ENABLE_TRACE_LOGGING']:
 jit_ioncheck1_deunified_sources = []
 jit_ioncheck2_deunified_sources = []
 jit_ioncheck3_deunified_sources = []
-if not CONFIG['ENABLE_ION']:
+if CONFIG['JS_CODEGEN_NONE']:
     jit_ioncheck1_deunified_sources += [
         'jit/none/Trampoline-none.cpp'
     ]
@@ -535,9 +539,9 @@ elif CONFIG['JS_CODEGEN_LOONGARCH64']:
         'jit/loongarch64/BaselineCompiler-loongarch64.cpp',
         'jit/loongarch64/BaselineIC-loongarch64.cpp',
         'jit/loongarch64/MacroAssembler-loongarch64.cpp',
-        'jit/mips64/MoveEmitter-mips64.cpp',
         'jit/loongarch64/SharedIC-loongarch64.cpp',
         'jit/loongarch64/Trampoline-loongarch64.cpp',
+        'jit/mips64/MoveEmitter-mips64.cpp',
     ]
 elif CONFIG['JS_CODEGEN_MIPS32'] or CONFIG['JS_CODEGEN_MIPS64']:
     jit_ioncheck1_deunified_sources += [
