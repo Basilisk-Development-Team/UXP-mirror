@@ -266,6 +266,14 @@ class MacroAssemblerLOONGARCH64 : public Assembler {
 
   // multiplies.  For now, there are only few that we care about.
   void ma_mul(Register rd, Register rj, Imm32 imm);
+  void ma_mul_branch_overflow(Register rd, Register rj, Register rk,
+                              Label* overflow) {
+    ma_mul32TestOverflow(rd, rj, rk, overflow);
+  }
+  void ma_mul_branch_overflow(Register rd, Register rj, Imm32 imm,
+                              Label* overflow) {
+    ma_mul32TestOverflow(rd, rj, imm, overflow);
+  }
   void ma_mul32TestOverflow(Register rd, Register rj, Register rk,
                             Label* overflow);
   void ma_mul32TestOverflow(Register rd, Register rj, Imm32 imm,
@@ -282,6 +290,24 @@ class MacroAssemblerLOONGARCH64 : public Assembler {
   // sequence
   void ma_mod_mask(Register src, Register dest, Register hold, Register remain,
                    int32_t shift, Label* negZero = nullptr);
+
+  void ma_addu(Register rd, Register rj, Register rk) { as_add_w(rd, rj, rk); }
+  void ma_addu(Register rd, Register rj, Imm32 imm) { ma_add_w(rd, rj, imm); }
+  void ma_subu(Register rd, Register rj, Register rk) { as_sub_w(rd, rj, rk); }
+  void ma_subu(Register rd, Register rj, Imm32 imm) { ma_sub_w(rd, rj, imm); }
+  void ma_negu(Register rd, Register rj) { as_sub_w(rd, zero, rj); }
+  void ma_sll(Register rd, Register rj, Register rk) { as_sll_w(rd, rj, rk); }
+  void ma_sll(Register rd, Register rj, Imm32 imm) {
+    as_slli_w(rd, rj, imm.value & 0x1f);
+  }
+  void ma_srl(Register rd, Register rj, Register rk) { as_srl_w(rd, rj, rk); }
+  void ma_srl(Register rd, Register rj, Imm32 imm) {
+    as_srli_w(rd, rj, imm.value & 0x1f);
+  }
+  void ma_sra(Register rd, Register rj, Register rk) { as_sra_w(rd, rj, rk); }
+  void ma_sra(Register rd, Register rj, Imm32 imm) {
+    as_srai_w(rd, rj, imm.value & 0x1f);
+  }
 
   // branches when done from within la-specific code
   void ma_b(Register lhs, Register rhs, Label* l, Condition c,
@@ -333,10 +359,30 @@ class MacroAssemblerLOONGARCH64 : public Assembler {
   void ma_bc_d(FloatRegister lhs, FloatRegister rhs, Label* label,
                DoubleCondition c, JumpKind jumpKind = LongJump,
                FPConditionBit fcc = FCC0);
+  void ma_bc1s(FloatRegister lhs, FloatRegister rhs, Label* label,
+               DoubleCondition c, JumpKind jumpKind = LongJump,
+               FPConditionBit fcc = FCC0) {
+    ma_bc_s(lhs, rhs, label, c, jumpKind, fcc);
+  }
+  void ma_bc1d(FloatRegister lhs, FloatRegister rhs, Label* label,
+               DoubleCondition c, JumpKind jumpKind = LongJump,
+               FPConditionBit fcc = FCC0) {
+    ma_bc_d(lhs, rhs, label, c, jumpKind, fcc);
+  }
 
   void ma_call(ImmPtr dest);
 
   void ma_jump(ImmPtr dest);
+
+  void as_mul(Register rd, Register rj, Register rk) { as_mul_w(rd, rj, rk); }
+  void as_mtc1(Register rt, FloatRegister fs) { as_movgr2fr_w(fs, rt); }
+  void as_mfc1(Register rt, FloatRegister fs) { as_movfr2gr_s(rt, fs); }
+  void as_divd(FloatRegister fd, FloatRegister fj, FloatRegister fk) {
+    as_fdiv_d(fd, fj, fk);
+  }
+  void as_divs(FloatRegister fd, FloatRegister fj, FloatRegister fk) {
+    as_fdiv_s(fd, fj, fk);
+  }
 
   void ma_cmp_set(Register dst, Register lhs, Register rhs, Condition c);
   void ma_cmp_set(Register dst, Register lhs, Imm32 imm, Condition c);

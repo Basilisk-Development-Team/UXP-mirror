@@ -136,7 +136,7 @@ CodeGeneratorMIPSShared::visitCompare(LCompare* comp)
     const LAllocation* right = comp->getOperand(1);
     const LDefinition* def = comp->getDef(0);
 
-#ifdef JS_CODEGEN_MIPS64
+#if defined(JS_CODEGEN_MIPS64) || defined(JS_CODEGEN_LOONGARCH64)
     if (mir->compareType() == MCompare::Compare_Object) {
         if (right->isGeneralReg())
             masm.cmpPtrSet(cond, ToRegister(left), ToRegister(right), ToRegister(def));
@@ -160,7 +160,7 @@ CodeGeneratorMIPSShared::visitCompareAndBranch(LCompareAndBranch* comp)
     MCompare* mir = comp->cmpMir();
     Assembler::Condition cond = JSOpToCondition(mir->compareType(), comp->jsop());
 
-#ifdef JS_CODEGEN_MIPS64
+#if defined(JS_CODEGEN_MIPS64) || defined(JS_CODEGEN_LOONGARCH64)
     if (mir->compareType() == MCompare::Compare_Object) {
         if (comp->right()->isGeneralReg()) {
             emitBranch(ToRegister(comp->left()), ToRegister(comp->right()), cond,
@@ -617,8 +617,12 @@ CodeGeneratorMIPSShared::visitDivI(LDivI* ins)
 
     // All regular. Lets call div.
     if (mir->canTruncateRemainder()) {
+#ifdef JS_CODEGEN_LOONGARCH64
+        masm.as_div_w(dest, lhs, rhs);
+#else
         masm.as_div(lhs, rhs);
         masm.as_mflo(dest);
+#endif
     } else {
         MOZ_ASSERT(mir->fallible());
 
@@ -749,8 +753,12 @@ CodeGeneratorMIPSShared::visitModI(LModI* ins)
         masm.bind(&notNegative);
     }
 
+#ifdef JS_CODEGEN_LOONGARCH64
+    masm.as_mod_w(dest, lhs, rhs);
+#else
     masm.as_div(lhs, rhs);
     masm.as_mfhi(dest);
+#endif
 
     // If X%Y == 0 and X < 0, then we *actually* wanted to return -0.0
     if (mir->canBeNegativeDividend()) {
@@ -2440,15 +2448,24 @@ CodeGeneratorMIPSShared::visitUDivOrMod(LUDivOrMod* ins)
         }
     }
 
+#ifdef JS_CODEGEN_LOONGARCH64
+    masm.as_mod_wu(ScratchRegister, lhs, rhs);
+    masm.move32(ScratchRegister, output);
+#else
     masm.as_divu(lhs, rhs);
     masm.as_mfhi(output);
+#endif
 
     // If the remainder is > 0, bailout since this must be a double.
     if (ins->mir()->isDiv()) {
         if (!ins->mir()->toDiv()->canTruncateRemainder())
           bailoutCmp32(Assembler::NonZero, output, output, ins->snapshot());
         // Get quotient
+#ifdef JS_CODEGEN_LOONGARCH64
+        masm.as_div_wu(output, lhs, rhs);
+#else
         masm.as_mflo(output);
+#endif
     }
 
     if (!ins->mir()->isTruncated())

@@ -20,7 +20,7 @@
 #elif defined(JS_CODEGEN_ARM64)
 # include "jit/arm64/CodeGenerator-arm64.h"
 #elif defined(JS_CODEGEN_LOONGARCH64)
-# include "jit/none/CodeGenerator-none.h"
+# include "jit/mips64/CodeGenerator-mips64.h"
 #elif defined(JS_CODEGEN_MIPS32)
 # include "jit/mips32/CodeGenerator-mips32.h"
 #elif defined(JS_CODEGEN_MIPS64)
@@ -47,6 +47,19 @@ class OutOfLineCallPostWriteBarrier;
 class OutOfLineCallPostWriteElementBarrier;
 class OutOfLineIsCallable;
 class OutOfLineIsConstructor;
+class LSimdSplatX4;
+class LSimd128Int;
+class LSimd128Float;
+class LSimdReinterpretCast;
+class LSimdExtractElementI;
+class LSimdExtractElementF;
+class LSimdBinaryCompIx4;
+class LSimdBinaryCompFx4;
+class LSimdBinaryArithIx4;
+class LSimdBinaryArithFx4;
+class LSimdBinaryBitwise;
+class LSimdGeneralShuffleI;
+class LSimdGeneralShuffleF;
 class OutOfLineRegExpMatcher;
 class OutOfLineRegExpSearcher;
 class OutOfLineRegExpTester;
