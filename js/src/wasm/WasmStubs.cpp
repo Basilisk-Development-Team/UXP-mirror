@@ -21,6 +21,7 @@
 #include "mozilla/ArrayUtils.h"
 
 #include "wasm/WasmCode.h"
+#include "wasm/WasmBaselineCompile.h"
 #include "wasm/WasmIonCompile.h"
 
 #include "jit/MacroAssembler-inl.h"
@@ -1098,3 +1099,21 @@ wasm::GenerateThrowStub(MacroAssembler& masm, Label* throwLabel)
     offsets.end = masm.currentOffset();
     return offsets;
 }
+
+#if defined(JS_CODEGEN_LOONGARCH64)
+
+bool
+js::wasm::BaselineCanCompile(const FunctionGenerator* fg)
+{
+    (void)fg;
+    return false;
+}
+
+bool
+js::wasm::CompileFunction(IonCompileTask* task)
+{
+    (void)task;
+    return false;
+}
+
+#endif

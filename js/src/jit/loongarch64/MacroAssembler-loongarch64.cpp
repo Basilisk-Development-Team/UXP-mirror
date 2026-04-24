@@ -22,6 +22,33 @@
 namespace js {
 namespace jit {
 
+void MacroAssembler::alignFrameForICArguments(AfterICSaveLive& aic) {
+  if (framePushed() % ABIStackAlignment != 0) {
+    aic.alignmentPadding = ABIStackAlignment - (framePushed() % ABIStackAlignment);
+    reserveStack(aic.alignmentPadding);
+  } else {
+    aic.alignmentPadding = 0;
+  }
+  MOZ_ASSERT(framePushed() % ABIStackAlignment == 0);
+}
+
+void MacroAssembler::restoreFrameAlignmentForICArguments(AfterICSaveLive& aic) {
+  if (aic.alignmentPadding != 0) {
+    freeStack(aic.alignmentPadding);
+  }
+}
+
+FrameSizeClass FrameSizeClass::FromDepth(uint32_t frameDepth) {
+  (void)frameDepth;
+  return FrameSizeClass::None();
+}
+
+FrameSizeClass FrameSizeClass::ClassLimit() { return FrameSizeClass(0); }
+
+uint32_t FrameSizeClass::frameSize() const {
+  MOZ_CRASH("loongarch64 does not use frame size classes");
+}
+
 void MacroAssembler::clampDoubleToUint8(FloatRegister input, Register output) {
   ScratchRegisterScope scratch(asMasm());
   ScratchDoubleScope fpscratch(asMasm());
@@ -2407,6 +2434,27 @@ void MacroAssembler::patchFarJump(CodeOffset farJump, uint32_t targetOffset) {
       reinterpret_cast<uint32_t*>(editSrc(BufferOffset(farJump.offset())));
   MOZ_ASSERT(*u32 == UINT32_MAX);
   *u32 = targetOffset - farJump.offset();
+}
+
+void MacroAssembler::repatchFarJump(uint8_t* code, uint32_t farJumpOffset,
+                                    uint32_t targetOffset) {
+  uint32_t* u32 = reinterpret_cast<uint32_t*>(code + farJumpOffset);
+  *u32 = targetOffset - farJumpOffset;
+}
+
+CodeOffset MacroAssembler::nopPatchableToNearJump() {
+  MOZ_CRASH("wasm patchable jumps are not supported on loongarch64");
+}
+
+void MacroAssembler::patchNopToNearJump(uint8_t* jump, uint8_t* target) {
+  (void)jump;
+  (void)target;
+  MOZ_CRASH("wasm patchable jumps are not supported on loongarch64");
+}
+
+void MacroAssembler::patchNearJumpToNop(uint8_t* jump) {
+  (void)jump;
+  MOZ_CRASH("wasm patchable jumps are not supported on loongarch64");
 }
 
 void MacroAssembler::call(wasm::SymbolicAddress target) {

@@ -1442,6 +1442,12 @@ void MacroAssembler::wasmBoundsCheck(Condition cond, Register index, L label) {
   MOZ_CRASH("wasm bounds checks are not supported on loongarch64 yet");
 }
 
+void MacroAssembler::wasmPatchBoundsCheck(uint8_t* patchAt, uint32_t limit) {
+  (void)patchAt;
+  (void)limit;
+  MOZ_CRASH("wasm bounds checks are not supported on loongarch64 yet");
+}
+
 void MacroAssembler::memoryBarrier(MemoryBarrierBits barrier) {
   if (barrier == MembarNobits) {
     return;
