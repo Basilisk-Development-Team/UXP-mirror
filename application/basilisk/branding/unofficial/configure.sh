@@ -8,7 +8,7 @@ MOZ_APP_BASENAME="Dactyloidae"
 
 MOZ_APP_DISPLAYNAME="Dactyloidae"
 
-MOZ_APP_UA_NAME="Basilisk"
+MOZ_APP_UA_NAME="Dactyloidae"
 
 MOZ_APP_VENDOR="OwnedByWuigi"
 
@@ -22,4 +22,4 @@ MOZ_DISTRIBUTION_ID=com.opensource
 
 MOZ_MACBUNDLE_NAME="Dactyloidae.app"
 
-MOZ_SOURCE_REPO=https://github.com/OwnedByWuigi/UXP
+MOZ_SOURCE_REPO=https://repo.dactyloidae.xyz/Dactyloidae/UXP
