@@ -559,62 +559,22 @@ class MacroAssemblerLOONGARCH64 : public Assembler {
   }
   void ma_load_unaligned(const wasm::MemoryAccessDesc& access, Register dest,
                          const BaseIndex& src, Register temp,
-                         LoadStoreSize size, LoadStoreExtension extension) {
-    (void)access;
-    (void)dest;
-    (void)src;
-    (void)temp;
-    (void)size;
-    (void)extension;
-    MOZ_CRASH("wasm unaligned integer loads are not supported on loongarch64 yet");
-  }
+                         LoadStoreSize size, LoadStoreExtension extension);
   void ma_store_unaligned(const wasm::MemoryAccessDesc& access, Register data,
                           const BaseIndex& dest, Register temp,
-                          LoadStoreSize size, LoadStoreExtension extension) {
-    (void)access;
-    (void)data;
-    (void)dest;
-    (void)temp;
-    (void)size;
-    (void)extension;
-    MOZ_CRASH("wasm unaligned integer stores are not supported on loongarch64 yet");
-  }
+                          LoadStoreSize size, LoadStoreExtension extension);
   void loadUnalignedDouble(const wasm::MemoryAccessDesc& access,
                            const BaseIndex& src, Register temp,
-                           FloatRegister dest) {
-    (void)access;
-    (void)src;
-    (void)temp;
-    (void)dest;
-    MOZ_CRASH("wasm unaligned double loads are not supported on loongarch64 yet");
-  }
+                           FloatRegister dest);
   void loadUnalignedFloat32(const wasm::MemoryAccessDesc& access,
                             const BaseIndex& src, Register temp,
-                            FloatRegister dest) {
-    (void)access;
-    (void)src;
-    (void)temp;
-    (void)dest;
-    MOZ_CRASH("wasm unaligned float loads are not supported on loongarch64 yet");
-  }
+                            FloatRegister dest);
   void storeUnalignedDouble(const wasm::MemoryAccessDesc& access,
                             FloatRegister src, Register temp,
-                            const BaseIndex& dest) {
-    (void)access;
-    (void)src;
-    (void)temp;
-    (void)dest;
-    MOZ_CRASH("wasm unaligned double stores are not supported on loongarch64 yet");
-  }
+                            const BaseIndex& dest);
   void storeUnalignedFloat32(const wasm::MemoryAccessDesc& access,
                              FloatRegister src, Register temp,
-                             const BaseIndex& dest) {
-    (void)access;
-    (void)src;
-    (void)temp;
-    (void)dest;
-    MOZ_CRASH("wasm unaligned float stores are not supported on loongarch64 yet");
-  }
+                             const BaseIndex& dest);
 
   void ma_cmp_set(Register dst, Register lhs, Register rhs, Condition c);
   void ma_cmp_set(Register dst, Register lhs, Imm32 imm, Condition c);

@@ -1547,6 +1547,145 @@ void MacroAssemblerLOONGARCH64::ma_store(Imm32 imm, const BaseIndex& dest,
   asMasm().ma_store(scratch, Address(scratch2, 0), size, extension);
 }
 
+void MacroAssemblerLOONGARCH64::ma_load_unaligned(
+    const wasm::MemoryAccessDesc& access, Register dest, const BaseIndex& src,
+    Register temp, LoadStoreSize size, LoadStoreExtension extension) {
+  MOZ_ASSERT(dest != temp);
+
+  asMasm().computeEffectiveAddress(src, temp);
+
+  BufferOffset load = as_ld_bu(dest, temp, 0);
+  if (size != SizeByte) {
+    ScratchRegisterScope scratch(asMasm());
+    const size_t byteSize = size / 8;
+    for (size_t i = 1; i < byteSize; i++) {
+      as_ld_bu(scratch, temp, i);
+      as_slli_d(scratch, scratch, 8 * i);
+      as_or(dest, dest, scratch);
+    }
+  }
+
+  switch (size) {
+    case SizeByte:
+      if (extension == SignExtend) {
+        as_ext_w_b(dest, dest);
+      }
+      break;
+    case SizeHalfWord:
+      if (extension == SignExtend) {
+        as_ext_w_h(dest, dest);
+      }
+      break;
+    case SizeWord:
+      if (extension == SignExtend) {
+        as_addi_w(dest, dest, 0);
+      }
+      break;
+    case SizeDouble:
+      break;
+    default:
+      MOZ_CRASH("Invalid argument for ma_load_unaligned");
+  }
+
+  append(access, load.getOffset(), asMasm().framePushed());
+}
+
+void MacroAssemblerLOONGARCH64::ma_store_unaligned(
+    const wasm::MemoryAccessDesc& access, Register data, const BaseIndex& dest,
+    Register temp, LoadStoreSize size, LoadStoreExtension extension) {
+  (void)extension;
+
+  MOZ_ASSERT(data != temp);
+
+  asMasm().computeEffectiveAddress(dest, temp);
+
+  BufferOffset store = as_st_b(data, temp, 0);
+  if (size != SizeByte) {
+    ScratchRegisterScope scratch(asMasm());
+    const size_t byteSize = size / 8;
+    for (size_t i = 1; i < byteSize; i++) {
+      as_srli_d(scratch, data, 8 * i);
+      as_st_b(scratch, temp, i);
+    }
+  }
+
+  append(access, store.getOffset(), asMasm().framePushed());
+}
+
+void MacroAssemblerLOONGARCH64::loadUnalignedDouble(
+    const wasm::MemoryAccessDesc& access, const BaseIndex& src, Register temp,
+    FloatRegister dest) {
+  asMasm().computeEffectiveAddress(src, temp);
+
+  ScratchRegisterScope scratch(asMasm());
+  SecondScratchRegisterScope scratch2(asMasm());
+
+  BufferOffset load = as_ld_bu(scratch, temp, 0);
+  for (size_t i = 1; i < sizeof(double); i++) {
+    as_ld_bu(scratch2, temp, i);
+    as_slli_d(scratch2, scratch2, 8 * i);
+    as_or(scratch, scratch, scratch2);
+  }
+
+  append(access, load.getOffset(), asMasm().framePushed());
+  moveToDouble(scratch, dest);
+}
+
+void MacroAssemblerLOONGARCH64::loadUnalignedFloat32(
+    const wasm::MemoryAccessDesc& access, const BaseIndex& src, Register temp,
+    FloatRegister dest) {
+  asMasm().computeEffectiveAddress(src, temp);
+
+  ScratchRegisterScope scratch(asMasm());
+  SecondScratchRegisterScope scratch2(asMasm());
+
+  BufferOffset load = as_ld_bu(scratch, temp, 0);
+  for (size_t i = 1; i < sizeof(float); i++) {
+    as_ld_bu(scratch2, temp, i);
+    as_slli_d(scratch2, scratch2, 8 * i);
+    as_or(scratch, scratch, scratch2);
+  }
+
+  append(access, load.getOffset(), asMasm().framePushed());
+  moveToFloat32(scratch, dest);
+}
+
+void MacroAssemblerLOONGARCH64::storeUnalignedDouble(
+    const wasm::MemoryAccessDesc& access, FloatRegister src, Register temp,
+    const BaseIndex& dest) {
+  asMasm().computeEffectiveAddress(dest, temp);
+
+  ScratchRegisterScope scratch(asMasm());
+  SecondScratchRegisterScope scratch2(asMasm());
+  moveFromDouble(src, scratch);
+
+  BufferOffset store = as_st_b(scratch, temp, 0);
+  for (size_t i = 1; i < sizeof(double); i++) {
+    as_srli_d(scratch2, scratch, 8 * i);
+    as_st_b(scratch2, temp, i);
+  }
+
+  append(access, store.getOffset(), asMasm().framePushed());
+}
+
+void MacroAssemblerLOONGARCH64::storeUnalignedFloat32(
+    const wasm::MemoryAccessDesc& access, FloatRegister src, Register temp,
+    const BaseIndex& dest) {
+  asMasm().computeEffectiveAddress(dest, temp);
+
+  ScratchRegisterScope scratch(asMasm());
+  SecondScratchRegisterScope scratch2(asMasm());
+  moveFromFloat32(src, scratch);
+
+  BufferOffset store = as_st_b(scratch, temp, 0);
+  for (size_t i = 1; i < sizeof(float); i++) {
+    as_srli_d(scratch2, scratch, 8 * i);
+    as_st_b(scratch2, temp, i);
+  }
+
+  append(access, store.getOffset(), asMasm().framePushed());
+}
+
 // Branches when done from within loongarch-specific code.
 // TODO(loongarch64) Optimize ma_b
 void MacroAssemblerLOONGARCH64::ma_b(Register lhs, Register rhs, Label* label,
@@ -2512,16 +2651,18 @@ CodeOffsetJump MacroAssemblerLOONGARCH64Compat::backedgeJump(
 
 CodeOffsetJump MacroAssemblerLOONGARCH64Compat::jumpWithPatch(
     RepatchLabel* label, Label* documentation) {
+  (void)documentation;
   MOZ_ASSERT(!label->used());
 
   BufferOffset bo = nextOffset();
   label->use(bo.getOffset());
 
   m_buffer.ensureSpace(4 * sizeof(uint32_t));
-  writeInst(InstImm(op_beq, BOffImm16(0), zero, zero).encode());
-  writeInst(LabelBase::INVALID_OFFSET);
-  as_nop();
-  as_nop();
+  if (label->bound()) {
+    addLongJump(bo, BufferOffset(label->offset()));
+  }
+  ma_liPatchable(ScratchRegister, ImmWord(LabelBase::INVALID_OFFSET));
+  as_jirl(zero, ScratchRegister, BOffImm16(0));
   return CodeOffsetJump(bo.getOffset());
 }
 
