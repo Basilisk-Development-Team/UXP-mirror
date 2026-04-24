@@ -46,4 +46,5 @@
 #endif
 #endif
 #include "config_common.h"
+#endif // XP_WIN / XP_DARWIN / XP_UNIX
 #endif // MOZ_FFVPX_CONFIG_H
