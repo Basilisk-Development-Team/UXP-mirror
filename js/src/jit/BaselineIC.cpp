@@ -6939,6 +6939,18 @@ ICCall_Native::Compiler::generateStubCode(MacroAssembler& masm)
     Register callee = masm.extractObject(R1, ExtractTemp0);
     Address expectedCallee(ICStubReg, ICCall_Native::offsetOfCallee());
     masm.branchPtr(Assembler::NotEqual, expectedCallee, callee, &failure);
+#ifdef JS_CODEGEN_LOONGARCH64
+    // The loongarch64 Ion/baseline call IC interaction is still being
+    // stabilized. If a scripted function ever reaches this native-call stub,
+    // JSFunction::nativeOrScript contains script data instead of a callable
+    // native pointer, so fail back instead of branching into garbage.
+    MOZ_ASSERT(JSFunction::offsetOfFlags() == JSFunction::offsetOfNargs() + 2);
+    Address flagsAddr(callee, JSFunction::offsetOfNargs());
+    int32_t scriptedBits =
+        IMM32_16ADJ(JSFunction::INTERPRETED | JSFunction::INTERPRETED_LAZY);
+    masm.branchTest32(Assembler::NonZero, flagsAddr, Imm32(scriptedBits),
+                      &failure);
+#endif
 
     regs.add(R1);
     regs.takeUnchecked(callee);
