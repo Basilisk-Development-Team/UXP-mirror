@@ -20,10 +20,22 @@ using namespace js::jit;
 
 void js::jit::PatchJump(CodeLocationJump& jump_, CodeLocationLabel label,
                         ReprotectCode reprotect) {
-  (void)jump_;
-  (void)label;
-  (void)reprotect;
-  MOZ_CRASH("Ion patching is not supported on loongarch64");
+  Instruction* inst = reinterpret_cast<Instruction*>(jump_.raw());
+
+  // jumpWithPatch() reserves four instructions:
+  //   beq zero, zero, 0
+  //   INVALID_OFFSET
+  //   nop
+  //   nop
+  // Patch that block into the long-jump form used elsewhere in the backend:
+  //   load64 scratch, target
+  //   jirl zero, scratch, 0
+  MaybeAutoWritableJitCode awjc(inst, 4 * sizeof(uint32_t), reprotect);
+  Assembler::WriteLoad64Instructions(inst, ScratchRegister,
+                                     uintptr_t(label.raw()));
+  inst[3] = InstImm(op_jirl, BOffImm16(0), ScratchRegister, zero);
+
+  AutoFlushICache::flush(uintptr_t(inst), 4 * sizeof(uint32_t));
 }
 
 // Note this is used for inter-wasm calls and may pass arguments and results

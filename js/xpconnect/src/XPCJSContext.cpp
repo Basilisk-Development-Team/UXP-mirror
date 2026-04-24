@@ -1421,10 +1421,8 @@ ReloadPrefsCallback(const char* pref, void* data)
     bool useNativeRegExp = Preferences::GetBool(JS_OPTIONS_DOT_STR "native_regexp") && !safeMode;
 
 #if defined(JS_CODEGEN_LOONGARCH64)
-    // asm.js, wasm, and native regexp JIT are still disabled on loongarch64.
+    // asm.js and native regexp JIT are still disabled on loongarch64.
     useAsmJS = false;
-    useWasm = false;
-    useWasmBaseline = false;
     useNativeRegExp = false;
 #endif
 

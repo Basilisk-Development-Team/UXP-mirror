@@ -1233,7 +1233,7 @@ pref("javascript.options.baselinejit",      true);
 #if defined(JS_CODEGEN_LOONGARCH64)
 pref("javascript.options.ion",              true);
 pref("javascript.options.asmjs",            false);
-pref("javascript.options.wasm",             false);
+pref("javascript.options.wasm",             true);
 #else
 pref("javascript.options.ion",              true);
 pref("javascript.options.asmjs",            true);
@@ -1244,7 +1244,7 @@ pref("javascript.options.ion.inlining",     true);
 // only enable it by default for 64bit builds
 #ifdef HAVE_64BIT_BUILD
 # if defined(JS_CODEGEN_LOONGARCH64)
-pref("javascript.options.wasm_baselinejit", false);
+pref("javascript.options.wasm_baselinejit", true);
 # else
 pref("javascript.options.wasm_baselinejit", true);
 # endif

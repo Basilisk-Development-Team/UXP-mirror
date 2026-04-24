@@ -1261,13 +1261,6 @@ ProcessHasSignalHandlers()
     if (getenv("JS_DISABLE_SLOW_SCRIPT_SIGNALS") || getenv("JS_NO_SIGNALS"))
         return false;
 
-#if defined(JS_CODEGEN_LOONGARCH64)
-    // The loongarch64 port is baseline-only for now: no wasm compiler support
-    // and no Ion interrupt machinery that depends on these process-wide
-    // signal handlers. Keeping them installed risks misrouting ordinary faults.
-    return false;
-#endif
-
     // The interrupt handler allows the main thread to be paused from another
     // thread (see InterruptRunningJitCode).
 #if defined(XP_WIN)

@@ -209,6 +209,12 @@ static constexpr Register WasmTableCallScratchReg1 = ABINonArgReg1;
 static constexpr Register WasmTableCallScratchReg = WasmTableCallScratchReg0;
 static constexpr Register WasmTableCallSigReg = ABINonArgReg2;
 static constexpr Register WasmTableCallIndexReg = ABINonArgReg3;
+static constexpr Register WasmIonExitRegCallee = t0;
+static constexpr Register WasmIonExitRegE0 = a0;
+static constexpr Register WasmIonExitRegE1 = a1;
+static constexpr Register WasmIonExitRegD0 = a0;
+static constexpr Register WasmIonExitRegD1 = a1;
+static constexpr Register WasmIonExitRegD2 = t0;
 
 // Register used as a scratch along the return path in the fast js -> wasm stub
 // code. This must not overlap ReturnReg, JSReturnOperand, or InstanceReg.

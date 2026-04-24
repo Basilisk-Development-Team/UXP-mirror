@@ -295,9 +295,8 @@ LoadContextOptions(const char* aPrefName, void* /* aClosure */)
   bool useIon = GetWorkerPref<bool>(NS_LITERAL_CSTRING("ion"));
 
 #if defined(JS_CODEGEN_LOONGARCH64)
-  // asm.js and wasm are still disabled on loongarch64 workers.
+  // asm.js is still disabled on loongarch64 workers.
   useAsmJS = false;
-  useWasm = false;
 #endif
 
   bool useNativeRegExp = GetWorkerPref<bool>(NS_LITERAL_CSTRING("native_regexp"));
