@@ -8,6 +8,7 @@
 #include "jit/BaselineJIT.h"
 #include "jit/Linker.h"
 #include "jit/SharedICHelpers.h"
+#include "jit/MacroAssembler-inl.h"
 
 using namespace js;
 using namespace js::jit;
@@ -23,6 +24,7 @@ ICCompare_Int32::Compiler::generateStubCode(MacroAssembler& masm)
     // Guard that R0 is an integer and R1 is an integer.
     Label failure;
     Label conditionTrue;
+    Label done;
     masm.branchTestInt32(Assembler::NotEqual, R0, &failure);
     masm.branchTestInt32(Assembler::NotEqual, R1, &failure);
 
@@ -30,7 +32,12 @@ ICCompare_Int32::Compiler::generateStubCode(MacroAssembler& masm)
     masm.unboxInt32(R0, ExtractTemp0);
     masm.unboxInt32(R1, ExtractTemp1);
     Assembler::Condition cond = JSOpToCondition(op, /* signed = */true);
-    masm.ma_cmp_set(R0.valueReg(), ExtractTemp0, ExtractTemp1, cond);
+    masm.move32(Imm32(0), R0.valueReg());
+    masm.branch32(cond, ExtractTemp0, ExtractTemp1, &conditionTrue);
+    masm.jump(&done);
+    masm.bind(&conditionTrue);
+    masm.move32(Imm32(1), R0.valueReg());
+    masm.bind(&done);
 
     masm.tagValue(JSVAL_TYPE_BOOLEAN, R0.valueReg(), R0);
     EmitReturnFromIC(masm);
