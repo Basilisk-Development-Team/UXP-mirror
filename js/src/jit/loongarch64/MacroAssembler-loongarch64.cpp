@@ -38,17 +38,6 @@ void MacroAssembler::restoreFrameAlignmentForICArguments(AfterICSaveLive& aic) {
   }
 }
 
-FrameSizeClass FrameSizeClass::FromDepth(uint32_t frameDepth) {
-  (void)frameDepth;
-  return FrameSizeClass::None();
-}
-
-FrameSizeClass FrameSizeClass::ClassLimit() { return FrameSizeClass(0); }
-
-uint32_t FrameSizeClass::frameSize() const {
-  MOZ_CRASH("loongarch64 does not use frame size classes");
-}
-
 void MacroAssembler::clampDoubleToUint8(FloatRegister input, Register output) {
   ScratchRegisterScope scratch(asMasm());
   ScratchDoubleScope fpscratch(asMasm());
@@ -80,6 +69,18 @@ void MacroAssemblerLOONGARCH64Compat::convertUInt32ToDouble(Register src,
   as_bstrpick_d(scratch, src, 31, 0);
   as_movgr2fr_d(dest, scratch);
   as_ffint_d_l(dest, dest);
+}
+
+void MacroAssemblerLOONGARCH64Compat::convertInt64ToDouble(Register src,
+                                                           FloatRegister dest) {
+  as_movgr2fr_d(dest, src);
+  as_ffint_d_l(dest, dest);
+}
+
+void MacroAssemblerLOONGARCH64Compat::convertInt64ToFloat32(Register src,
+                                                            FloatRegister dest) {
+  as_movgr2fr_d(dest, src);
+  as_ffint_s_l(dest, dest);
 }
 
 void MacroAssemblerLOONGARCH64Compat::convertUInt64ToDouble(Register src,
@@ -123,6 +124,31 @@ void MacroAssemblerLOONGARCH64Compat::convertUInt32ToFloat32(Register src,
   as_bstrpick_d(scratch, src, 31, 0);
   as_movgr2fr_d(dest, scratch);
   as_ffint_s_l(dest, dest);
+}
+
+void MacroAssemblerLOONGARCH64Compat::convertUInt64ToFloat32(Register src,
+                                                             FloatRegister dest) {
+  Label positive, done;
+  ma_b(src, src, &positive, NotSigned, ShortJump);
+  ScratchRegisterScope scratch(asMasm());
+  SecondScratchRegisterScope scratch2(asMasm());
+
+  MOZ_ASSERT(src != scratch);
+  MOZ_ASSERT(src != scratch2);
+
+  ma_and(scratch, src, Imm32(1));
+  as_srli_d(scratch2, src, 1);
+  as_or(scratch, scratch, scratch2);
+  as_movgr2fr_d(dest, scratch);
+  as_ffint_s_l(dest, dest);
+  asMasm().addFloat32(dest, dest);
+  ma_b(&done, ShortJump);
+
+  bind(&positive);
+  as_movgr2fr_d(dest, src);
+  as_ffint_s_l(dest, dest);
+
+  bind(&done);
 }
 
 void MacroAssemblerLOONGARCH64Compat::convertDoubleToFloat32(FloatRegister src,

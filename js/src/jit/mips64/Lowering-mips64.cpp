@@ -5,7 +5,11 @@
 
 #include "jit/mips64/Lowering-mips64.h"
 
-#include "jit/mips64/Assembler-mips64.h"
+#ifdef JS_CODEGEN_LOONGARCH64
+# include "jit/loongarch64/Assembler-loongarch64.h"
+#else
+# include "jit/mips64/Assembler-mips64.h"
+#endif
 
 #include "jit/MIR.h"
 

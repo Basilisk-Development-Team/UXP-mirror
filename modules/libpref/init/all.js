@@ -1231,7 +1231,7 @@ pref("javascript.options.strict.debug",     false);
 pref("javascript.options.unboxed_objects",  false);
 pref("javascript.options.baselinejit",      true);
 #if defined(JS_CODEGEN_LOONGARCH64)
-pref("javascript.options.ion",              false);
+pref("javascript.options.ion",              true);
 pref("javascript.options.asmjs",            false);
 pref("javascript.options.wasm",             false);
 #else

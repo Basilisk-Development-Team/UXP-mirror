@@ -2235,6 +2235,10 @@ CodeGeneratorMIPSShared::visitAsmJSStoreHeap(LAsmJSStoreHeap* ins)
 void
 CodeGeneratorMIPSShared::visitAsmJSCompareExchangeHeap(LAsmJSCompareExchangeHeap* ins)
 {
+#ifdef JS_CODEGEN_LOONGARCH64
+    (void)ins;
+    MOZ_CRASH("asm.js atomics are not supported on loongarch64 yet");
+#else
     MAsmJSCompareExchangeHeap* mir = ins->mir();
     Scalar::Type vt = mir->access().type();
     const LAllocation* ptr = ins->ptr();
@@ -2252,11 +2256,16 @@ CodeGeneratorMIPSShared::visitAsmJSCompareExchangeHeap(LAsmJSCompareExchangeHeap
                                         srcAddr, oldval, newval, InvalidReg,
                                         valueTemp, offsetTemp, maskTemp,
                                         ToAnyRegister(ins->output()));
+#endif
 }
 
 void
 CodeGeneratorMIPSShared::visitAsmJSAtomicExchangeHeap(LAsmJSAtomicExchangeHeap* ins)
 {
+#ifdef JS_CODEGEN_LOONGARCH64
+    (void)ins;
+    MOZ_CRASH("asm.js atomics are not supported on loongarch64 yet");
+#else
     MAsmJSAtomicExchangeHeap* mir = ins->mir();
     Scalar::Type vt = mir->access().type();
     Register ptrReg = ToRegister(ins->ptr());
@@ -2271,6 +2280,7 @@ CodeGeneratorMIPSShared::visitAsmJSAtomicExchangeHeap(LAsmJSAtomicExchangeHeap* 
     masm.atomicExchangeToTypedIntArray(vt == Scalar::Uint32 ? Scalar::Int32 : vt,
                                        srcAddr, value, InvalidReg, valueTemp,
                                        offsetTemp, maskTemp, ToAnyRegister(ins->output()));
+#endif
 }
 
 void
@@ -2549,6 +2559,19 @@ CodeGeneratorMIPSShared::atomicBinopToTypedIntArray(AtomicOp op, Scalar::Type ar
                                                     Register offsetTemp, Register maskTemp,
                                                     AnyRegister output)
 {
+#ifdef JS_CODEGEN_LOONGARCH64
+    (void)op;
+    (void)arrayType;
+    (void)value;
+    (void)mem;
+    (void)flagTemp;
+    (void)outTemp;
+    (void)valueTemp;
+    (void)offsetTemp;
+    (void)maskTemp;
+    (void)output;
+    MOZ_CRASH("asm.js atomics are not supported on loongarch64 yet");
+#else
     MOZ_ASSERT(flagTemp != InvalidReg);
     MOZ_ASSERT_IF(arrayType == Scalar::Uint32, outTemp != InvalidReg);
 
@@ -2686,6 +2709,7 @@ CodeGeneratorMIPSShared::atomicBinopToTypedIntArray(AtomicOp op, Scalar::Type ar
       default:
         MOZ_CRASH("Invalid typed array type");
     }
+#endif
 }
 
 template void
@@ -2720,6 +2744,17 @@ CodeGeneratorMIPSShared::atomicBinopToTypedIntArray(AtomicOp op, Scalar::Type ar
                                                     const T& mem, Register flagTemp, Register valueTemp,
                                                     Register offsetTemp, Register maskTemp)
 {
+#ifdef JS_CODEGEN_LOONGARCH64
+    (void)op;
+    (void)arrayType;
+    (void)value;
+    (void)mem;
+    (void)flagTemp;
+    (void)valueTemp;
+    (void)offsetTemp;
+    (void)maskTemp;
+    MOZ_CRASH("atomics are not supported on loongarch64 Ion yet");
+#else
     MOZ_ASSERT(flagTemp != InvalidReg);
 
     switch (arrayType) {
@@ -2792,6 +2827,7 @@ CodeGeneratorMIPSShared::atomicBinopToTypedIntArray(AtomicOp op, Scalar::Type ar
       default:
         MOZ_CRASH("Invalid typed array type");
     }
+#endif
 }
 
 template void
@@ -2819,11 +2855,16 @@ CodeGeneratorMIPSShared::atomicBinopToTypedIntArray(AtomicOp op, Scalar::Type ar
 void
 CodeGeneratorMIPSShared::visitWasmAddOffset(LWasmAddOffset* lir)
 {
+#ifdef JS_CODEGEN_LOONGARCH64
+    (void)lir;
+    MOZ_CRASH("wasm is not supported on loongarch64 yet");
+#else
     MWasmAddOffset* mir = lir->mir();
     Register base = ToRegister(lir->base());
     Register out = ToRegister(lir->output());
 
     masm.ma_addTestCarry(out, base, Imm32(mir->offset()), trap(mir, wasm::Trap::OutOfBounds));
+#endif
 }
 
 template <typename T>
@@ -2911,6 +2952,10 @@ CodeGeneratorMIPSShared::visitAtomicTypedArrayElementBinopForEffect(LAtomicTyped
 void
 CodeGeneratorMIPSShared::visitCompareExchangeTypedArrayElement(LCompareExchangeTypedArrayElement* lir)
 {
+#ifdef JS_CODEGEN_LOONGARCH64
+    (void)lir;
+    MOZ_CRASH("atomics are not supported on loongarch64 Ion yet");
+#else
     Register elements = ToRegister(lir->elements());
     AnyRegister output = ToAnyRegister(lir->output());
     Register temp = lir->temp()->isBogusTemp() ? InvalidReg : ToRegister(lir->temp());
@@ -2933,11 +2978,16 @@ CodeGeneratorMIPSShared::visitCompareExchangeTypedArrayElement(LCompareExchangeT
         masm.compareExchangeToTypedIntArray(arrayType, dest, oldval, newval, temp,
                                             valueTemp, offsetTemp, maskTemp, output);
     }
+#endif
 }
 
 void
 CodeGeneratorMIPSShared::visitAtomicExchangeTypedArrayElement(LAtomicExchangeTypedArrayElement* lir)
 {
+#ifdef JS_CODEGEN_LOONGARCH64
+    (void)lir;
+    MOZ_CRASH("atomics are not supported on loongarch64 Ion yet");
+#else
     Register elements = ToRegister(lir->elements());
     AnyRegister output = ToAnyRegister(lir->output());
     Register temp = lir->temp()->isBogusTemp() ? InvalidReg : ToRegister(lir->temp());
@@ -2959,4 +3009,5 @@ CodeGeneratorMIPSShared::visitAtomicExchangeTypedArrayElement(LAtomicExchangeTyp
         masm.atomicExchangeToTypedIntArray(arrayType, dest, value, temp,
                                            valueTemp, offsetTemp, maskTemp, output);
     }
+#endif
 }

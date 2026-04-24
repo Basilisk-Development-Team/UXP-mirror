@@ -291,23 +291,72 @@ class MacroAssemblerLOONGARCH64 : public Assembler {
   void ma_mod_mask(Register src, Register dest, Register hold, Register remain,
                    int32_t shift, Label* negZero = nullptr);
 
+  void ma_and(Register rd, Register rs) { as_and(rd, rd, rs); }
+  void ma_and(Register rd, Imm32 imm) { ma_and(rd, rd, imm); }
+  void as_addu(Register rd, Register rj, Register rk) { as_add_w(rd, rj, rk); }
+  void ma_addu(Register rd, Register rs) { as_add_w(rd, rd, rs); }
+  void ma_addu(Register rd, Imm32 imm) { ma_add_w(rd, rd, imm); }
   void ma_addu(Register rd, Register rj, Register rk) { as_add_w(rd, rj, rk); }
   void ma_addu(Register rd, Register rj, Imm32 imm) { ma_add_w(rd, rj, imm); }
+  void as_subu(Register rd, Register rj, Register rk) { as_sub_w(rd, rj, rk); }
+  void ma_subu(Register rd, Register rs) { as_sub_w(rd, rd, rs); }
+  void ma_subu(Register rd, Imm32 imm) { ma_sub_w(rd, rd, imm); }
   void ma_subu(Register rd, Register rj, Register rk) { as_sub_w(rd, rj, rk); }
   void ma_subu(Register rd, Register rj, Imm32 imm) { ma_sub_w(rd, rj, imm); }
+  void ma_addTestOverflow(Register rd, Register rj, Register rk,
+                          Label* overflow) {
+    ma_add32TestOverflow(rd, rj, rk, overflow);
+  }
+  void ma_addTestOverflow(Register rd, Register rj, Imm32 imm,
+                          Label* overflow) {
+    ma_add32TestOverflow(rd, rj, imm, overflow);
+  }
+  void ma_subTestOverflow(Register rd, Register rj, Register rk,
+                          Label* overflow) {
+    ma_sub32TestOverflow(rd, rj, rk, overflow);
+  }
+  void ma_subTestOverflow(Register rd, Register rj, Imm32 imm,
+                          Label* overflow) {
+    ma_sub32TestOverflow(rd, rj, imm, overflow);
+  }
   void ma_negu(Register rd, Register rj) { as_sub_w(rd, zero, rj); }
+  void ma_not(Register rd, Register rj) { as_nor(rd, rj, zero); }
+  void ma_or(Register rd, Register rs) { as_or(rd, rd, rs); }
+  void ma_or(Register rd, Imm32 imm) { ma_or(rd, rd, imm); }
+  void ma_xor(Register rd, Register rs) { as_xor(rd, rd, rs); }
+  void ma_xor(Register rd, Imm32 imm) { ma_xor(rd, rd, imm); }
   void ma_sll(Register rd, Register rj, Register rk) { as_sll_w(rd, rj, rk); }
   void ma_sll(Register rd, Register rj, Imm32 imm) {
     as_slli_w(rd, rj, imm.value & 0x1f);
+  }
+  void ma_dsll(Register rd, Register rj, Register rk) { as_sll_d(rd, rj, rk); }
+  void ma_dsll(Register rd, Register rj, Imm32 imm) {
+    as_slli_d(rd, rj, imm.value & 0x3f);
   }
   void ma_srl(Register rd, Register rj, Register rk) { as_srl_w(rd, rj, rk); }
   void ma_srl(Register rd, Register rj, Imm32 imm) {
     as_srli_w(rd, rj, imm.value & 0x1f);
   }
+  void ma_dsrl(Register rd, Register rj, Register rk) { as_srl_d(rd, rj, rk); }
+  void ma_dsrl(Register rd, Register rj, Imm32 imm) {
+    as_srli_d(rd, rj, imm.value & 0x3f);
+  }
   void ma_sra(Register rd, Register rj, Register rk) { as_sra_w(rd, rj, rk); }
   void ma_sra(Register rd, Register rj, Imm32 imm) {
     as_srai_w(rd, rj, imm.value & 0x1f);
   }
+  void ma_dsra(Register rd, Register rj, Register rk) { as_sra_d(rd, rj, rk); }
+  void ma_dsra(Register rd, Register rj, Imm32 imm) {
+    as_srai_d(rd, rj, imm.value & 0x3f);
+  }
+  void ma_dins(Register rd, Register rj, Imm32 pos, Imm32 size) {
+    as_bstrins_d(rd, rj, pos.value + size.value - 1, pos.value);
+  }
+  void ma_dext(Register rd, Register rj, Imm32 pos, Imm32 size) {
+    as_bstrpick_d(rd, rj, pos.value + size.value - 1, pos.value);
+  }
+  void as_clz(Register rd, Register rj) { as_clz_w(rd, rj); }
+  void ma_ctz(Register rd, Register rj) { as_ctz_w(rd, rj); }
 
   // branches when done from within la-specific code
   void ma_b(Register lhs, Register rhs, Label* l, Condition c,
@@ -375,13 +424,159 @@ class MacroAssemblerLOONGARCH64 : public Assembler {
   void ma_jump(ImmPtr dest);
 
   void as_mul(Register rd, Register rj, Register rk) { as_mul_w(rd, rj, rk); }
+  void as_movz(Register rd, Register rs, Register rt) { moveIfZero(rd, rs, rt); }
+  void as_movz(FloatFormat fmt, FloatRegister fd, FloatRegister fs,
+               Register rt) {
+    ma_fmovz(fmt, fd, fs, rt);
+  }
   void as_mtc1(Register rt, FloatRegister fs) { as_movgr2fr_w(fs, rt); }
   void as_mfc1(Register rt, FloatRegister fs) { as_movfr2gr_s(rt, fs); }
-  void as_divd(FloatRegister fd, FloatRegister fj, FloatRegister fk) {
-    as_fdiv_d(fd, fj, fk);
+  void as_dmtc1(Register rt, FloatRegister fs) { as_movgr2fr_d(fs, rt); }
+  void as_dmfc1(Register rt, FloatRegister fs) { as_movfr2gr_d(rt, fs); }
+  BufferOffset as_cfc1(Register rd, FPControl) { return as_movfcsr2gr(rd); }
+  BufferOffset as_ext(Register rd, Register rj, int32_t pos, int32_t size) {
+    return as_bstrpick_w(rd, rj, pos + size - 1, pos);
   }
-  void as_divs(FloatRegister fd, FloatRegister fj, FloatRegister fk) {
-    as_fdiv_s(fd, fj, fk);
+  BufferOffset as_ins(Register rd, Register rj, int32_t pos, int32_t size) {
+    return as_bstrins_w(rd, rj, pos + size - 1, pos);
+  }
+  BufferOffset as_sd(Register rd, Register rj, int32_t si12) {
+    return as_st_d(rd, rj, si12);
+  }
+  BufferOffset as_sd(FloatRegister fd, Register rj, int32_t si12) {
+    return as_fst_d(fd, rj, si12);
+  }
+  BufferOffset as_ld(FloatRegister fd, Register rj, int32_t si12) {
+    return as_fld_d(fd, rj, si12);
+  }
+  BufferOffset as_absd(FloatRegister fd, FloatRegister fj) {
+    return as_fabs_d(fd, fj);
+  }
+  BufferOffset as_abss(FloatRegister fd, FloatRegister fj) {
+    return as_fabs_s(fd, fj);
+  }
+  BufferOffset as_addd(FloatRegister fd, FloatRegister fj, FloatRegister fk) {
+    return as_fadd_d(fd, fj, fk);
+  }
+  BufferOffset as_adds(FloatRegister fd, FloatRegister fj, FloatRegister fk) {
+    return as_fadd_s(fd, fj, fk);
+  }
+  BufferOffset as_subd(FloatRegister fd, FloatRegister fj, FloatRegister fk) {
+    return as_fsub_d(fd, fj, fk);
+  }
+  BufferOffset as_subs(FloatRegister fd, FloatRegister fj, FloatRegister fk) {
+    return as_fsub_s(fd, fj, fk);
+  }
+  BufferOffset as_muld(FloatRegister fd, FloatRegister fj, FloatRegister fk) {
+    return as_fmul_d(fd, fj, fk);
+  }
+  BufferOffset as_muls(FloatRegister fd, FloatRegister fj, FloatRegister fk) {
+    return as_fmul_s(fd, fj, fk);
+  }
+  BufferOffset as_divd(FloatRegister fd, FloatRegister fj, FloatRegister fk) {
+    return as_fdiv_d(fd, fj, fk);
+  }
+  BufferOffset as_divs(FloatRegister fd, FloatRegister fj, FloatRegister fk) {
+    return as_fdiv_s(fd, fj, fk);
+  }
+  BufferOffset as_negd(FloatRegister fd, FloatRegister fj) {
+    return as_fneg_d(fd, fj);
+  }
+  BufferOffset as_negs(FloatRegister fd, FloatRegister fj) {
+    return as_fneg_s(fd, fj);
+  }
+  BufferOffset as_sqrtd(FloatRegister fd, FloatRegister fj) {
+    return as_fsqrt_d(fd, fj);
+  }
+  BufferOffset as_sqrts(FloatRegister fd, FloatRegister fj) {
+    return as_fsqrt_s(fd, fj);
+  }
+  BufferOffset as_floorwd(FloatRegister fd, FloatRegister fj) {
+    return as_ftintrm_w_d(fd, fj);
+  }
+  BufferOffset as_floorws(FloatRegister fd, FloatRegister fj) {
+    return as_ftintrm_w_s(fd, fj);
+  }
+  BufferOffset as_ceilwd(FloatRegister fd, FloatRegister fj) {
+    return as_ftintrp_w_d(fd, fj);
+  }
+  BufferOffset as_ceilws(FloatRegister fd, FloatRegister fj) {
+    return as_ftintrp_w_s(fd, fj);
+  }
+  BufferOffset as_truncld(FloatRegister fd, FloatRegister fj) {
+    return as_ftintrz_l_d(fd, fj);
+  }
+  BufferOffset as_truncls(FloatRegister fd, FloatRegister fj) {
+    return as_ftintrz_l_s(fd, fj);
+  }
+  BufferOffset as_truncwd(FloatRegister fd, FloatRegister fj) {
+    return as_ftintrz_w_d(fd, fj);
+  }
+  BufferOffset as_truncws(FloatRegister fd, FloatRegister fj) {
+    return as_ftintrz_w_s(fd, fj);
+  }
+  BufferOffset ma_BoundsCheck(Register bounded) {
+    BufferOffset bo = nextOffset();
+    ma_liPatchable(bounded, Imm32(0));
+    return bo;
+  }
+  void ma_load_unaligned(const wasm::MemoryAccessDesc& access, Register dest,
+                         const BaseIndex& src, Register temp,
+                         LoadStoreSize size, LoadStoreExtension extension) {
+    (void)access;
+    (void)dest;
+    (void)src;
+    (void)temp;
+    (void)size;
+    (void)extension;
+    MOZ_CRASH("wasm unaligned integer loads are not supported on loongarch64 yet");
+  }
+  void ma_store_unaligned(const wasm::MemoryAccessDesc& access, Register data,
+                          const BaseIndex& dest, Register temp,
+                          LoadStoreSize size, LoadStoreExtension extension) {
+    (void)access;
+    (void)data;
+    (void)dest;
+    (void)temp;
+    (void)size;
+    (void)extension;
+    MOZ_CRASH("wasm unaligned integer stores are not supported on loongarch64 yet");
+  }
+  void loadUnalignedDouble(const wasm::MemoryAccessDesc& access,
+                           const BaseIndex& src, Register temp,
+                           FloatRegister dest) {
+    (void)access;
+    (void)src;
+    (void)temp;
+    (void)dest;
+    MOZ_CRASH("wasm unaligned double loads are not supported on loongarch64 yet");
+  }
+  void loadUnalignedFloat32(const wasm::MemoryAccessDesc& access,
+                            const BaseIndex& src, Register temp,
+                            FloatRegister dest) {
+    (void)access;
+    (void)src;
+    (void)temp;
+    (void)dest;
+    MOZ_CRASH("wasm unaligned float loads are not supported on loongarch64 yet");
+  }
+  void storeUnalignedDouble(const wasm::MemoryAccessDesc& access,
+                            FloatRegister src, Register temp,
+                            const BaseIndex& dest) {
+    (void)access;
+    (void)src;
+    (void)temp;
+    (void)dest;
+    MOZ_CRASH("wasm unaligned double stores are not supported on loongarch64 yet");
+  }
+  void storeUnalignedFloat32(const wasm::MemoryAccessDesc& access,
+                             FloatRegister src, Register temp,
+                             const BaseIndex& dest) {
+    (void)access;
+    (void)src;
+    (void)temp;
+    (void)dest;
+    MOZ_CRASH("wasm unaligned float stores are not supported on loongarch64 yet");
   }
 
   void ma_cmp_set(Register dst, Register lhs, Register rhs, Condition c);
@@ -471,8 +666,11 @@ class MacroAssemblerLOONGARCH64Compat : public MacroAssemblerLOONGARCH64 {
     convertInt32ToDouble(Address(scratch, src.offset), dest);
   };
   void convertUInt32ToDouble(Register src, FloatRegister dest);
+  void convertInt64ToDouble(Register src, FloatRegister dest);
+  void convertInt64ToFloat32(Register src, FloatRegister dest);
   void convertUInt32ToFloat32(Register src, FloatRegister dest);
   void convertDoubleToFloat32(FloatRegister src, FloatRegister dest);
+  void convertUInt64ToFloat32(Register src, FloatRegister dest);
   void convertDoubleToInt32(FloatRegister src, Register dest, Label* fail,
                             bool negativeZeroCheck = true);
   void convertDoubleToPtr(FloatRegister src, Register dest, Label* fail,
@@ -776,10 +974,16 @@ class MacroAssemblerLOONGARCH64Compat : public MacroAssemblerLOONGARCH64 {
   void loadInt32OrDouble(const Address& src, FloatRegister dest);
   void loadInt32OrDouble(const BaseIndex& addr, FloatRegister dest);
   void loadConstantDouble(double dp, FloatRegister dest);
+  void loadConstantDouble(wasm::RawF64 dp, FloatRegister dest) {
+    loadConstantDouble(dp.fp(), dest);
+  }
 
   void boolValueToFloat32(const ValueOperand& operand, FloatRegister dest);
   void int32ValueToFloat32(const ValueOperand& operand, FloatRegister dest);
   void loadConstantFloat32(float f, FloatRegister dest);
+  void loadConstantFloat32(wasm::RawF32 f, FloatRegister dest) {
+    loadConstantFloat32(f.fp(), dest);
+  }
 
   void testNullSet(Condition cond, const ValueOperand& value, Register dest);
 
@@ -1076,6 +1280,11 @@ class MacroAssemblerLOONGARCH64Compat : public MacroAssemblerLOONGARCH64 {
   }
 
   void zeroDouble(FloatRegister reg) { moveToDouble(zero, reg); }
+
+  void cmp64Set(Assembler::Condition cond, Register lhs, Imm32 rhs,
+                Register dest) {
+    ma_cmp_set(dest, lhs, rhs, cond);
+  }
 
   void convertUInt64ToDouble(Register src, FloatRegister dest);
   static bool convertUInt64ToDoubleNeedsTemp();

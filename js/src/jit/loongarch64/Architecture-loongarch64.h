@@ -429,6 +429,7 @@ struct FloatRegister {
     MOZ_ASSERT(!invalid_);
     return FloatRegister(Encoding(encoding_), FloatRegisters::Double);
   }
+  FloatRegister doubleOverlay() const { return asDouble(); }
   FloatRegister asSimd128() const { MOZ_CRASH(); }
 
   constexpr uint32_t size() const {

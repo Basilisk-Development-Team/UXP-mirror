@@ -154,7 +154,9 @@ static constexpr Register IntArgReg4 = a4;
 static constexpr Register IntArgReg5 = a5;
 static constexpr Register IntArgReg6 = a6;
 static constexpr Register IntArgReg7 = a7;
+static constexpr Register GlobalReg = s6;
 static constexpr Register HeapReg = s7;
+static const int32_t WasmGlobalRegBias = 32768;
 
 // Registerd used in RegExpMatcher instruction (do not use JSReturnOperand).
 static constexpr Register RegExpMatcherRegExpReg = CallTempReg0;
@@ -1015,6 +1017,7 @@ class AssemblerLOONGARCH64 : public AssemblerShared {
  public:
   void setUnlimitedBuffer() {}
   bool oom() const;
+  bool bailed() const { return m_buffer.bail(); }
 
   void setPrinter(Sprinter* sp) {
 #ifdef JS_JITSPEW
@@ -1797,6 +1800,13 @@ class InstJump : public Instruction {
     return extractBitField(Imm26Shift + Imm26Bits - 1, Imm26Shift);
   }
 };
+
+inline bool IsUnaligned(const wasm::MemoryAccessDesc& access) {
+  if (!access.align()) {
+    return false;
+  }
+  return access.align() < access.byteSize();
+}
 
 class ABIArgGenerator {
  public:
