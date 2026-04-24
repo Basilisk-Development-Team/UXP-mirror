@@ -377,6 +377,11 @@ if not CONFIG['JS_CODEGEN_LOONGARCH64']:
         'wasm/WasmBaselineCompile.cpp',
         'wasm/WasmIonCompile.cpp',
     ]
+else:
+    SOURCES += [
+        'wasm/WasmBaselineCompile.cpp',
+        'wasm/WasmIonCompile.cpp',
+    ]
 
 # jsarray.cpp and jsatom.cpp cannot be built in unified mode because
 # xpcshell is broken during packaging when compiled with gcc-4.8.2

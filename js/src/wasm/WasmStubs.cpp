@@ -84,7 +84,7 @@ static const LiveRegisterSet NonVolatileRegs =
 static const unsigned FramePushedAfterSave = NonVolatileRegs.gprs().size() * sizeof(intptr_t) +
                                              NonVolatileRegs.fpus().getPushSizeInBytes() +
                                              sizeof(double);
-#elif defined(JS_CODEGEN_NONE) || defined(JS_CODEGEN_LOONGARCH64)
+#elif defined(JS_CODEGEN_NONE)
 static const unsigned FramePushedAfterSave = 0;
 #else
 static const unsigned FramePushedAfterSave = NonVolatileRegs.gprs().size() * sizeof(intptr_t)
@@ -107,7 +107,8 @@ wasm::GenerateEntry(MacroAssembler& masm, const FuncExport& fe)
     // Save the return address if it wasn't already saved by the call insn.
 #if defined(JS_CODEGEN_ARM)
     masm.push(lr);
-#elif defined(JS_CODEGEN_MIPS32) || defined(JS_CODEGEN_MIPS64)
+#elif defined(JS_CODEGEN_MIPS32) || defined(JS_CODEGEN_MIPS64) || \
+      defined(JS_CODEGEN_LOONGARCH64)
     masm.push(ra);
 #endif
 
@@ -1099,21 +1100,3 @@ wasm::GenerateThrowStub(MacroAssembler& masm, Label* throwLabel)
     offsets.end = masm.currentOffset();
     return offsets;
 }
-
-#if defined(JS_CODEGEN_LOONGARCH64)
-
-bool
-js::wasm::BaselineCanCompile(const FunctionGenerator* fg)
-{
-    (void)fg;
-    return false;
-}
-
-bool
-js::wasm::CompileFunction(IonCompileTask* task)
-{
-    (void)task;
-    return false;
-}
-
-#endif

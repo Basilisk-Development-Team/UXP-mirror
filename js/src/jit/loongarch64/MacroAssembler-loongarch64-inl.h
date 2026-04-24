@@ -1436,16 +1436,20 @@ void MacroAssembler::clampIntToUint8(Register reg) {
 
 template <class L>
 void MacroAssembler::wasmBoundsCheck(Condition cond, Register index, L label) {
-  (void)cond;
-  (void)index;
-  (void)label;
-  MOZ_CRASH("wasm bounds checks are not supported on loongarch64 yet");
+  BufferOffset bo = ma_BoundsCheck(ScratchRegister);
+  append(wasm::BoundsCheck(bo.getOffset()));
+  ma_b(index, ScratchRegister, label, cond);
 }
 
 void MacroAssembler::wasmPatchBoundsCheck(uint8_t* patchAt, uint32_t limit) {
-  (void)patchAt;
-  (void)limit;
-  MOZ_CRASH("wasm bounds checks are not supported on loongarch64 yet");
+  InstImm* i0 = reinterpret_cast<InstImm*>(patchAt);
+  InstImm* i1 = reinterpret_cast<InstImm*>(i0->next());
+
+  *i0 = InstImm(op_lu12i_w, int32_t((limit >> 12) & 0xfffff),
+                Register::FromCode(i0->extractRD()), false);
+  *i1 = InstImm(op_ori, int32_t(limit & 0xfff),
+                Register::FromCode(i1->extractRJ()),
+                Register::FromCode(i1->extractRD()), 12);
 }
 
 void MacroAssembler::memoryBarrier(MemoryBarrierBits barrier) {

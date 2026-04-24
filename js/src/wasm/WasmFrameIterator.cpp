@@ -242,7 +242,14 @@ static const unsigned PushedRetAddr = 8;
 static const unsigned PushedFP = 32;
 static const unsigned StoredFP = 36;
 static const unsigned PostStorePrePopFP = 4;
-#elif defined(JS_CODEGEN_NONE) || defined(JS_CODEGEN_LOONGARCH64)
+#elif defined(JS_CODEGEN_LOONGARCH64)
+static const unsigned PushedRetAddr = 8;
+static const unsigned PushedFP = 36;
+static const unsigned StoredFP = 40;
+# if defined(DEBUG)
+static const unsigned PostStorePrePopFP = 0;
+# endif
+#elif defined(JS_CODEGEN_NONE)
 # if defined(DEBUG)
 static const unsigned PushedRetAddr = 0;
 static const unsigned PostStorePrePopFP = 0;
@@ -258,7 +265,8 @@ PushRetAddr(MacroAssembler& masm)
 {
 #if defined(JS_CODEGEN_ARM)
     masm.push(lr);
-#elif defined(JS_CODEGEN_MIPS32) || defined(JS_CODEGEN_MIPS64)
+#elif defined(JS_CODEGEN_MIPS32) || defined(JS_CODEGEN_MIPS64) || \
+      defined(JS_CODEGEN_LOONGARCH64)
     masm.push(ra);
 #else
     // The x86/x64 call instruction pushes the return address.

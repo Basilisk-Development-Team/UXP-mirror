@@ -1839,9 +1839,21 @@ class Assembler : public AssemblerLOONGARCH64 {
   static void Bind(uint8_t* rawCode, CodeLabel label);
   void bind(RepatchLabel* label);
   void bindLater(Label* label, wasm::TrapDesc target) {
-    (void)label;
-    (void)target;
-    MOZ_CRASH("wasm trap patching is not supported on loongarch64 yet");
+    if (label->used()) {
+      int32_t next;
+
+      BufferOffset b(label);
+      do {
+        Instruction* inst = editSrc(b);
+
+        append(wasm::TrapSite(target, b.getOffset()));
+        next = inst[1].encode();
+        inst[1].makeNop();
+
+        b = BufferOffset(next);
+      } while (next != LabelBase::INVALID_OFFSET);
+    }
+    label->reset();
   }
 
   void processCodeLabels(uint8_t* rawCode);

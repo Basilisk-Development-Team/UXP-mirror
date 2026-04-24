@@ -116,6 +116,27 @@ class MacroAssemblerLOONGARCH64 : public Assembler {
                             Label* overflow);
   void ma_add32TestOverflow(Register rd, Register rj, Imm32 imm,
                             Label* overflow);
+  template <typename L>
+  void ma_add32TestOverflow(Register rd, Register rj, Register rk,
+                            L overflow) {
+    ScratchRegisterScope scratch(asMasm());
+    as_add_d(scratch, rj, rk);
+    as_add_w(rd, rj, rk);
+    ma_b(rd, Register(scratch), overflow, Assembler::NotEqual);
+  }
+  template <typename L>
+  void ma_add32TestOverflow(Register rd, Register rj, Imm32 imm, L overflow) {
+    if (is_intN(imm.value, 12)) {
+      ScratchRegisterScope scratch(asMasm());
+      as_addi_d(scratch, rj, imm.value);
+      as_addi_w(rd, rj, imm.value);
+      ma_b(rd, scratch, overflow, Assembler::NotEqual);
+    } else {
+      SecondScratchRegisterScope scratch2(asMasm());
+      ma_li(scratch2, imm);
+      ma_add32TestOverflow(rd, rj, scratch2, overflow);
+    }
+  }
   void ma_addPtrTestOverflow(Register rd, Register rj, Register rk,
                              Label* overflow);
   void ma_addPtrTestOverflow(Register rd, Register rj, Imm32 imm,
@@ -257,6 +278,25 @@ class MacroAssemblerLOONGARCH64 : public Assembler {
                          Label* overflow);
   void ma_add32TestCarry(Condition cond, Register rd, Register rj, Imm32 imm,
                          Label* overflow);
+  template <typename L>
+  void ma_add32TestCarry(Condition cond, Register rd, Register rj, Register rk,
+                         L overflow) {
+    MOZ_ASSERT(cond == Assembler::CarrySet || cond == Assembler::CarryClear);
+    MOZ_ASSERT_IF(rd == rj, rk != rd);
+    ScratchRegisterScope scratch(asMasm());
+    as_add_w(rd, rj, rk);
+    as_sltu(scratch, rd, rd == rj ? rk : rj);
+    ma_b(Register(scratch), Register(scratch), overflow,
+         cond == Assembler::CarrySet ? Assembler::NonZero : Assembler::Zero);
+  }
+  template <typename L>
+  void ma_add32TestCarry(Condition cond, Register rd, Register rj, Imm32 imm,
+                         L overflow) {
+    SecondScratchRegisterScope scratch2(asMasm());
+    MOZ_ASSERT(rj != scratch2);
+    ma_li(scratch2, imm);
+    ma_add32TestCarry(cond, rd, rj, scratch2, overflow);
+  }
 
   // subtract
   void ma_sub_w(Register rd, Register rj, Imm32 imm);
@@ -376,18 +416,15 @@ class MacroAssemblerLOONGARCH64 : public Assembler {
   template <typename T>
   void ma_b(Register lhs, const T& rhs, wasm::TrapDesc target,
             Condition c, JumpKind jumpKind = LongJump) {
-    (void)lhs;
-    (void)rhs;
-    (void)target;
-    (void)c;
-    (void)jumpKind;
-    MOZ_CRASH("wasm trap branches are not supported on loongarch64 yet");
+    Label label;
+    ma_b(lhs, rhs, &label, c, jumpKind);
+    bindLater(&label, target);
   }
 
   void ma_b(wasm::TrapDesc target, JumpKind jumpKind = LongJump) {
-    (void)target;
-    (void)jumpKind;
-    MOZ_CRASH("wasm trap jumps are not supported on loongarch64 yet");
+    Label label;
+    ma_b(&label, jumpKind);
+    bindLater(&label, target);
   }
 
   void ma_b(Label* l, JumpKind jumpKind = LongJump);
@@ -1306,12 +1343,13 @@ class MacroAssemblerLOONGARCH64Compat : public MacroAssemblerLOONGARCH64 {
   static void calculateAlignedStackPointer(void** stackPointer);
 
   void loadWasmGlobalPtr(uint32_t globalDataOffset, Register dest) {
-    (void)globalDataOffset;
-    (void)dest;
-    MOZ_CRASH("wasm globals are not supported on loongarch64 yet");
+    loadPtr(Address(GlobalReg, globalDataOffset - WasmGlobalRegBias), dest);
   }
   void loadWasmPinnedRegsFromTls() {
-    MOZ_CRASH("wasm pinned registers are not supported on loongarch64 yet");
+    loadPtr(Address(WasmTlsReg, offsetof(wasm::TlsData, memoryBase)), HeapReg);
+    loadPtr(Address(WasmTlsReg, offsetof(wasm::TlsData, globalData)),
+            GlobalReg);
+    ma_add_d(GlobalReg, GlobalReg, Imm32(WasmGlobalRegBias));
   }
 
   void cmpPtrSet(Assembler::Condition cond, Address lhs, ImmPtr rhs,

@@ -2469,18 +2469,19 @@ void MacroAssembler::repatchFarJump(uint8_t* code, uint32_t farJumpOffset,
 }
 
 CodeOffset MacroAssembler::nopPatchableToNearJump() {
-  MOZ_CRASH("wasm patchable jumps are not supported on loongarch64");
+  CodeOffset offset(currentOffset());
+  as_nop();
+  return offset;
 }
 
 void MacroAssembler::patchNopToNearJump(uint8_t* jump, uint8_t* target) {
-  (void)jump;
-  (void)target;
-  MOZ_CRASH("wasm patchable jumps are not supported on loongarch64");
+  MOZ_ASSERT(reinterpret_cast<Instruction*>(jump)->is<InstNOP>());
+  new (jump) InstJump(op_b, JOffImm26(target - jump));
 }
 
 void MacroAssembler::patchNearJumpToNop(uint8_t* jump) {
-  (void)jump;
-  MOZ_CRASH("wasm patchable jumps are not supported on loongarch64");
+  MOZ_ASSERT(reinterpret_cast<Instruction*>(jump)->is<InstJump>());
+  new (jump) InstNOP();
 }
 
 void MacroAssembler::call(wasm::SymbolicAddress target) {
