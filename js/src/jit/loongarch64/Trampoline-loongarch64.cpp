@@ -556,7 +556,6 @@ JitRuntime::generateArgumentsRectifier(JSContext* cx, void** returnAddrOut)
 
     // Discard pushed arguments.
     masm.addPtr(t2, StackPointer);
-
     masm.ret();
     Linker linker(masm);
     AutoFlushICache afc("ArgumentsRectifier");
@@ -676,9 +675,19 @@ JitRuntime::generateVMWrapper(JSContext* cx, const VMFunction& f)
     Register cxreg = a0;
     regs.take(cxreg);
 
-    // If it isn't a tail call, then the return address needs to be saved
-    if (f.expectTailCall == NonTailCall)
+    // LoongArch callers can arrive here in either style:
+    // - Non-tail calls keep the return address in |ra| and only push a descriptor.
+    // - Tail calls push a full CommonFrameLayout with the return address on the stack.
+    // Normalize both forms so the wrapper always sees a stack return address.
+    {
+        Label haveStackReturnAddress;
+        Register scratch = regs.getAny();
+        masm.loadPtr(Address(StackPointer, 0), scratch);
+        masm.rshiftPtr(Imm32(32), scratch);
+        masm.branch32(Assembler::NotEqual, scratch, Imm32(0), &haveStackReturnAddress);
         masm.pushReturnAddress();
+        masm.bind(&haveStackReturnAddress);
+    }
 
     // We're aligned to an exit frame, so link it up.
     masm.enterExitFrame(&f);
