@@ -2840,12 +2840,12 @@ void MacroAssembler::branchPtrInNurseryChunk(Condition cond, Register ptr,
                                              Register temp, Label* label) {
   MOZ_ASSERT(cond == Assembler::Equal || cond == Assembler::NotEqual);
   MOZ_ASSERT(ptr != temp);
-  MOZ_ASSERT(ptr != SecondScratchReg);
+  MOZ_ASSERT(temp != SecondScratchReg);
 
-  movePtr(ptr, SecondScratchReg);
-  orPtr(Imm32(gc::ChunkMask), SecondScratchReg);
-  branch32(cond, Address(SecondScratchReg, gc::ChunkLocationOffsetFromLastByte),
-           Imm32(int32_t(gc::ChunkLocation::Nursery)), label);
+  movePtr(ptr, temp);
+  orPtr(Imm32(gc::ChunkMask), temp);
+  load32(Address(temp, gc::ChunkLocationOffsetFromLastByte), temp);
+  branch32(cond, temp, Imm32(int32_t(gc::ChunkLocation::Nursery)), label);
 }
 
 void MacroAssembler::branchValueIsNurseryObject(Condition cond,
@@ -2859,8 +2859,8 @@ void MacroAssembler::branchValueIsNurseryObject(Condition cond,
 
   extractObject(address, temp);
   orPtr(Imm32(gc::ChunkMask), temp);
-  branch32(cond, Address(temp, gc::ChunkLocationOffsetFromLastByte),
-           Imm32(int32_t(gc::ChunkLocation::Nursery)), label);
+  load32(Address(temp, gc::ChunkLocationOffsetFromLastByte), temp);
+  branch32(cond, temp, Imm32(int32_t(gc::ChunkLocation::Nursery)), label);
 
   bind(&done);
 }
@@ -2876,8 +2876,8 @@ void MacroAssembler::branchValueIsNurseryObject(Condition cond,
 
   extractObject(value, temp);
   orPtr(Imm32(gc::ChunkMask), temp);
-  branch32(cond, Address(temp, gc::ChunkLocationOffsetFromLastByte),
-           Imm32(int32_t(gc::ChunkLocation::Nursery)), label);
+  load32(Address(temp, gc::ChunkLocationOffsetFromLastByte), temp);
+  branch32(cond, temp, Imm32(int32_t(gc::ChunkLocation::Nursery)), label);
 
   bind(&done);
 }
