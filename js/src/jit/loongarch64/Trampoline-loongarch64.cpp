@@ -900,7 +900,7 @@ JitRuntime::generateDebugTrapHandler(JSContext* cx)
     Register scratch2 = t1;
 
     // Load BaselineFrame pointer in scratch1.
-    masm.movePtr(s5, scratch1);
+    masm.movePtr(BaselineFrameReg, scratch1);
     masm.subPtr(Imm32(BaselineFrame::Size()), scratch1);
 
     // Enter a stub frame and call the HandleDebugTrap VM function. Ensure
@@ -931,10 +931,10 @@ JitRuntime::generateDebugTrapHandler(JSContext* cx)
     masm.branch(ra);
 
     masm.bind(&forcedReturn);
-    masm.loadValue(Address(s5, BaselineFrame::reverseOffsetOfReturnValue()),
+    masm.loadValue(Address(BaselineFrameReg, BaselineFrame::reverseOffsetOfReturnValue()),
                    JSReturnOperand);
-    masm.movePtr(s5, StackPointer);
-    masm.pop(s5);
+    masm.movePtr(BaselineFrameReg, StackPointer);
+    masm.pop(BaselineFrameReg);
 
     // Before returning, if profiling is turned on, make sure that lastProfilingFrame
     // is set to the correct caller frame.
