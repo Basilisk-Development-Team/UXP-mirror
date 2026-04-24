@@ -45,6 +45,8 @@ struct EnterJITRegs
 
     // non-volatile registers.
     uint64_t ra;
+    uint64_t fp;
+    uint64_t s8;
     uint64_t s7;
     uint64_t s6;
     uint64_t s5;
@@ -71,6 +73,8 @@ GenerateReturn(MacroAssembler& masm, int returnCode)
     masm.loadPtr(Address(StackPointer, offsetof(EnterJITRegs, s5)), s5);
     masm.loadPtr(Address(StackPointer, offsetof(EnterJITRegs, s6)), s6);
     masm.loadPtr(Address(StackPointer, offsetof(EnterJITRegs, s7)), s7);
+    masm.loadPtr(Address(StackPointer, offsetof(EnterJITRegs, s8)), s8);
+    masm.loadPtr(Address(StackPointer, offsetof(EnterJITRegs, fp)), fp);
     masm.loadPtr(Address(StackPointer, offsetof(EnterJITRegs, ra)), ra);
 
     // Restore non-volatile floating point registers.
@@ -101,6 +105,8 @@ GeneratePrologue(MacroAssembler& masm)
     masm.storePtr(s5, Address(StackPointer, offsetof(EnterJITRegs, s5)));
     masm.storePtr(s6, Address(StackPointer, offsetof(EnterJITRegs, s6)));
     masm.storePtr(s7, Address(StackPointer, offsetof(EnterJITRegs, s7)));
+    masm.storePtr(s8, Address(StackPointer, offsetof(EnterJITRegs, s8)));
+    masm.storePtr(fp, Address(StackPointer, offsetof(EnterJITRegs, fp)));
     masm.storePtr(ra, Address(StackPointer, offsetof(EnterJITRegs, ra)));
     masm.storePtr(a7, Address(StackPointer, offsetof(EnterJITRegs, a7)));
 
