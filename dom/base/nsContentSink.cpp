@@ -923,15 +923,15 @@ nsContentSink::PrefetchDNS(const nsAString &aHref)
 {
   nsAutoString hostname;
 
-  if (StringBeginsWith(aHref, NS_LITERAL_STRING("//")))  {
-    hostname = Substring(aHref, 2);
-  }
-  else {
-    nsCOMPtr<nsIURI> uri;
-    NS_NewURI(getter_AddRefs(uri), aHref);
-    if (!uri) {
-      return;
-    }
+  // Resolve against the document base URI so relative and scheme-relative
+  // Link header values can still extract a hostname for speculation.
+  const nsACString& charset = mDocument->GetDocumentCharacterSet();
+  nsCOMPtr<nsIURI> uri;
+  NS_NewURI(getter_AddRefs(uri), aHref,
+            charset.IsEmpty() ? nullptr : PromiseFlatCString(charset).get(),
+            mDocument->GetDocBaseURI());
+
+  if (uri) {
     nsresult rv;
     bool isLocalResource = false;
     rv = NS_URIChainHasFlags(uri, nsIProtocolHandler::URI_IS_LOCAL_RESOURCE,
@@ -941,6 +941,9 @@ nsContentSink::PrefetchDNS(const nsAString &aHref)
       uri->GetHost(host);
       CopyUTF8toUTF16(host, hostname);
     }
+  } else if (aHref.FindChar('/') == kNotFound && aHref.FindChar(':') == kNotFound) {
+    // Support a bare hostname token in Link headers.
+    hostname = aHref;
   }
 
   if (!hostname.IsEmpty() && nsHTMLDNSPrefetch::IsAllowed(mDocument)) {
