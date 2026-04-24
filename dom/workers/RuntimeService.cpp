@@ -301,6 +301,11 @@ LoadContextOptions(const char* aPrefName, void* /* aClosure */)
   useIon = false;
 #endif
 
+  bool useNativeRegExp = GetWorkerPref<bool>(NS_LITERAL_CSTRING("native_regexp"));
+#if defined(JS_CODEGEN_LOONGARCH64)
+  useNativeRegExp = false;
+#endif
+
   JS::ContextOptions contextOptions;
   contextOptions.setAsmJS(useAsmJS)
                 .setWasm(useWasm)
@@ -308,7 +313,7 @@ LoadContextOptions(const char* aPrefName, void* /* aClosure */)
                       NS_LITERAL_CSTRING("throw_on_asmjs_validation_failure")))
                 .setBaseline(GetWorkerPref<bool>(NS_LITERAL_CSTRING("baselinejit")))
                 .setIon(useIon)
-                .setNativeRegExp(GetWorkerPref<bool>(NS_LITERAL_CSTRING("native_regexp")))
+                .setNativeRegExp(useNativeRegExp)
                 .setAsyncStack(GetWorkerPref<bool>(NS_LITERAL_CSTRING("asyncstack")))
                 .setWerror(GetWorkerPref<bool>(NS_LITERAL_CSTRING("werror")))
                 .setStreams(GetWorkerPref<bool>(NS_LITERAL_CSTRING("streams")))

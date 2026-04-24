@@ -1251,7 +1251,11 @@ pref("javascript.options.wasm_baselinejit", true);
 #else
 pref("javascript.options.wasm_baselinejit", false);
 #endif
+#ifdef JS_CODEGEN_LOONGARCH64
+pref("javascript.options.native_regexp",    false);
+#else
 pref("javascript.options.native_regexp",    true);
+#endif
 pref("javascript.options.parallel_parsing", true);
 // asyncstack is used for debugging promises in devtools.
 pref("javascript.options.asyncstack",       false);

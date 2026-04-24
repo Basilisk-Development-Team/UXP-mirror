@@ -1251,7 +1251,7 @@ SampleChars(FrequencyCollator* collator, const CharT* chars, size_t length)
 static bool
 IsNativeRegExpEnabled(JSContext* cx)
 {
-#ifdef JS_CODEGEN_NONE
+#if defined(JS_CODEGEN_NONE) || defined(JS_CODEGEN_LOONGARCH64)
     return false;
 #else
     return cx->options().nativeRegExp();

@@ -1426,6 +1426,7 @@ ReloadPrefsCallback(const char* pref, void* data)
     useAsmJS = false;
     useWasm = false;
     useWasmBaseline = false;
+    useNativeRegExp = false;
 #endif
 
     bool parallelParsing = Preferences::GetBool(JS_OPTIONS_DOT_STR "parallel_parsing");
