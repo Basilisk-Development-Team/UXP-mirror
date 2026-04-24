@@ -3,9 +3,9 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-#include "jit/mips64/Lowering-mips64.h"
+#include "jit/loongarch64/Lowering-loongarch64.h"
 
-#include "jit/mips64/Assembler-mips64.h"
+#include "jit/loongarch64/Assembler-loongarch64.h"
 
 #include "jit/MIR.h"
 
@@ -15,20 +15,20 @@ using namespace js;
 using namespace js::jit;
 
 void
-LIRGeneratorMIPS64::defineInt64Phi(MPhi* phi, size_t lirIndex)
+LIRGeneratorLoongArch64::defineInt64Phi(MPhi* phi, size_t lirIndex)
 {
     defineTypedPhi(phi, lirIndex);
 }
 
 void
-LIRGeneratorMIPS64::lowerInt64PhiInput(MPhi* phi, uint32_t inputPosition,
-                                       LBlock* block, size_t lirIndex)
+LIRGeneratorLoongArch64::lowerInt64PhiInput(MPhi* phi, uint32_t inputPosition,
+                                            LBlock* block, size_t lirIndex)
 {
     lowerTypedPhiInput(phi, inputPosition, block, lirIndex);
 }
 
 LBoxAllocation
-LIRGeneratorMIPS64::useBoxFixed(MDefinition* mir, Register reg1, Register reg2, bool useAtStart)
+LIRGeneratorLoongArch64::useBoxFixed(MDefinition* mir, Register reg1, Register reg2, bool useAtStart)
 {
     MOZ_ASSERT(mir->type() == MIRType::Value);
 
@@ -37,7 +37,7 @@ LIRGeneratorMIPS64::useBoxFixed(MDefinition* mir, Register reg1, Register reg2, 
 }
 
 void
-LIRGeneratorMIPS64::lowerDivI64(MDiv* div)
+LIRGeneratorLoongArch64::lowerDivI64(MDiv* div)
 {
     if (div->isUnsigned()) {
         lowerUDivI64(div);
@@ -50,7 +50,7 @@ LIRGeneratorMIPS64::lowerDivI64(MDiv* div)
 }
 
 void
-LIRGeneratorMIPS64::lowerModI64(MMod* mod)
+LIRGeneratorLoongArch64::lowerModI64(MMod* mod)
 {
     if (mod->isUnsigned()) {
         lowerUModI64(mod);
@@ -63,7 +63,7 @@ LIRGeneratorMIPS64::lowerModI64(MMod* mod)
 }
 
 void
-LIRGeneratorMIPS64::lowerUDivI64(MDiv* div)
+LIRGeneratorLoongArch64::lowerUDivI64(MDiv* div)
 {
     LUDivOrModI64* lir = new(alloc()) LUDivOrModI64(useRegister(div->lhs()),
                                                     useRegister(div->rhs()),
@@ -72,7 +72,7 @@ LIRGeneratorMIPS64::lowerUDivI64(MDiv* div)
 }
 
 void
-LIRGeneratorMIPS64::lowerUModI64(MMod* mod)
+LIRGeneratorLoongArch64::lowerUModI64(MMod* mod)
 {
     LUDivOrModI64* lir = new(alloc()) LUDivOrModI64(useRegister(mod->lhs()),
                                                     useRegister(mod->rhs()),
@@ -81,11 +81,10 @@ LIRGeneratorMIPS64::lowerUModI64(MMod* mod)
 }
 
 void
-LIRGeneratorMIPS64::visitBox(MBox* box)
+LIRGeneratorLoongArch64::visitBox(MBox* box)
 {
     MDefinition* opd = box->getOperand(0);
 
-    // If the operand is a constant, emit near its uses.
     if (opd->isConstant() && box->canEmitAtUses()) {
         emitAtUses(box);
         return;
@@ -100,7 +99,7 @@ LIRGeneratorMIPS64::visitBox(MBox* box)
 }
 
 void
-LIRGeneratorMIPS64::visitUnbox(MUnbox* unbox)
+LIRGeneratorLoongArch64::visitUnbox(MUnbox* unbox)
 {
     MDefinition* box = unbox->getOperand(0);
 
@@ -118,8 +117,6 @@ LIRGeneratorMIPS64::visitUnbox(MUnbox* unbox)
     if (IsFloatingPointType(unbox->type())) {
         lir = new(alloc()) LUnboxFloatingPoint(useRegisterAtStart(box), unbox->type());
     } else if (unbox->fallible()) {
-        // If the unbox is fallible, load the Value in a register first to
-        // avoid multiple loads.
         lir = new(alloc()) LUnbox(useRegisterAtStart(box));
     } else {
         lir = new(alloc()) LUnbox(useAtStart(box));
@@ -132,7 +129,7 @@ LIRGeneratorMIPS64::visitUnbox(MUnbox* unbox)
 }
 
 void
-LIRGeneratorMIPS64::visitReturn(MReturn* ret)
+LIRGeneratorLoongArch64::visitReturn(MReturn* ret)
 {
     MDefinition* opd = ret->getOperand(0);
     MOZ_ASSERT(opd->type() == MIRType::Value);
@@ -143,20 +140,20 @@ LIRGeneratorMIPS64::visitReturn(MReturn* ret)
 }
 
 void
-LIRGeneratorMIPS64::defineUntypedPhi(MPhi* phi, size_t lirIndex)
+LIRGeneratorLoongArch64::defineUntypedPhi(MPhi* phi, size_t lirIndex)
 {
     defineTypedPhi(phi, lirIndex);
 }
 
 void
-LIRGeneratorMIPS64::lowerUntypedPhiInput(MPhi* phi, uint32_t inputPosition,
-                                         LBlock* block, size_t lirIndex)
+LIRGeneratorLoongArch64::lowerUntypedPhiInput(MPhi* phi, uint32_t inputPosition,
+                                              LBlock* block, size_t lirIndex)
 {
     lowerTypedPhiInput(phi, inputPosition, block, lirIndex);
 }
 
 void
-LIRGeneratorMIPS64::lowerTruncateDToInt32(MTruncateToInt32* ins)
+LIRGeneratorLoongArch64::lowerTruncateDToInt32(MTruncateToInt32* ins)
 {
     MDefinition* opd = ins->input();
     MOZ_ASSERT(opd->type() == MIRType::Double);
@@ -166,7 +163,7 @@ LIRGeneratorMIPS64::lowerTruncateDToInt32(MTruncateToInt32* ins)
 }
 
 void
-LIRGeneratorMIPS64::lowerTruncateFToInt32(MTruncateToInt32* ins)
+LIRGeneratorLoongArch64::lowerTruncateFToInt32(MTruncateToInt32* ins)
 {
     MDefinition* opd = ins->input();
     MOZ_ASSERT(opd->type() == MIRType::Float32);
@@ -176,9 +173,9 @@ LIRGeneratorMIPS64::lowerTruncateFToInt32(MTruncateToInt32* ins)
 }
 
 void
-LIRGeneratorMIPS64::visitRandom(MRandom* ins)
+LIRGeneratorLoongArch64::visitRandom(MRandom* ins)
 {
-    LRandom *lir = new(alloc()) LRandom(temp(), 
+    LRandom *lir = new(alloc()) LRandom(temp(),
                                         temp(),
                                         temp(),
                                         temp());
@@ -186,7 +183,7 @@ LIRGeneratorMIPS64::visitRandom(MRandom* ins)
 }
 
 void
-LIRGeneratorMIPS64::visitSignExtendInt64(MSignExtendInt64* ins)
+LIRGeneratorLoongArch64::visitSignExtendInt64(MSignExtendInt64* ins)
 {
     defineInt64(new(alloc()) LSignExtendInt64(useInt64RegisterAtStart(ins->input())), ins);
 }

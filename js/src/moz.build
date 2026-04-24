@@ -545,11 +545,12 @@ elif CONFIG['JS_CODEGEN_LOONGARCH64']:
         'jit/loongarch64/Bailouts-loongarch64.cpp',
         'jit/loongarch64/BaselineCompiler-loongarch64.cpp',
         'jit/loongarch64/BaselineIC-loongarch64.cpp',
+        'jit/loongarch64/CodeGenerator-loongarch64.cpp',
+        'jit/loongarch64/Lowering-loongarch64.cpp',
         'jit/loongarch64/MacroAssembler-loongarch64.cpp',
         'jit/loongarch64/SharedIC-loongarch64.cpp',
         'jit/loongarch64/Trampoline-loongarch64.cpp',
         'jit/mips64/CodeGenerator-mips64.cpp',
-        'jit/mips64/Lowering-mips64.cpp',
         'jit/mips64/MoveEmitter-mips64.cpp',
     ]
 elif CONFIG['JS_CODEGEN_MIPS32'] or CONFIG['JS_CODEGEN_MIPS64']:

@@ -19,7 +19,7 @@
 #elif defined(JS_CODEGEN_ARM64)
 # include "jit/arm64/Lowering-arm64.h"
 #elif defined(JS_CODEGEN_LOONGARCH64)
-# include "jit/mips64/Lowering-mips64.h"
+# include "jit/loongarch64/Lowering-loongarch64.h"
 #elif defined(JS_CODEGEN_MIPS32)
 # include "jit/mips32/Lowering-mips32.h"
 #elif defined(JS_CODEGEN_MIPS64)
