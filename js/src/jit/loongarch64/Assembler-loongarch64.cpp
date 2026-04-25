@@ -18,6 +18,21 @@ using mozilla::DebugOnly;
 using namespace js;
 using namespace js::jit;
 
+static size_t Load64PatchSize(Instruction* inst0) {
+  InstImm* i0 = (InstImm*)inst0;
+  InstImm* i1 = (InstImm*)i0->next();
+  InstImm* i2 = (InstImm*)i1->next();
+  InstImm* i3 = (InstImm*)i2->next();
+
+  MOZ_ASSERT((i0->extractBitField(31, 25)) == ((uint32_t)op_lu12i_w >> 25));
+  MOZ_ASSERT((i1->extractBitField(31, 22)) == ((uint32_t)op_ori >> 22));
+  MOZ_ASSERT((i2->extractBitField(31, 25)) == ((uint32_t)op_lu32i_d >> 25));
+
+  return ((i3->extractBitField(31, 22)) == ((uint32_t)op_lu52i_d >> 22))
+             ? 4 * sizeof(uint32_t)
+             : 3 * sizeof(uint32_t);
+}
+
 void js::jit::PatchJump(CodeLocationJump& jump_, CodeLocationLabel label,
                         ReprotectCode reprotect) {
   Instruction* inst = reinterpret_cast<Instruction*>(jump_.raw());
@@ -2302,6 +2317,7 @@ static void TraceOneDataRelocation(JSTracer* trc,
       awjc.emplace(code);
     }
     Assembler::UpdateLoad64Value(inst, uint64_t(ptr));
+    AutoFlushICache::flush(uintptr_t(inst), Load64PatchSize(inst));
   }
 }
 
@@ -2428,6 +2444,8 @@ void Assembler::PatchWrite_NearCall(CodeLocationLabel start,
   // Short jump wouldn't be more efficient.
   Assembler::WriteLoad64Instructions(inst, ScratchRegister, (uint64_t)dest);
   inst[3] = InstImm(op_jirl, BOffImm16(0), ScratchRegister, ra);
+
+  AutoFlushICache::flush(uintptr_t(inst), PatchWrite_NearCallSize());
 }
 
 uint64_t Assembler::ExtractLoad64Value(Instruction* inst0) {
@@ -2527,6 +2545,7 @@ void Assembler::PatchDataWithValueCheck(CodeLocationLabel label,
 
   // Replace with new value
   Assembler::UpdateLoad64Value(inst, uint64_t(newValue.value));
+  AutoFlushICache::flush(uintptr_t(inst), Load64PatchSize(inst));
 }
 
 void Assembler::PatchInstructionImmediate(uint8_t* code, PatchedImmPtr imm) {
@@ -2557,4 +2576,6 @@ void Assembler::ToggleCall(CodeLocationLabel inst_, bool enabled) {
     InstNOP nop;
     *i3 = nop;
   }
+
+  AutoFlushICache::flush(uintptr_t(i3), sizeof(uint32_t));
 }
