@@ -1230,32 +1230,18 @@ pref("javascript.options.strict.debug",     false);
 #endif
 pref("javascript.options.unboxed_objects",  false);
 pref("javascript.options.baselinejit",      true);
-#if defined(JS_CODEGEN_LOONGARCH64)
-pref("javascript.options.ion",              true);
-pref("javascript.options.asmjs",            false);
-pref("javascript.options.wasm",             true);
-#else
 pref("javascript.options.ion",              true);
 pref("javascript.options.asmjs",            true);
 pref("javascript.options.wasm",             true);
-#endif
 pref("javascript.options.ion.inlining",     true);
 // wasm jit crashes in 32bit builds because of 64bit casts so
 // only enable it by default for 64bit builds
 #ifdef HAVE_64BIT_BUILD
-# if defined(JS_CODEGEN_LOONGARCH64)
 pref("javascript.options.wasm_baselinejit", true);
-# else
-pref("javascript.options.wasm_baselinejit", true);
-# endif
 #else
 pref("javascript.options.wasm_baselinejit", false);
 #endif
-#ifdef JS_CODEGEN_LOONGARCH64
-pref("javascript.options.native_regexp",    false);
-#else
 pref("javascript.options.native_regexp",    true);
-#endif
 pref("javascript.options.parallel_parsing", true);
 // asyncstack is used for debugging promises in devtools.
 pref("javascript.options.asyncstack",       false);

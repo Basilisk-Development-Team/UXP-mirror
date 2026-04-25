@@ -293,16 +293,7 @@ LoadContextOptions(const char* aPrefName, void* /* aClosure */)
   bool useAsmJS = GetWorkerPref<bool>(NS_LITERAL_CSTRING("asmjs"));
   bool useWasm = GetWorkerPref<bool>(NS_LITERAL_CSTRING("wasm"));
   bool useIon = GetWorkerPref<bool>(NS_LITERAL_CSTRING("ion"));
-
-#if defined(JS_CODEGEN_LOONGARCH64)
-  // asm.js is still disabled on loongarch64 workers.
-  useAsmJS = false;
-#endif
-
   bool useNativeRegExp = GetWorkerPref<bool>(NS_LITERAL_CSTRING("native_regexp"));
-#if defined(JS_CODEGEN_LOONGARCH64)
-  useNativeRegExp = false;
-#endif
 
   JS::ContextOptions contextOptions;
   contextOptions.setAsmJS(useAsmJS)

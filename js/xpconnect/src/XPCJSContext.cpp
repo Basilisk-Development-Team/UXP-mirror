@@ -1420,12 +1420,6 @@ ReloadPrefsCallback(const char* pref, void* data)
                                                               "throw_on_asmjs_validation_failure");
     bool useNativeRegExp = Preferences::GetBool(JS_OPTIONS_DOT_STR "native_regexp") && !safeMode;
 
-#if defined(JS_CODEGEN_LOONGARCH64)
-    // asm.js and native regexp JIT are still disabled on loongarch64.
-    useAsmJS = false;
-    useNativeRegExp = false;
-#endif
-
     bool parallelParsing = Preferences::GetBool(JS_OPTIONS_DOT_STR "parallel_parsing");
     bool offthreadIonCompilation = Preferences::GetBool(JS_OPTIONS_DOT_STR
                                                        "ion.offthread_compilation");
