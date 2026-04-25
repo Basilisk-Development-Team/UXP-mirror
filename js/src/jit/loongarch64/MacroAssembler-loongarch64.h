@@ -864,10 +864,8 @@ class MacroAssemblerLOONGARCH64Compat : public MacroAssemblerLOONGARCH64 {
       as_slli_w(dest, src, 0);
       return;
     }
-    ScratchRegisterScope scratch(asMasm());
-    MOZ_ASSERT(scratch != src);
-    mov(ImmWord(JSVAL_TYPE_TO_SHIFTED_TAG(type)), scratch);
-    as_xor(dest, src, scratch);
+
+    as_bstrpick_d(dest, src, JSVAL_TAG_SHIFT - 1, 0);
   }
 
   template <typename T>
@@ -1089,7 +1087,8 @@ class MacroAssemblerLOONGARCH64Compat : public MacroAssemblerLOONGARCH64 {
       bind(&upper32BitsSignExtended);
     }
 #endif
-    ma_li(dest, ImmWord(JSVAL_TYPE_TO_SHIFTED_TAG(type)));
+    ma_li(dest, Imm32(int32_t(JSVAL_TYPE_TO_TAG(type))));
+    as_slli_d(dest, dest, JSVAL_TAG_SHIFT);
     if (type == JSVAL_TYPE_INT32 || type == JSVAL_TYPE_BOOLEAN) {
       as_bstrins_d(dest, src, 31, 0);
     } else {
