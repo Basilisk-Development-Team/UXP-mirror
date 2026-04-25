@@ -872,9 +872,8 @@ JitRuntime::generatePreBarrier(JSContext* cx, MIRType type)
     masm.passABIArg(a1);
     masm.callWithABI(IonMarkFunction(type));
 
-    save.take(AnyRegister(ra));
     masm.PopRegsInMask(save);
-    masm.ret();
+    masm.abiret();
 
     Linker linker(masm);
     AutoFlushICache afc("PreBarrier");
