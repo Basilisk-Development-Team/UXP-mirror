@@ -834,7 +834,12 @@ wasm::ToggleProfiling(const Code& code, const CallSite& callSite, bool enabled)
     BOffImm16 calleeOffset;
     callerInsn->extractImm16(&calleeOffset);
     void* callee = calleeOffset.getDest(reinterpret_cast<Instruction*>(caller));
-#elif defined(JS_CODEGEN_NONE) || defined(JS_CODEGEN_LOONGARCH64)
+#elif defined(JS_CODEGEN_LOONGARCH64)
+    uint8_t* caller = callerRetAddr - Assembler::PatchWrite_NearCallSize();
+    Instruction* callerInsn = reinterpret_cast<Instruction*>(caller);
+    void* callee =
+        reinterpret_cast<void*>(Assembler::ExtractLoad64Value(callerInsn));
+#elif defined(JS_CODEGEN_NONE)
     MOZ_CRASH();
     void* callee = nullptr;
 #else
@@ -861,7 +866,10 @@ wasm::ToggleProfiling(const Code& code, const CallSite& callSite, bool enabled)
     MOZ_CRASH();
 #elif defined(JS_CODEGEN_MIPS32) || defined(JS_CODEGEN_MIPS64)
     new (caller) InstImm(op_regimm, zero, rt_bgezal, BOffImm16(to - caller));
-#elif defined(JS_CODEGEN_NONE) || defined(JS_CODEGEN_LOONGARCH64)
+#elif defined(JS_CODEGEN_LOONGARCH64)
+    Assembler::UpdateLoad64Value(reinterpret_cast<Instruction*>(caller),
+                                 uint64_t(to));
+#elif defined(JS_CODEGEN_NONE)
     MOZ_CRASH();
 #else
 # error "Missing architecture"
