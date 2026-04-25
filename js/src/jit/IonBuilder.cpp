@@ -1245,17 +1245,6 @@ IonBuilder::initEnvironmentChain(MDefinition* callee)
     // them, so just use a constant undefined value.
 
     if (JSFunction* fun = info().funMaybeLazy()) {
-#ifdef JS_CODEGEN_LOONGARCH64
-        if (info().analysisMode() != Analysis_ArgumentsUsage &&
-            (analysis().usesEnvironmentChain() || info().needsArgsObj()))
-        {
-            // The loongarch64 Ion function-environment path is not stable yet.
-            // We can still run Ion for simpler scripts, but scripts that need a
-            // function environment currently mis-handle environment objects and
-            // later crash in shared property IC paths.
-            return abort("Function environment unsupported on loongarch64");
-        }
-#endif
         if (!callee) {
             MCallee* calleeIns = MCallee::New(alloc());
             current->add(calleeIns);
@@ -1282,12 +1271,6 @@ IonBuilder::initEnvironmentChain(MDefinition* callee)
                 return abort("Extra var environment unsupported");
 
             if (fun->needsCallObject()) {
-#ifdef JS_CODEGEN_LOONGARCH64
-                // The loongarch64 Ion environment-object path is not stable yet:
-                // inline CallObject setup can corrupt the enclosing environment
-                // reserved slot and later crash during nursery collection.
-                return abort("CallObject environment unsupported on loongarch64");
-#endif
                 env = createCallObject(callee, env);
                 if (!env)
                     return false;
