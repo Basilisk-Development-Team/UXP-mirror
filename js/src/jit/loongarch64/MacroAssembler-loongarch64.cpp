@@ -357,9 +357,7 @@ void MacroAssemblerLOONGARCH64Compat::convertFloat32ToInt32(
   as_ftintrz_w_s(fpscratch, src);
   as_movfcsr2gr(scratch);
   moveFromFloat32(fpscratch, dest);
-  MOZ_ASSERT(CauseBitPos + CauseBitCount < 33);
-  MOZ_ASSERT(CauseBitPos < 32);
-  as_bstrpick_w(scratch, scratch, CauseBitPos + CauseBitCount - 1, CauseBitPos);
+  as_bstrpick_d(scratch, scratch, CauseBitPos + CauseBitCount - 1, CauseBitPos);
   as_andi(scratch, scratch, CauseIOrVMask);
   ma_b(scratch, zero, fail, Assembler::NotEqual);
 }

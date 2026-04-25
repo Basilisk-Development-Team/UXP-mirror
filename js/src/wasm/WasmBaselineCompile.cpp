@@ -2401,15 +2401,22 @@ class BaseCompiler
     }
 
     void jumpTable(LabelVector& labels) {
-#if defined(JS_CODEGEN_X64) || defined(JS_CODEGEN_X86) || defined(JS_CODEGEN_ARM) || \
-    defined(JS_CODEGEN_LOONGARCH64)
+#if defined(JS_CODEGEN_X64) || defined(JS_CODEGEN_X86) || defined(JS_CODEGEN_ARM)
         for (uint32_t i = 0; i < labels.length(); i++) {
             CodeLabel cl;
-# if defined(JS_CODEGEN_LOONGARCH64)
-            masm.writeCodePointer(&cl);
-# else
             masm.writeCodePointer(cl.patchAt());
-# endif
+            cl.target()->bind(labels[i]->offset());
+            masm.addCodeLabel(cl);
+        }
+#elif defined(JS_CODEGEN_LOONGARCH64)
+        for (uint32_t i = 0; i < labels.length(); i++) {
+            CodeLabel cl;
+            masm.ma_li(ScratchRegister, cl.patchAt());
+            masm.jump(ScratchRegister);
+            masm.as_nop();
+            masm.as_nop();
+            masm.as_nop();
+            masm.as_nop();
             cl.target()->bind(labels[i]->offset());
             masm.addCodeLabel(cl);
         }
@@ -2451,16 +2458,15 @@ class BaseCompiler
                     Assembler::Always);
 #elif defined(JS_CODEGEN_LOONGARCH64)
         ScratchI32 scratch(*this);
-        SecondScratchRegisterScope target(masm);
         CodeLabel tableCl;
 
         masm.ma_li(scratch, tableCl.patchAt());
         tableCl.target()->bind(theTable->offset());
         masm.addCodeLabel(tableCl);
 
-        masm.computeEffectiveAddress(BaseIndex(scratch, switchValue.reg, ScalePointer), scratch);
-        masm.loadPtr(Address(scratch, 0), target);
-        masm.jump(target);
+        masm.lshiftPtr(Imm32(5), switchValue.reg);
+        masm.addPtr(switchValue.reg, scratch);
+        masm.jump(scratch);
 #else
         MOZ_CRASH("BaseCompiler platform hook: tableSwitch");
 #endif

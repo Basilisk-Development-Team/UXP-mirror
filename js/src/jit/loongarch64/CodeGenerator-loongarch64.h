@@ -19,12 +19,15 @@ class CodeGeneratorLoongArch64 : public CodeGeneratorMIPS64
     using CodeGeneratorMIPS64::CodeGeneratorMIPS64;
 
     void visitCompare(LCompare* comp);
+    void visitOutOfLineTableSwitch(OutOfLineTableSwitch* ool);
     void visitCompareAndBranch(LCompareAndBranch* comp);
     void visitDivI(LDivI* ins);
     void visitModI(LModI* ins);
     void visitUDivOrMod(LUDivOrMod* ins);
     void visitDivOrModI64(LDivOrModI64* lir);
     void visitUDivOrModI64(LUDivOrModI64* lir);
+    void visitWasmTruncateToInt32(LWasmTruncateToInt32* lir);
+    void visitWasmTruncateToInt64(LWasmTruncateToInt64* lir);
     void visitWasmAddOffset(LWasmAddOffset* lir);
     void visitAsmJSCompareExchangeHeap(LAsmJSCompareExchangeHeap* ins);
     void visitAsmJSAtomicExchangeHeap(LAsmJSAtomicExchangeHeap* ins);
@@ -34,6 +37,9 @@ class CodeGeneratorLoongArch64 : public CodeGeneratorMIPS64
     void visitAtomicTypedArrayElementBinopForEffect(LAtomicTypedArrayElementBinopForEffect* lir);
     void visitCompareExchangeTypedArrayElement(LCompareExchangeTypedArrayElement* lir);
     void visitAtomicExchangeTypedArrayElement(LAtomicExchangeTypedArrayElement* lir);
+
+  protected:
+    void emitTableSwitchDispatch(MTableSwitch* mir, Register index, Register base);
 };
 
 typedef CodeGeneratorLoongArch64 CodeGeneratorSpecific;

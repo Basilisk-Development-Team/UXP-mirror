@@ -17,6 +17,88 @@
 using namespace js;
 using namespace js::jit;
 
+static constexpr uint32_t WasmTruncateInvalidCauseMask =
+    1u << (Assembler::CauseV - Assembler::CauseI);
+
+static void
+ExtractWasmTruncateInvalidCause(MacroAssemblerLOONGARCH64Compat& masm, Register reg)
+{
+    masm.as_cfc1(reg, Assembler::FCSR);
+    masm.as_bstrpick_d(reg, reg, Assembler::CauseV, Assembler::CauseI);
+    masm.as_andi(reg, reg, WasmTruncateInvalidCauseMask);
+}
+
+class js::jit::OutOfLineTableSwitch : public OutOfLineCodeBase<CodeGeneratorLoongArch64>
+{
+    MTableSwitch* mir_;
+    CodeLabel jumpLabel_;
+
+    void accept(CodeGeneratorLoongArch64* codegen) {
+        codegen->visitOutOfLineTableSwitch(this);
+    }
+
+  public:
+    explicit OutOfLineTableSwitch(MTableSwitch* mir)
+      : mir_(mir)
+    {}
+
+    MTableSwitch* mir() const {
+        return mir_;
+    }
+
+    CodeLabel* jumpLabel() {
+        return &jumpLabel_;
+    }
+};
+
+void
+CodeGeneratorLoongArch64::visitOutOfLineTableSwitch(OutOfLineTableSwitch* ool)
+{
+    MTableSwitch* mir = ool->mir();
+
+    masm.haltingAlign(sizeof(void*));
+    masm.bind(ool->jumpLabel()->target());
+    masm.addCodeLabel(*ool->jumpLabel());
+
+    for (size_t i = 0; i < mir->numCases(); i++) {
+        LBlock* caseblock = skipTrivialBlocks(mir->getCase(i))->lir();
+        Label* caseheader = caseblock->label();
+        uint32_t caseoffset = caseheader->offset();
+
+        // Keep loongarch64 table entries at a fixed 32-byte stride so dispatch
+        // can jump to a stub entry and let the stub jump to the case body.
+        CodeLabel cl;
+        masm.ma_li(ScratchRegister, cl.patchAt());
+        masm.jump(ScratchRegister);
+        masm.as_nop();
+        masm.as_nop();
+        masm.as_nop();
+        masm.as_nop();
+        cl.target()->bind(caseoffset);
+        masm.addCodeLabel(cl);
+    }
+}
+
+void
+CodeGeneratorLoongArch64::emitTableSwitchDispatch(MTableSwitch* mir, Register index, Register base)
+{
+    Label* defaultcase = skipTrivialBlocks(mir->getDefault())->lir()->label();
+
+    if (mir->low() != 0)
+        masm.subPtr(Imm32(mir->low()), index);
+
+    int32_t cases = mir->numCases();
+    masm.branch32(Assembler::AboveOrEqual, index, Imm32(cases), defaultcase);
+
+    OutOfLineTableSwitch* ool = new(alloc()) OutOfLineTableSwitch(mir);
+    addOutOfLineCode(ool, mir);
+
+    masm.ma_li(base, ool->jumpLabel()->patchAt());
+    masm.lshiftPtr(Imm32(5), index);
+    masm.addPtr(index, base);
+    masm.jump(base);
+}
+
 void
 CodeGeneratorLoongArch64::visitCompare(LCompare* comp)
 {
@@ -285,6 +367,122 @@ CodeGeneratorLoongArch64::visitUDivOrModI64(LUDivOrModI64* lir)
         masm.as_div_du(output, lhs, rhs);
 
     masm.bind(&done);
+}
+
+void
+CodeGeneratorLoongArch64::visitWasmTruncateToInt32(LWasmTruncateToInt32* lir)
+{
+    auto input = ToFloatRegister(lir->input());
+    auto output = ToRegister(lir->output());
+
+    MWasmTruncateToInt32* mir = lir->mir();
+    MIRType fromType = mir->input()->type();
+
+    auto* ool = new (alloc()) OutOfLineWasmTruncateCheck(mir, input);
+    addOutOfLineCode(ool, mir);
+
+    if (mir->isUnsigned()) {
+        if (fromType == MIRType::Double)
+            masm.as_truncld(ScratchDoubleReg, input);
+        else if (fromType == MIRType::Float32)
+            masm.as_truncls(ScratchDoubleReg, input);
+        else
+            MOZ_CRASH("unexpected type in visitWasmTruncateToInt32");
+
+        masm.moveFromDoubleHi(ScratchDoubleReg, output);
+        ExtractWasmTruncateInvalidCause(masm, ScratchRegister);
+        masm.ma_or(output, ScratchRegister);
+        masm.ma_b(output, Imm32(0), ool->entry(), Assembler::NotEqual);
+
+        masm.moveFromFloat32(ScratchDoubleReg, output);
+        return;
+    }
+
+    if (fromType == MIRType::Double)
+        masm.as_truncwd(ScratchFloat32Reg, input);
+    else if (fromType == MIRType::Float32)
+        masm.as_truncws(ScratchFloat32Reg, input);
+    else
+        MOZ_CRASH("unexpected type in visitWasmTruncateToInt32");
+
+    ExtractWasmTruncateInvalidCause(masm, output);
+    masm.ma_b(output, Imm32(0), ool->entry(), Assembler::NotEqual);
+
+    masm.bind(ool->rejoin());
+    masm.moveFromFloat32(ScratchFloat32Reg, output);
+}
+
+void
+CodeGeneratorLoongArch64::visitWasmTruncateToInt64(LWasmTruncateToInt64* lir)
+{
+    FloatRegister input = ToFloatRegister(lir->input());
+    Register output = ToRegister(lir->output());
+
+    MWasmTruncateToInt64* mir = lir->mir();
+    MIRType fromType = mir->input()->type();
+
+    MOZ_ASSERT(fromType == MIRType::Double || fromType == MIRType::Float32);
+
+    auto* ool = new (alloc()) OutOfLineWasmTruncateCheck(mir, input);
+    addOutOfLineCode(ool, mir);
+
+    if (mir->isUnsigned()) {
+        Label isLarge, done;
+
+        if (fromType == MIRType::Double) {
+            masm.loadConstantDouble(double(INT64_MAX), ScratchDoubleReg);
+            masm.ma_bc1d(ScratchDoubleReg, input, &isLarge,
+                         Assembler::DoubleLessThanOrEqual, ShortJump);
+
+            masm.as_truncld(ScratchDoubleReg, input);
+        } else {
+            masm.loadConstantFloat32(float(INT64_MAX), ScratchFloat32Reg);
+            masm.ma_bc1s(ScratchFloat32Reg, input, &isLarge,
+                         Assembler::DoubleLessThanOrEqual, ShortJump);
+
+            masm.as_truncls(ScratchDoubleReg, input);
+        }
+
+        masm.moveFromDouble(ScratchDoubleReg, output);
+        ExtractWasmTruncateInvalidCause(masm, ScratchRegister);
+        masm.ma_dsrl(SecondScratchReg, output, Imm32(63));
+        masm.ma_or(SecondScratchReg, ScratchRegister);
+        masm.ma_b(SecondScratchReg, Imm32(0), ool->entry(), Assembler::NotEqual);
+
+        masm.ma_b(&done, ShortJump);
+
+        masm.bind(&isLarge);
+        if (fromType == MIRType::Double) {
+            masm.as_subd(ScratchDoubleReg, input, ScratchDoubleReg);
+            masm.as_truncld(ScratchDoubleReg, ScratchDoubleReg);
+        } else {
+            masm.as_subs(ScratchDoubleReg, input, ScratchDoubleReg);
+            masm.as_truncls(ScratchDoubleReg, ScratchDoubleReg);
+        }
+
+        masm.moveFromDouble(ScratchDoubleReg, output);
+        ExtractWasmTruncateInvalidCause(masm, ScratchRegister);
+        masm.ma_dsrl(SecondScratchReg, output, Imm32(63));
+        masm.ma_or(SecondScratchReg, ScratchRegister);
+        masm.ma_b(SecondScratchReg, Imm32(0), ool->entry(), Assembler::NotEqual);
+
+        masm.ma_li(ScratchRegister, Imm32(1));
+        masm.ma_dins(output, ScratchRegister, Imm32(63), Imm32(1));
+
+        masm.bind(&done);
+        return;
+    }
+
+    if (fromType == MIRType::Double)
+        masm.as_truncld(ScratchDoubleReg, input);
+    else
+        masm.as_truncls(ScratchDoubleReg, input);
+
+    ExtractWasmTruncateInvalidCause(masm, output);
+    masm.ma_b(output, Imm32(0), ool->entry(), Assembler::NotEqual);
+
+    masm.bind(ool->rejoin());
+    masm.moveFromDouble(ScratchDoubleReg, output);
 }
 
 void
