@@ -22,6 +22,140 @@
 namespace js {
 namespace jit {
 
+namespace {
+
+static inline void MoveAtomicValue(MacroAssemblerLOONGARCH64Compat& masm,
+                                   Imm32 value, Register dest) {
+  masm.move32(value, dest);
+}
+
+static inline void MoveAtomicValue(MacroAssemblerLOONGARCH64Compat& masm,
+                                   Register value, Register dest) {
+  masm.move32(value, dest);
+}
+
+static inline void SignExtendAtomicResult(MacroAssemblerLOONGARCH64Compat& masm,
+                                          int nbytes, Register output) {
+  switch (nbytes) {
+    case 1:
+      masm.as_ext_w_b(output, output);
+      break;
+    case 2:
+      masm.as_ext_w_h(output, output);
+      break;
+    case 4:
+      break;
+    default:
+      MOZ_CRASH("unexpected atomic width");
+  }
+}
+
+template <typename T>
+static inline void PrepareAtomicAddress(
+    MacroAssemblerLOONGARCH64Compat& masm, int nbytes, const T& address,
+    Register offsetTemp, Register maskTemp) {
+  masm.computeEffectiveAddress(address, ScratchRegister);
+  masm.as_andi(offsetTemp, ScratchRegister, 3);
+  masm.as_sub_d(ScratchRegister, ScratchRegister, offsetTemp);
+  masm.as_slli_w(offsetTemp, offsetTemp, 3);
+  masm.ma_li(maskTemp, Imm32(int32_t(UINT32_MAX >> ((4 - nbytes) * 8))));
+  masm.as_sll_w(maskTemp, maskTemp, offsetTemp);
+}
+
+template <typename S, typename T>
+static void AtomicFetchOpLoongArch64(MacroAssemblerLOONGARCH64Compat& masm,
+                                     int nbytes, bool signExtend, AtomicOp op,
+                                     const S& value, const T& address,
+                                     Register valueTemp, Register offsetTemp,
+                                     Register maskTemp, Register output) {
+  Label again;
+
+  PrepareAtomicAddress(masm, nbytes, address, offsetTemp, maskTemp);
+
+  masm.bind(&again);
+  masm.as_dbar(0);
+  masm.as_ll_w(SecondScratchReg, ScratchRegister, 0);
+
+  if (output != InvalidReg) {
+    masm.as_and(output, SecondScratchReg, maskTemp);
+    masm.as_srl_w(output, output, offsetTemp);
+    if (signExtend) {
+      SignExtendAtomicResult(masm, nbytes, output);
+    }
+  }
+
+  MoveAtomicValue(masm, value, valueTemp);
+  masm.as_sll_w(valueTemp, valueTemp, offsetTemp);
+
+  switch (op) {
+    case AtomicFetchAddOp:
+      masm.as_add_w(valueTemp, SecondScratchReg, valueTemp);
+      break;
+    case AtomicFetchSubOp:
+      masm.as_sub_w(valueTemp, SecondScratchReg, valueTemp);
+      break;
+    case AtomicFetchAndOp:
+      masm.as_and(valueTemp, SecondScratchReg, valueTemp);
+      break;
+    case AtomicFetchOrOp:
+      masm.as_or(valueTemp, SecondScratchReg, valueTemp);
+      break;
+    case AtomicFetchXorOp:
+      masm.as_xor(valueTemp, SecondScratchReg, valueTemp);
+      break;
+    default:
+      MOZ_CRASH("unexpected atomic op");
+  }
+
+  masm.as_and(valueTemp, valueTemp, maskTemp);
+  masm.as_or(SecondScratchReg, SecondScratchReg, maskTemp);
+  masm.as_xor(SecondScratchReg, SecondScratchReg, maskTemp);
+  masm.as_or(SecondScratchReg, SecondScratchReg, valueTemp);
+  masm.as_sc_w(SecondScratchReg, ScratchRegister, 0);
+  masm.ma_b(SecondScratchReg, SecondScratchReg, &again, Assembler::Zero,
+            ShortJump);
+  masm.as_dbar(0);
+}
+
+template <typename T>
+static void CompareExchangeLoongArch64(
+    MacroAssemblerLOONGARCH64Compat& masm, int nbytes, bool signExtend,
+    const T& address, Register oldval, Register newval, Register valueTemp,
+    Register offsetTemp, Register maskTemp, Register output) {
+  Label again, done;
+
+  PrepareAtomicAddress(masm, nbytes, address, offsetTemp, maskTemp);
+
+  masm.bind(&again);
+  masm.as_dbar(0);
+  masm.as_ll_w(SecondScratchReg, ScratchRegister, 0);
+
+  masm.as_and(output, SecondScratchReg, maskTemp);
+  masm.as_srl_w(output, output, offsetTemp);
+  if (signExtend) {
+    SignExtendAtomicResult(masm, nbytes, output);
+  }
+
+  if (oldval != InvalidReg) {
+    masm.ma_b(output, oldval, &done, Assembler::NotEqual, ShortJump);
+  }
+
+  masm.move32(newval, valueTemp);
+  masm.as_sll_w(valueTemp, valueTemp, offsetTemp);
+  masm.as_and(valueTemp, valueTemp, maskTemp);
+  masm.as_or(SecondScratchReg, SecondScratchReg, maskTemp);
+  masm.as_xor(SecondScratchReg, SecondScratchReg, maskTemp);
+  masm.as_or(SecondScratchReg, SecondScratchReg, valueTemp);
+  masm.as_sc_w(SecondScratchReg, ScratchRegister, 0);
+  masm.ma_b(SecondScratchReg, SecondScratchReg, &again, Assembler::Zero,
+            ShortJump);
+  masm.as_dbar(0);
+
+  masm.bind(&done);
+}
+
+}  // namespace
+
 void MacroAssembler::alignFrameForICArguments(AfterICSaveLive& aic) {
   if (framePushed() % ABIStackAlignment != 0) {
     aic.alignmentPadding = ABIStackAlignment - (framePushed() % ABIStackAlignment);
@@ -3242,6 +3376,246 @@ void MacroAssemblerLOONGARCH64Compat::storePtr(Register src, AbsoluteAddress des
   ScratchRegisterScope scratch(asMasm());
   movePtr(ImmPtr(dest.addr), scratch);
   storePtr(src, Address(scratch, 0));
+}
+
+void MacroAssemblerLOONGARCH64Compat::atomicEffectOp(
+    int nbytes, AtomicOp op, Imm32 value, const Address& address,
+    Register valueTemp, Register offsetTemp, Register maskTemp) {
+  AtomicFetchOpLoongArch64(*this, nbytes, false, op, value, address, valueTemp,
+                           offsetTemp, maskTemp, InvalidReg);
+}
+
+void MacroAssemblerLOONGARCH64Compat::atomicEffectOp(
+    int nbytes, AtomicOp op, Imm32 value, const BaseIndex& address,
+    Register valueTemp, Register offsetTemp, Register maskTemp) {
+  AtomicFetchOpLoongArch64(*this, nbytes, false, op, value, address, valueTemp,
+                           offsetTemp, maskTemp, InvalidReg);
+}
+
+void MacroAssemblerLOONGARCH64Compat::atomicEffectOp(
+    int nbytes, AtomicOp op, Register value, const Address& address,
+    Register valueTemp, Register offsetTemp, Register maskTemp) {
+  AtomicFetchOpLoongArch64(*this, nbytes, false, op, value, address, valueTemp,
+                           offsetTemp, maskTemp, InvalidReg);
+}
+
+void MacroAssemblerLOONGARCH64Compat::atomicEffectOp(
+    int nbytes, AtomicOp op, Register value, const BaseIndex& address,
+    Register valueTemp, Register offsetTemp, Register maskTemp) {
+  AtomicFetchOpLoongArch64(*this, nbytes, false, op, value, address, valueTemp,
+                           offsetTemp, maskTemp, InvalidReg);
+}
+
+void MacroAssemblerLOONGARCH64Compat::atomicFetchOp(
+    int nbytes, bool signExtend, AtomicOp op, Imm32 value,
+    const Address& address, Register valueTemp, Register offsetTemp,
+    Register maskTemp, Register output) {
+  AtomicFetchOpLoongArch64(*this, nbytes, signExtend, op, value, address,
+                           valueTemp, offsetTemp, maskTemp, output);
+}
+
+void MacroAssemblerLOONGARCH64Compat::atomicFetchOp(
+    int nbytes, bool signExtend, AtomicOp op, Imm32 value,
+    const BaseIndex& address, Register valueTemp, Register offsetTemp,
+    Register maskTemp, Register output) {
+  AtomicFetchOpLoongArch64(*this, nbytes, signExtend, op, value, address,
+                           valueTemp, offsetTemp, maskTemp, output);
+}
+
+void MacroAssemblerLOONGARCH64Compat::atomicFetchOp(
+    int nbytes, bool signExtend, AtomicOp op, Register value,
+    const Address& address, Register valueTemp, Register offsetTemp,
+    Register maskTemp, Register output) {
+  AtomicFetchOpLoongArch64(*this, nbytes, signExtend, op, value, address,
+                           valueTemp, offsetTemp, maskTemp, output);
+}
+
+void MacroAssemblerLOONGARCH64Compat::atomicFetchOp(
+    int nbytes, bool signExtend, AtomicOp op, Register value,
+    const BaseIndex& address, Register valueTemp, Register offsetTemp,
+    Register maskTemp, Register output) {
+  AtomicFetchOpLoongArch64(*this, nbytes, signExtend, op, value, address,
+                           valueTemp, offsetTemp, maskTemp, output);
+}
+
+void MacroAssemblerLOONGARCH64Compat::compareExchange(
+    int nbytes, bool signExtend, const Address& address, Register oldval,
+    Register newval, Register valueTemp, Register offsetTemp,
+    Register maskTemp, Register output) {
+  CompareExchangeLoongArch64(*this, nbytes, signExtend, address, oldval,
+                             newval, valueTemp, offsetTemp, maskTemp, output);
+}
+
+void MacroAssemblerLOONGARCH64Compat::compareExchange(
+    int nbytes, bool signExtend, const BaseIndex& address, Register oldval,
+    Register newval, Register valueTemp, Register offsetTemp,
+    Register maskTemp, Register output) {
+  CompareExchangeLoongArch64(*this, nbytes, signExtend, address, oldval,
+                             newval, valueTemp, offsetTemp, maskTemp, output);
+}
+
+void MacroAssemblerLOONGARCH64Compat::compareExchangeToTypedIntArray(
+    Scalar::Type arrayType, const Address& mem, Register oldval,
+    Register newval, Register temp, Register valueTemp, Register offsetTemp,
+    Register maskTemp, AnyRegister output) {
+  switch (arrayType) {
+    case Scalar::Int8:
+      compareExchange(1, true, mem, oldval, newval, valueTemp, offsetTemp,
+                      maskTemp, output.gpr());
+      break;
+    case Scalar::Uint8:
+      compareExchange(1, false, mem, oldval, newval, valueTemp, offsetTemp,
+                      maskTemp, output.gpr());
+      break;
+    case Scalar::Int16:
+      compareExchange(2, true, mem, oldval, newval, valueTemp, offsetTemp,
+                      maskTemp, output.gpr());
+      break;
+    case Scalar::Uint16:
+      compareExchange(2, false, mem, oldval, newval, valueTemp, offsetTemp,
+                      maskTemp, output.gpr());
+      break;
+    case Scalar::Int32:
+      compareExchange(4, false, mem, oldval, newval, valueTemp, offsetTemp,
+                      maskTemp, output.gpr());
+      break;
+    case Scalar::Uint32:
+      MOZ_ASSERT(output.isFloat());
+      MOZ_ASSERT(temp != InvalidReg);
+      compareExchange(4, false, mem, oldval, newval, valueTemp, offsetTemp,
+                      maskTemp, temp);
+      convertUInt32ToDouble(temp, output.fpu());
+      break;
+    default:
+      MOZ_CRASH("Invalid typed array type");
+  }
+}
+
+void MacroAssemblerLOONGARCH64Compat::compareExchangeToTypedIntArray(
+    Scalar::Type arrayType, const BaseIndex& mem, Register oldval,
+    Register newval, Register temp, Register valueTemp, Register offsetTemp,
+    Register maskTemp, AnyRegister output) {
+  switch (arrayType) {
+    case Scalar::Int8:
+      compareExchange(1, true, mem, oldval, newval, valueTemp, offsetTemp,
+                      maskTemp, output.gpr());
+      break;
+    case Scalar::Uint8:
+      compareExchange(1, false, mem, oldval, newval, valueTemp, offsetTemp,
+                      maskTemp, output.gpr());
+      break;
+    case Scalar::Int16:
+      compareExchange(2, true, mem, oldval, newval, valueTemp, offsetTemp,
+                      maskTemp, output.gpr());
+      break;
+    case Scalar::Uint16:
+      compareExchange(2, false, mem, oldval, newval, valueTemp, offsetTemp,
+                      maskTemp, output.gpr());
+      break;
+    case Scalar::Int32:
+      compareExchange(4, false, mem, oldval, newval, valueTemp, offsetTemp,
+                      maskTemp, output.gpr());
+      break;
+    case Scalar::Uint32:
+      MOZ_ASSERT(output.isFloat());
+      MOZ_ASSERT(temp != InvalidReg);
+      compareExchange(4, false, mem, oldval, newval, valueTemp, offsetTemp,
+                      maskTemp, temp);
+      convertUInt32ToDouble(temp, output.fpu());
+      break;
+    default:
+      MOZ_CRASH("Invalid typed array type");
+  }
+}
+
+void MacroAssemblerLOONGARCH64Compat::atomicExchange(
+    int nbytes, bool signExtend, const Address& address, Register value,
+    Register valueTemp, Register offsetTemp, Register maskTemp,
+    Register output) {
+  CompareExchangeLoongArch64(*this, nbytes, signExtend, address, InvalidReg,
+                             value, valueTemp, offsetTemp, maskTemp, output);
+}
+
+void MacroAssemblerLOONGARCH64Compat::atomicExchange(
+    int nbytes, bool signExtend, const BaseIndex& address, Register value,
+    Register valueTemp, Register offsetTemp, Register maskTemp,
+    Register output) {
+  CompareExchangeLoongArch64(*this, nbytes, signExtend, address, InvalidReg,
+                             value, valueTemp, offsetTemp, maskTemp, output);
+}
+
+void MacroAssemblerLOONGARCH64Compat::atomicExchangeToTypedIntArray(
+    Scalar::Type arrayType, const Address& mem, Register value, Register temp,
+    Register valueTemp, Register offsetTemp, Register maskTemp,
+    AnyRegister output) {
+  switch (arrayType) {
+    case Scalar::Int8:
+      atomicExchange(1, true, mem, value, valueTemp, offsetTemp, maskTemp,
+                     output.gpr());
+      break;
+    case Scalar::Uint8:
+      atomicExchange(1, false, mem, value, valueTemp, offsetTemp, maskTemp,
+                     output.gpr());
+      break;
+    case Scalar::Int16:
+      atomicExchange(2, true, mem, value, valueTemp, offsetTemp, maskTemp,
+                     output.gpr());
+      break;
+    case Scalar::Uint16:
+      atomicExchange(2, false, mem, value, valueTemp, offsetTemp, maskTemp,
+                     output.gpr());
+      break;
+    case Scalar::Int32:
+      atomicExchange(4, false, mem, value, valueTemp, offsetTemp, maskTemp,
+                     output.gpr());
+      break;
+    case Scalar::Uint32:
+      MOZ_ASSERT(output.isFloat());
+      MOZ_ASSERT(temp != InvalidReg);
+      atomicExchange(4, false, mem, value, valueTemp, offsetTemp, maskTemp,
+                     temp);
+      convertUInt32ToDouble(temp, output.fpu());
+      break;
+    default:
+      MOZ_CRASH("Invalid typed array type");
+  }
+}
+
+void MacroAssemblerLOONGARCH64Compat::atomicExchangeToTypedIntArray(
+    Scalar::Type arrayType, const BaseIndex& mem, Register value,
+    Register temp, Register valueTemp, Register offsetTemp,
+    Register maskTemp, AnyRegister output) {
+  switch (arrayType) {
+    case Scalar::Int8:
+      atomicExchange(1, true, mem, value, valueTemp, offsetTemp, maskTemp,
+                     output.gpr());
+      break;
+    case Scalar::Uint8:
+      atomicExchange(1, false, mem, value, valueTemp, offsetTemp, maskTemp,
+                     output.gpr());
+      break;
+    case Scalar::Int16:
+      atomicExchange(2, true, mem, value, valueTemp, offsetTemp, maskTemp,
+                     output.gpr());
+      break;
+    case Scalar::Uint16:
+      atomicExchange(2, false, mem, value, valueTemp, offsetTemp, maskTemp,
+                     output.gpr());
+      break;
+    case Scalar::Int32:
+      atomicExchange(4, false, mem, value, valueTemp, offsetTemp, maskTemp,
+                     output.gpr());
+      break;
+    case Scalar::Uint32:
+      MOZ_ASSERT(output.isFloat());
+      MOZ_ASSERT(temp != InvalidReg);
+      atomicExchange(4, false, mem, value, valueTemp, offsetTemp, maskTemp,
+                     temp);
+      convertUInt32ToDouble(temp, output.fpu());
+      break;
+    default:
+      MOZ_CRASH("Invalid typed array type");
+  }
 }
 
 void MacroAssemblerLOONGARCH64Compat::testNullSet(Condition cond,

@@ -1272,6 +1272,66 @@ class MacroAssemblerLOONGARCH64Compat : public MacroAssemblerLOONGARCH64 {
   void storePtr(Register src, const BaseIndex& address);
   void storePtr(Register src, AbsoluteAddress dest);
 
+  void atomicEffectOp(int nbytes, AtomicOp op, Imm32 value,
+                      const Address& address, Register valueTemp,
+                      Register offsetTemp, Register maskTemp);
+  void atomicEffectOp(int nbytes, AtomicOp op, Imm32 value,
+                      const BaseIndex& address, Register valueTemp,
+                      Register offsetTemp, Register maskTemp);
+  void atomicEffectOp(int nbytes, AtomicOp op, Register value,
+                      const Address& address, Register valueTemp,
+                      Register offsetTemp, Register maskTemp);
+  void atomicEffectOp(int nbytes, AtomicOp op, Register value,
+                      const BaseIndex& address, Register valueTemp,
+                      Register offsetTemp, Register maskTemp);
+
+  void atomicFetchOp(int nbytes, bool signExtend, AtomicOp op, Imm32 value,
+                     const Address& address, Register valueTemp,
+                     Register offsetTemp, Register maskTemp, Register output);
+  void atomicFetchOp(int nbytes, bool signExtend, AtomicOp op, Imm32 value,
+                     const BaseIndex& address, Register valueTemp,
+                     Register offsetTemp, Register maskTemp, Register output);
+  void atomicFetchOp(int nbytes, bool signExtend, AtomicOp op, Register value,
+                     const Address& address, Register valueTemp,
+                     Register offsetTemp, Register maskTemp, Register output);
+  void atomicFetchOp(int nbytes, bool signExtend, AtomicOp op, Register value,
+                     const BaseIndex& address, Register valueTemp,
+                     Register offsetTemp, Register maskTemp, Register output);
+
+  void compareExchange(int nbytes, bool signExtend, const Address& address,
+                       Register oldval, Register newval, Register valueTemp,
+                       Register offsetTemp, Register maskTemp, Register output);
+  void compareExchange(int nbytes, bool signExtend, const BaseIndex& address,
+                       Register oldval, Register newval, Register valueTemp,
+                       Register offsetTemp, Register maskTemp, Register output);
+  void compareExchangeToTypedIntArray(Scalar::Type arrayType,
+                                      const Address& mem, Register oldval,
+                                      Register newval, Register temp,
+                                      Register valueTemp, Register offsetTemp,
+                                      Register maskTemp, AnyRegister output);
+  void compareExchangeToTypedIntArray(Scalar::Type arrayType,
+                                      const BaseIndex& mem, Register oldval,
+                                      Register newval, Register temp,
+                                      Register valueTemp, Register offsetTemp,
+                                      Register maskTemp, AnyRegister output);
+
+  void atomicExchange(int nbytes, bool signExtend, const Address& address,
+                      Register value, Register valueTemp, Register offsetTemp,
+                      Register maskTemp, Register output);
+  void atomicExchange(int nbytes, bool signExtend, const BaseIndex& address,
+                      Register value, Register valueTemp, Register offsetTemp,
+                      Register maskTemp, Register output);
+  void atomicExchangeToTypedIntArray(Scalar::Type arrayType,
+                                     const Address& mem, Register value,
+                                     Register temp, Register valueTemp,
+                                     Register offsetTemp, Register maskTemp,
+                                     AnyRegister output);
+  void atomicExchangeToTypedIntArray(Scalar::Type arrayType,
+                                     const BaseIndex& mem, Register value,
+                                     Register temp, Register valueTemp,
+                                     Register offsetTemp, Register maskTemp,
+                                     AnyRegister output);
+
   void moveDouble(FloatRegister src, FloatRegister dest) {
     as_fmov_d(dest, src);
   }

@@ -306,58 +306,307 @@ CodeGeneratorLoongArch64::visitWasmAddOffset(LWasmAddOffset* lir)
     masm.branchPtr(Assembler::Below, out, limitBase, trap(mir, wasm::Trap::OutOfBounds));
 }
 
+template <typename S, typename T>
+static void
+AtomicBinopToTypedIntArray(MacroAssemblerLOONGARCH64Compat& masm, AtomicOp op,
+                           Scalar::Type arrayType, const S& value,
+                           const T& mem, Register outTemp,
+                           Register valueTemp, Register offsetTemp,
+                           Register maskTemp, AnyRegister output)
+{
+    switch (arrayType) {
+      case Scalar::Int8:
+        masm.atomicFetchOp(1, true, op, value, mem, valueTemp, offsetTemp,
+                           maskTemp, output.gpr());
+        break;
+      case Scalar::Uint8:
+        masm.atomicFetchOp(1, false, op, value, mem, valueTemp, offsetTemp,
+                           maskTemp, output.gpr());
+        break;
+      case Scalar::Int16:
+        masm.atomicFetchOp(2, true, op, value, mem, valueTemp, offsetTemp,
+                           maskTemp, output.gpr());
+        break;
+      case Scalar::Uint16:
+        masm.atomicFetchOp(2, false, op, value, mem, valueTemp, offsetTemp,
+                           maskTemp, output.gpr());
+        break;
+      case Scalar::Int32:
+        masm.atomicFetchOp(4, false, op, value, mem, valueTemp, offsetTemp,
+                           maskTemp, output.gpr());
+        break;
+      case Scalar::Uint32:
+        MOZ_ASSERT(output.isFloat());
+        MOZ_ASSERT(outTemp != InvalidReg);
+        masm.atomicFetchOp(4, false, op, value, mem, valueTemp, offsetTemp,
+                           maskTemp, outTemp);
+        masm.convertUInt32ToDouble(outTemp, output.fpu());
+        break;
+      default:
+        MOZ_CRASH("Invalid typed array type");
+    }
+}
+
+template <typename S, typename T>
+static void
+AtomicBinopToTypedIntArray(MacroAssemblerLOONGARCH64Compat& masm, AtomicOp op,
+                           Scalar::Type arrayType, const S& value,
+                           const T& mem, Register valueTemp,
+                           Register offsetTemp, Register maskTemp)
+{
+    switch (arrayType) {
+      case Scalar::Int8:
+      case Scalar::Uint8:
+        masm.atomicEffectOp(1, op, value, mem, valueTemp, offsetTemp,
+                            maskTemp);
+        break;
+      case Scalar::Int16:
+      case Scalar::Uint16:
+        masm.atomicEffectOp(2, op, value, mem, valueTemp, offsetTemp,
+                            maskTemp);
+        break;
+      case Scalar::Int32:
+      case Scalar::Uint32:
+        masm.atomicEffectOp(4, op, value, mem, valueTemp, offsetTemp,
+                            maskTemp);
+        break;
+      default:
+        MOZ_CRASH("Invalid typed array type");
+    }
+}
+
+template <typename T>
+static void
+AtomicBinopToTypedArray(MacroAssemblerLOONGARCH64Compat& masm, AtomicOp op,
+                        Scalar::Type arrayType, const LAllocation* value,
+                        const T& mem, Register outTemp, Register valueTemp,
+                        Register offsetTemp, Register maskTemp,
+                        AnyRegister output)
+{
+    if (value->isConstant()) {
+        AtomicBinopToTypedIntArray(masm, op, arrayType, Imm32(ToInt32(value)),
+                                   mem, outTemp, valueTemp, offsetTemp,
+                                   maskTemp, output);
+    } else {
+        AtomicBinopToTypedIntArray(masm, op, arrayType, ToRegister(value),
+                                   mem, outTemp, valueTemp, offsetTemp,
+                                   maskTemp, output);
+    }
+}
+
+template <typename T>
+static void
+AtomicBinopToTypedArray(MacroAssemblerLOONGARCH64Compat& masm, AtomicOp op,
+                        Scalar::Type arrayType, const LAllocation* value,
+                        const T& mem, Register valueTemp, Register offsetTemp,
+                        Register maskTemp)
+{
+    if (value->isConstant()) {
+        AtomicBinopToTypedIntArray(masm, op, arrayType, Imm32(ToInt32(value)),
+                                   mem, valueTemp, offsetTemp, maskTemp);
+    } else {
+        AtomicBinopToTypedIntArray(masm, op, arrayType, ToRegister(value),
+                                   mem, valueTemp, offsetTemp, maskTemp);
+    }
+}
+
 void
 CodeGeneratorLoongArch64::visitAsmJSCompareExchangeHeap(LAsmJSCompareExchangeHeap* ins)
 {
-    (void)ins;
-    MOZ_CRASH("asm.js atomics are not supported on loongarch64 yet");
+    MAsmJSCompareExchangeHeap* mir = ins->mir();
+    Scalar::Type vt = mir->access().type();
+    Register ptrReg = ToRegister(ins->ptr());
+    BaseIndex srcAddr(HeapReg, ptrReg, TimesOne);
+    MOZ_ASSERT(ins->addrTemp()->isBogusTemp());
+
+    Register oldval = ToRegister(ins->oldValue());
+    Register newval = ToRegister(ins->newValue());
+    Register valueTemp = ToRegister(ins->valueTemp());
+    Register offsetTemp = ToRegister(ins->offsetTemp());
+    Register maskTemp = ToRegister(ins->maskTemp());
+
+    masm.compareExchangeToTypedIntArray(
+        vt == Scalar::Uint32 ? Scalar::Int32 : vt, srcAddr, oldval, newval,
+        InvalidReg, valueTemp, offsetTemp, maskTemp,
+        ToAnyRegister(ins->output()));
 }
 
 void
 CodeGeneratorLoongArch64::visitAsmJSAtomicExchangeHeap(LAsmJSAtomicExchangeHeap* ins)
 {
-    (void)ins;
-    MOZ_CRASH("asm.js atomics are not supported on loongarch64 yet");
+    MAsmJSAtomicExchangeHeap* mir = ins->mir();
+    Scalar::Type vt = mir->access().type();
+    Register ptrReg = ToRegister(ins->ptr());
+    Register value = ToRegister(ins->value());
+    BaseIndex srcAddr(HeapReg, ptrReg, TimesOne);
+    MOZ_ASSERT(ins->addrTemp()->isBogusTemp());
+
+    Register valueTemp = ToRegister(ins->valueTemp());
+    Register offsetTemp = ToRegister(ins->offsetTemp());
+    Register maskTemp = ToRegister(ins->maskTemp());
+
+    masm.atomicExchangeToTypedIntArray(
+        vt == Scalar::Uint32 ? Scalar::Int32 : vt, srcAddr, value, InvalidReg,
+        valueTemp, offsetTemp, maskTemp, ToAnyRegister(ins->output()));
 }
 
 void
 CodeGeneratorLoongArch64::visitAsmJSAtomicBinopHeap(LAsmJSAtomicBinopHeap* ins)
 {
-    (void)ins;
-    MOZ_CRASH("asm.js atomics are not supported on loongarch64 yet");
+    MOZ_ASSERT(ins->mir()->hasUses());
+    MOZ_ASSERT(ins->addrTemp()->isBogusTemp());
+
+    MAsmJSAtomicBinopHeap* mir = ins->mir();
+    Scalar::Type vt = mir->access().type();
+    Register ptrReg = ToRegister(ins->ptr());
+    Register valueTemp = ToRegister(ins->valueTemp());
+    Register offsetTemp = ToRegister(ins->offsetTemp());
+    Register maskTemp = ToRegister(ins->maskTemp());
+    const LAllocation* value = ins->value();
+    AtomicOp op = mir->operation();
+
+    BaseIndex srcAddr(HeapReg, ptrReg, TimesOne);
+
+    AtomicBinopToTypedArray(masm, op,
+                            vt == Scalar::Uint32 ? Scalar::Int32 : vt, value,
+                            srcAddr, InvalidReg, valueTemp, offsetTemp,
+                            maskTemp, ToAnyRegister(ins->output()));
 }
 
 void
 CodeGeneratorLoongArch64::visitAsmJSAtomicBinopHeapForEffect(LAsmJSAtomicBinopHeapForEffect* ins)
 {
-    (void)ins;
-    MOZ_CRASH("asm.js atomics are not supported on loongarch64 yet");
+    MOZ_ASSERT(!ins->mir()->hasUses());
+    MOZ_ASSERT(ins->addrTemp()->isBogusTemp());
+
+    MAsmJSAtomicBinopHeap* mir = ins->mir();
+    Scalar::Type vt = mir->access().type();
+    Register ptrReg = ToRegister(ins->ptr());
+    Register valueTemp = ToRegister(ins->valueTemp());
+    Register offsetTemp = ToRegister(ins->offsetTemp());
+    Register maskTemp = ToRegister(ins->maskTemp());
+    const LAllocation* value = ins->value();
+    AtomicOp op = mir->operation();
+
+    BaseIndex srcAddr(HeapReg, ptrReg, TimesOne);
+
+    AtomicBinopToTypedArray(masm, op, vt, value, srcAddr, valueTemp,
+                            offsetTemp, maskTemp);
 }
 
 void
 CodeGeneratorLoongArch64::visitAtomicTypedArrayElementBinop(LAtomicTypedArrayElementBinop* lir)
 {
-    (void)lir;
-    MOZ_CRASH("atomics are not supported on loongarch64 Ion yet");
+    MOZ_ASSERT(lir->mir()->hasUses());
+
+    AnyRegister output = ToAnyRegister(lir->output());
+    Register elements = ToRegister(lir->elements());
+    Register outTemp = lir->temp2()->isBogusTemp() ? InvalidReg
+                                                   : ToRegister(lir->temp2());
+    Register valueTemp = ToRegister(lir->valueTemp());
+    Register offsetTemp = ToRegister(lir->offsetTemp());
+    Register maskTemp = ToRegister(lir->maskTemp());
+    const LAllocation* value = lir->value();
+
+    Scalar::Type arrayType = lir->mir()->arrayType();
+    int width = Scalar::byteSize(arrayType);
+
+    if (lir->index()->isConstant()) {
+        Address mem(elements, ToInt32(lir->index()) * width);
+        AtomicBinopToTypedArray(masm, lir->mir()->operation(), arrayType, value,
+                                mem, outTemp, valueTemp, offsetTemp, maskTemp,
+                                output);
+    } else {
+        BaseIndex mem(elements, ToRegister(lir->index()),
+                      ScaleFromElemWidth(width));
+        AtomicBinopToTypedArray(masm, lir->mir()->operation(), arrayType, value,
+                                mem, outTemp, valueTemp, offsetTemp, maskTemp,
+                                output);
+    }
 }
 
 void
 CodeGeneratorLoongArch64::visitAtomicTypedArrayElementBinopForEffect(LAtomicTypedArrayElementBinopForEffect* lir)
 {
-    (void)lir;
-    MOZ_CRASH("atomics are not supported on loongarch64 Ion yet");
+    MOZ_ASSERT(!lir->mir()->hasUses());
+
+    Register elements = ToRegister(lir->elements());
+    Register valueTemp = ToRegister(lir->valueTemp());
+    Register offsetTemp = ToRegister(lir->offsetTemp());
+    Register maskTemp = ToRegister(lir->maskTemp());
+    const LAllocation* value = lir->value();
+    Scalar::Type arrayType = lir->mir()->arrayType();
+    int width = Scalar::byteSize(arrayType);
+
+    if (lir->index()->isConstant()) {
+        Address mem(elements, ToInt32(lir->index()) * width);
+        AtomicBinopToTypedArray(masm, lir->mir()->operation(), arrayType, value,
+                                mem, valueTemp, offsetTemp, maskTemp);
+    } else {
+        BaseIndex mem(elements, ToRegister(lir->index()),
+                      ScaleFromElemWidth(width));
+        AtomicBinopToTypedArray(masm, lir->mir()->operation(), arrayType, value,
+                                mem, valueTemp, offsetTemp, maskTemp);
+    }
 }
 
 void
 CodeGeneratorLoongArch64::visitCompareExchangeTypedArrayElement(LCompareExchangeTypedArrayElement* lir)
 {
-    (void)lir;
-    MOZ_CRASH("atomics are not supported on loongarch64 Ion yet");
+    Register elements = ToRegister(lir->elements());
+    AnyRegister output = ToAnyRegister(lir->output());
+    Register temp = lir->temp()->isBogusTemp() ? InvalidReg
+                                               : ToRegister(lir->temp());
+
+    Register oldval = ToRegister(lir->oldval());
+    Register newval = ToRegister(lir->newval());
+    Register valueTemp = ToRegister(lir->valueTemp());
+    Register offsetTemp = ToRegister(lir->offsetTemp());
+    Register maskTemp = ToRegister(lir->maskTemp());
+
+    Scalar::Type arrayType = lir->mir()->arrayType();
+    int width = Scalar::byteSize(arrayType);
+
+    if (lir->index()->isConstant()) {
+        Address dest(elements, ToInt32(lir->index()) * width);
+        masm.compareExchangeToTypedIntArray(arrayType, dest, oldval, newval,
+                                            temp, valueTemp, offsetTemp,
+                                            maskTemp, output);
+    } else {
+        BaseIndex dest(elements, ToRegister(lir->index()),
+                       ScaleFromElemWidth(width));
+        masm.compareExchangeToTypedIntArray(arrayType, dest, oldval, newval,
+                                            temp, valueTemp, offsetTemp,
+                                            maskTemp, output);
+    }
 }
 
 void
 CodeGeneratorLoongArch64::visitAtomicExchangeTypedArrayElement(LAtomicExchangeTypedArrayElement* lir)
 {
-    (void)lir;
-    MOZ_CRASH("atomics are not supported on loongarch64 Ion yet");
+    Register elements = ToRegister(lir->elements());
+    AnyRegister output = ToAnyRegister(lir->output());
+    Register temp = lir->temp()->isBogusTemp() ? InvalidReg
+                                               : ToRegister(lir->temp());
+
+    Register value = ToRegister(lir->value());
+    Register valueTemp = ToRegister(lir->valueTemp());
+    Register offsetTemp = ToRegister(lir->offsetTemp());
+    Register maskTemp = ToRegister(lir->maskTemp());
+
+    Scalar::Type arrayType = lir->mir()->arrayType();
+    int width = Scalar::byteSize(arrayType);
+
+    if (lir->index()->isConstant()) {
+        Address dest(elements, ToInt32(lir->index()) * width);
+        masm.atomicExchangeToTypedIntArray(arrayType, dest, value, temp,
+                                           valueTemp, offsetTemp, maskTemp,
+                                           output);
+    } else {
+        BaseIndex dest(elements, ToRegister(lir->index()),
+                       ScaleFromElemWidth(width));
+        masm.atomicExchangeToTypedIntArray(arrayType, dest, value, temp,
+                                           valueTemp, offsetTemp, maskTemp,
+                                           output);
+    }
 }
