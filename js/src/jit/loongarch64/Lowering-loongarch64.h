@@ -29,6 +29,8 @@ class LIRGeneratorLoongArch64 : public LIRGeneratorMIPSShared
         return temp();
     }
 
+    bool needTempForPostBarrier() { return true; }
+
     void lowerUntypedPhiInput(MPhi* phi, uint32_t inputPosition, LBlock* block, size_t lirIndex);
     void defineUntypedPhi(MPhi* phi, size_t lirIndex);
 
