@@ -2881,7 +2881,7 @@ class BaseCompiler
     };
 
 #if defined(JS_CODEGEN_LOONGARCH64)
-    void branchDoubleToTrap(DoubleCondition cond, FloatRegister lhs,
+    void branchDoubleToTrap(Assembler::DoubleCondition cond, FloatRegister lhs,
                             FloatRegister rhs, Trap trapKind) {
         Label trapLabel;
         masm.branchDouble(cond, lhs, rhs, &trapLabel);

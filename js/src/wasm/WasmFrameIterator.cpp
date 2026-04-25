@@ -246,9 +246,7 @@ static const unsigned PostStorePrePopFP = 4;
 static const unsigned PushedRetAddr = 8;
 static const unsigned PushedFP = 36;
 static const unsigned StoredFP = 40;
-# if defined(DEBUG)
 static const unsigned PostStorePrePopFP = 0;
-# endif
 #elif defined(JS_CODEGEN_NONE)
 # if defined(DEBUG)
 static const unsigned PushedRetAddr = 0;
@@ -657,12 +655,15 @@ ProfilingFrameIterator::ProfilingFrameIterator(const WasmActivation& activation,
             callerPC_ = state.lr;
             callerFP_ = fp;
             AssertMatchesCallSite(*activation_, callerPC_, callerFP_, sp - 2);
+# if defined(JS_CODEGEN_ARM) || defined(JS_CODEGEN_MIPS32) || \
+    defined(JS_CODEGEN_MIPS64)
         } else if (offsetInModule == codeRange->profilingReturn() - PostStorePrePopFP) {
             // Second-to-last instruction of the ARM/MIPS function; fp points to
             // the caller's fp; have not yet popped Frame.
             callerPC_ = ReturnAddressFromFP(sp);
             callerFP_ = CallerFPFromFP(sp);
             AssertMatchesCallSite(*activation_, callerPC_, callerFP_, sp);
+# endif
         } else
 #endif
         if (offsetInCodeRange < PushedFP || offsetInModule == codeRange->profilingReturn() ||
