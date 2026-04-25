@@ -649,10 +649,11 @@ ProfilingFrameIterator::ProfilingFrameIterator(const WasmActivation& activation,
         MOZ_ASSERT(offsetInModule < codeRange->end());
         uint32_t offsetInCodeRange = offsetInModule - codeRange->begin();
         void** sp = (void**)state.sp;
-#if defined(JS_CODEGEN_ARM) || defined(JS_CODEGEN_MIPS32) || defined(JS_CODEGEN_MIPS64)
+#if defined(JS_CODEGEN_ARM) || defined(JS_CODEGEN_MIPS32) || \
+    defined(JS_CODEGEN_MIPS64) || defined(JS_CODEGEN_LOONGARCH64)
         if (offsetInCodeRange < PushedRetAddr || InThunk(*codeRange, offsetInModule)) {
-            // First instruction of the ARM/MIPS function; the return address is
-            // still in lr and fp still holds the caller's fp.
+            // First instruction of the ARM/MIPS/loongarch64 function; the
+            // return address is still in lr and fp still holds the caller's fp.
             callerPC_ = state.lr;
             callerFP_ = fp;
             AssertMatchesCallSite(*activation_, callerPC_, callerFP_, sp - 2);

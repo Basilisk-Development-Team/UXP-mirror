@@ -7596,7 +7596,8 @@ BaseCompiler::BaseCompiler(const ModuleGeneratorData& mg,
     availGPR_.take(GlobalReg);
 #elif defined(JS_CODEGEN_X86)
     availGPR_.take(ScratchRegX86);
-#elif defined(JS_CODEGEN_MIPS32) || defined(JS_CODEGEN_MIPS64)
+#elif defined(JS_CODEGEN_MIPS32) || defined(JS_CODEGEN_MIPS64) || \
+      defined(JS_CODEGEN_LOONGARCH64)
     availGPR_.take(HeapReg);
     availGPR_.take(GlobalReg);
 #endif
