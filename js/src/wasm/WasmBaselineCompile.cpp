@@ -2405,7 +2405,11 @@ class BaseCompiler
     defined(JS_CODEGEN_LOONGARCH64)
         for (uint32_t i = 0; i < labels.length(); i++) {
             CodeLabel cl;
+# if defined(JS_CODEGEN_LOONGARCH64)
+            masm.writeCodePointer(&cl);
+# else
             masm.writeCodePointer(cl.patchAt());
+# endif
             cl.target()->bind(labels[i]->offset());
             masm.addCodeLabel(cl);
         }
@@ -2450,7 +2454,7 @@ class BaseCompiler
         SecondScratchRegisterScope target(masm);
         CodeLabel tableCl;
 
-        masm.mov(tableCl.patchAt(), scratch);
+        masm.ma_li(scratch, tableCl.patchAt());
         tableCl.target()->bind(theTable->offset());
         masm.addCodeLabel(tableCl);
 
@@ -2876,6 +2880,15 @@ class BaseCompiler
         }
     };
 
+#if defined(JS_CODEGEN_LOONGARCH64)
+    void branchDoubleToTrap(DoubleCondition cond, FloatRegister lhs,
+                            FloatRegister rhs, Trap trapKind) {
+        Label trapLabel;
+        masm.branchDouble(cond, lhs, rhs, &trapLabel);
+        masm.bindLater(&trapLabel, trap(trapKind));
+    }
+#endif
+
     [[nodiscard]] bool truncateF32ToI32(RegF32 src, RegI32 dest, bool isUnsigned) {
         TrapOffset off = trapOffset();
         OutOfLineCode* ool;
@@ -2900,17 +2913,17 @@ class BaseCompiler
             RegF64 doubleInput = needF64();
             ScratchF64 scratch(*this);
             masm.convertFloat32ToDouble(src.reg, doubleInput.reg);
-            masm.branchDouble(Assembler::DoubleUnordered, doubleInput.reg, doubleInput.reg,
-                              trap(Trap::InvalidConversionToInteger));
+            branchDoubleToTrap(Assembler::DoubleUnordered, doubleInput.reg,
+                                doubleInput.reg, Trap::InvalidConversionToInteger);
             masm.loadConstantDouble(isUnsigned ? -1.0 : double(INT32_MIN), scratch);
-            masm.branchDouble(isUnsigned ? Assembler::DoubleLessThanOrEqual
-                                         : Assembler::DoubleLessThan,
-                              doubleInput.reg, scratch, trap(Trap::IntegerOverflow));
+            branchDoubleToTrap(isUnsigned ? Assembler::DoubleLessThanOrEqual
+                                          : Assembler::DoubleLessThan,
+                                doubleInput.reg, scratch, Trap::IntegerOverflow);
             masm.loadConstantDouble(isUnsigned ? double(UINT32_MAX) + 1.0
                                                : double(INT32_MAX) + 1.0,
                                     scratch);
-            masm.branchDouble(Assembler::DoubleGreaterThanOrEqual, doubleInput.reg, scratch,
-                              trap(Trap::IntegerOverflow));
+            branchDoubleToTrap(Assembler::DoubleGreaterThanOrEqual, doubleInput.reg,
+                                scratch, Trap::IntegerOverflow);
 
             sync();
             RegI32 temp = needI32();
@@ -2920,6 +2933,7 @@ class BaseCompiler
             masm.storeCallInt32Result(dest.reg);
             freeI32(temp);
             freeF64(doubleInput);
+            return true;
 #else
             MOZ_CRASH("BaseCompiler platform hook: truncateF32ToI32 wasm");
 #endif
@@ -2950,17 +2964,17 @@ class BaseCompiler
                 masm.wasmTruncateDoubleToInt32(src.reg, dest.reg, ool->entry());
 #elif defined(JS_CODEGEN_LOONGARCH64)
             ScratchF64 scratch(*this);
-            masm.branchDouble(Assembler::DoubleUnordered, src.reg, src.reg,
-                              trap(Trap::InvalidConversionToInteger));
+            branchDoubleToTrap(Assembler::DoubleUnordered, src.reg, src.reg,
+                                Trap::InvalidConversionToInteger);
             masm.loadConstantDouble(isUnsigned ? -1.0 : double(INT32_MIN), scratch);
-            masm.branchDouble(isUnsigned ? Assembler::DoubleLessThanOrEqual
-                                         : Assembler::DoubleLessThan,
-                              src.reg, scratch, trap(Trap::IntegerOverflow));
+            branchDoubleToTrap(isUnsigned ? Assembler::DoubleLessThanOrEqual
+                                          : Assembler::DoubleLessThan,
+                                src.reg, scratch, Trap::IntegerOverflow);
             masm.loadConstantDouble(isUnsigned ? double(UINT32_MAX) + 1.0
                                                : double(INT32_MAX) + 1.0,
                                     scratch);
-            masm.branchDouble(Assembler::DoubleGreaterThanOrEqual, src.reg, scratch,
-                              trap(Trap::IntegerOverflow));
+            branchDoubleToTrap(Assembler::DoubleGreaterThanOrEqual, src.reg, scratch,
+                                Trap::IntegerOverflow);
 
             sync();
             RegI32 temp = needI32();
@@ -2969,6 +2983,7 @@ class BaseCompiler
             masm.callWithABI(SymbolicAddress::ToInt32);
             masm.storeCallInt32Result(dest.reg);
             freeI32(temp);
+            return true;
 #else
             MOZ_CRASH("BaseCompiler platform hook: truncateF64ToI32 wasm");
 #endif
@@ -3037,15 +3052,15 @@ class BaseCompiler
         RegF64 doubleInput = needF64();
         ScratchF64 scratch(*this);
         masm.convertFloat32ToDouble(src.reg, doubleInput.reg);
-        masm.branchDouble(Assembler::DoubleUnordered, doubleInput.reg, doubleInput.reg,
-                          trap(Trap::InvalidConversionToInteger));
+        branchDoubleToTrap(Assembler::DoubleUnordered, doubleInput.reg,
+                           doubleInput.reg, Trap::InvalidConversionToInteger);
         masm.loadConstantDouble(isUnsigned ? -1.0 : double(INT64_MIN), scratch);
-        masm.branchDouble(isUnsigned ? Assembler::DoubleLessThanOrEqual
-                                     : Assembler::DoubleLessThan,
-                          doubleInput.reg, scratch, trap(Trap::IntegerOverflow));
+        branchDoubleToTrap(isUnsigned ? Assembler::DoubleLessThanOrEqual
+                                      : Assembler::DoubleLessThan,
+                           doubleInput.reg, scratch, Trap::IntegerOverflow);
         masm.loadConstantDouble(isUnsigned ? double(UINT64_MAX) : double(INT64_MAX), scratch);
-        masm.branchDouble(Assembler::DoubleGreaterThanOrEqual, doubleInput.reg, scratch,
-                          trap(Trap::IntegerOverflow));
+        branchDoubleToTrap(Assembler::DoubleGreaterThanOrEqual, doubleInput.reg,
+                           scratch, Trap::IntegerOverflow);
 
         sync();
         RegI32 callTemp = needI32();
@@ -3079,15 +3094,15 @@ class BaseCompiler
                                            ool->rejoin(), temp.reg);
 # elif defined(JS_CODEGEN_LOONGARCH64)
         ScratchF64 scratch(*this);
-        masm.branchDouble(Assembler::DoubleUnordered, src.reg, src.reg,
-                          trap(Trap::InvalidConversionToInteger));
+        branchDoubleToTrap(Assembler::DoubleUnordered, src.reg, src.reg,
+                           Trap::InvalidConversionToInteger);
         masm.loadConstantDouble(isUnsigned ? -1.0 : double(INT64_MIN), scratch);
-        masm.branchDouble(isUnsigned ? Assembler::DoubleLessThanOrEqual
-                                     : Assembler::DoubleLessThan,
-                          src.reg, scratch, trap(Trap::IntegerOverflow));
+        branchDoubleToTrap(isUnsigned ? Assembler::DoubleLessThanOrEqual
+                                      : Assembler::DoubleLessThan,
+                           src.reg, scratch, Trap::IntegerOverflow);
         masm.loadConstantDouble(isUnsigned ? double(UINT64_MAX) : double(INT64_MAX), scratch);
-        masm.branchDouble(Assembler::DoubleGreaterThanOrEqual, src.reg, scratch,
-                          trap(Trap::IntegerOverflow));
+        branchDoubleToTrap(Assembler::DoubleGreaterThanOrEqual, src.reg, scratch,
+                           Trap::IntegerOverflow);
 
         sync();
         RegI32 callTemp = needI32();
