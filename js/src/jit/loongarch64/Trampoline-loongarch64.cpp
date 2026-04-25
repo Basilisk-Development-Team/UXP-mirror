@@ -675,19 +675,10 @@ JitRuntime::generateVMWrapper(JSContext* cx, const VMFunction& f)
     Register cxreg = a0;
     regs.take(cxreg);
 
-    // LoongArch callers can arrive here in either style:
-    // - Non-tail calls keep the return address in |ra| and only push a descriptor.
-    // - Tail calls push a full CommonFrameLayout with the return address on the stack.
-    // Normalize both forms so the wrapper always sees a stack return address.
-    {
-        Label haveStackReturnAddress;
-        Register scratch = regs.getAny();
-        masm.loadPtr(Address(StackPointer, 0), scratch);
-        masm.rshiftPtr(Imm32(32), scratch);
-        masm.branch32(Assembler::NotEqual, scratch, Imm32(0), &haveStackReturnAddress);
+    // Non-tail calls keep the return address in |ra|, while tail-call sites
+    // have already materialized a CommonFrameLayout on the stack.
+    if (f.expectTailCall == NonTailCall)
         masm.pushReturnAddress();
-        masm.bind(&haveStackReturnAddress);
-    }
 
     // We're aligned to an exit frame, so link it up.
     masm.enterExitFrame(&f);
