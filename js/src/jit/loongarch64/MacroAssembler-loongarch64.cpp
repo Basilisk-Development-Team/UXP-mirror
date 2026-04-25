@@ -943,7 +943,7 @@ void MacroAssemblerLOONGARCH64::ma_load(Register dest, Address address,
       if ((address.offset & 0x3) == 0 &&
           (size == SizeDouble ||
            (size == SizeWord && SignExtend == extension))) {
-        if (!Imm16::IsInSignedRange(address.offset)) {
+        if (!is_intN(address.offset, 14)) {
           ma_li(ScratchRegister, Imm32(address.offset));
           as_add_d(ScratchRegister, address.base, ScratchRegister);
           base = ScratchRegister;
@@ -1014,7 +1014,7 @@ void MacroAssemblerLOONGARCH64::ma_store(Register data, Address address,
     case SizeWord:
     case SizeDouble:
       if ((address.offset & 0x3) == 0) {
-        if (!Imm16::IsInSignedRange(address.offset)) {
+        if (!is_intN(address.offset, 14)) {
           ma_li(ScratchRegister, Imm32(address.offset));
           as_add_d(ScratchRegister, address.base, ScratchRegister);
           base = ScratchRegister;
@@ -1060,7 +1060,7 @@ void MacroAssemblerLOONGARCH64Compat::computeScaledAddress(const BaseIndex& addr
 
   if (shift) {
     MOZ_ASSERT(shift <= 4);
-    as_alsl_d(dest, index, base, shift - 1);
+    as_alsl_d(dest, index, base, shift);
   } else {
     as_add_d(dest, base, index);
   }
@@ -3160,7 +3160,7 @@ void MacroAssemblerLOONGARCH64Compat::load32(const BaseIndex& address,
     ma_li(scratch, Imm32(offset));
     if (shift != 0) {
       MOZ_ASSERT(shift <= 4);
-      as_alsl_d(scratch, index, scratch, shift - 1);
+      as_alsl_d(scratch, index, scratch, shift);
     } else {
       as_add_d(scratch, index, scratch);
     }
@@ -3204,7 +3204,7 @@ void MacroAssemblerLOONGARCH64Compat::loadPtr(const BaseIndex& src, Register des
     ma_li(scratch, Imm32(offset));
     if (shift != 0) {
       MOZ_ASSERT(shift <= 4);
-      as_alsl_d(scratch, index, scratch, shift - 1);
+      as_alsl_d(scratch, index, scratch, shift);
     } else {
       as_add_d(scratch, index, scratch);
     }
@@ -3355,7 +3355,7 @@ void MacroAssemblerLOONGARCH64Compat::storePtr(Register src,
     if (shift == 0) {
       as_add_d(scratch, base, index);
     } else {
-      as_alsl_d(scratch, index, base, shift - 1);
+      as_alsl_d(scratch, index, base, shift);
     }
     as_st_d(src, scratch, offset);
   } else {
@@ -3364,7 +3364,7 @@ void MacroAssemblerLOONGARCH64Compat::storePtr(Register src,
     if (shift == 0) {
       as_add_d(scratch, scratch, index);
     } else {
-      as_alsl_d(scratch, index, scratch, shift - 1);
+      as_alsl_d(scratch, index, scratch, shift);
     }
     as_stx_d(src, base, scratch);
   }

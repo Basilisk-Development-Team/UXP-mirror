@@ -81,6 +81,14 @@ void MacroAssembler::and32(Imm32 imm, Register dest) {
 }
 
 void MacroAssembler::and32(Imm32 imm, const Address& dest) {
+  if (dest.base == SecondScratchReg) {
+    ScratchRegisterScope scratch(asMasm());
+    load32(dest, scratch);
+    and32(imm, scratch);
+    store32(scratch, dest);
+    return;
+  }
+
   SecondScratchRegisterScope scratch2(asMasm());
   load32(dest, scratch2);
   and32(imm, scratch2);
@@ -106,6 +114,14 @@ void MacroAssembler::or32(Register src, Register dest) {
 void MacroAssembler::or32(Imm32 imm, Register dest) { ma_or(dest, dest, imm); }
 
 void MacroAssembler::or32(Imm32 imm, const Address& dest) {
+  if (dest.base == SecondScratchReg) {
+    ScratchRegisterScope scratch(asMasm());
+    load32(dest, scratch);
+    or32(imm, scratch);
+    store32(scratch, dest);
+    return;
+  }
+
   SecondScratchRegisterScope scratch2(asMasm());
   load32(dest, scratch2);
   or32(imm, scratch2);
@@ -227,6 +243,14 @@ void MacroAssembler::add32(Imm32 imm, Register dest) {
 }
 
 void MacroAssembler::add32(Imm32 imm, const Address& dest) {
+  if (dest.base == SecondScratchReg) {
+    ScratchRegisterScope scratch(asMasm());
+    load32(dest, scratch);
+    ma_add_w(scratch, scratch, imm);
+    store32(scratch, dest);
+    return;
+  }
+
   SecondScratchRegisterScope scratch2(asMasm());
   load32(dest, scratch2);
   ma_add_w(scratch2, scratch2, imm);
@@ -234,6 +258,14 @@ void MacroAssembler::add32(Imm32 imm, const Address& dest) {
 }
 
 void MacroAssembler::addPtr(Imm32 imm, const Address& dest) {
+  if (dest.base == ScratchRegister) {
+    SecondScratchRegisterScope scratch2(asMasm());
+    loadPtr(dest, scratch2);
+    addPtr(imm, scratch2);
+    storePtr(scratch2, dest);
+    return;
+  }
+
   ScratchRegisterScope scratch(asMasm());
   loadPtr(dest, scratch);
   addPtr(imm, scratch);
