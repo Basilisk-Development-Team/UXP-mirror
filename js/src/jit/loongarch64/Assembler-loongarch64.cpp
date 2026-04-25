@@ -1056,30 +1056,30 @@ BufferOffset AssemblerLOONGARCH64::as_stx_d(Register rd, Register rj, Register r
 
 BufferOffset AssemblerLOONGARCH64::as_ldptr_w(Register rd, Register rj,
                                           int32_t si14) {
-  MOZ_ASSERT(is_intN(si14, 14) && ((si14 & 0x3) == 0));
+  MOZ_ASSERT(is_intN(si14, 16) && ((si14 & 0x3) == 0));
   spew("ldptr_w   %3s,%3s,0x%x", rd.name(), rj.name(), si14);
-  return writeInst(InstImm(op_ldptr_w, si14, rj, rd, 14).encode());
+  return writeInst(InstImm(op_ldptr_w, si14 >> 2, rj, rd, 14).encode());
 }
 
 BufferOffset AssemblerLOONGARCH64::as_ldptr_d(Register rd, Register rj,
                                           int32_t si14) {
-  MOZ_ASSERT(is_intN(si14, 14) && ((si14 & 0x3) == 0));
+  MOZ_ASSERT(is_intN(si14, 16) && ((si14 & 0x3) == 0));
   spew("ldptr_d   %3s,%3s,0x%x", rd.name(), rj.name(), si14);
-  return writeInst(InstImm(op_ldptr_d, si14, rj, rd, 14).encode());
+  return writeInst(InstImm(op_ldptr_d, si14 >> 2, rj, rd, 14).encode());
 }
 
 BufferOffset AssemblerLOONGARCH64::as_stptr_w(Register rd, Register rj,
                                           int32_t si14) {
-  MOZ_ASSERT(is_intN(si14, 14) && ((si14 & 0x3) == 0));
+  MOZ_ASSERT(is_intN(si14, 16) && ((si14 & 0x3) == 0));
   spew("stptr_w   %3s,%3s,0x%x", rd.name(), rj.name(), si14);
-  return writeInst(InstImm(op_stptr_w, si14, rj, rd, 14).encode());
+  return writeInst(InstImm(op_stptr_w, si14 >> 2, rj, rd, 14).encode());
 }
 
 BufferOffset AssemblerLOONGARCH64::as_stptr_d(Register rd, Register rj,
                                           int32_t si14) {
-  MOZ_ASSERT(is_intN(si14, 14) && ((si14 & 0x3) == 0));
+  MOZ_ASSERT(is_intN(si14, 16) && ((si14 & 0x3) == 0));
   spew("stptr_d   %3s,%3s,0x%x", rd.name(), rj.name(), si14);
-  return writeInst(InstImm(op_stptr_d, si14, rj, rd, 14).encode());
+  return writeInst(InstImm(op_stptr_d, si14 >> 2, rj, rd, 14).encode());
 }
 
 BufferOffset AssemblerLOONGARCH64::as_preld(int32_t hint, Register rj,
@@ -1308,26 +1308,26 @@ BufferOffset AssemblerLOONGARCH64::as_ammin_db_du(Register rd, Register rj,
 
 BufferOffset AssemblerLOONGARCH64::as_ll_w(Register rd, Register rj, int32_t si14) {
   spew("ll_w   %3s,%3s,0x%x", rd.name(), rj.name(), si14);
-  MOZ_ASSERT(is_intN(si14, 14) && ((si14 & 0x3) == 0));
-  return writeInst(InstImm(op_ll_w, si14, rj, rd, 14).encode());
+  MOZ_ASSERT(is_intN(si14, 16) && ((si14 & 0x3) == 0));
+  return writeInst(InstImm(op_ll_w, si14 >> 2, rj, rd, 14).encode());
 }
 
 BufferOffset AssemblerLOONGARCH64::as_ll_d(Register rd, Register rj, int32_t si14) {
   spew("ll_d   %3s,%3s,0x%x", rd.name(), rj.name(), si14);
-  MOZ_ASSERT(is_intN(si14, 14) && ((si14 & 0x3) == 0));
-  return writeInst(InstImm(op_ll_d, si14, rj, rd, 14).encode());
+  MOZ_ASSERT(is_intN(si14, 16) && ((si14 & 0x3) == 0));
+  return writeInst(InstImm(op_ll_d, si14 >> 2, rj, rd, 14).encode());
 }
 
 BufferOffset AssemblerLOONGARCH64::as_sc_w(Register rd, Register rj, int32_t si14) {
   spew("sc_w   %3s,%3s,0x%x", rd.name(), rj.name(), si14);
-  MOZ_ASSERT(is_intN(si14, 14) && ((si14 & 0x3) == 0));
-  return writeInst(InstImm(op_sc_w, si14, rj, rd, 14).encode());
+  MOZ_ASSERT(is_intN(si14, 16) && ((si14 & 0x3) == 0));
+  return writeInst(InstImm(op_sc_w, si14 >> 2, rj, rd, 14).encode());
 }
 
 BufferOffset AssemblerLOONGARCH64::as_sc_d(Register rd, Register rj, int32_t si14) {
   spew("sc_d   %3s,%3s,0x%x", rd.name(), rj.name(), si14);
-  MOZ_ASSERT(is_intN(si14, 14) && ((si14 & 0x3) == 0));
-  return writeInst(InstImm(op_sc_d, si14, rj, rd, 14).encode());
+  MOZ_ASSERT(is_intN(si14, 16) && ((si14 & 0x3) == 0));
+  return writeInst(InstImm(op_sc_d, si14 >> 2, rj, rd, 14).encode());
 }
 
 // Barrier instructions
