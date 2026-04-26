@@ -1656,12 +1656,10 @@ class MacroAssembler : public MacroAssemblerSpecific
                                    Register temp, Label* failure);
 
     Register extractString(const Address& address, Register scratch) {
-        unboxString(address, scratch);
-        return scratch;
+        return extractObject(address, scratch);
     }
     Register extractString(const ValueOperand& value, Register scratch) {
-        unboxString(value, scratch);
-        return scratch;
+        return extractObject(value, scratch);
     }
 
     using MacroAssemblerSpecific::extractTag;

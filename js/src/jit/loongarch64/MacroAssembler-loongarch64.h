@@ -928,6 +928,11 @@ class MacroAssemblerLOONGARCH64Compat : public MacroAssemblerLOONGARCH64 {
   // and returns that.
   [[nodiscard]] Register extractObject(const Address& address,
                                        Register scratch);
+  [[nodiscard]] Register extractString(const Address& address,
+                                       Register scratch) {
+    unboxString(address, scratch);
+    return scratch;
+  }
   [[nodiscard]] Register extractObject(const ValueOperand& value,
                                        Register scratch) {
     unboxObject(value, scratch);
