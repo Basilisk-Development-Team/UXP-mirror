@@ -178,7 +178,7 @@ LIRGeneratorMIPS64::lowerTruncateFToInt32(MTruncateToInt32* ins)
 void
 LIRGeneratorMIPS64::visitRandom(MRandom* ins)
 {
-    LRandom *lir = new(alloc()) LRandom(temp(),
+    LRandom *lir = new(alloc()) LRandom(temp(), 
                                         temp(),
                                         temp(),
                                         temp());
