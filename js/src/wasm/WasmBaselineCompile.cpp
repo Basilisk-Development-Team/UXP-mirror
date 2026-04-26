@@ -30,7 +30,6 @@
  *  - Tiered compilation (bug 1277562)
  *  - profiler support / devtools (bug 1286948)
  *  - SIMD
- *  - Atomics
  *
  * There are lots of machine dependencies here but they are pretty well isolated
  * to a segment of the compiler.  Many dependencies will eventually be factored
@@ -3711,6 +3710,123 @@ class BaseCompiler
         return true;
     }
 
+#if defined(JS_CODEGEN_LOONGARCH64)
+    void coerceAtomicStoreResult(Scalar::Type viewType, RegI32 value) {
+        switch (viewType) {
+          case Scalar::Int8:
+            masm.as_ext_w_b(value.reg, value.reg);
+            break;
+          case Scalar::Uint8:
+            masm.as_bstrpick_d(value.reg, value.reg, 7, 0);
+            break;
+          case Scalar::Int16:
+            masm.as_ext_w_h(value.reg, value.reg);
+            break;
+          case Scalar::Uint16:
+            masm.as_bstrpick_d(value.reg, value.reg, 15, 0);
+            break;
+          case Scalar::Int32:
+          case Scalar::Uint32:
+            break;
+          default:
+            MOZ_CRASH("Unexpected atomic array type");
+        }
+    }
+
+    void atomicBinopToTypedIntArray(AtomicOp op, Scalar::Type viewType, Register value,
+                                    const BaseIndex& addr, Register valueTemp,
+                                    Register offsetTemp, Register maskTemp,
+                                    Register output) {
+        switch (viewType) {
+          case Scalar::Int8:
+            masm.atomicFetchOp(1, true, op, value, addr, valueTemp, offsetTemp,
+                               maskTemp, output);
+            break;
+          case Scalar::Uint8:
+            masm.atomicFetchOp(1, false, op, value, addr, valueTemp, offsetTemp,
+                               maskTemp, output);
+            break;
+          case Scalar::Int16:
+            masm.atomicFetchOp(2, true, op, value, addr, valueTemp, offsetTemp,
+                               maskTemp, output);
+            break;
+          case Scalar::Uint16:
+            masm.atomicFetchOp(2, false, op, value, addr, valueTemp, offsetTemp,
+                               maskTemp, output);
+            break;
+          case Scalar::Int32:
+          case Scalar::Uint32:
+            masm.atomicFetchOp(4, false, op, value, addr, valueTemp, offsetTemp,
+                               maskTemp, output);
+            break;
+          default:
+            MOZ_CRASH("Unexpected atomic array type");
+        }
+    }
+
+    void atomicCompareExchangeToTypedIntArray(Scalar::Type viewType, const BaseIndex& addr,
+                                              Register oldval, Register newval,
+                                              Register valueTemp, Register offsetTemp,
+                                              Register maskTemp, Register output) {
+        switch (viewType) {
+          case Scalar::Int8:
+            masm.compareExchange(1, true, addr, oldval, newval, valueTemp,
+                                 offsetTemp, maskTemp, output);
+            break;
+          case Scalar::Uint8:
+            masm.compareExchange(1, false, addr, oldval, newval, valueTemp,
+                                 offsetTemp, maskTemp, output);
+            break;
+          case Scalar::Int16:
+            masm.compareExchange(2, true, addr, oldval, newval, valueTemp,
+                                 offsetTemp, maskTemp, output);
+            break;
+          case Scalar::Uint16:
+            masm.compareExchange(2, false, addr, oldval, newval, valueTemp,
+                                 offsetTemp, maskTemp, output);
+            break;
+          case Scalar::Int32:
+          case Scalar::Uint32:
+            masm.compareExchange(4, false, addr, oldval, newval, valueTemp,
+                                 offsetTemp, maskTemp, output);
+            break;
+          default:
+            MOZ_CRASH("Unexpected atomic array type");
+        }
+    }
+
+    void atomicExchangeToTypedIntArray(Scalar::Type viewType, const BaseIndex& addr,
+                                       Register value, Register valueTemp,
+                                       Register offsetTemp, Register maskTemp,
+                                       Register output) {
+        switch (viewType) {
+          case Scalar::Int8:
+            masm.atomicExchange(1, true, addr, value, valueTemp, offsetTemp,
+                                maskTemp, output);
+            break;
+          case Scalar::Uint8:
+            masm.atomicExchange(1, false, addr, value, valueTemp, offsetTemp,
+                                maskTemp, output);
+            break;
+          case Scalar::Int16:
+            masm.atomicExchange(2, true, addr, value, valueTemp, offsetTemp,
+                                maskTemp, output);
+            break;
+          case Scalar::Uint16:
+            masm.atomicExchange(2, false, addr, value, valueTemp, offsetTemp,
+                                maskTemp, output);
+            break;
+          case Scalar::Int32:
+          case Scalar::Uint32:
+            masm.atomicExchange(4, false, addr, value, valueTemp, offsetTemp,
+                                maskTemp, output);
+            break;
+          default:
+            MOZ_CRASH("Unexpected atomic array type");
+        }
+    }
+#endif
+
 #ifdef JS_CODEGEN_ARM
     void
     loadI32(MemoryAccessDesc access, bool isSigned, RegI32 ptr, Register rt) {
@@ -4057,6 +4173,13 @@ class BaseCompiler
 #endif
     void emitReinterpretI32AsF32();
     void emitReinterpretI64AsF64();
+#if defined(JS_CODEGEN_LOONGARCH64)
+    [[nodiscard]] bool emitAtomicLoad();
+    [[nodiscard]] bool emitAtomicStore();
+    [[nodiscard]] bool emitAtomicBinOp();
+    [[nodiscard]] bool emitAtomicCompareExchange();
+    [[nodiscard]] bool emitAtomicExchange();
+#endif
     [[nodiscard]] bool emitGrowMemory();
     [[nodiscard]] bool emitCurrentMemory();
 };
@@ -6836,6 +6959,209 @@ BaseCompiler::emitTeeStoreWithCoercion(ValType resultType, Scalar::Type viewType
     return true;
 }
 
+#if defined(JS_CODEGEN_LOONGARCH64)
+bool
+BaseCompiler::emitAtomicLoad()
+{
+    LinearMemoryAddress<Nothing> addr;
+    Scalar::Type viewType;
+    if (!iter_.readAtomicLoad(&addr, &viewType))
+        return false;
+
+    if (deadCode_)
+        return true;
+
+    MemoryAccessDesc access(viewType, addr.align, addr.offset, Some(trapOffset()), 0,
+                            MembarBeforeLoad, MembarAfterLoad);
+
+    RegI32 rp = popI32();
+    checkOffset(&access, rp);
+#ifndef WASM_HUGE_MEMORY
+    masm.wasmBoundsCheck(Assembler::AboveOrEqual, rp.reg, trap(Trap::OutOfBounds));
+#endif
+
+    MOZ_ASSERT(!IsUnaligned(access));
+
+    BaseIndex srcAddr(HeapReg, rp.reg, TimesOne, access.offset());
+    LoadStoreSize size = static_cast<LoadStoreSize>(access.byteSize() * 8);
+    LoadStoreExtension ext = (viewType == Scalar::Uint8 ||
+                              viewType == Scalar::Uint16 ||
+                              viewType == Scalar::Uint32)
+                                 ? ZeroExtend
+                                 : SignExtend;
+
+    masm.memoryBarrier(access.barrierBefore());
+    masm.ma_load(rp.reg, srcAddr, size, ext);
+    masm.append(access, masm.size() - 4, masm.framePushed());
+    masm.memoryBarrier(access.barrierAfter());
+
+    pushI32(rp);
+    return true;
+}
+
+bool
+BaseCompiler::emitAtomicStore()
+{
+    LinearMemoryAddress<Nothing> addr;
+    Scalar::Type viewType;
+    Nothing unused_value;
+    if (!iter_.readAtomicStore(&addr, &viewType, &unused_value))
+        return false;
+
+    if (deadCode_)
+        return true;
+
+    MemoryAccessDesc access(viewType, addr.align, addr.offset, Some(trapOffset()), 0,
+                            MembarBeforeStore, MembarAfterStore);
+
+    RegI32 rv = popI32();
+    RegI32 rp = popI32();
+    checkOffset(&access, rp);
+#ifndef WASM_HUGE_MEMORY
+    masm.wasmBoundsCheck(Assembler::AboveOrEqual, rp.reg, trap(Trap::OutOfBounds));
+#endif
+
+    MOZ_ASSERT(!IsUnaligned(access));
+
+    BaseIndex dstAddr(HeapReg, rp.reg, TimesOne, access.offset());
+    LoadStoreSize size = static_cast<LoadStoreSize>(access.byteSize() * 8);
+
+    masm.memoryBarrier(access.barrierBefore());
+    masm.ma_store(rv.reg, dstAddr, size, SignExtend);
+    masm.append(access, masm.size() - 4, masm.framePushed());
+    masm.memoryBarrier(access.barrierAfter());
+
+    freeI32(rp);
+    coerceAtomicStoreResult(viewType, rv);
+    pushI32(rv);
+    return true;
+}
+
+bool
+BaseCompiler::emitAtomicBinOp()
+{
+    LinearMemoryAddress<Nothing> addr;
+    Scalar::Type viewType;
+    AtomicOp op;
+    Nothing unused_value;
+    if (!iter_.readAtomicBinOp(&addr, &viewType, &op, &unused_value))
+        return false;
+
+    if (deadCode_)
+        return true;
+
+    MemoryAccessDesc access(viewType, addr.align, addr.offset, Some(trapOffset()));
+
+    RegI32 rv = popI32();
+    RegI32 rp = popI32();
+    RegI32 rd = needI32();
+    RegI32 valueTemp = needI32();
+    RegI32 offsetTemp = needI32();
+    RegI32 maskTemp = needI32();
+
+    checkOffset(&access, rp);
+#ifndef WASM_HUGE_MEMORY
+    masm.wasmBoundsCheck(Assembler::AboveOrEqual, rp.reg, trap(Trap::OutOfBounds));
+#endif
+
+    MOZ_ASSERT(!IsUnaligned(access));
+    atomicBinopToTypedIntArray(op, viewType,
+                               rv.reg, BaseIndex(HeapReg, rp.reg, TimesOne, access.offset()),
+                               valueTemp.reg, offsetTemp.reg, maskTemp.reg, rd.reg);
+
+    freeI32(rp);
+    freeI32(rv);
+    freeI32(valueTemp);
+    freeI32(offsetTemp);
+    freeI32(maskTemp);
+    pushI32(rd);
+    return true;
+}
+
+bool
+BaseCompiler::emitAtomicCompareExchange()
+{
+    LinearMemoryAddress<Nothing> addr;
+    Scalar::Type viewType;
+    Nothing unused_oldValue, unused_newValue;
+    if (!iter_.readAtomicCompareExchange(&addr, &viewType, &unused_oldValue, &unused_newValue))
+        return false;
+
+    if (deadCode_)
+        return true;
+
+    MemoryAccessDesc access(viewType, addr.align, addr.offset, Some(trapOffset()));
+
+    RegI32 newval = popI32();
+    RegI32 oldval = popI32();
+    RegI32 rp = popI32();
+    RegI32 rd = needI32();
+    RegI32 valueTemp = needI32();
+    RegI32 offsetTemp = needI32();
+    RegI32 maskTemp = needI32();
+
+    checkOffset(&access, rp);
+#ifndef WASM_HUGE_MEMORY
+    masm.wasmBoundsCheck(Assembler::AboveOrEqual, rp.reg, trap(Trap::OutOfBounds));
+#endif
+
+    MOZ_ASSERT(!IsUnaligned(access));
+    atomicCompareExchangeToTypedIntArray(viewType,
+                                         BaseIndex(HeapReg, rp.reg, TimesOne, access.offset()),
+                                         oldval.reg, newval.reg, valueTemp.reg,
+                                         offsetTemp.reg, maskTemp.reg, rd.reg);
+
+    freeI32(newval);
+    freeI32(oldval);
+    freeI32(rp);
+    freeI32(valueTemp);
+    freeI32(offsetTemp);
+    freeI32(maskTemp);
+    pushI32(rd);
+    return true;
+}
+
+bool
+BaseCompiler::emitAtomicExchange()
+{
+    LinearMemoryAddress<Nothing> addr;
+    Scalar::Type viewType;
+    Nothing unused_value;
+    if (!iter_.readAtomicExchange(&addr, &viewType, &unused_value))
+        return false;
+
+    if (deadCode_)
+        return true;
+
+    MemoryAccessDesc access(viewType, addr.align, addr.offset, Some(trapOffset()));
+
+    RegI32 rv = popI32();
+    RegI32 rp = popI32();
+    RegI32 rd = needI32();
+    RegI32 valueTemp = needI32();
+    RegI32 offsetTemp = needI32();
+    RegI32 maskTemp = needI32();
+
+    checkOffset(&access, rp);
+#ifndef WASM_HUGE_MEMORY
+    masm.wasmBoundsCheck(Assembler::AboveOrEqual, rp.reg, trap(Trap::OutOfBounds));
+#endif
+
+    MOZ_ASSERT(!IsUnaligned(access));
+    atomicExchangeToTypedIntArray(viewType,
+                                  BaseIndex(HeapReg, rp.reg, TimesOne, access.offset()),
+                                  rv.reg, valueTemp.reg, offsetTemp.reg, maskTemp.reg, rd.reg);
+
+    freeI32(rv);
+    freeI32(rp);
+    freeI32(valueTemp);
+    freeI32(offsetTemp);
+    freeI32(maskTemp);
+    pushI32(rd);
+    return true;
+}
+#endif
+
 bool
 BaseCompiler::emitGrowMemory()
 {
@@ -7466,12 +7792,25 @@ BaseCompiler::emitBody()
             CHECK_NEXT(emitComparison(emitCompareF64, ValType::F64, JSOP_GE, MCompare::Compare_Double));
 
           // Atomics
+#if defined(JS_CODEGEN_LOONGARCH64)
+          case uint16_t(Op::I32AtomicsLoad):
+            CHECK_NEXT(emitAtomicLoad());
+          case uint16_t(Op::I32AtomicsStore):
+            CHECK_NEXT(emitAtomicStore());
+          case uint16_t(Op::I32AtomicsBinOp):
+            CHECK_NEXT(emitAtomicBinOp());
+          case uint16_t(Op::I32AtomicsCompareExchange):
+            CHECK_NEXT(emitAtomicCompareExchange());
+          case uint16_t(Op::I32AtomicsExchange):
+            CHECK_NEXT(emitAtomicExchange());
+#else
           case uint16_t(Op::I32AtomicsLoad):
           case uint16_t(Op::I32AtomicsStore):
           case uint16_t(Op::I32AtomicsBinOp):
           case uint16_t(Op::I32AtomicsCompareExchange):
           case uint16_t(Op::I32AtomicsExchange):
             MOZ_CRASH("Unimplemented Atomics");
+#endif
 
           // Sign extensions
           case uint16_t(Op::I32Extend8S):
