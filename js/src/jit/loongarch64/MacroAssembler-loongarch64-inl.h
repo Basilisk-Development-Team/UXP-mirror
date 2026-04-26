@@ -1455,15 +1455,19 @@ void MacroAssembler::storeUncanonicalizedFloat32(FloatRegister src,
 
 void MacroAssembler::clampIntToUint8(Register reg) {
   ScratchRegisterScope scratch(asMasm());
-  SecondScratchRegisterScope scratch2(asMasm());
-  MOZ_ASSERT(reg != scratch && reg != scratch2);
+  MOZ_ASSERT(reg != scratch);
+
+  // Clamp semantics operate on int32 values; normalize the upper bits first in
+  // case the producer left the high 32 bits undefined.
+  as_slli_w(reg, reg, 0);
 
   as_slt(scratch, reg, zero);
-  moveIfNotZero(reg, zero, scratch);
+  as_masknez(reg, reg, scratch);
 
-  ma_li(scratch2, Imm32(255));
   as_sltui(scratch, reg, 255);
-  moveIfZero(reg, scratch2, scratch);
+  as_addi_d(reg, reg, -255);
+  as_maskeqz(reg, reg, scratch);
+  as_addi_d(reg, reg, 255);
 }
 
 template <class L>
