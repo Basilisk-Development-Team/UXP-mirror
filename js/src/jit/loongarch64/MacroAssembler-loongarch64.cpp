@@ -859,7 +859,6 @@ void MacroAssemblerLOONGARCH64::ma_subPtrTestOverflow(Register rd, Register rj,
 
 void MacroAssemblerLOONGARCH64::ma_subPtrTestOverflow(Register rd, Register rj,
                                                   Imm32 imm, Label* overflow) {
-  // TODO(loongarch64): Check subPtrTestOverflow
   MOZ_ASSERT(imm.value != INT32_MIN);
   ma_addPtrTestOverflow(rd, rj, Imm32(-imm.value), overflow);
 }
@@ -907,77 +906,37 @@ void MacroAssemblerLOONGARCH64::ma_mulPtrTestOverflow(Register rd, Register rj,
 void MacroAssemblerLOONGARCH64::ma_load(Register dest, Address address,
                                     LoadStoreSize size,
                                     LoadStoreExtension extension) {
-  int32_t encodedOffset;
-  Register base;
-
-  // TODO: use as_ldx_b/h/w/d, could decrease as_add_d instr.
   switch (size) {
     case SizeByte:
-    case SizeHalfWord:
-      if (!is_intN(address.offset, 12)) {
-        ma_li(ScratchRegister, Imm32(address.offset));
-        as_add_d(ScratchRegister, address.base, ScratchRegister);
-        base = ScratchRegister;
-        encodedOffset = 0;
+      if (ZeroExtend == extension) {
+        ma_ld_bu(dest, address);
       } else {
-        encodedOffset = address.offset;
-        base = address.base;
+        ma_ld_b(dest, address);
       }
-
-      if (size == SizeByte) {
-        if (ZeroExtend == extension) {
-          as_ld_bu(dest, base, encodedOffset);
-        } else {
-          as_ld_b(dest, base, encodedOffset);
-        }
+      break;
+    case SizeHalfWord:
+      if (ZeroExtend == extension) {
+        ma_ld_hu(dest, address);
       } else {
-        if (ZeroExtend == extension) {
-          as_ld_hu(dest, base, encodedOffset);
-        } else {
-          as_ld_h(dest, base, encodedOffset);
-        }
+        ma_ld_h(dest, address);
       }
       break;
     case SizeWord:
+      if ((address.offset & 0x3) == 0 && SignExtend == extension &&
+          Imm16::IsInSignedRange(address.offset)) {
+        as_ldptr_w(dest, address.base, address.offset);
+      } else if (ZeroExtend == extension) {
+        ma_ld_wu(dest, address);
+      } else {
+        ma_ld_w(dest, address);
+      }
+      break;
     case SizeDouble:
       if ((address.offset & 0x3) == 0 &&
-          (size == SizeDouble ||
-           (size == SizeWord && SignExtend == extension))) {
-        if (!Imm16::IsInSignedRange(address.offset)) {
-          ma_li(ScratchRegister, Imm32(address.offset));
-          as_add_d(ScratchRegister, address.base, ScratchRegister);
-          base = ScratchRegister;
-          encodedOffset = 0;
-        } else {
-          encodedOffset = address.offset;
-          base = address.base;
-        }
-
-        if (size == SizeWord) {
-          as_ldptr_w(dest, base, encodedOffset);
-        } else {
-          as_ldptr_d(dest, base, encodedOffset);
-        }
+          Imm16::IsInSignedRange(address.offset)) {
+        as_ldptr_d(dest, address.base, address.offset);
       } else {
-        if (!is_intN(address.offset, 12)) {
-          ma_li(ScratchRegister, Imm32(address.offset));
-          as_add_d(ScratchRegister, address.base, ScratchRegister);
-          base = ScratchRegister;
-          encodedOffset = 0;
-        } else {
-          encodedOffset = address.offset;
-          base = address.base;
-        }
-
-        if (size == SizeWord) {
-          if (ZeroExtend == extension) {
-            as_ld_wu(dest, base, encodedOffset);
-          } else {
-            as_ld_w(dest, base, encodedOffset);
-          }
-        } else {
-          as_ld_d(dest, base, encodedOffset);
-        }
+        ma_ld_d(dest, address);
       }
       break;
     default:
@@ -988,63 +947,27 @@ void MacroAssemblerLOONGARCH64::ma_load(Register dest, Address address,
 void MacroAssemblerLOONGARCH64::ma_store(Register data, Address address,
                                      LoadStoreSize size,
                                      LoadStoreExtension extension) {
-  int32_t encodedOffset;
-  Register base;
-
-  // TODO: use as_stx_b/h/w/d, could decrease as_add_d instr.
   switch (size) {
     case SizeByte:
+      ma_st_b(data, address);
+      break;
     case SizeHalfWord:
-      if (!is_intN(address.offset, 12)) {
-        ma_li(ScratchRegister, Imm32(address.offset));
-        as_add_d(ScratchRegister, address.base, ScratchRegister);
-        base = ScratchRegister;
-        encodedOffset = 0;
-      } else {
-        encodedOffset = address.offset;
-        base = address.base;
-      }
-
-      if (size == SizeByte) {
-        as_st_b(data, base, encodedOffset);
-      } else {
-        as_st_h(data, base, encodedOffset);
-      }
+      ma_st_h(data, address);
       break;
     case SizeWord:
-    case SizeDouble:
-      if ((address.offset & 0x3) == 0) {
-        if (!Imm16::IsInSignedRange(address.offset)) {
-          ma_li(ScratchRegister, Imm32(address.offset));
-          as_add_d(ScratchRegister, address.base, ScratchRegister);
-          base = ScratchRegister;
-          encodedOffset = 0;
-        } else {
-          encodedOffset = address.offset;
-          base = address.base;
-        }
-
-        if (size == SizeWord) {
-          as_stptr_w(data, base, encodedOffset);
-        } else {
-          as_stptr_d(data, base, encodedOffset);
-        }
+      if ((address.offset & 0x3) == 0 &&
+          Imm16::IsInSignedRange(address.offset)) {
+        as_stptr_w(data, address.base, address.offset);
       } else {
-        if (!is_intN(address.offset, 12)) {
-          ma_li(ScratchRegister, Imm32(address.offset));
-          as_add_d(ScratchRegister, address.base, ScratchRegister);
-          base = ScratchRegister;
-          encodedOffset = 0;
-        } else {
-          encodedOffset = address.offset;
-          base = address.base;
-        }
-
-        if (size == SizeWord) {
-          as_st_w(data, base, encodedOffset);
-        } else {
-          as_st_d(data, base, encodedOffset);
-        }
+        ma_st_w(data, address);
+      }
+      break;
+    case SizeDouble:
+      if ((address.offset & 0x3) == 0 &&
+          Imm16::IsInSignedRange(address.offset)) {
+        as_stptr_d(data, address.base, address.offset);
+      } else {
+        ma_st_d(data, address);
       }
       break;
     default:
@@ -1274,8 +1197,8 @@ void MacroAssemblerLOONGARCH64::ma_cmp_set(Register rd, Register rj, ImmPtr imm,
 
 void MacroAssemblerLOONGARCH64::ma_cmp_set(Register rd, Address address, Imm32 imm,
                                        Condition c) {
-  // TODO(loongarch64): 32-bit ma_cmp_set?
   SecondScratchRegisterScope scratch2(asMasm());
+  // Match the register/Imm32 helper by comparing a sign-extended 32-bit value.
   ma_ld_w(scratch2, address);
   ma_cmp_set(rd, Register(scratch2), imm, c);
 }
@@ -1818,8 +1741,7 @@ void MacroAssemblerLOONGARCH64::storeUnalignedFloat32(
   append(access, store.getOffset(), asMasm().framePushed());
 }
 
-// Branches when done from within loongarch-specific code.
-// TODO(loongarch64) Optimize ma_b
+// Branches emitted from loongarch64-specific code paths.
 void MacroAssemblerLOONGARCH64::ma_b(Register lhs, Register rhs, Label* label,
                                  Condition c, JumpKind jumpKind) {
   switch (c) {
@@ -2488,7 +2410,7 @@ void MacroAssemblerLOONGARCH64Compat::wasmLoadI64Impl(
       as_ldx_w(output.reg, memoryBase, ptr);
       break;
     case Scalar::Uint32:
-      // TODO(loongarch64): Why need zero-extension here?
+      // Register64 consumers expect the upper half to be cleared for Uint32.
       as_ldx_wu(output.reg, memoryBase, ptr);
       break;
     case Scalar::Int64:
