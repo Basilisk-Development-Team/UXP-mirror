@@ -38,7 +38,6 @@
 #include "frontend/SharedContext.h"
 #include "gc/Marking.h"
 #include "jit/BaselineJIT.h"
-#include "jit/ProcessExecutableMemory.h"
 #include "jit/Ion.h"
 #include "jit/IonCode.h"
 #include "js/MemoryMetrics.h"
@@ -3111,9 +3110,6 @@ JSScript::finalize(FreeOp* fop)
         types_->destroy();
 
     jit::DestroyJitScripts(fop, this);
-
-    if (loongArchMinimalJitCode_)
-        jit::DeallocateExecutableMemory(loongArchMinimalJitCode_, loongArchMinimalJitCodeSize_);
 
     destroyScriptCounts(fop);
     destroyDebugScript(fop);

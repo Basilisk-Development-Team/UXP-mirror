@@ -921,17 +921,8 @@ class JSScript : public js::gc::TenuredCell
      */
     uint8_t* baselineOrIonRaw;
     uint8_t* baselineOrIonSkipArgCheck;
-    uint8_t* loongArchMinimalJitCode_;
-
-    uint8_t         loongArchMinimalFastPathKind_;
-    uint8_t         loongArchMinimalFastPathObjectArg_;
-    uint8_t         loongArchMinimalFastPathValueArg_;
-    uint8_t         loongArchMinimalFastPathReserved_;
 
     // 32-bit fields.
-
-    uint32_t        loongArchMinimalJitCodeSize_;
-    uint32_t        loongArchMinimalFastPathOffset_;
 
     uint32_t        dataSize_;  /* size of the used part of the data array */
 
@@ -1611,34 +1602,6 @@ class JSScript : public js::gc::TenuredCell
     }
     static size_t offsetOfBaselineOrIonSkipArgCheck() {
         return offsetof(JSScript, baselineOrIonSkipArgCheck);
-    }
-    uint8_t* loongArchMinimalJitCodeRaw() const {
-        return loongArchMinimalJitCode_;
-    }
-    uint32_t loongArchMinimalJitCodeSize() const {
-        return loongArchMinimalJitCodeSize_;
-    }
-    void setLoongArchMinimalJitCode(uint8_t* code, uint32_t size) {
-        loongArchMinimalJitCode_ = code;
-        loongArchMinimalJitCodeSize_ = size;
-    }
-    uint8_t loongArchMinimalFastPathKind() const {
-        return loongArchMinimalFastPathKind_;
-    }
-    uint8_t loongArchMinimalFastPathObjectArg() const {
-        return loongArchMinimalFastPathObjectArg_;
-    }
-    uint8_t loongArchMinimalFastPathValueArg() const {
-        return loongArchMinimalFastPathValueArg_;
-    }
-    uint32_t loongArchMinimalFastPathOffset() const {
-        return loongArchMinimalFastPathOffset_;
-    }
-    void setLoongArchMinimalFastPath(uint8_t kind, uint8_t objectArg, uint8_t valueArg, uint32_t offset) {
-        loongArchMinimalFastPathKind_ = kind;
-        loongArchMinimalFastPathObjectArg_ = objectArg;
-        loongArchMinimalFastPathValueArg_ = valueArg;
-        loongArchMinimalFastPathOffset_ = offset;
     }
 
     bool isRelazifiable() const {

@@ -231,7 +231,6 @@ main_deunified_sources = [
     'jit/LICM.cpp',
     'jit/Linker.cpp',
     'jit/LIR.cpp',
-    'jit/LoongArchMinimalJit.cpp',
     'jit/LoopUnroller.cpp',
     'jit/Lowering.cpp',
     'jit/MacroAssembler.cpp',

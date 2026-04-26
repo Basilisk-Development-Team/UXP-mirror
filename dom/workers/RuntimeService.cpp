@@ -290,19 +290,14 @@ LoadContextOptions(const char* aPrefName, void* /* aClosure */)
   }
 
   // Context options.
-  bool useAsmJS = GetWorkerPref<bool>(NS_LITERAL_CSTRING("asmjs"));
-  bool useWasm = GetWorkerPref<bool>(NS_LITERAL_CSTRING("wasm"));
-  bool useIon = GetWorkerPref<bool>(NS_LITERAL_CSTRING("ion"));
-  bool useNativeRegExp = GetWorkerPref<bool>(NS_LITERAL_CSTRING("native_regexp"));
-
   JS::ContextOptions contextOptions;
-  contextOptions.setAsmJS(useAsmJS)
-                .setWasm(useWasm)
+  contextOptions.setAsmJS(GetWorkerPref<bool>(NS_LITERAL_CSTRING("asmjs")))
+                .setWasm(GetWorkerPref<bool>(NS_LITERAL_CSTRING("wasm")))
                 .setThrowOnAsmJSValidationFailure(GetWorkerPref<bool>(
                       NS_LITERAL_CSTRING("throw_on_asmjs_validation_failure")))
                 .setBaseline(GetWorkerPref<bool>(NS_LITERAL_CSTRING("baselinejit")))
-                .setIon(useIon)
-                .setNativeRegExp(useNativeRegExp)
+                .setIon(GetWorkerPref<bool>(NS_LITERAL_CSTRING("ion")))
+                .setNativeRegExp(GetWorkerPref<bool>(NS_LITERAL_CSTRING("native_regexp")))
                 .setAsyncStack(GetWorkerPref<bool>(NS_LITERAL_CSTRING("asyncstack")))
                 .setWerror(GetWorkerPref<bool>(NS_LITERAL_CSTRING("werror")))
                 .setStreams(GetWorkerPref<bool>(NS_LITERAL_CSTRING("streams")))

@@ -40,7 +40,6 @@
 #include "jit/BaselineJIT.h"
 #include "jit/Ion.h"
 #include "jit/IonAnalysis.h"
-#include "jit/LoongArchMinimalJit.h"
 #include "vm/AsyncFunction.h"
 #include "vm/AsyncIteration.h"
 #include "vm/BigIntType.h"
@@ -403,9 +402,6 @@ js::RunScript(JSContext* cx, RunState& state)
         return Interpret(cx, state);
     }
 
-    if (jit::TryEnterLoongArchMinimalJit(cx, state))
-        return true;
-
     if (jit::IsIonEnabled(cx)) {
         jit::MethodStatus status = jit::CanEnter(cx, state);
         if (status == jit::Method_Error)
@@ -504,14 +500,6 @@ js::InternalCallOrConstruct(JSContext* cx, const CallArgs& args, MaybeConstruct 
 
     if (!JSFunction::getOrCreateScript(cx, fun))
         return false;
-
-    if (construct != CONSTRUCT) {
-        bool handled;
-        if (!jit::TryCallLoongArchMinimalJit(cx, fun, args, &handled))
-            return false;
-        if (handled)
-            return true;
-    }
 
     /* Run function until JSOP_RETRVAL, JSOP_RETURN or error. */
     InvokeState state(cx, args, construct);
