@@ -702,8 +702,8 @@ class MacroAssemblerLOONGARCH64Compat : public MacroAssemblerLOONGARCH64 {
     mov(ImmWord(uintptr_t(imm.value)), dest);
   }
   void mov(CodeLabel* label, Register dest) { ma_li(dest, label); }
-  void mov(Register src, Address dest) { MOZ_CRASH("NYI-IC"); }
-  void mov(Address src, Register dest) { MOZ_CRASH("NYI-IC"); }
+  void mov(Register src, Address dest) { storePtr(src, dest); }
+  void mov(Address src, Register dest) { loadPtr(src, dest); }
 
   void writeDataRelocation(const Value& val) {
     // Raw GC pointer relocations and Value relocations both end up in

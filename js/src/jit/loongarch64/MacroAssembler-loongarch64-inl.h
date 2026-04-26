@@ -973,8 +973,17 @@ void MacroAssembler::branchAdd32(Condition cond, T src, Register dest,
     case CarrySet:
       ma_add32TestCarry(cond, dest, dest, src, overflow);
       break;
+    case Equal:
+    case NotEqual:
+    case Zero:
+    case NonZero:
+    case Signed:
+    case NotSigned:
+      add32(src, dest);
+      ma_b(dest, Imm32(0), overflow, cond);
+      break;
     default:
-      MOZ_CRASH("NYI");
+      MOZ_CRASH("Unexpected branchAdd32 condition");
   }
 }
 
@@ -986,15 +995,28 @@ void MacroAssembler::branchSub32(Condition cond, T src, Register dest,
     case Overflow:
       ma_sub32TestOverflow(dest, dest, src, overflow);
       break;
+    case CarrySet:
+    case CarryClear: {
+      ScratchRegisterScope scratch(asMasm());
+      SecondScratchRegisterScope scratch2(asMasm());
+      Register negSrc = dest == scratch ? Register(scratch2) : Register(scratch);
+      ma_sub_w(negSrc, zero, src);
+      // a - b borrows iff a + (-b) does not carry.
+      ma_add32TestCarry(cond == CarrySet ? CarryClear : CarrySet, dest, dest,
+                        negSrc, overflow);
+      break;
+    }
+    case Equal:
+    case NotEqual:
     case NonZero:
     case Zero:
     case Signed:
     case NotSigned:
-      ma_sub_w(dest, dest, src);
-      ma_b(dest, dest, overflow, cond);
+      sub32(src, dest);
+      ma_b(dest, Imm32(0), overflow, cond);
       break;
     default:
-      MOZ_CRASH("NYI");
+      MOZ_CRASH("Unexpected branchSub32 condition");
   }
 }
 void MacroAssembler::decBranchPtr(Condition cond, Register lhs, Imm32 rhs,
