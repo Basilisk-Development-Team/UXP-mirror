@@ -30,6 +30,7 @@
  *  - Tiered compilation (bug 1277562)
  *  - profiler support / devtools (bug 1286948)
  *  - SIMD
+ *  - Atomics
  *
  * There are lots of machine dependencies here but they are pretty well isolated
  * to a segment of the compiler.  Many dependencies will eventually be factored
@@ -1103,7 +1104,11 @@ class BaseCompiler
     }
 
     void loadConstI32(Register r, Stk& src) {
+#if defined(JS_CODEGEN_LOONGARCH64)
         masm.move32(Imm32(src.i32val()), r);
+#else
+        masm.mov(ImmWord((uint32_t)src.i32val() & 0xFFFFFFFFU), r);
+#endif
     }
 
     void loadMemI32(Register r, Stk& src) {

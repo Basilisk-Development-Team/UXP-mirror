@@ -293,8 +293,7 @@ class FloatRegisters {
   static const SetType AllDoubleMask = AllPhysMask * SpreadDouble;
   static const SetType NoneMask = SetType(0);
 
-  // LoongArch64 only tracks the scalar callee-saved fp registers here; there
-  // are no SIMD aliases to account for in this backend yet.
+  // TODO(loongarch64): Much less than ARM64 here.
   static const SetType NonVolatileMask =
       SetType((1 << FloatRegisters::f24) | (1 << FloatRegisters::f25) |
               (1 << FloatRegisters::f26) | (1 << FloatRegisters::f27) |

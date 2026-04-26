@@ -49,10 +49,11 @@ void js::jit::PatchJump(CodeLocationJump& jump_, CodeLocationLabel label,
 // Note this is used for inter-wasm calls and may pass arguments and results
 // in floating point registers even if the system ABI does not.
 
-// For the internal JIT ABI we spill floating-point arguments beyond f0-f7 to
-// the stack instead of recycling integer argument registers. Caller and callee
-// both use this discipline, so it remains self-consistent even though the
-// native LoongArch C ABI would next use integer argument slots.
+// TODO(loongarch64): Inconsistent with LoongArch's calling convention.
+// LoongArch floating-point parameters calling convention:
+//   The first eight floating-point parameters should be passed in f0-f7, and
+//   the other floating point parameters will be passed like integer parameters.
+// But we just pass the other floating-point parameters on stack here.
 ABIArg ABIArgGenerator::next(MIRType type) {
   switch (type) {
     case MIRType::Int32:
@@ -334,8 +335,7 @@ void AssemblerLOONGARCH64::WriteInstStatic(uint32_t x, uint32_t* dest) {
 }
 
 BufferOffset AssemblerLOONGARCH64::haltingAlign(int alignment) {
-  // Like ARM64, we currently pad with nops because there is no dedicated
-  // backend-specific halting fill sequence here yet.
+  // TODO(loongarch64): Implement a proper halting align.
   return nopAlign(alignment);
 }
 

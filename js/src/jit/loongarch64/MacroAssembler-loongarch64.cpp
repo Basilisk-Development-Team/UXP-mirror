@@ -883,6 +883,7 @@ void MacroAssemblerLOONGARCH64::ma_subPtrTestOverflow(Register rd, Register rj,
 
 void MacroAssemblerLOONGARCH64::ma_subPtrTestOverflow(Register rd, Register rj,
                                                   Imm32 imm, Label* overflow) {
+  // TODO(loongarch64): Check subPtrTestOverflow
   MOZ_ASSERT(imm.value != INT32_MIN);
   ma_addPtrTestOverflow(rd, rj, Imm32(-imm.value), overflow);
 }
@@ -1221,8 +1222,8 @@ void MacroAssemblerLOONGARCH64::ma_cmp_set(Register rd, Register rj, ImmPtr imm,
 
 void MacroAssemblerLOONGARCH64::ma_cmp_set(Register rd, Address address, Imm32 imm,
                                        Condition c) {
+  // TODO(loongarch64): 32-bit ma_cmp_set?
   SecondScratchRegisterScope scratch2(asMasm());
-  // Match the register/Imm32 helper by comparing a sign-extended 32-bit value.
   ma_ld_w(scratch2, address);
   ma_cmp_set(rd, Register(scratch2), imm, c);
 }
@@ -1773,7 +1774,8 @@ void MacroAssemblerLOONGARCH64::storeUnalignedFloat32(
   append(access, store.getOffset(), asMasm().framePushed());
 }
 
-// Branches emitted from loongarch64-specific code paths.
+// Branches when done from within loongarch-specific code.
+// TODO(loongarch64) Optimize ma_b
 void MacroAssemblerLOONGARCH64::ma_b(Register lhs, Register rhs, Label* label,
                                  Condition c, JumpKind jumpKind) {
   switch (c) {
@@ -2442,7 +2444,7 @@ void MacroAssemblerLOONGARCH64Compat::wasmLoadI64Impl(
       as_ldx_w(output.reg, memoryBase, ptr);
       break;
     case Scalar::Uint32:
-      // Register64 consumers expect the upper half to be cleared for Uint32.
+      // TODO(loongarch64): Why need zero-extension here?
       as_ldx_wu(output.reg, memoryBase, ptr);
       break;
     case Scalar::Int64:

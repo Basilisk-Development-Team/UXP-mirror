@@ -2236,11 +2236,8 @@ void
 CodeGeneratorMIPSShared::visitAsmJSCompareExchangeHeap(LAsmJSCompareExchangeHeap* ins)
 {
 #ifdef JS_CODEGEN_LOONGARCH64
-    // LoongArch64 provides its own lowering/codegen for this path. Keep the
-    // shared MIPS fallback out of the build because it relies on MIPS-specific
-    // helpers and temps.
     (void)ins;
-    MOZ_CRASH("unreachable: loongarch64 overrides asm.js compareExchange codegen");
+    MOZ_CRASH("asm.js atomics are not supported on loongarch64 yet");
 #else
     MAsmJSCompareExchangeHeap* mir = ins->mir();
     Scalar::Type vt = mir->access().type();
@@ -2267,7 +2264,7 @@ CodeGeneratorMIPSShared::visitAsmJSAtomicExchangeHeap(LAsmJSAtomicExchangeHeap* 
 {
 #ifdef JS_CODEGEN_LOONGARCH64
     (void)ins;
-    MOZ_CRASH("unreachable: loongarch64 overrides asm.js atomic exchange codegen");
+    MOZ_CRASH("asm.js atomics are not supported on loongarch64 yet");
 #else
     MAsmJSAtomicExchangeHeap* mir = ins->mir();
     Scalar::Type vt = mir->access().type();
@@ -2573,7 +2570,7 @@ CodeGeneratorMIPSShared::atomicBinopToTypedIntArray(AtomicOp op, Scalar::Type ar
     (void)offsetTemp;
     (void)maskTemp;
     (void)output;
-    MOZ_CRASH("unreachable: loongarch64 overrides asm.js atomic binop codegen");
+    MOZ_CRASH("asm.js atomics are not supported on loongarch64 yet");
 #else
     MOZ_ASSERT(flagTemp != InvalidReg);
     MOZ_ASSERT_IF(arrayType == Scalar::Uint32, outTemp != InvalidReg);
@@ -2756,7 +2753,7 @@ CodeGeneratorMIPSShared::atomicBinopToTypedIntArray(AtomicOp op, Scalar::Type ar
     (void)valueTemp;
     (void)offsetTemp;
     (void)maskTemp;
-    MOZ_CRASH("unreachable: loongarch64 overrides Ion atomic binop codegen");
+    MOZ_CRASH("atomics are not supported on loongarch64 Ion yet");
 #else
     MOZ_ASSERT(flagTemp != InvalidReg);
 
@@ -2860,7 +2857,7 @@ CodeGeneratorMIPSShared::visitWasmAddOffset(LWasmAddOffset* lir)
 {
 #ifdef JS_CODEGEN_LOONGARCH64
     (void)lir;
-    MOZ_CRASH("unreachable: loongarch64 overrides wasm offset codegen");
+    MOZ_CRASH("wasm is not supported on loongarch64 yet");
 #else
     MWasmAddOffset* mir = lir->mir();
     Register base = ToRegister(lir->base());
@@ -2957,7 +2954,7 @@ CodeGeneratorMIPSShared::visitCompareExchangeTypedArrayElement(LCompareExchangeT
 {
 #ifdef JS_CODEGEN_LOONGARCH64
     (void)lir;
-    MOZ_CRASH("unreachable: loongarch64 overrides Ion compareExchange codegen");
+    MOZ_CRASH("atomics are not supported on loongarch64 Ion yet");
 #else
     Register elements = ToRegister(lir->elements());
     AnyRegister output = ToAnyRegister(lir->output());
@@ -2989,7 +2986,7 @@ CodeGeneratorMIPSShared::visitAtomicExchangeTypedArrayElement(LAtomicExchangeTyp
 {
 #ifdef JS_CODEGEN_LOONGARCH64
     (void)lir;
-    MOZ_CRASH("unreachable: loongarch64 overrides Ion atomic exchange codegen");
+    MOZ_CRASH("atomics are not supported on loongarch64 Ion yet");
 #else
     Register elements = ToRegister(lir->elements());
     AnyRegister output = ToAnyRegister(lir->output());

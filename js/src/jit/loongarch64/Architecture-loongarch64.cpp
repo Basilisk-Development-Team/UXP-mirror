@@ -73,7 +73,7 @@ uint32_t FloatRegister::getRegisterDumpOffsetInBytes() {
 }
 
 bool CPUFlagsHaveBeenComputed() {
-  // No optional LoongArch64 CPU feature bits are consumed by this backend yet.
+  // TODO(loongarch64): Add CPU flags support.
   return true;
 }
 
