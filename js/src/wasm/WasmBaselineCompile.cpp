@@ -1104,7 +1104,7 @@ class BaseCompiler
     }
 
     void loadConstI32(Register r, Stk& src) {
-        masm.mov(ImmWord((uint32_t)src.i32val() & 0xFFFFFFFFU), r);
+        masm.move32(Imm32(src.i32val()), r);
     }
 
     void loadMemI32(Register r, Stk& src) {

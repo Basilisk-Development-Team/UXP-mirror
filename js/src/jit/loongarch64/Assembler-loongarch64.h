@@ -1801,7 +1801,9 @@ class InstJump : public Instruction {
            ((off.encode() >> 16) & 0x3ff);
   }
   uint32_t extractImm26Value() {
-    return extractBitField(Imm26Shift + Imm26Bits - 1, Imm26Shift);
+    uint32_t low16 = extractBitField(Imm16Shift + Imm16Bits - 1, Imm16Shift);
+    uint32_t high10 = extractBitField(9, 0);
+    return (high10 << 16) | low16;
   }
 };
 

@@ -898,10 +898,6 @@ JitRuntime::generateDebugTrapHandler(JSContext* cx)
     Register scratch1 = t0;
     Register scratch2 = t1;
 
-    // Load BaselineFrame pointer in scratch1.
-    masm.movePtr(BaselineFrameReg, scratch1);
-    masm.subPtr(Imm32(BaselineFrame::Size()), scratch1);
-
     // Enter a stub frame and call the HandleDebugTrap VM function. Ensure
     // the stub frame has a nullptr ICStub pointer, since this pointer is
     // marked during GC.
@@ -911,6 +907,13 @@ JitRuntime::generateDebugTrapHandler(JSContext* cx)
     JitCode* code = cx->runtime()->jitRuntime()->getVMWrapper(HandleDebugTrapInfo);
     if (!code)
         return nullptr;
+
+    // Reload the caller's BaselineFrame pointer from the stub frame before
+    // reserving VM arguments. This avoids relying on a volatile scratch
+    // register across stub-frame setup.
+    masm.loadPtr(Address(StackPointer, offsetof(BaselineStubFrame, savedFrame)),
+                 scratch1);
+    masm.subPtr(Imm32(BaselineFrame::Size()), scratch1);
 
     masm.subPtr(Imm32(2 * sizeof(uintptr_t)), StackPointer);
     masm.storePtr(ra, Address(StackPointer, sizeof(uintptr_t)));

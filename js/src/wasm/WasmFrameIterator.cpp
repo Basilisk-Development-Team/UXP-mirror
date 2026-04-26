@@ -837,10 +837,12 @@ wasm::ToggleProfiling(const Code& code, const CallSite& callSite, bool enabled)
     callerInsn->extractImm16(&calleeOffset);
     void* callee = calleeOffset.getDest(reinterpret_cast<Instruction*>(caller));
 #elif defined(JS_CODEGEN_LOONGARCH64)
-    uint8_t* caller = callerRetAddr - Assembler::PatchWrite_NearCallSize();
+    uint8_t* caller = callerRetAddr - sizeof(uint32_t);
     Instruction* callerInsn = reinterpret_cast<Instruction*>(caller);
-    void* callee =
-        reinterpret_cast<void*>(Assembler::ExtractLoad64Value(callerInsn));
+    MOZ_ASSERT(callerInsn->extractOpcode() == ((uint32_t)op_bl >> OpcodeShift));
+    int32_t calleeOffset =
+        int32_t(reinterpret_cast<InstJump*>(callerInsn)->extractImm26Value() << 8) >> 6;
+    void* callee = caller + calleeOffset;
 #elif defined(JS_CODEGEN_NONE)
     MOZ_CRASH();
     void* callee = nullptr;
@@ -869,8 +871,7 @@ wasm::ToggleProfiling(const Code& code, const CallSite& callSite, bool enabled)
 #elif defined(JS_CODEGEN_MIPS32) || defined(JS_CODEGEN_MIPS64)
     new (caller) InstImm(op_regimm, zero, rt_bgezal, BOffImm16(to - caller));
 #elif defined(JS_CODEGEN_LOONGARCH64)
-    Assembler::UpdateLoad64Value(reinterpret_cast<Instruction*>(caller),
-                                 uint64_t(to));
+    reinterpret_cast<InstJump*>(caller)->setJOffImm26(JOffImm26(to - caller));
 #elif defined(JS_CODEGEN_NONE)
     MOZ_CRASH();
 #else

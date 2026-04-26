@@ -50,6 +50,22 @@ static inline void SignExtendAtomicResult(MacroAssemblerLOONGARCH64Compat& masm,
   }
 }
 
+static inline void ZeroExtendAtomicResult(MacroAssemblerLOONGARCH64Compat& masm,
+                                          int nbytes, Register output) {
+  switch (nbytes) {
+    case 1:
+      masm.as_bstrpick_d(output, output, 7, 0);
+      break;
+    case 2:
+      masm.as_bstrpick_d(output, output, 15, 0);
+      break;
+    case 4:
+      break;
+    default:
+      MOZ_CRASH("unexpected atomic width");
+  }
+}
+
 template <typename T>
 static inline void PrepareAtomicAddress(
     MacroAssemblerLOONGARCH64Compat& masm, int nbytes, const T& address,
@@ -137,7 +153,15 @@ static void CompareExchangeLoongArch64(
   }
 
   if (oldval != InvalidReg) {
-    masm.ma_b(output, oldval, &done, Assembler::NotEqual, ShortJump);
+    masm.move32(oldval, valueTemp);
+    if (nbytes != 4) {
+      if (signExtend) {
+        SignExtendAtomicResult(masm, nbytes, valueTemp);
+      } else {
+        ZeroExtendAtomicResult(masm, nbytes, valueTemp);
+      }
+    }
+    masm.ma_b(output, valueTemp, &done, Assembler::NotEqual, ShortJump);
   }
 
   masm.move32(newval, valueTemp);
@@ -1288,13 +1312,21 @@ void MacroAssemblerLOONGARCH64::ma_fst_d(FloatRegister src, Address address) {
 }
 
 void MacroAssemblerLOONGARCH64::ma_pop(FloatRegister f) {
-  as_fld_d(f, StackPointer, 0);
-  as_addi_d(StackPointer, StackPointer, sizeof(double));
+  if (f.isDouble()) {
+    as_fld_d(f, StackPointer, 0);
+  } else {
+    as_fld_s(f, StackPointer, 0);
+  }
+  as_addi_d(StackPointer, StackPointer, f.size());
 }
 
 void MacroAssemblerLOONGARCH64::ma_push(FloatRegister f) {
-  as_addi_d(StackPointer, StackPointer, (int32_t) - sizeof(double));
-  as_fst_d(f, StackPointer, 0);
+  as_addi_d(StackPointer, StackPointer, -int32_t(f.size()));
+  if (f.isDouble()) {
+    as_fst_d(f, StackPointer, 0);
+  } else {
+    as_fst_s(f, StackPointer, 0);
+  }
 }
 
 void MacroAssemblerLOONGARCH64::ma_li(Register dest, ImmGCPtr ptr) {
@@ -2583,7 +2615,7 @@ void MacroAssembler::Push(const ImmGCPtr ptr) {
 
 void MacroAssembler::Push(FloatRegister f) {
   ma_push(f);
-  adjustFrame(int32_t(sizeof(double)));
+  adjustFrame(int32_t(f.size()));
 }
 
 void MacroAssembler::Pop(Register reg) {
@@ -2593,7 +2625,7 @@ void MacroAssembler::Pop(Register reg) {
 
 void MacroAssembler::Pop(FloatRegister f) {
   ma_pop(f);
-  adjustFrame(-int32_t(sizeof(double)));
+  adjustFrame(-int32_t(f.size()));
 }
 
 void MacroAssembler::Pop(const ValueOperand& val) {
