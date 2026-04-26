@@ -13,19 +13,6 @@ namespace jit {
 
 class OutOfLineBailout;
 class OutOfLineTableSwitch;
-class LSimdSplatX4;
-class LSimd128Int;
-class LSimd128Float;
-class LSimdReinterpretCast;
-class LSimdExtractElementI;
-class LSimdExtractElementF;
-class LSimdBinaryCompIx4;
-class LSimdBinaryCompFx4;
-class LSimdBinaryArithIx4;
-class LSimdBinaryArithFx4;
-class LSimdBinaryBitwise;
-class LSimdGeneralShuffleI;
-class LSimdGeneralShuffleF;
 
 class CodeGeneratorMIPSShared : public CodeGeneratorShared
 {

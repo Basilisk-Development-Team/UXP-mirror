@@ -297,6 +297,23 @@ class MacroAssemblerLOONGARCH64 : public Assembler {
     ma_li(scratch2, imm);
     ma_add32TestCarry(cond, rd, rj, scratch2, overflow);
   }
+  template <typename L>
+  void ma_addTestCarry(Register rd, Register rs, Register rt, L overflow) {
+    MOZ_ASSERT_IF(rd == rs, rt != rd);
+    SecondScratchRegisterScope scratch(asMasm());
+    MOZ_ASSERT(scratch != rs);
+    MOZ_ASSERT(scratch != rt);
+    as_add_d(rd, rs, rt);
+    as_sltu(scratch, rd, rd == rs ? rt : rs);
+    ma_b(Register(scratch), Register(scratch), overflow, Assembler::NonZero);
+  }
+  template <typename L>
+  void ma_addTestCarry(Register rd, Register rs, Imm32 imm, L overflow) {
+    ScratchRegisterScope scratch(asMasm());
+    MOZ_ASSERT(scratch != rs);
+    ma_li(scratch, imm);
+    ma_addTestCarry(rd, rs, Register(scratch), overflow);
+  }
 
   // subtract
   void ma_sub_w(Register rd, Register rj, Imm32 imm);
@@ -627,10 +644,26 @@ class MacroAssemblerLOONGARCH64 : public Assembler {
 class MacroAssembler;
 
 class MacroAssemblerLOONGARCH64Compat : public MacroAssemblerLOONGARCH64 {
+ private:
+  enum PendingDivKind {
+    PendingDivNone,
+    PendingDivW,
+    PendingDivWU,
+    PendingDivD,
+    PendingDivDU
+  };
+
+  PendingDivKind pendingDivKind_;
+  Register pendingDivLhs_;
+  Register pendingDivRhs_;
+
  public:
   using MacroAssemblerLOONGARCH64::call;
 
-  MacroAssemblerLOONGARCH64Compat() {}
+  MacroAssemblerLOONGARCH64Compat()
+      : pendingDivKind_(PendingDivNone),
+        pendingDivLhs_(InvalidReg),
+        pendingDivRhs_(InvalidReg) {}
 
   struct AutoPrepareForPatching {
     explicit AutoPrepareForPatching(MacroAssemblerLOONGARCH64Compat&) {}
@@ -704,6 +737,12 @@ class MacroAssemblerLOONGARCH64Compat : public MacroAssemblerLOONGARCH64 {
   void mov(CodeLabel* label, Register dest) { ma_li(dest, label); }
   void mov(Register src, Address dest) { storePtr(src, dest); }
   void mov(Address src, Register dest) { loadPtr(src, dest); }
+  BufferOffset as_div(Register lhs, Register rhs);
+  BufferOffset as_divu(Register lhs, Register rhs);
+  BufferOffset as_ddiv(Register lhs, Register rhs);
+  BufferOffset as_ddivu(Register lhs, Register rhs);
+  BufferOffset as_mflo(Register dest);
+  BufferOffset as_mfhi(Register dest);
 
   void writeDataRelocation(const Value& val) {
     // Raw GC pointer relocations and Value relocations both end up in
@@ -1288,6 +1327,34 @@ class MacroAssemblerLOONGARCH64Compat : public MacroAssemblerLOONGARCH64 {
   void atomicEffectOp(int nbytes, AtomicOp op, Register value,
                       const BaseIndex& address, Register valueTemp,
                       Register offsetTemp, Register maskTemp);
+  void atomicEffectOp(int nbytes, AtomicOp op, Imm32 value,
+                      const Address& address, Register flagTemp,
+                      Register valueTemp, Register offsetTemp,
+                      Register maskTemp) {
+    atomicEffectOp(nbytes, op, value, address, valueTemp, offsetTemp,
+                   maskTemp);
+  }
+  void atomicEffectOp(int nbytes, AtomicOp op, Imm32 value,
+                      const BaseIndex& address, Register flagTemp,
+                      Register valueTemp, Register offsetTemp,
+                      Register maskTemp) {
+    atomicEffectOp(nbytes, op, value, address, valueTemp, offsetTemp,
+                   maskTemp);
+  }
+  void atomicEffectOp(int nbytes, AtomicOp op, Register value,
+                      const Address& address, Register flagTemp,
+                      Register valueTemp, Register offsetTemp,
+                      Register maskTemp) {
+    atomicEffectOp(nbytes, op, value, address, valueTemp, offsetTemp,
+                   maskTemp);
+  }
+  void atomicEffectOp(int nbytes, AtomicOp op, Register value,
+                      const BaseIndex& address, Register flagTemp,
+                      Register valueTemp, Register offsetTemp,
+                      Register maskTemp) {
+    atomicEffectOp(nbytes, op, value, address, valueTemp, offsetTemp,
+                   maskTemp);
+  }
 
   void atomicFetchOp(int nbytes, bool signExtend, AtomicOp op, Imm32 value,
                      const Address& address, Register valueTemp,
@@ -1301,6 +1368,324 @@ class MacroAssemblerLOONGARCH64Compat : public MacroAssemblerLOONGARCH64 {
   void atomicFetchOp(int nbytes, bool signExtend, AtomicOp op, Register value,
                      const BaseIndex& address, Register valueTemp,
                      Register offsetTemp, Register maskTemp, Register output);
+  void atomicFetchOp(int nbytes, bool signExtend, AtomicOp op, Imm32 value,
+                     const Address& address, Register flagTemp,
+                     Register valueTemp, Register offsetTemp,
+                     Register maskTemp, Register output) {
+    atomicFetchOp(nbytes, signExtend, op, value, address, valueTemp,
+                  offsetTemp, maskTemp, output);
+  }
+  void atomicFetchOp(int nbytes, bool signExtend, AtomicOp op, Imm32 value,
+                     const BaseIndex& address, Register flagTemp,
+                     Register valueTemp, Register offsetTemp,
+                     Register maskTemp, Register output) {
+    atomicFetchOp(nbytes, signExtend, op, value, address, valueTemp,
+                  offsetTemp, maskTemp, output);
+  }
+  void atomicFetchOp(int nbytes, bool signExtend, AtomicOp op, Register value,
+                     const Address& address, Register flagTemp,
+                     Register valueTemp, Register offsetTemp,
+                     Register maskTemp, Register output) {
+    atomicFetchOp(nbytes, signExtend, op, value, address, valueTemp,
+                  offsetTemp, maskTemp, output);
+  }
+  void atomicFetchOp(int nbytes, bool signExtend, AtomicOp op, Register value,
+                     const BaseIndex& address, Register flagTemp,
+                     Register valueTemp, Register offsetTemp,
+                     Register maskTemp, Register output) {
+    atomicFetchOp(nbytes, signExtend, op, value, address, valueTemp,
+                  offsetTemp, maskTemp, output);
+  }
+
+  template <typename T, typename S>
+  void atomicFetchAdd8SignExtend(const S& value, const T& mem,
+                                 Register flagTemp, Register valueTemp,
+                                 Register offsetTemp, Register maskTemp,
+                                 Register output) {
+    atomicFetchOp(1, true, AtomicFetchAddOp, value, mem, flagTemp, valueTemp,
+                  offsetTemp, maskTemp, output);
+  }
+  template <typename T, typename S>
+  void atomicFetchAdd8ZeroExtend(const S& value, const T& mem,
+                                 Register flagTemp, Register valueTemp,
+                                 Register offsetTemp, Register maskTemp,
+                                 Register output) {
+    atomicFetchOp(1, false, AtomicFetchAddOp, value, mem, flagTemp, valueTemp,
+                  offsetTemp, maskTemp, output);
+  }
+  template <typename T, typename S>
+  void atomicFetchAdd16SignExtend(const S& value, const T& mem,
+                                  Register flagTemp, Register valueTemp,
+                                  Register offsetTemp, Register maskTemp,
+                                  Register output) {
+    atomicFetchOp(2, true, AtomicFetchAddOp, value, mem, flagTemp, valueTemp,
+                  offsetTemp, maskTemp, output);
+  }
+  template <typename T, typename S>
+  void atomicFetchAdd16ZeroExtend(const S& value, const T& mem,
+                                  Register flagTemp, Register valueTemp,
+                                  Register offsetTemp, Register maskTemp,
+                                  Register output) {
+    atomicFetchOp(2, false, AtomicFetchAddOp, value, mem, flagTemp, valueTemp,
+                  offsetTemp, maskTemp, output);
+  }
+  template <typename T, typename S>
+  void atomicFetchAdd32(const S& value, const T& mem, Register flagTemp,
+                        Register valueTemp, Register offsetTemp,
+                        Register maskTemp, Register output) {
+    atomicFetchOp(4, false, AtomicFetchAddOp, value, mem, flagTemp, valueTemp,
+                  offsetTemp, maskTemp, output);
+  }
+  template <typename T, typename S>
+  void atomicAdd8(const T& value, const S& mem, Register flagTemp,
+                  Register valueTemp, Register offsetTemp, Register maskTemp) {
+    atomicEffectOp(1, AtomicFetchAddOp, value, mem, flagTemp, valueTemp,
+                   offsetTemp, maskTemp);
+  }
+  template <typename T, typename S>
+  void atomicAdd16(const T& value, const S& mem, Register flagTemp,
+                   Register valueTemp, Register offsetTemp, Register maskTemp) {
+    atomicEffectOp(2, AtomicFetchAddOp, value, mem, flagTemp, valueTemp,
+                   offsetTemp, maskTemp);
+  }
+  template <typename T, typename S>
+  void atomicAdd32(const T& value, const S& mem, Register flagTemp,
+                   Register valueTemp, Register offsetTemp, Register maskTemp) {
+    atomicEffectOp(4, AtomicFetchAddOp, value, mem, flagTemp, valueTemp,
+                   offsetTemp, maskTemp);
+  }
+
+  template <typename T, typename S>
+  void atomicFetchSub8SignExtend(const S& value, const T& mem,
+                                 Register flagTemp, Register valueTemp,
+                                 Register offsetTemp, Register maskTemp,
+                                 Register output) {
+    atomicFetchOp(1, true, AtomicFetchSubOp, value, mem, flagTemp, valueTemp,
+                  offsetTemp, maskTemp, output);
+  }
+  template <typename T, typename S>
+  void atomicFetchSub8ZeroExtend(const S& value, const T& mem,
+                                 Register flagTemp, Register valueTemp,
+                                 Register offsetTemp, Register maskTemp,
+                                 Register output) {
+    atomicFetchOp(1, false, AtomicFetchSubOp, value, mem, flagTemp, valueTemp,
+                  offsetTemp, maskTemp, output);
+  }
+  template <typename T, typename S>
+  void atomicFetchSub16SignExtend(const S& value, const T& mem,
+                                  Register flagTemp, Register valueTemp,
+                                  Register offsetTemp, Register maskTemp,
+                                  Register output) {
+    atomicFetchOp(2, true, AtomicFetchSubOp, value, mem, flagTemp, valueTemp,
+                  offsetTemp, maskTemp, output);
+  }
+  template <typename T, typename S>
+  void atomicFetchSub16ZeroExtend(const S& value, const T& mem,
+                                  Register flagTemp, Register valueTemp,
+                                  Register offsetTemp, Register maskTemp,
+                                  Register output) {
+    atomicFetchOp(2, false, AtomicFetchSubOp, value, mem, flagTemp, valueTemp,
+                  offsetTemp, maskTemp, output);
+  }
+  template <typename T, typename S>
+  void atomicFetchSub32(const S& value, const T& mem, Register flagTemp,
+                        Register valueTemp, Register offsetTemp,
+                        Register maskTemp, Register output) {
+    atomicFetchOp(4, false, AtomicFetchSubOp, value, mem, flagTemp, valueTemp,
+                  offsetTemp, maskTemp, output);
+  }
+  template <typename T, typename S>
+  void atomicSub8(const T& value, const S& mem, Register flagTemp,
+                  Register valueTemp, Register offsetTemp, Register maskTemp) {
+    atomicEffectOp(1, AtomicFetchSubOp, value, mem, flagTemp, valueTemp,
+                   offsetTemp, maskTemp);
+  }
+  template <typename T, typename S>
+  void atomicSub16(const T& value, const S& mem, Register flagTemp,
+                   Register valueTemp, Register offsetTemp, Register maskTemp) {
+    atomicEffectOp(2, AtomicFetchSubOp, value, mem, flagTemp, valueTemp,
+                   offsetTemp, maskTemp);
+  }
+  template <typename T, typename S>
+  void atomicSub32(const T& value, const S& mem, Register flagTemp,
+                   Register valueTemp, Register offsetTemp, Register maskTemp) {
+    atomicEffectOp(4, AtomicFetchSubOp, value, mem, flagTemp, valueTemp,
+                   offsetTemp, maskTemp);
+  }
+
+  template <typename T, typename S>
+  void atomicFetchAnd8SignExtend(const S& value, const T& mem,
+                                 Register flagTemp, Register valueTemp,
+                                 Register offsetTemp, Register maskTemp,
+                                 Register output) {
+    atomicFetchOp(1, true, AtomicFetchAndOp, value, mem, flagTemp, valueTemp,
+                  offsetTemp, maskTemp, output);
+  }
+  template <typename T, typename S>
+  void atomicFetchAnd8ZeroExtend(const S& value, const T& mem,
+                                 Register flagTemp, Register valueTemp,
+                                 Register offsetTemp, Register maskTemp,
+                                 Register output) {
+    atomicFetchOp(1, false, AtomicFetchAndOp, value, mem, flagTemp, valueTemp,
+                  offsetTemp, maskTemp, output);
+  }
+  template <typename T, typename S>
+  void atomicFetchAnd16SignExtend(const S& value, const T& mem,
+                                  Register flagTemp, Register valueTemp,
+                                  Register offsetTemp, Register maskTemp,
+                                  Register output) {
+    atomicFetchOp(2, true, AtomicFetchAndOp, value, mem, flagTemp, valueTemp,
+                  offsetTemp, maskTemp, output);
+  }
+  template <typename T, typename S>
+  void atomicFetchAnd16ZeroExtend(const S& value, const T& mem,
+                                  Register flagTemp, Register valueTemp,
+                                  Register offsetTemp, Register maskTemp,
+                                  Register output) {
+    atomicFetchOp(2, false, AtomicFetchAndOp, value, mem, flagTemp, valueTemp,
+                  offsetTemp, maskTemp, output);
+  }
+  template <typename T, typename S>
+  void atomicFetchAnd32(const S& value, const T& mem, Register flagTemp,
+                        Register valueTemp, Register offsetTemp,
+                        Register maskTemp, Register output) {
+    atomicFetchOp(4, false, AtomicFetchAndOp, value, mem, flagTemp, valueTemp,
+                  offsetTemp, maskTemp, output);
+  }
+  template <typename T, typename S>
+  void atomicAnd8(const T& value, const S& mem, Register flagTemp,
+                  Register valueTemp, Register offsetTemp, Register maskTemp) {
+    atomicEffectOp(1, AtomicFetchAndOp, value, mem, flagTemp, valueTemp,
+                   offsetTemp, maskTemp);
+  }
+  template <typename T, typename S>
+  void atomicAnd16(const T& value, const S& mem, Register flagTemp,
+                   Register valueTemp, Register offsetTemp, Register maskTemp) {
+    atomicEffectOp(2, AtomicFetchAndOp, value, mem, flagTemp, valueTemp,
+                   offsetTemp, maskTemp);
+  }
+  template <typename T, typename S>
+  void atomicAnd32(const T& value, const S& mem, Register flagTemp,
+                   Register valueTemp, Register offsetTemp, Register maskTemp) {
+    atomicEffectOp(4, AtomicFetchAndOp, value, mem, flagTemp, valueTemp,
+                   offsetTemp, maskTemp);
+  }
+
+  template <typename T, typename S>
+  void atomicFetchOr8SignExtend(const S& value, const T& mem,
+                                Register flagTemp, Register valueTemp,
+                                Register offsetTemp, Register maskTemp,
+                                Register output) {
+    atomicFetchOp(1, true, AtomicFetchOrOp, value, mem, flagTemp, valueTemp,
+                  offsetTemp, maskTemp, output);
+  }
+  template <typename T, typename S>
+  void atomicFetchOr8ZeroExtend(const S& value, const T& mem,
+                                Register flagTemp, Register valueTemp,
+                                Register offsetTemp, Register maskTemp,
+                                Register output) {
+    atomicFetchOp(1, false, AtomicFetchOrOp, value, mem, flagTemp, valueTemp,
+                  offsetTemp, maskTemp, output);
+  }
+  template <typename T, typename S>
+  void atomicFetchOr16SignExtend(const S& value, const T& mem,
+                                 Register flagTemp, Register valueTemp,
+                                 Register offsetTemp, Register maskTemp,
+                                 Register output) {
+    atomicFetchOp(2, true, AtomicFetchOrOp, value, mem, flagTemp, valueTemp,
+                  offsetTemp, maskTemp, output);
+  }
+  template <typename T, typename S>
+  void atomicFetchOr16ZeroExtend(const S& value, const T& mem,
+                                 Register flagTemp, Register valueTemp,
+                                 Register offsetTemp, Register maskTemp,
+                                 Register output) {
+    atomicFetchOp(2, false, AtomicFetchOrOp, value, mem, flagTemp, valueTemp,
+                  offsetTemp, maskTemp, output);
+  }
+  template <typename T, typename S>
+  void atomicFetchOr32(const S& value, const T& mem, Register flagTemp,
+                       Register valueTemp, Register offsetTemp,
+                       Register maskTemp, Register output) {
+    atomicFetchOp(4, false, AtomicFetchOrOp, value, mem, flagTemp, valueTemp,
+                  offsetTemp, maskTemp, output);
+  }
+  template <typename T, typename S>
+  void atomicOr8(const T& value, const S& mem, Register flagTemp,
+                 Register valueTemp, Register offsetTemp, Register maskTemp) {
+    atomicEffectOp(1, AtomicFetchOrOp, value, mem, flagTemp, valueTemp,
+                   offsetTemp, maskTemp);
+  }
+  template <typename T, typename S>
+  void atomicOr16(const T& value, const S& mem, Register flagTemp,
+                  Register valueTemp, Register offsetTemp, Register maskTemp) {
+    atomicEffectOp(2, AtomicFetchOrOp, value, mem, flagTemp, valueTemp,
+                   offsetTemp, maskTemp);
+  }
+  template <typename T, typename S>
+  void atomicOr32(const T& value, const S& mem, Register flagTemp,
+                  Register valueTemp, Register offsetTemp, Register maskTemp) {
+    atomicEffectOp(4, AtomicFetchOrOp, value, mem, flagTemp, valueTemp,
+                   offsetTemp, maskTemp);
+  }
+
+  template <typename T, typename S>
+  void atomicFetchXor8SignExtend(const S& value, const T& mem,
+                                 Register flagTemp, Register valueTemp,
+                                 Register offsetTemp, Register maskTemp,
+                                 Register output) {
+    atomicFetchOp(1, true, AtomicFetchXorOp, value, mem, flagTemp, valueTemp,
+                  offsetTemp, maskTemp, output);
+  }
+  template <typename T, typename S>
+  void atomicFetchXor8ZeroExtend(const S& value, const T& mem,
+                                 Register flagTemp, Register valueTemp,
+                                 Register offsetTemp, Register maskTemp,
+                                 Register output) {
+    atomicFetchOp(1, false, AtomicFetchXorOp, value, mem, flagTemp, valueTemp,
+                  offsetTemp, maskTemp, output);
+  }
+  template <typename T, typename S>
+  void atomicFetchXor16SignExtend(const S& value, const T& mem,
+                                  Register flagTemp, Register valueTemp,
+                                  Register offsetTemp, Register maskTemp,
+                                  Register output) {
+    atomicFetchOp(2, true, AtomicFetchXorOp, value, mem, flagTemp, valueTemp,
+                  offsetTemp, maskTemp, output);
+  }
+  template <typename T, typename S>
+  void atomicFetchXor16ZeroExtend(const S& value, const T& mem,
+                                  Register flagTemp, Register valueTemp,
+                                  Register offsetTemp, Register maskTemp,
+                                  Register output) {
+    atomicFetchOp(2, false, AtomicFetchXorOp, value, mem, flagTemp, valueTemp,
+                  offsetTemp, maskTemp, output);
+  }
+  template <typename T, typename S>
+  void atomicFetchXor32(const S& value, const T& mem, Register flagTemp,
+                        Register valueTemp, Register offsetTemp,
+                        Register maskTemp, Register output) {
+    atomicFetchOp(4, false, AtomicFetchXorOp, value, mem, flagTemp, valueTemp,
+                  offsetTemp, maskTemp, output);
+  }
+  template <typename T, typename S>
+  void atomicXor8(const T& value, const S& mem, Register flagTemp,
+                  Register valueTemp, Register offsetTemp, Register maskTemp) {
+    atomicEffectOp(1, AtomicFetchXorOp, value, mem, flagTemp, valueTemp,
+                   offsetTemp, maskTemp);
+  }
+  template <typename T, typename S>
+  void atomicXor16(const T& value, const S& mem, Register flagTemp,
+                   Register valueTemp, Register offsetTemp, Register maskTemp) {
+    atomicEffectOp(2, AtomicFetchXorOp, value, mem, flagTemp, valueTemp,
+                   offsetTemp, maskTemp);
+  }
+  template <typename T, typename S>
+  void atomicXor32(const T& value, const S& mem, Register flagTemp,
+                   Register valueTemp, Register offsetTemp, Register maskTemp) {
+    atomicEffectOp(4, AtomicFetchXorOp, value, mem, flagTemp, valueTemp,
+                   offsetTemp, maskTemp);
+  }
 
   void compareExchange(int nbytes, bool signExtend, const Address& address,
                        Register oldval, Register newval, Register valueTemp,

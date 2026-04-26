@@ -383,19 +383,12 @@ CodeGeneratorMIPS64::visitDivOrModI64(LDivOrModI64* lir)
         masm.bind(&notmin);
     }
 
-#ifdef JS_CODEGEN_LOONGARCH64
-    if (lir->mir()->isMod())
-        masm.as_mod_d(output, lhs, rhs);
-    else
-        masm.as_div_d(output, lhs, rhs);
-#else
     masm.as_ddiv(lhs, rhs);
 
     if (lir->mir()->isMod())
         masm.as_mfhi(output);
     else
         masm.as_mflo(output);
-#endif
 
     masm.bind(&done);
 }
@@ -413,19 +406,12 @@ CodeGeneratorMIPS64::visitUDivOrModI64(LUDivOrModI64* lir)
     if (lir->canBeDivideByZero())
         masm.ma_b(rhs, rhs, trap(lir, wasm::Trap::IntegerDivideByZero), Assembler::Zero);
 
-#ifdef JS_CODEGEN_LOONGARCH64
-    if (lir->mir()->isMod())
-        masm.as_mod_du(output, lhs, rhs);
-    else
-        masm.as_div_du(output, lhs, rhs);
-#else
     masm.as_ddivu(lhs, rhs);
 
     if (lir->mir()->isMod())
         masm.as_mfhi(output);
     else
         masm.as_mflo(output);
-#endif
 
     masm.bind(&done);
 }

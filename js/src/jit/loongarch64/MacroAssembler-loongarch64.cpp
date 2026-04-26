@@ -22,6 +22,78 @@
 namespace js {
 namespace jit {
 
+BufferOffset
+MacroAssemblerLOONGARCH64Compat::as_div(Register lhs, Register rhs)
+{
+  pendingDivKind_ = PendingDivW;
+  pendingDivLhs_ = lhs;
+  pendingDivRhs_ = rhs;
+  return m_buffer.nextOffset();
+}
+
+BufferOffset
+MacroAssemblerLOONGARCH64Compat::as_divu(Register lhs, Register rhs)
+{
+  pendingDivKind_ = PendingDivWU;
+  pendingDivLhs_ = lhs;
+  pendingDivRhs_ = rhs;
+  return m_buffer.nextOffset();
+}
+
+BufferOffset
+MacroAssemblerLOONGARCH64Compat::as_ddiv(Register lhs, Register rhs)
+{
+  pendingDivKind_ = PendingDivD;
+  pendingDivLhs_ = lhs;
+  pendingDivRhs_ = rhs;
+  return m_buffer.nextOffset();
+}
+
+BufferOffset
+MacroAssemblerLOONGARCH64Compat::as_ddivu(Register lhs, Register rhs)
+{
+  pendingDivKind_ = PendingDivDU;
+  pendingDivLhs_ = lhs;
+  pendingDivRhs_ = rhs;
+  return m_buffer.nextOffset();
+}
+
+BufferOffset
+MacroAssemblerLOONGARCH64Compat::as_mflo(Register dest)
+{
+  switch (pendingDivKind_) {
+    case PendingDivW:
+      return as_div_w(dest, pendingDivLhs_, pendingDivRhs_);
+    case PendingDivWU:
+      return as_div_wu(dest, pendingDivLhs_, pendingDivRhs_);
+    case PendingDivD:
+      return as_div_d(dest, pendingDivLhs_, pendingDivRhs_);
+    case PendingDivDU:
+      return as_div_du(dest, pendingDivLhs_, pendingDivRhs_);
+    case PendingDivNone:
+      break;
+  }
+  MOZ_CRASH("mflo without pending div");
+}
+
+BufferOffset
+MacroAssemblerLOONGARCH64Compat::as_mfhi(Register dest)
+{
+  switch (pendingDivKind_) {
+    case PendingDivW:
+      return as_mod_w(dest, pendingDivLhs_, pendingDivRhs_);
+    case PendingDivWU:
+      return as_mod_wu(dest, pendingDivLhs_, pendingDivRhs_);
+    case PendingDivD:
+      return as_mod_d(dest, pendingDivLhs_, pendingDivRhs_);
+    case PendingDivDU:
+      return as_mod_du(dest, pendingDivLhs_, pendingDivRhs_);
+    case PendingDivNone:
+      break;
+  }
+  MOZ_CRASH("mfhi without pending div");
+}
+
 namespace {
 
 static inline void MoveAtomicValue(MacroAssemblerLOONGARCH64Compat& masm,
