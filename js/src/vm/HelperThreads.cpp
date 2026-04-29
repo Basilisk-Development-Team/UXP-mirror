@@ -926,9 +926,12 @@ GlobalHelperThreadState::maxParseThreads() const
 {
     if (IsHelperThreadSimulatingOOM(js::oom::THREAD_TYPE_PARSE))
         return 1;
+    // On very old hardware with low core count, use physical core count.
     if (cpuCount <= 2)
         return cpuCount;
-    return threadCount;
+    // Reserve kernel threads so we don't end up deadlocking with burst use.
+    // If physical core count > 2 this is always at least 2, even without HT.
+    return threadCount - 1;
 }
 
 size_t
