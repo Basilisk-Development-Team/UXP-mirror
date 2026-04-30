@@ -73,6 +73,9 @@ ThreadCountForCPUCount(size_t cpuCount)
 {
     // Create additional threads on top of the number of cores available, to
     // provide some excess capacity in case threads pause each other.
+    // Note that cpuCount here is the number of logical processors and threadCount
+    // calculated here just adds some extra capacity on top. Use threadCount
+    // with care as it may end up deadlocking.
     static const uint32_t EXCESS_THREADS = 4;
     return cpuCount + EXCESS_THREADS;
 }
@@ -926,9 +929,8 @@ GlobalHelperThreadState::maxParseThreads() const
 {
     if (IsHelperThreadSimulatingOOM(js::oom::THREAD_TYPE_PARSE))
         return 1;
-    if (cpuCount <= 2)
-        return cpuCount;
-    return threadCount;
+    // Use the number of logical processors in a system.
+    return cpuCount;
 }
 
 size_t
