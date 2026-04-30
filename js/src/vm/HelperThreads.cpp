@@ -71,10 +71,10 @@ js::EnsureHelperThreadsInitialized()
 static size_t
 ThreadCountForCPUCount(size_t cpuCount)
 {
-    // Create additional threads on top of the number of cores available, to
+    // Create threads based on the number of cores available, to
     // provide some excess capacity in case threads pause each other.
-    static const uint32_t EXCESS_THREADS = 4;
-    return cpuCount + EXCESS_THREADS;
+    static const float THREAD_FACTOR = 2.0;
+    return std::floor(cpuCount * THREAD_FACTOR) - 1;
 }
 
 void
@@ -929,9 +929,7 @@ GlobalHelperThreadState::maxParseThreads() const
     // On very old hardware with low core count, use physical core count.
     if (cpuCount <= 2)
         return cpuCount;
-    // Reserve kernel threads so we don't end up deadlocking with burst use.
-    // If physical core count > 2 this is always at least 2, even without HT.
-    return threadCount - 1;
+    return threadCount;
 }
 
 size_t
