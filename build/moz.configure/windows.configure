@@ -7,14 +7,19 @@ option('--with-windows-version', nargs=1, default='603',
        help='Windows SDK version to target. Win 8.1 (603) is currently'
             'the minimum supported version.')
 
-@depends(target)
-def is_windows(target):
-    return target.kernel == 'WINNT'
+@depends(target, c_compiler)
+def is_msvc_windows(target, c_compiler):
+    # Only treat this as a "Windows with SDK" configuration when
+    # we are actually using MSVC. For MinGW GCC/Clang cross-builds,
+    # this file should not run at all.
+    return target.kernel == 'WINNT' and c_compiler.type == 'msvc'
 
 
 @template
 def depends_win(*args):
-    return depends_when(*args, when=is_windows)
+    # All the logic below (SDK detection, VC paths, DIA SDK, MT, LINK, etc.)
+    # is only meaningful for MSVC. For GCC/Clang+MinGW, we skip it entirely.
+    return depends_when(*args, when=is_msvc_windows)
 
 
 @depends_win('--with-windows-version')
