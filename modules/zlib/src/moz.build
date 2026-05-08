@@ -15,9 +15,11 @@ DEFINES['WITH_GZFILEOP'] = True
 DEFINES['WITH_OPTIM'] = True
 DEFINES['WITH_NEW_STRATEGIES'] = True
 
-# Keep the integration simple and portable across this tree's mixed toolchains:
-# use zlib-ng generic fallbacks and disable runtime CPU dispatch here.
-DEFINES['DISABLE_RUNTIME_CPU_DETECTION'] = True
+# Keep runtime CPU dispatch disabled for the existing integration.  The ARM64
+# and LoongArch SIMD backends added below need dispatch for optional CPU
+# features such as CRC32, PMULL, LSX, and LASX.
+if CONFIG['CPU_ARCH'] not in ('aarch64', 'loongarch64'):
+    DEFINES['DISABLE_RUNTIME_CPU_DETECTION'] = True
 DEFINES['WITH_ALL_FALLBACKS'] = True
 
 if CONFIG['ZLIB_IN_MOZGLUE']:
@@ -56,6 +58,12 @@ SOURCES += [
     'uncompr.c',
     'zutil.c',
 ]
+
+if CONFIG['CPU_ARCH'] in ('aarch64', 'loongarch64'):
+    SOURCES += [
+        'cpu_features.c',
+        'functable.c',
+    ]
 
 if CONFIG['CPU_ARCH'].startswith('x86'):
     DEFINES['X86_AVX2'] = True
@@ -102,3 +110,60 @@ if CONFIG['CPU_ARCH'].startswith('x86'):
         SOURCES['arch/x86/compare256_avx2.c'].flags += ['/arch:AVX2']
         SOURCES['arch/x86/crc32_pclmulqdq.c'].flags += ['/arch:AVX2']
         SOURCES['arch/x86/slide_hash_avx2.c'].flags += ['/arch:AVX2']
+
+if CONFIG['CPU_ARCH'] == 'aarch64':
+    DEFINES['ARM_CRC32'] = True
+    DEFINES['ARM_FEATURES'] = True
+    DEFINES['ARM_NEON'] = True
+    DEFINES['ARM_NEON_HASLD4'] = True
+    DEFINES['ARM_PMULL_EOR3'] = True
+
+    if CONFIG['OS_ARCH'] == 'Linux':
+        DEFINES['HAVE_SYS_AUXV_H'] = True
+        DEFINES['ARM_ASM_HWCAP'] = True
+
+    SOURCES += [
+        'arch/arm/adler32_neon.c',
+        'arch/arm/arm_features.c',
+        'arch/arm/chunkset_neon.c',
+        'arch/arm/compare256_neon.c',
+        'arch/arm/crc32_armv8.c',
+        'arch/arm/crc32_armv8_pmull_eor3.c',
+        'arch/arm/slide_hash_neon.c',
+    ]
+
+    if CONFIG['GNU_CC']:
+        SOURCES['arch/arm/crc32_armv8.c'].flags += ['-march=armv8-a+crc']
+        SOURCES['arch/arm/crc32_armv8_pmull_eor3.c'].flags += ['-march=armv8.2-a+crc+crypto+sha3']
+
+if CONFIG['CPU_ARCH'] == 'loongarch64':
+    DEFINES['LOONGARCH_CRC'] = True
+    DEFINES['LOONGARCH_FEATURES'] = True
+    DEFINES['LOONGARCH_LASX'] = True
+    DEFINES['LOONGARCH_LSX'] = True
+
+    loongarch_lsx_sources = [
+        'arch/loongarch/adler32_lsx.c',
+        'arch/loongarch/chunkset_lsx.c',
+        'arch/loongarch/compare256_lsx.c',
+        'arch/loongarch/slide_hash_lsx.c',
+    ]
+    loongarch_lasx_sources = [
+        'arch/loongarch/adler32_lasx.c',
+        'arch/loongarch/chunkset_lasx.c',
+        'arch/loongarch/compare256_lasx.c',
+        'arch/loongarch/slide_hash_lasx.c',
+    ]
+
+    SOURCES += [
+        'arch/loongarch/crc32_la.c',
+        'arch/loongarch/loongarch_features.c',
+    ]
+    SOURCES += loongarch_lsx_sources
+    SOURCES += loongarch_lasx_sources
+
+    if CONFIG['GNU_CC']:
+        for source in loongarch_lsx_sources:
+            SOURCES[source].flags += ['-mlsx']
+        for source in loongarch_lasx_sources:
+            SOURCES[source].flags += ['-mlasx']
