@@ -14,15 +14,15 @@ static inline __m256i lasx_zext_128(__m128i src) {
     return __lasx_insert_128_lo(__lasx_xvldi(0), src);
 #else
     __m256i dest = __lasx_xvldi(0);
-    __asm__ volatile ("xvpermi.q %u0,%u2,0x30\n" : "=f"(dest) : "0"(dest), "f"(src));
+    __asm__ volatile ("xvpermi.q %u0,%u1,0x30\n" : "+f"(dest) : "f"(src));
     return dest;
 #endif
 }
 
 #ifndef __loongarch_asx_sx_conv
 static inline __m256i __lasx_concat_128(__m128i lo, __m128i hi) {
-    __m256i dest;
-    __asm__ volatile ("xvpermi.q %u0,%u2,0x02\n" : "=f"(dest) : "0"(lo), "f"(hi));
+    __m256i dest = lasx_zext_128(lo);
+    __asm__ volatile ("xvpermi.q %u0,%u1,0x02\n" : "+f"(dest) : "f"(hi));
     return dest;
 }
 #endif
