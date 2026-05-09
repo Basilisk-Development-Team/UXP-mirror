@@ -1294,7 +1294,6 @@
                         '<(zlib_path)/adler32.c',
                         '<(zlib_path)/compress.c',
                         '<(zlib_path)/crc32.c',
-                        '<(zlib_path)/crc32.h',
                         '<(zlib_path)/deflate.c',
                         '<(zlib_path)/deflate.h',
                         '<(zlib_path)/gzclose.c',
