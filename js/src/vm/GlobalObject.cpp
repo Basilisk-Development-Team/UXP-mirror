@@ -465,6 +465,7 @@ GlobalObject::initStandardClasses(JSContext* cx, Handle<GlobalObject*> global)
         if (!ensureConstructor(cx, global, static_cast<JSProtoKey>(k)))
             return false;
     }
+
     return true;
 }
 
