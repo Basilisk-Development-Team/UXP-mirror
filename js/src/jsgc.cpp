@@ -5184,9 +5184,10 @@ struct ZoneCompactionTask : public GCParallelTaskHelper<ZoneCompactionTask>
     Zone* zone;
     JS::gcreason::Reason reason;
     Arena* relocatedArenas;
+    bool relocateSucceeded;
 
     explicit ZoneCompactionTask(JSRuntime* rt, Zone* z, JS::gcreason::Reason r)
-        : runtime(rt), zone(z), reason(r), relocatedArenas(nullptr)
+        : runtime(rt), zone(z), reason(r), relocatedArenas(nullptr), relocateSucceeded(false)
     {}
 
     ZoneCompactionTask(ZoneCompactionTask&& other)
@@ -5194,14 +5195,15 @@ struct ZoneCompactionTask : public GCParallelTaskHelper<ZoneCompactionTask>
           runtime(other.runtime),
           zone(other.zone),
           reason(other.reason),
-          relocatedArenas(nullptr)
+          relocatedArenas(nullptr),
+          relocateSucceeded(false)
     {}
 
     void run() {
         AutoSuppressProfilerSampling suppressSampling(runtime);
         zone->setGCState(Zone::Compact);
         SliceBudget unlimited = SliceBudget::unlimited();
-        runtime->gc.relocateArenas(zone, reason, relocatedArenas, unlimited);
+        relocateSucceeded = runtime->gc.relocateArenas(zone, reason, relocatedArenas, unlimited);
         zone->setGCState(Zone::Finished);
     }
 
