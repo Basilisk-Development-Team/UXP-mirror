@@ -4485,45 +4485,6 @@ SweepNativeIteratorsTask::run()
         c->sweepNativeIterators();
 }
 
-class BackgroundFinalizeTask : public GCParallelTaskHelper<BackgroundFinalizeTask>
-{
-        JSRuntime* runtime;
-        Zone* zone;
-        const FinalizePhase* phase;
-        Arena* emptyArenas;
-
-        BackgroundFinalizeTask(const BackgroundFinalizeTask&) = delete;
-
-    public:
-        BackgroundFinalizeTask(JSRuntime* rt, Zone* zone, const FinalizePhase* phase)
-            : runtime(rt), zone(zone), phase(phase), emptyArenas(nullptr)
-        {}
-
-        BackgroundFinalizeTask(BackgroundFinalizeTask&& other)
-            : GCParallelTaskHelper(mozilla::Move(other)),
-                runtime(other.runtime),
-                zone(other.zone),
-                phase(other.phase),
-                emptyArenas(other.emptyArenas)
-        {}
-
-        void run() {
-                FreeOp fop(nullptr);
-                for (auto kind : phase->kinds) {
-                        Arena* arenas = zone->arenas.arenaListsToSweep[kind];
-                        MOZ_RELEASE_ASSERT(uintptr_t(arenas) != uintptr_t(-1));
-                        if (arenas)
-                                ArenaLists::backgroundFinalize(&fop, arenas, &emptyArenas);
-                }
-        }
-
-        Arena* takeEmptyArenas() {
-                Arena* empty = emptyArenas;
-                emptyArenas = nullptr;
-                return empty;
-        }
-};
-
 void
 GCRuntime::startTask(GCParallelTask& task, gcstats::Phase phase,
                      AutoLockHelperThreadState& locked)
@@ -4553,46 +4514,17 @@ SweepWeakCachesFromMainThread(JSRuntime* rt)
             SweepWeakCacheTask task(rt, *cache);
             task.runFromMainThread(rt);
         }
+    }
 }
+
 static WeakCacheTaskVector
-        // Keep phase ordering, but allow different zones to finalize the same phase in parallel.
-        typedef Vector<BackgroundFinalizeTask, 0, SystemAllocPolicy> BackgroundFinalizeTaskVector;
-
-        size_t zoneCount = 0;
-        for (Zone* zone = zones.front(); zone; zone = zone->nextZone())
-            zoneCount++;
-
-        BackgroundFinalizeTaskVector tasks;
-        if (tasks.reserve(zoneCount)) {
-            for (Zone* zone = zones.front(); zone; zone = zone->nextZone())
-                tasks.infallibleEmplaceBack(rt, zone, &BackgroundFinalizePhases[phase]);
-
-            AutoLockHelperThreadState helperLock;
-            for (auto& task : tasks)
-                startTask(task, BackgroundFinalizePhases[phase].statsPhase, helperLock);
-            for (auto& task : tasks) {
-                joinTask(task, BackgroundFinalizePhases[phase].statsPhase, helperLock);
-                Arena* taskEmptyArenas = task.takeEmptyArenas();
-                if (taskEmptyArenas) {
-                    Arena* tail = taskEmptyArenas;
-                    while (tail->next)
-                        tail = tail->next;
-                    tail->next = emptyArenas;
-                    emptyArenas = taskEmptyArenas;
-                }
-            }
-        } else {
-            FreeOp fop(nullptr);
-            for (Zone* zone = zones.front(); zone; zone = zone->nextZone()) {
-                for (auto kind : BackgroundFinalizePhases[phase].kinds) {
-                    Arena* arenas = zone->arenas.arenaListsToSweep[kind];
-                    MOZ_RELEASE_ASSERT(uintptr_t(arenas) != uintptr_t(-1));
-                    if (arenas)
-                        ArenaLists::backgroundFinalize(&fop, arenas, &emptyArenas);
-                }
-            }
-                return WeakCacheTaskVector();
-            }
+PrepareWeakCacheTasks(JSRuntime* rt)
+{
+    WeakCacheTaskVector out;
+    for (GCZoneGroupIter zone(rt); !zone.done(); zone.next()) {
+        for (JS::WeakCache<void*>* cache : zone->weakCaches_) {
+            if (!out.emplaceBack(rt, *cache))
+                return out;
         }
     }
     return out;
