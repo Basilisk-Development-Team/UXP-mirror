@@ -477,6 +477,8 @@ js::CancelOffThreadParses(JSRuntime* rt)
         HelperThreadState().wait(lock, GlobalHelperThreadState::CONSUMER);
     }
 
+}
+
 bool
 js::OffThreadParsingMustWaitForGC(JSRuntime* rt)
 {
