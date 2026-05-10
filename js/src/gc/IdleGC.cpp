@@ -221,32 +221,31 @@ IdleGCManager::shouldBypassIdleCheck(JS::gcreason::Reason reason)
 {
     // These reasons indicate urgent GC needs that should bypass idle checking
     switch (reason) {
-        // Out-of-memory conditions
-        case JS::gcreason::OUT_OF_MEMORY:
+        // Allocation and memory pressure conditions.
         case JS::gcreason::ALLOC_TRIGGER:
-        
-        // Memory pressure situations
-        case JS::gcreason::MALLOC_PRESSURE:
         case JS::gcreason::EAGER_ALLOC_TRIGGER:
-        
+        case JS::gcreason::TOO_MUCH_MALLOC:
+        case JS::gcreason::MEM_PRESSURE:
+        case JS::gcreason::LAST_DITCH:
+
+        // Nursery/store-buffer pressure.
+        case JS::gcreason::OUT_OF_NURSERY:
+        case JS::gcreason::EVICT_NURSERY:
+        case JS::gcreason::FULL_STORE_BUFFER:
+        case JS::gcreason::SHARED_MEMORY_LIMIT:
+
         // Explicit API calls
         case JS::gcreason::API:
-        case JS::gcreason::DETERMINISTIC:
-        
-        // Nursery eviction
-        case JS::gcreason::EVICT_NURSERY:
-        
+        case JS::gcreason::ABORT_GC:
+
         // Shutdown and finalization
         case JS::gcreason::SHUTDOWN_CC:
         case JS::gcreason::DESTROY_RUNTIME:
-        case JS::gcreason::LAST_DITCH:
-        
-        // Compartment/Zone destruction
-        case JS::gcreason::DESTROY_ZONE:
-        case JS::gcreason::COMPARTMENT_REVOKED:
-        
+        case JS::gcreason::NSJSCONTEXT_DESTROY:
+        case JS::gcreason::XPCONNECT_SHUTDOWN:
+
             return true;
-        
+
         default:
             return false;
     }

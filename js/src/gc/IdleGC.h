@@ -9,6 +9,7 @@
 #include <stdint.h>
 #include "mozilla/Atomics.h"
 #include "mozilla/TimeStamp.h"
+#include "js/GCAPI.h"
 
 namespace js {
 namespace gc {
@@ -87,7 +88,8 @@ class IdleGCManager
 
     /*
      * Check if a GC reason should bypass idle checking.
-     * Critical reasons (OOM, memory pressure, explicit requests) always proceed.
+     * Critical reasons (OOM-like pressure, nursery pressure, explicit requests)
+     * always proceed.
      */
     static bool shouldBypassIdleCheck(JS::gcreason::Reason reason);
 
