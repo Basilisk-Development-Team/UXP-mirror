@@ -140,6 +140,11 @@ def config_status(topobjdir='.', topsrcdir='.', defines=None,
         'Judging things by the spoon',
         'Nailing down the files',
         'Whistling in the dark',
+        'Walking the fish',
+        'Quietly judging your code',
+        'Shuffling the deck',
+        'Arranging the sock drawer',
+        'Tossing a coin'
     ]
 
     print('{0}...'.format(random.choice(STATUS_MESSAGES)), file=sys.stderr)
