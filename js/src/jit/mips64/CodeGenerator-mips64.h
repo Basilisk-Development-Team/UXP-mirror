@@ -93,7 +93,11 @@ class CodeGeneratorMIPS64 : public CodeGeneratorMIPSShared
     void setReturnDoubleRegs(LiveRegisterSet* regs);
 };
 
+// LoongArch64 reuses CodeGeneratorMIPS64 as a base class and provides its own
+// CodeGeneratorSpecific typedef.
+#if !defined(JS_CODEGEN_LOONGARCH64)
 typedef CodeGeneratorMIPS64 CodeGeneratorSpecific;
+#endif
 
 } // namespace jit
 } // namespace js

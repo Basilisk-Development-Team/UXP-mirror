@@ -6,9 +6,7 @@
 #ifndef jit_loongarch64_CodeGenerator_loongarch64_h
 #define jit_loongarch64_CodeGenerator_loongarch64_h
 
-#define CodeGeneratorSpecific CodeGeneratorMIPS64Specific
 #include "jit/mips64/CodeGenerator-mips64.h"
-#undef CodeGeneratorSpecific
 
 namespace js {
 namespace jit {
