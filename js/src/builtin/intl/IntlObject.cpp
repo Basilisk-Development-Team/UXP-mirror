@@ -22,6 +22,7 @@
 #include "builtin/intl/CommonFunctions.h"
 #include "builtin/intl/DateTimeFormat.h"
 #include "builtin/intl/LanguageTag.h"
+#include "builtin/intl/ListFormat.h"
 #include "builtin/intl/ICUHeader.h"
 #include "builtin/intl/Locale.h"
 #include "builtin/intl/NumberFormat.h"
@@ -523,6 +524,8 @@ js::intl_BestAvailableLocale(JSContext* cx, unsigned argc, Value* vp)
             kind = SupportedLocaleKind::Collator;
         } else if (StringEqualsAscii(typeStr, "DateTimeFormat")) {
             kind = SupportedLocaleKind::DateTimeFormat;
+        } else if (StringEqualsAscii(typeStr, "ListFormat")) {
+            kind = SupportedLocaleKind::ListFormat;
         } else if (StringEqualsAscii(typeStr, "NumberFormat")) {
             kind = SupportedLocaleKind::NumberFormat;
         } else if (StringEqualsAscii(typeStr, "PluralRules")) {
@@ -649,12 +652,12 @@ js::intl_supportedLocaleOrFallback(JSContext* cx, unsigned argc, Value* vp)
     // That implies we must ignore any candidate which isn't supported by all Intl
     // service constructors.
     //
-    // Note: We don't test the supported locales of either Intl.PluralRules or
-    // Intl.RelativeTimeFormat, because ICU doesn't provide the necessary API to
-    // return actual set of supported locales for these constructors. Instead it
-    // returns the complete set of available locales for ULocale, which is a
-    // superset of the locales supported by Collator, NumberFormat, and
-    // DateTimeFormat.
+    // Note: We don't test the supported locales of either Intl.ListFormat,
+    // Intl.PluralRules, Intl.RelativeTimeFormat, because ICU doesn't provide the
+    // necessary API to return actual set of supported locales for these
+    // constructors. Instead it returns the complete set of available locales for
+    // ULocale, which is a superset of the locales supported by Collator,
+    // NumberFormat, and DateTimeFormat.
     bool isSupported = true;
     for (auto kind : {SupportedLocaleKind::Collator, SupportedLocaleKind::DateTimeFormat,
                       SupportedLocaleKind::NumberFormat}) {

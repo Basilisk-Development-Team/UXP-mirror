@@ -732,6 +732,7 @@ function initializeIntlObject(obj, type, lazyData) {
 
     assert((type === "Collator" && IsCollator(obj)) ||
            (type === "DateTimeFormat" && IsDateTimeFormat(obj)) ||
+           (type === "ListFormat" && IsListFormat(obj) !== null) ||
            (type === "NumberFormat" && IsNumberFormat(obj)) ||
            (type === "PluralRules" && IsPluralRules(obj)) ||
            (type === "RelativeTimeFormat" && IsRelativeTimeFormat(obj)),
@@ -815,6 +816,7 @@ function getIntlObjectInternals(obj) {
     assert(hasOwn("type", internals), "missing type");
     assert((internals.type === "Collator" && IsCollator(obj)) ||
            (internals.type === "DateTimeFormat" && IsDateTimeFormat(obj)) ||
+           (internals.type === "ListFormat" && IsListFormat(obj)) ||
            (internals.type === "NumberFormat" && IsNumberFormat(obj)) ||
            (internals.type === "PluralRules" && IsPluralRules(obj)) ||
            (internals.type === "RelativeTimeFormat" && IsRelativeTimeFormat(obj)),
@@ -849,6 +851,9 @@ function getInternals(obj) {
         break;
       case "DateTimeFormat":
         internalProps = resolveDateTimeFormatInternals(internals.lazyData);
+        break;
+      case "ListFormat":
+        internalProps = resolveListFormatInternals(internals.lazyData);
         break;
       case "PluralRules":
         internalProps = resolvePluralRulesInternals(internals.lazyData);

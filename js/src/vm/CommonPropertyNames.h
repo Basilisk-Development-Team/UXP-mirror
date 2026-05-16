@@ -118,6 +118,7 @@
     macro(dotStaticInitializers, dotStaticInitializers, ".staticInitializers") \
     macro(dotStaticFieldKeys, dotStaticFieldKeys, ".staticFieldKeys") \
     macro(each, each, "each") \
+    macro(element, element, "element") \
     macro(elementType, elementType, "elementType") \
     macro(else, else_, "else") \
     macro(empty, empty, "") \
@@ -204,6 +205,7 @@
     macro(Infinity, Infinity, "Infinity") \
     macro(InitializeCollator, InitializeCollator, "InitializeCollator") \
     macro(InitializeDateTimeFormat, InitializeDateTimeFormat, "InitializeDateTimeFormat") \
+    macro(InitializeListFormat, InitializeListFormat, "InitializeListFormat") \
     macro(InitializeLocale, InitializeLocale, "InitializeLocale") \
     macro(InitializeNumberFormat, InitializeNumberFormat, "InitializeNumberFormat") \
     macro(InitializePluralRules, InitializePluralRules, "InitializePluralRules") \

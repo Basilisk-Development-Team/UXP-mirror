@@ -2877,6 +2877,11 @@ ToWindowIfWindowProxy(JSObject* obj);
 extern bool
 AddMozDateTimeFormatConstructor(JSContext* cx, JS::Handle<JSObject*> intl);
 
+// Create and add the Intl.ListFormat constructor function to the provided
+// object.
+extern bool
+AddListFormatConstructor(JSContext* cx, JS::Handle<JSObject*> intl);
+
 } /* namespace js */
 
 class NativeProfiler

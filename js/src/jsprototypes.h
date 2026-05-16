@@ -96,6 +96,7 @@
     real(Symbol,                InitSymbolClass,        OCLASP(Symbol)) \
 IF_SAB(real,imaginary)(SharedArrayBuffer,     InitViaClassSpec, OCLASP(SharedArrayBuffer)) \
 IF_INTL(real,imaginary) (Intl,                InitIntlClass,          CLASP(Intl)) \
+IF_INTL(real,imaginary) (ListFormat,          InitViaClassSpec, OCLASP(ListFormat)) \
 IF_BDATA(real,imaginary)(TypedObject,         InitTypedObjectModuleObject,   OCLASP(TypedObjectModule)) \
     real(Reflect,               InitReflect,            nullptr) \
     real(WeakSet,               InitWeakSetClass,       OCLASP(WeakSet)) \

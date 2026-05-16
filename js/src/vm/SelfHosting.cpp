@@ -26,6 +26,7 @@
 #include "builtin/intl/Collator.h"
 #include "builtin/intl/DateTimeFormat.h"
 #include "builtin/intl/IntlObject.h"
+#include "builtin/intl/ListFormat.h"
 #include "builtin/intl/Locale.h"
 #include "builtin/intl/NumberFormat.h"
 #include "builtin/intl/PluralRules.h"
@@ -2556,6 +2557,7 @@ static const JSFunctionSpec intrinsic_functions[] = {
     JS_FN("intl_patternForStyle", intl_patternForStyle, 6, 0),
     JS_FN("intl_GetPluralCategories", intl_GetPluralCategories, 2, 0),
     JS_FN("intl_SelectPluralRule", intl_SelectPluralRule, 2,0),
+    JS_FN("intl_FormatList", intl_FormatList, 3, 0),
     JS_FN("intl_toLocaleLowerCase", intl_toLocaleLowerCase, 2,0),
     JS_FN("intl_toLocaleUpperCase", intl_toLocaleUpperCase, 2,0),
     JS_FN("intl_ValidateAndCanonicalizeLanguageTag", intl_ValidateAndCanonicalizeLanguageTag, 2, 0),
@@ -2569,6 +2571,9 @@ static const JSFunctionSpec intrinsic_functions[] = {
     JS_INLINABLE_FN("IsDateTimeFormat",
                     intrinsic_IsInstanceOfBuiltin<DateTimeFormatObject>, 1,0,
                     IntlIsDateTimeFormat),
+    JS_INLINABLE_FN("IsListFormat",
+                    intrinsic_IsInstanceOfBuiltin<ListFormatObject>, 1, 0,
+                    IntlIsListFormat),
     JS_INLINABLE_FN("IsNumberFormat",
                     intrinsic_IsInstanceOfBuiltin<NumberFormatObject>, 1,0,
                     IntlIsNumberFormat),

@@ -14,6 +14,7 @@
 #include "builtin/TypedObject.h"
 #include "builtin/intl/Collator.h"
 #include "builtin/intl/DateTimeFormat.h"
+#include "builtin/intl/ListFormat.h"
 #include "builtin/intl/NumberFormat.h"
 #include "builtin/intl/PluralRules.h"
 #include "builtin/intl/RelativeTimeFormat.h"
@@ -113,6 +114,8 @@ IonBuilder::inlineNativeCall(CallInfo& callInfo, JSFunction* target)
         return inlineHasClass(callInfo, &CollatorObject::class_);
       case InlinableNative::IntlIsDateTimeFormat:
         return inlineHasClass(callInfo, &DateTimeFormatObject::class_);
+      case InlinableNative::IntlIsListFormat:
+        return inlineHasClass(callInfo, &ListFormatObject::class_);
       case InlinableNative::IntlIsNumberFormat:
         return inlineHasClass(callInfo, &NumberFormatObject::class_);
       case InlinableNative::IntlIsPluralRules:

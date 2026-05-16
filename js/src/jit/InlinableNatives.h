@@ -28,6 +28,7 @@
                                     \
     _(IntlIsCollator)               \
     _(IntlIsDateTimeFormat)         \
+    _(IntlIsListFormat)             \
     _(IntlIsNumberFormat)           \
     _(IntlIsPluralRules)            \
     _(IntlIsRelativeTimeFormat)     \
