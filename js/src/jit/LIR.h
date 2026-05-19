@@ -1928,7 +1928,7 @@ LAllocation::toRegister() const
 # endif
 # include "jit/mips-shared/LIR-mips-shared.h"
 #elif defined(JS_CODEGEN_LOONGARCH64)
-# include "jit/mips64/LIR-mips64.h"
+# include "jit/loongarch64/LIR-loongarch64.h"
 # include "jit/mips-shared/LIR-mips-shared.h"
 #elif defined(JS_CODEGEN_NONE)
 # include "jit/none/LIR-none.h"

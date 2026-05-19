@@ -5,9 +5,13 @@
 
 #include "jit/loongarch64/CodeGenerator-loongarch64.h"
 
+#include "mozilla/MathAlgorithms.h"
+
+#include "jit/JitCompartment.h"
 #include "jit/JitFrames.h"
 #include "jit/MIR.h"
 #include "jit/MIRGraph.h"
+#include "js/Conversions.h"
 #include "vm/Shape.h"
 #include "vm/TraceLogging.h"
 
@@ -97,6 +101,255 @@ CodeGeneratorLoongArch64::emitTableSwitchDispatch(MTableSwitch* mir, Register in
     masm.lshiftPtr(Imm32(5), index);
     masm.addPtr(index, base);
     masm.jump(base);
+}
+
+void
+CodeGeneratorLoongArch64::visitOutOfLineBailout(OutOfLineBailout* ool)
+{
+    masm.push(ImmWord(ool->snapshot()->snapshotOffset()));
+    masm.jump(&deoptLabel_);
+}
+
+FrameSizeClass
+FrameSizeClass::FromDepth(uint32_t frameDepth)
+{
+    return FrameSizeClass::None();
+}
+
+FrameSizeClass
+FrameSizeClass::ClassLimit()
+{
+    return FrameSizeClass(0);
+}
+
+uint32_t
+FrameSizeClass::frameSize() const
+{
+    MOZ_CRASH("LoongArch64 does not use frame size classes");
+}
+
+ValueOperand
+CodeGeneratorLoongArch64::ToValue(LInstruction* ins, size_t pos)
+{
+    return ValueOperand(ToRegister(ins->getOperand(pos)));
+}
+
+ValueOperand
+CodeGeneratorLoongArch64::ToOutValue(LInstruction* ins)
+{
+    return ValueOperand(ToRegister(ins->getDef(0)));
+}
+
+ValueOperand
+CodeGeneratorLoongArch64::ToTempValue(LInstruction* ins, size_t pos)
+{
+    return ValueOperand(ToRegister(ins->getTemp(pos)));
+}
+
+void
+CodeGeneratorLoongArch64::visitBox(LBox* box)
+{
+    const LAllocation* in = box->getOperand(0);
+    const LDefinition* result = box->getDef(0);
+
+    if (IsFloatingPointType(box->type())) {
+        FloatRegister reg = ToFloatRegister(in);
+        if (box->type() == MIRType::Float32) {
+            masm.convertFloat32ToDouble(reg, ScratchDoubleReg);
+            reg = ScratchDoubleReg;
+        }
+        masm.moveFromDouble(reg, ToRegister(result));
+    } else {
+        masm.boxValue(ValueTypeFromMIRType(box->type()), ToRegister(in), ToRegister(result));
+    }
+}
+
+void
+CodeGeneratorLoongArch64::visitUnbox(LUnbox* unbox)
+{
+    MUnbox* mir = unbox->mir();
+
+    if (mir->fallible()) {
+        const ValueOperand value = ToValue(unbox, LUnbox::Input);
+        masm.splitTag(value, SecondScratchReg);
+        bailoutCmp32(Assembler::NotEqual, SecondScratchReg, Imm32(MIRTypeToTag(mir->type())),
+                     unbox->snapshot());
+    }
+
+    LAllocation* input = unbox->getOperand(LUnbox::Input);
+    Register result = ToRegister(unbox->output());
+    if (input->isRegister()) {
+        Register inputReg = ToRegister(input);
+        switch (mir->type()) {
+          case MIRType::Int32:
+            masm.unboxInt32(inputReg, result);
+            break;
+          case MIRType::Boolean:
+            masm.unboxBoolean(inputReg, result);
+            break;
+          case MIRType::Object:
+            masm.unboxObject(inputReg, result);
+            break;
+          case MIRType::String:
+            masm.unboxString(inputReg, result);
+            break;
+          case MIRType::Symbol:
+            masm.unboxSymbol(inputReg, result);
+            break;
+          case MIRType::BigInt:
+            masm.unboxBigInt(inputReg, result);
+            break;
+          default:
+            MOZ_CRASH("Given MIRType cannot be unboxed.");
+        }
+        return;
+    }
+
+    Address inputAddr = ToAddress(input);
+    switch (mir->type()) {
+      case MIRType::Int32:
+        masm.unboxInt32(inputAddr, result);
+        break;
+      case MIRType::Boolean:
+        masm.unboxBoolean(inputAddr, result);
+        break;
+      case MIRType::Object:
+        masm.unboxObject(inputAddr, result);
+        break;
+      case MIRType::String:
+        masm.unboxString(inputAddr, result);
+        break;
+      case MIRType::Symbol:
+        masm.unboxSymbol(inputAddr, result);
+        break;
+      case MIRType::BigInt:
+        masm.unboxBigInt(inputAddr, result);
+        break;
+      default:
+        MOZ_CRASH("Given MIRType cannot be unboxed.");
+    }
+}
+
+Register
+CodeGeneratorLoongArch64::splitTagForTest(const ValueOperand& value)
+{
+    MOZ_ASSERT(value.valueReg() != SecondScratchReg);
+    masm.splitTag(value.valueReg(), SecondScratchReg);
+    return SecondScratchReg;
+}
+
+void
+CodeGeneratorLoongArch64::visitCompareB(LCompareB* lir)
+{
+    MCompare* mir = lir->mir();
+
+    const ValueOperand lhs = ToValue(lir, LCompareB::Lhs);
+    const LAllocation* rhs = lir->rhs();
+    const Register output = ToRegister(lir->output());
+
+    MOZ_ASSERT(mir->jsop() == JSOP_STRICTEQ || mir->jsop() == JSOP_STRICTNE);
+    Assembler::Condition cond = JSOpToCondition(mir->compareType(), mir->jsop());
+
+    if (rhs->isConstant())
+        masm.moveValue(rhs->toConstant()->toJSValue(), ScratchRegister);
+    else
+        masm.boxValue(JSVAL_TYPE_BOOLEAN, ToRegister(rhs), ScratchRegister);
+
+    masm.cmpPtrSet(cond, lhs.valueReg(), ScratchRegister, output);
+}
+
+void
+CodeGeneratorLoongArch64::visitCompareBAndBranch(LCompareBAndBranch* lir)
+{
+    MCompare* mir = lir->cmpMir();
+    const ValueOperand lhs = ToValue(lir, LCompareBAndBranch::Lhs);
+    const LAllocation* rhs = lir->rhs();
+
+    MOZ_ASSERT(mir->jsop() == JSOP_STRICTEQ || mir->jsop() == JSOP_STRICTNE);
+
+    if (rhs->isConstant())
+        masm.moveValue(rhs->toConstant()->toJSValue(), ScratchRegister);
+    else
+        masm.boxValue(JSVAL_TYPE_BOOLEAN, ToRegister(rhs), ScratchRegister);
+
+    Assembler::Condition cond = JSOpToCondition(mir->compareType(), mir->jsop());
+    emitBranch(lhs.valueReg(), ScratchRegister, cond, lir->ifTrue(), lir->ifFalse());
+}
+
+void
+CodeGeneratorLoongArch64::visitCompareBitwise(LCompareBitwise* lir)
+{
+    MCompare* mir = lir->mir();
+    Assembler::Condition cond = JSOpToCondition(mir->compareType(), mir->jsop());
+    const ValueOperand lhs = ToValue(lir, LCompareBitwise::LhsInput);
+    const ValueOperand rhs = ToValue(lir, LCompareBitwise::RhsInput);
+    const Register output = ToRegister(lir->output());
+
+    MOZ_ASSERT(IsEqualityOp(mir->jsop()));
+
+    masm.cmpPtrSet(cond, lhs.valueReg(), rhs.valueReg(), output);
+}
+
+void
+CodeGeneratorLoongArch64::visitCompareBitwiseAndBranch(LCompareBitwiseAndBranch* lir)
+{
+    MCompare* mir = lir->cmpMir();
+    Assembler::Condition cond = JSOpToCondition(mir->compareType(), mir->jsop());
+    const ValueOperand lhs = ToValue(lir, LCompareBitwiseAndBranch::LhsInput);
+    const ValueOperand rhs = ToValue(lir, LCompareBitwiseAndBranch::RhsInput);
+
+    MOZ_ASSERT(mir->jsop() == JSOP_EQ || mir->jsop() == JSOP_STRICTEQ ||
+               mir->jsop() == JSOP_NE || mir->jsop() == JSOP_STRICTNE);
+
+    emitBranch(lhs.valueReg(), rhs.valueReg(), cond, lir->ifTrue(), lir->ifFalse());
+}
+
+void
+CodeGeneratorLoongArch64::visitCompareI64(LCompareI64* lir)
+{
+    MCompare* mir = lir->mir();
+    MOZ_ASSERT(mir->compareType() == MCompare::Compare_Int64 ||
+               mir->compareType() == MCompare::Compare_UInt64);
+
+    const LInt64Allocation lhs = lir->getInt64Operand(LCompareI64::Lhs);
+    const LInt64Allocation rhs = lir->getInt64Operand(LCompareI64::Rhs);
+    Register lhsReg = ToRegister64(lhs).reg;
+    Register output = ToRegister(lir->output());
+    Register rhsReg;
+
+    if (IsConstant(rhs)) {
+        rhsReg = ScratchRegister;
+        masm.ma_li(rhsReg, ImmWord(ToInt64(rhs)));
+    } else {
+        rhsReg = ToRegister64(rhs).reg;
+    }
+
+    bool isSigned = mir->compareType() == MCompare::Compare_Int64;
+    masm.cmpPtrSet(JSOpToCondition(lir->jsop(), isSigned), lhsReg, rhsReg, output);
+}
+
+void
+CodeGeneratorLoongArch64::visitCompareI64AndBranch(LCompareI64AndBranch* lir)
+{
+    MCompare* mir = lir->cmpMir();
+    MOZ_ASSERT(mir->compareType() == MCompare::Compare_Int64 ||
+               mir->compareType() == MCompare::Compare_UInt64);
+
+    const LInt64Allocation lhs = lir->getInt64Operand(LCompareI64::Lhs);
+    const LInt64Allocation rhs = lir->getInt64Operand(LCompareI64::Rhs);
+    Register lhsReg = ToRegister64(lhs).reg;
+    Register rhsReg;
+
+    if (IsConstant(rhs)) {
+        rhsReg = ScratchRegister;
+        masm.ma_li(rhsReg, ImmWord(ToInt64(rhs)));
+    } else {
+        rhsReg = ToRegister64(rhs).reg;
+    }
+
+    bool isSigned = mir->compareType() == MCompare::Compare_Int64;
+    Assembler::Condition cond = JSOpToCondition(lir->jsop(), isSigned);
+    emitBranch(lhsReg, rhsReg, cond, lir->ifTrue(), lir->ifFalse());
 }
 
 void
@@ -369,6 +622,246 @@ CodeGeneratorLoongArch64::visitUDivOrModI64(LUDivOrModI64* lir)
     masm.bind(&done);
 }
 
+template <typename T>
+void
+CodeGeneratorLoongArch64::emitWasmLoadI64(T* lir)
+{
+    const MWasmLoad* mir = lir->mir();
+
+    MOZ_ASSERT(lir->mir()->type() == MIRType::Int64);
+
+    uint32_t offset = mir->access().offset();
+    MOZ_ASSERT(offset < wasm::OffsetGuardLimit);
+
+    Register ptr = ToRegister(lir->ptr());
+
+    if (offset) {
+        Register ptrPlusOffset = ToRegister(lir->ptrCopy());
+        masm.addPtr(Imm32(offset), ptrPlusOffset);
+        ptr = ptrPlusOffset;
+    } else {
+        MOZ_ASSERT(lir->ptrCopy()->isBogusTemp());
+    }
+
+    unsigned byteSize = mir->access().byteSize();
+    bool isSigned;
+
+    switch (mir->access().type()) {
+      case Scalar::Int8:    isSigned = true;  break;
+      case Scalar::Uint8:   isSigned = false; break;
+      case Scalar::Int16:   isSigned = true;  break;
+      case Scalar::Uint16:  isSigned = false; break;
+      case Scalar::Int32:   isSigned = true;  break;
+      case Scalar::Uint32:  isSigned = false; break;
+      case Scalar::Int64:   isSigned = true;  break;
+      default: MOZ_CRASH("unexpected array type");
+    }
+
+    masm.memoryBarrier(mir->access().barrierBefore());
+
+    if (IsUnaligned(mir->access())) {
+        Register temp = ToRegister(lir->getTemp(1));
+
+        masm.ma_load_unaligned(mir->access(), ToOutRegister64(lir).reg,
+                               BaseIndex(HeapReg, ptr, TimesOne), temp,
+                               static_cast<LoadStoreSize>(8 * byteSize),
+                               isSigned ? SignExtend : ZeroExtend);
+        return;
+    }
+
+    masm.ma_load(ToOutRegister64(lir).reg, BaseIndex(HeapReg, ptr, TimesOne),
+                 static_cast<LoadStoreSize>(8 * byteSize), isSigned ? SignExtend : ZeroExtend);
+    masm.append(mir->access(), masm.size() - 4, masm.framePushed());
+
+    masm.memoryBarrier(mir->access().barrierAfter());
+}
+
+void
+CodeGeneratorLoongArch64::visitWasmLoadI64(LWasmLoadI64* lir)
+{
+    emitWasmLoadI64(lir);
+}
+
+void
+CodeGeneratorLoongArch64::visitWasmUnalignedLoadI64(LWasmUnalignedLoadI64* lir)
+{
+    emitWasmLoadI64(lir);
+}
+
+template <typename T>
+void
+CodeGeneratorLoongArch64::emitWasmStoreI64(T* lir)
+{
+    const MWasmStore* mir = lir->mir();
+
+    MOZ_ASSERT(lir->mir()->type() == MIRType::Int64);
+
+    uint32_t offset = mir->access().offset();
+    MOZ_ASSERT(offset < wasm::OffsetGuardLimit);
+
+    Register ptr = ToRegister(lir->ptr());
+
+    if (offset) {
+        Register ptrPlusOffset = ToRegister(lir->ptrCopy());
+        masm.addPtr(Imm32(offset), ptrPlusOffset);
+        ptr = ptrPlusOffset;
+    } else {
+        MOZ_ASSERT(lir->ptrCopy()->isBogusTemp());
+    }
+
+    unsigned byteSize = mir->access().byteSize();
+    bool isSigned;
+
+    switch (mir->access().type()) {
+      case Scalar::Int8:    isSigned = true;  break;
+      case Scalar::Uint8:   isSigned = false; break;
+      case Scalar::Int16:   isSigned = true;  break;
+      case Scalar::Uint16:  isSigned = false; break;
+      case Scalar::Int32:   isSigned = true;  break;
+      case Scalar::Uint32:  isSigned = false; break;
+      case Scalar::Int64:   isSigned = true;  break;
+      default: MOZ_CRASH("unexpected array type");
+    }
+
+    masm.memoryBarrier(mir->access().barrierBefore());
+
+    if (IsUnaligned(mir->access())) {
+        Register temp = ToRegister(lir->getTemp(1));
+
+        masm.ma_store_unaligned(mir->access(), ToRegister64(lir->value()).reg,
+                                BaseIndex(HeapReg, ptr, TimesOne), temp,
+                                static_cast<LoadStoreSize>(8 * byteSize),
+                                isSigned ? SignExtend : ZeroExtend);
+        return;
+    }
+
+    masm.ma_store(ToRegister64(lir->value()).reg, BaseIndex(HeapReg, ptr, TimesOne),
+                  static_cast<LoadStoreSize>(8 * byteSize), isSigned ? SignExtend : ZeroExtend);
+    masm.append(mir->access(), masm.size() - 4, masm.framePushed());
+
+    masm.memoryBarrier(mir->access().barrierAfter());
+}
+
+void
+CodeGeneratorLoongArch64::visitWasmStoreI64(LWasmStoreI64* lir)
+{
+    emitWasmStoreI64(lir);
+}
+
+void
+CodeGeneratorLoongArch64::visitWasmUnalignedStoreI64(LWasmUnalignedStoreI64* lir)
+{
+    emitWasmStoreI64(lir);
+}
+
+void
+CodeGeneratorLoongArch64::visitWasmLoadGlobalVarI64(LWasmLoadGlobalVarI64* ins)
+{
+    const MWasmLoadGlobalVar* mir = ins->mir();
+    unsigned addr = mir->globalDataOffset() - WasmGlobalRegBias;
+    MOZ_ASSERT(mir->type() == MIRType::Int64);
+    masm.load64(Address(GlobalReg, addr), ToOutRegister64(ins));
+}
+
+void
+CodeGeneratorLoongArch64::visitWasmStoreGlobalVarI64(LWasmStoreGlobalVarI64* ins)
+{
+    const MWasmStoreGlobalVar* mir = ins->mir();
+    unsigned addr = mir->globalDataOffset() - WasmGlobalRegBias;
+    MOZ_ASSERT(mir->value()->type() == MIRType::Int64);
+    masm.store64(ToRegister64(ins->value()), Address(GlobalReg, addr));
+}
+
+void
+CodeGeneratorLoongArch64::visitWasmSelectI64(LWasmSelectI64* lir)
+{
+    MOZ_ASSERT(lir->mir()->type() == MIRType::Int64);
+
+    Register cond = ToRegister(lir->condExpr());
+    const LInt64Allocation falseExpr = lir->falseExpr();
+
+    Register64 out = ToOutRegister64(lir);
+    MOZ_ASSERT(ToRegister64(lir->trueExpr()) == out, "true expr is reused for input");
+
+    if (falseExpr.value().isRegister()) {
+        masm.as_movz(out.reg, ToRegister(falseExpr.value()), cond);
+    } else {
+        Label done;
+        masm.ma_b(cond, cond, &done, Assembler::NonZero, ShortJump);
+        masm.loadPtr(ToAddress(falseExpr.value()), out.reg);
+        masm.bind(&done);
+    }
+}
+
+void
+CodeGeneratorLoongArch64::visitWasmReinterpretFromI64(LWasmReinterpretFromI64* lir)
+{
+    MOZ_ASSERT(lir->mir()->type() == MIRType::Double);
+    MOZ_ASSERT(lir->mir()->input()->type() == MIRType::Int64);
+    masm.as_dmtc1(ToRegister(lir->input()), ToFloatRegister(lir->output()));
+}
+
+void
+CodeGeneratorLoongArch64::visitWasmReinterpretToI64(LWasmReinterpretToI64* lir)
+{
+    MOZ_ASSERT(lir->mir()->type() == MIRType::Int64);
+    MOZ_ASSERT(lir->mir()->input()->type() == MIRType::Double);
+    masm.as_dmfc1(ToRegister(lir->output()), ToFloatRegister(lir->input()));
+}
+
+void
+CodeGeneratorLoongArch64::visitExtendInt32ToInt64(LExtendInt32ToInt64* lir)
+{
+    const LAllocation* input = lir->getOperand(0);
+    Register output = ToRegister(lir->output());
+
+    if (lir->mir()->isUnsigned())
+        masm.ma_dext(output, ToRegister(input), Imm32(0), Imm32(32));
+    else
+        masm.ma_sll(output, ToRegister(input), Imm32(0));
+}
+
+void
+CodeGeneratorLoongArch64::visitWrapInt64ToInt32(LWrapInt64ToInt32* lir)
+{
+    const LAllocation* input = lir->getOperand(0);
+    Register output = ToRegister(lir->output());
+
+    if (lir->mir()->bottomHalf()) {
+        if (input->isMemory())
+            masm.load32(ToAddress(input), output);
+        else
+            masm.ma_sll(output, ToRegister(input), Imm32(0));
+    } else {
+        MOZ_CRASH("Not implemented.");
+    }
+}
+
+void
+CodeGeneratorLoongArch64::visitClzI64(LClzI64* lir)
+{
+    Register64 input = ToRegister64(lir->getInt64Operand(0));
+    Register64 output = ToOutRegister64(lir);
+    masm.clz64(input, output.reg);
+}
+
+void
+CodeGeneratorLoongArch64::visitCtzI64(LCtzI64* lir)
+{
+    Register64 input = ToRegister64(lir->getInt64Operand(0));
+    Register64 output = ToOutRegister64(lir);
+    masm.ctz64(input, output.reg);
+}
+
+void
+CodeGeneratorLoongArch64::visitNotI64(LNotI64* lir)
+{
+    Register64 input = ToRegister64(lir->getInt64Operand(0));
+    Register output = ToRegister(lir->output());
+
+    masm.cmp64Set(Assembler::Equal, input.reg, Imm32(0), output);
+}
+
 void
 CodeGeneratorLoongArch64::visitWasmTruncateToInt32(LWasmTruncateToInt32* lir)
 {
@@ -483,6 +976,49 @@ CodeGeneratorLoongArch64::visitWasmTruncateToInt64(LWasmTruncateToInt64* lir)
 
     masm.bind(ool->rejoin());
     masm.moveFromDouble(ScratchDoubleReg, output);
+}
+
+void
+CodeGeneratorLoongArch64::visitInt64ToFloatingPoint(LInt64ToFloatingPoint* lir)
+{
+    Register input = ToRegister(lir->input());
+    FloatRegister output = ToFloatRegister(lir->output());
+
+    MIRType outputType = lir->mir()->type();
+    MOZ_ASSERT(outputType == MIRType::Double || outputType == MIRType::Float32);
+
+    if (outputType == MIRType::Double) {
+        if (lir->mir()->isUnsigned())
+            masm.convertUInt64ToDouble(input, output);
+        else
+            masm.convertInt64ToDouble(input, output);
+    } else {
+        if (lir->mir()->isUnsigned())
+            masm.convertUInt64ToFloat32(input, output);
+        else
+            masm.convertInt64ToFloat32(input, output);
+    }
+}
+
+void
+CodeGeneratorLoongArch64::visitTestI64AndBranch(LTestI64AndBranch* lir)
+{
+    Register64 input = ToRegister64(lir->getInt64Operand(0));
+    MBasicBlock* ifTrue = lir->ifTrue();
+    MBasicBlock* ifFalse = lir->ifFalse();
+
+    emitBranch(input.reg, Imm32(0), Assembler::NonZero, ifTrue, ifFalse);
+}
+
+void
+CodeGeneratorLoongArch64::setReturnDoubleRegs(LiveRegisterSet* regs)
+{
+    MOZ_ASSERT(ReturnFloat32Reg.reg_ == FloatRegisters::f0);
+    MOZ_ASSERT(ReturnDoubleReg.reg_ == FloatRegisters::f0);
+    FloatRegister f1 = { FloatRegisters::f1, FloatRegisters::Single };
+    regs->add(ReturnFloat32Reg);
+    regs->add(f1);
+    regs->add(ReturnDoubleReg);
 }
 
 void
