@@ -15,7 +15,7 @@
 #elif defined(JS_CODEGEN_ARM64)
 # include "jit/arm64/LOpcodes-arm64.h"
 #elif defined(JS_CODEGEN_LOONGARCH64)
-# include "jit/mips64/LOpcodes-mips64.h"
+# include "jit/loongarch64/LOpcodes-loongarch64.h"
 #elif defined(JS_CODEGEN_MIPS32)
 # include "jit/mips32/LOpcodes-mips32.h"
 #elif defined(JS_CODEGEN_MIPS64)
