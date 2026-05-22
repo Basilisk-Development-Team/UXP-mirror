@@ -28,6 +28,10 @@
 
 SECTION_RODATA 64
 
+; Implemented in ipred16_sse.asm
+cextern smooth_weights_1d_16bpc
+cextern smooth_weights_2d_16bpc
+
 %if ARCH_X86_64
 
 ipred_hv_shuf: db  6,  7,  6,  7,  0,  1,  2,  3,  2,  3,  2,  3,  8,  9, 10, 11
