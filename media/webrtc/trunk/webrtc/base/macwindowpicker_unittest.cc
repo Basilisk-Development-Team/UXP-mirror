@@ -14,7 +14,7 @@
 #include "webrtc/base/windowpicker.h"
 
 #if !defined(WEBRTC_MAC)
-#error Only for WEBRTC_MAC && !WEBRTC_IOS
+#error Only for WEBRTC_MAC
 #endif
 
 namespace rtc {

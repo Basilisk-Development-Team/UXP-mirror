@@ -999,7 +999,7 @@ void SocketTest::GetSetOptionsInternal(const IPAddress& loopback) {
     ASSERT_NE(-1, mtu_socket->EstimateMTU(&mtu));
     ASSERT_GE(mtu, 1492);  // should be at least the 1492 "plateau" on localhost
 #elif defined(WEBRTC_MAC)
-    // except on WEBRTC_MAC && !WEBRTC_IOS, where it's not yet implemented
+    // except on WEBRTC_MAC, where it's not yet implemented
     ASSERT_EQ(-1, mtu_socket->EstimateMTU(&mtu));
 #else
     // and the behavior seems unpredictable on Linux,
