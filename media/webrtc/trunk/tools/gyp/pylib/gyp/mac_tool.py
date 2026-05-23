@@ -88,18 +88,11 @@ class MacTool(object):
 
     if os.environ['XCODE_VERSION_ACTUAL'] > '0700':
       args.extend(['--auto-activate-custom-fonts'])
-      if 'IPHONEOS_DEPLOYMENT_TARGET' in os.environ:
-        args.extend([
-            '--target-device', 'iphone', '--target-device', 'ipad',
-            '--minimum-deployment-target',
-            os.environ['IPHONEOS_DEPLOYMENT_TARGET'],
-        ])
-      else:
-        args.extend([
-            '--target-device', 'mac',
-            '--minimum-deployment-target',
-            os.environ['MACOSX_DEPLOYMENT_TARGET'],
-        ])
+      args.extend([
+          '--target-device', 'mac',
+          '--minimum-deployment-target',
+          os.environ['MACOSX_DEPLOYMENT_TARGET'],
+      ])
 
     args.extend(['--output-format', 'human-readable-text', '--compile', dest,
         source])
