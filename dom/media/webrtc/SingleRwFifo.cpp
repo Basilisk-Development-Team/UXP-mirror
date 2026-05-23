@@ -26,17 +26,17 @@ namespace webrtc {
 
 namespace subtle {
 
-#if defined(__GNUC__) || defined(__clang__)
-inline void
-MemoryBarrier()
-{
-  __sync_synchronize();
-}
-#elif defined(_MSC_VER)
+#if defined(_MSC_VER)
 inline void
 MemoryBarrier()
 {
   ::MemoryBarrier();
+}
+#elif defined(__GNUC__) || defined(__clang__)
+inline void
+MemoryBarrier()
+{
+  __sync_synchronize();
 }
 #else
 #error Add an implementation of MemoryBarrier() for this platform!
