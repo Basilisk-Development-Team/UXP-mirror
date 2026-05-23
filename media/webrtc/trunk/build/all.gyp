@@ -28,7 +28,7 @@
         'temp_gyp/googleurl.gyp:*',
       ],
       'conditions': [
-        ['1', {
+        ['1==1', {
           'dependencies': [
             '../cc/cc_tests.gyp:*',
             '../chrome/chrome.gyp:*',
@@ -184,7 +184,7 @@
         'temp_gyp/googleurl.gyp:googleurl_unittests',
       ],
       'conditions': [
-        ['1', {
+        ['1==1', {
           'dependencies': [
             '../cc/cc_tests.gyp:cc_unittests',
             '../chrome/chrome.gyp:browser_tests',
@@ -246,7 +246,7 @@
     }, # target_name: chromium_2010_builder_tests
   ],
   'conditions': [
-    ['1', {
+    ['1==1', {
       'targets': [
         {
           'target_name': 'chromium_builder_perf',

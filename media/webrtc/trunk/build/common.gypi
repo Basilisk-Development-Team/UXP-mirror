@@ -292,6 +292,9 @@
       # Enable printing support and UI.
       'enable_printing%': 1,
 
+      # Enable captive portal detection by default.
+      'enable_captive_portal_detection%': 1,
+
       # Enable Web Intents web content registration via HTML element
       # and WebUI managing such registrations.
       'enable_web_intents_tag%': 0,
@@ -475,10 +478,6 @@
           'enable_plugin_installation%': 0,
         }, {
           'enable_plugin_installation%': 1,
-        }],
-
-        ['1', {
-          'enable_protector_service%': 1,
         }],
 
         # linux_use_gold_binary: whether to use the binary checked into
@@ -1234,6 +1233,10 @@
       # the non-qualified versions are widely assumed to be *nix-only
       'win_release_extra_cflags%': '',
       'win_debug_extra_cflags%': '',
+
+      # See http://gcc.gnu.org/onlinedocs/gcc-4.4.2/gcc/Optimize-Options.html
+      'mac_release_optimization%': '3', # Use -O3 unless overridden
+      'mac_debug_optimization%': '0',   # Use -O0 unless overridden
 
       # TODO(thakis): Make this a blacklist instead, http://crbug.com/101600
       'enable_wexit_time_destructors%': '<(enable_wexit_time_destructors)',
