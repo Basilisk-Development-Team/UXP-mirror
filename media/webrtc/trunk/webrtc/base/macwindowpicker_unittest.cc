@@ -13,7 +13,7 @@
 #include "webrtc/base/macwindowpicker.h"
 #include "webrtc/base/windowpicker.h"
 
-#if !defined(WEBRTC_MAC) || defined(WEBRTC_IOS)
+#if !defined(WEBRTC_MAC)
 #error Only for WEBRTC_MAC && !WEBRTC_IOS
 #endif
 

@@ -653,7 +653,7 @@ TEST_F(NetworkTest, TestConvertIfAddrsNoAddress) {
 }
 #endif  // defined(WEBRTC_POSIX)
 
-#if defined(WEBRTC_LINUX) && !defined(WEBRTC_ANDROID)
+#if defined(WEBRTC_LINUX)
 // If you want to test non-default routes, you can do the following on a linux
 // machine:
 // 1) Load the dummy network driver:

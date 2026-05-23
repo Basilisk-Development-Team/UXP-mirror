@@ -141,13 +141,4 @@ bool VoiceEngine::Delete(VoiceEngine*& voiceEngine)
     return true;
 }
 
-#if !defined(WEBRTC_CHROMIUM_BUILD)
-int VoiceEngine::SetAndroidObjects(void* javaVM, void* context)
-{
-  (void)javaVM;
-  (void)context;
-  return -1;
-}
-#endif
-
 }  // namespace webrtc

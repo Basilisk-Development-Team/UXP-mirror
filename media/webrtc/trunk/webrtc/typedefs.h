@@ -120,9 +120,6 @@
 #define WEBRTC_ARCH_32_BITS 1
 #define WEBRTC_ARCH_BIG_ENDIAN
 #define WEBRTC_BIG_ENDIAN
-#elif defined(__pnacl__)
-#define WEBRTC_ARCH_32_BITS
-#define WEBRTC_ARCH_LITTLE_ENDIAN
 #elif defined(__loongarch64)
 #define WEBRTC_ARCH_LOONGARCH64 1
 #define WEBRTC_ARCH_64_BITS 1

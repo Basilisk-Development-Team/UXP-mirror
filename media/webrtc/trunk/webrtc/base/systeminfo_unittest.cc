@@ -67,7 +67,7 @@ TEST(SystemInfoTest, MachineModelKnown) {
   const char *machine_model = info.GetMachineModel().c_str();
   LOG(LS_INFO) << "MachineModel: " << machine_model;
   bool known = true;
-#if defined(WEBRTC_MAC) && !defined(WEBRTC_IOS)
+#if defined(WEBRTC_MAC)
   // Full list as of May 2012.  Update when new OSX based models are added.
   known = rtc::string_match(machine_model, "MacBookPro*") ||
           rtc::string_match(machine_model, "MacBookAir*") ||

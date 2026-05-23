@@ -313,16 +313,7 @@ BasicNetworkManager::BasicNetworkManager()
 BasicNetworkManager::~BasicNetworkManager() {
 }
 
-#if defined(__native_client__)
-
-bool BasicNetworkManager::CreateNetworks(bool include_ignored,
-                                         NetworkList* networks) const {
-  ASSERT(false);
-  LOG(LS_WARNING) << "BasicNetworkManager doesn't work on NaCl yet";
-  return false;
-}
-
-#elif defined(WEBRTC_POSIX)
+#if defined(WEBRTC_POSIX)
 void BasicNetworkManager::ConvertIfAddrs(struct ifaddrs* interfaces,
                                          bool include_ignored,
                                          NetworkList* networks) const {

@@ -923,7 +923,7 @@ void SocketTest::UdpReadyToSend(const IPAddress& loopback) {
   // Set the send buffer size to the same size as the test packet to have a
   // better chance to get EWOULDBLOCK.
   int send_buffer_size = test_packet_size;
-#if defined(WEBRTC_LINUX) && !defined(WEBRTC_ANDROID)
+#if defined(WEBRTC_LINUX)
   send_buffer_size /= 2;
 #endif
   client->SetOption(rtc::Socket::OPT_SNDBUF, send_buffer_size);
@@ -998,7 +998,7 @@ void SocketTest::GetSetOptionsInternal(const IPAddress& loopback) {
     // now it should succeed
     ASSERT_NE(-1, mtu_socket->EstimateMTU(&mtu));
     ASSERT_GE(mtu, 1492);  // should be at least the 1492 "plateau" on localhost
-#elif defined(WEBRTC_MAC) && !defined(WEBRTC_IOS)
+#elif defined(WEBRTC_MAC)
     // except on WEBRTC_MAC && !WEBRTC_IOS, where it's not yet implemented
     ASSERT_EQ(-1, mtu_socket->EstimateMTU(&mtu));
 #else
