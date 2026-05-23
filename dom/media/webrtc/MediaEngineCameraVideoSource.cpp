@@ -324,21 +324,6 @@ MediaEngineCameraVideoSource::SetName(nsString aName)
   bool hasFacingMode = false;
   VideoFacingModeEnum facingMode = VideoFacingModeEnum::User;
 
-  // Set facing mode based on device name.
-#if defined(ANDROID)
-  // Names are generated. Example: "Camera 0, Facing back, Orientation 90"
-  //
-  // See media/webrtc/trunk/webrtc/modules/video_capture/android/java/src/org/
-  // webrtc/videoengine/VideoCaptureDeviceInfoAndroid.java
-
-  if (aName.Find(NS_LITERAL_STRING("Facing back")) != kNotFound) {
-    hasFacingMode = true;
-    facingMode = VideoFacingModeEnum::Environment;
-  } else if (aName.Find(NS_LITERAL_STRING("Facing front")) != kNotFound) {
-    hasFacingMode = true;
-    facingMode = VideoFacingModeEnum::User;
-  }
-#endif // ANDROID
 #ifdef XP_MACOSX
   // Kludge to test user-facing cameras on OSX.
   if (aName.Find(NS_LITERAL_STRING("Face")) != -1) {
