@@ -21,13 +21,6 @@
 // A set of macros to use for platform detection.
 #if defined(__APPLE__)
 #define OS_MACOSX 1
-#if defined(TARGET_OS_IPHONE) && TARGET_OS_IPHONE
-#define OS_IOS 1
-#endif  // defined(TARGET_OS_IPHONE) && TARGET_OS_IPHONE
-#elif defined(ANDROID)
-#define OS_ANDROID 1
-#elif defined(__native_client__)
-#define OS_NACL 1
 #elif defined(__linux__)
 #define OS_LINUX 1
 // Use TOOLKIT_GTK on linux if TOOLKIT_VIEWS isn't defined.
@@ -70,12 +63,11 @@
 // For access to standard POSIXish features, use OS_POSIX instead of a
 // more specific macro.
 #if defined(OS_MACOSX) || defined(OS_LINUX) || defined(OS_BSD) ||	\
-    defined(OS_SOLARIS) || defined(OS_ANDROID) || defined(OS_NACL)
+    defined(OS_SOLARIS)
 #define OS_POSIX 1
 #endif
 
-#if defined(OS_POSIX) && !defined(OS_MACOSX) && !defined(OS_ANDROID) && \
-    !defined(OS_NACL)
+#if defined(OS_POSIX) && !defined(OS_MACOSX)
 #define USE_X11 1  // Use X for graphics.
 #endif
 
@@ -112,8 +104,6 @@
 #define ARCH_CPU_ARMEL 1
 #define ARCH_CPU_32_BITS 1
 #define ARCH_CPU_LITTLE_ENDIAN 1
-#elif defined(__pnacl__)
-#define ARCH_CPU_32_BITS 1
 #elif defined(__powerpc64__)
 #define ARCH_CPU_PPC_FAMILY 1
 #define ARCH_CPU_PPC64 1

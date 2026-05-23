@@ -168,14 +168,10 @@
       }, {
         'include_v4l2_video_capture%': 0,
       }],
-      ['OS=="ios"', {
-        'build_libjpeg%': 0,
-        'enable_protobuf%': 0,
-      }],
       ['target_arch=="arm" or target_arch=="arm64"', {
         'prefer_fixed_point%': 1,
       }],
-      ['OS!="ios" and (target_arch!="arm" or arm_version>=7) and target_arch!="mips64el" and build_with_mozilla==0', {
+      ['(target_arch!="arm" or arm_version>=7) and target_arch!="mips64el" and build_with_mozilla==0', {
         'rtc_use_openmax_dl%': 1,
       }, {
         'rtc_use_openmax_dl%': 0,
@@ -201,7 +197,7 @@
           'Debug_Base': {
             'defines': [
               # Chromium's build/common.gypi defines _DEBUG for all posix
-              # _except_ for ios & mac.  The size of data types such as
+              # _except_ for mac.  The size of data types such as
               # pthread_mutex_t varies between release and debug builds
               # and is controlled via this flag.  Since we now share code
               # between base/base.gyp and build/common.gypi (this file),
@@ -240,23 +236,15 @@
         ],
         'conditions': [
           ['os_posix==1', {
-            'conditions': [
-              # -Wextra is currently disabled in Chromium's common.gypi. Enable
-              # for targets that can handle it. For Android/arm64 right now
-              # there will be an 'enumeral and non-enumeral type in conditional
-              # expression' warning in android_tools/ndk_experimental's version
-              # of stlport.
-              # See: https://code.google.com/p/chromium/issues/detail?id=379699
-              ['target_arch!="arm64" or OS!="android"', {
-                'cflags': [
-                  '-Wextra',
-                  # We need to repeat some flags from Chromium's common.gypi
-                  # here that get overridden by -Wextra.
-                  '-Wno-unused-parameter',
-                  '-Wno-missing-field-initializers',
-                  '-Wno-strict-overflow',
-                ],
-              }],
+            # -Wextra is currently disabled in Chromium's common.gypi. Enable
+            # for targets that can handle it.
+            'cflags': [
+              '-Wextra',
+              # We need to repeat some flags from Chromium's common.gypi
+              # here that get overridden by -Wextra.
+              '-Wno-unused-parameter',
+              '-Wno-missing-field-initializers',
+              '-Wno-strict-overflow',
             ],
             'cflags_cc': [
               '-Wnon-virtual-dtor',

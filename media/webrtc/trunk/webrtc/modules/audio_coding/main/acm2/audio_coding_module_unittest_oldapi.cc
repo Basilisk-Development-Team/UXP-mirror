@@ -226,7 +226,7 @@ class AudioCodingModuleTestOldApi : public ::testing::Test {
 
 // Check if the statistics are initialized correctly. Before any call to ACM
 // all fields have to be zero.
-TEST_F(AudioCodingModuleTestOldApi, DISABLED_ON_ANDROID(InitializedToZero)) {
+TEST_F(AudioCodingModuleTestOldApi, InitializedToZero) {
   RegisterCodec();
   AudioDecodingCallStats stats;
   acm_->GetDecodingCallStatistics(&stats);
@@ -241,7 +241,7 @@ TEST_F(AudioCodingModuleTestOldApi, DISABLED_ON_ANDROID(InitializedToZero)) {
 // Apply an initial playout delay. Calls to AudioCodingModule::PlayoutData10ms()
 // should result in generating silence, check the associated field.
 TEST_F(AudioCodingModuleTestOldApi,
-       DISABLED_ON_ANDROID(SilenceGeneratorCalled)) {
+       SilenceGeneratorCalled) {
   RegisterCodec();
   AudioDecodingCallStats stats;
   const int kInitialDelay = 100;
@@ -265,7 +265,7 @@ TEST_F(AudioCodingModuleTestOldApi,
 // Insert some packets and pull audio. Check statistics are valid. Then,
 // simulate packet loss and check if PLC and PLC-to-CNG statistics are
 // correctly updated.
-TEST_F(AudioCodingModuleTestOldApi, DISABLED_ON_ANDROID(NetEqCalls)) {
+TEST_F(AudioCodingModuleTestOldApi, NetEqCalls) {
   RegisterCodec();
   AudioDecodingCallStats stats;
   const int kNumNormalCalls = 10;
@@ -992,7 +992,7 @@ TEST_F(AcmSenderBitExactnessOldApi, MAYBE_IsacWb60ms) {
       test::AcmReceiveTestOldApi::kMonoOutput);
 }
 
-TEST_F(AcmSenderBitExactnessOldApi, DISABLED_ON_ANDROID(IsacSwb30ms)) {
+TEST_F(AcmSenderBitExactnessOldApi, IsacSwb30ms) {
   ASSERT_NO_FATAL_FAILURE(SetUpTest("ISAC", 32000, 1, 104, 960, 960));
   Run(AcmReceiverBitExactnessOldApi::PlatformChecksum(
           "2b3c387d06f00b7b7aad4c9be56fb83d",
@@ -1085,7 +1085,7 @@ TEST_F(AcmSenderBitExactnessOldApi, Pcma_stereo_20ms) {
       test::AcmReceiveTestOldApi::kStereoOutput);
 }
 
-TEST_F(AcmSenderBitExactnessOldApi, DISABLED_ON_ANDROID(Ilbc_30ms)) {
+TEST_F(AcmSenderBitExactnessOldApi, Ilbc_30ms) {
   ASSERT_NO_FATAL_FAILURE(SetUpTest("ILBC", 8000, 1, 102, 240, 240));
   Run(AcmReceiverBitExactnessOldApi::PlatformChecksum(
           "7b6ec10910debd9af08011d3ed5249f7",
@@ -1099,7 +1099,7 @@ TEST_F(AcmSenderBitExactnessOldApi, DISABLED_ON_ANDROID(Ilbc_30ms)) {
       test::AcmReceiveTestOldApi::kMonoOutput);
 }
 
-TEST_F(AcmSenderBitExactnessOldApi, DISABLED_ON_ANDROID(G722_20ms)) {
+TEST_F(AcmSenderBitExactnessOldApi, G722_20ms) {
   ASSERT_NO_FATAL_FAILURE(SetUpTest("G722", 16000, 1, 9, 320, 160));
   Run(AcmReceiverBitExactnessOldApi::PlatformChecksum(
           "7d759436f2533582950d148b5161a36c",
@@ -1113,7 +1113,7 @@ TEST_F(AcmSenderBitExactnessOldApi, DISABLED_ON_ANDROID(G722_20ms)) {
       test::AcmReceiveTestOldApi::kMonoOutput);
 }
 
-TEST_F(AcmSenderBitExactnessOldApi, DISABLED_ON_ANDROID(G722_stereo_20ms)) {
+TEST_F(AcmSenderBitExactnessOldApi, G722_stereo_20ms) {
   ASSERT_NO_FATAL_FAILURE(SetUpTest("G722", 16000, 2, 119, 320, 160));
   Run(AcmReceiverBitExactnessOldApi::PlatformChecksum(
           "7190ee718ab3d80eca181e5f7140c210",
