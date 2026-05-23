@@ -156,7 +156,7 @@ void SocketTest::TestUdpIPv6() {
 
 void SocketTest::TestUdpReadyToSendIPv4() {
 #if !defined(WEBRTC_MAC)
-  // TODO(ronghuawu): Enable this test on mac/ios.
+  // TODO(ronghuawu): Enable this test on mac.
   UdpReadyToSend(kIPv4Loopback);
 #endif
 }

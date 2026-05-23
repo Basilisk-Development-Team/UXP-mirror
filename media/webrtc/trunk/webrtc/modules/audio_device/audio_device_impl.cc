@@ -322,7 +322,7 @@ int32_t AudioDeviceModuleImpl::CreatePlatformSpecificObjects()
     }
 #endif  // #if defined(WEBRTC_LINUX) || defined(WEBRTC_BSD)
 
-    // Create the *iPhone* implementation of the Audio Device
+    // Create the *Mac* implementation of the Audio Device
     //
 #if defined(WEBRTC_MAC)
     if (audioLayer == kPlatformDefaultAudio)
