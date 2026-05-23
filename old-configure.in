@@ -2723,7 +2723,7 @@ if test -z "$MOZ_AV1" -a -n "$AV1_USE_AOM"; then
   AC_MSG_ERROR([--enable-av1 is required to be able to use libAOM. Either use --enable-av1 or remove --enable-libaom from your config.])
 fi
 
-if "$CPU_ARCH" = "x86" && test -n "$MOZ_AV1" -a -z "$AV1_USE_AOM"; then
+if test "${CPU_ARCH}" = "x86" && test -n "$MOZ_AV1" -a -z "$AV1_USE_AOM"; then
   AC_MSG_ERROR([The Dav1d AV1 decoding library is not compatible with 32-bit x86 builds. Either use --disable-av1 or add --enable-libaom to your config.])
 fi
 
