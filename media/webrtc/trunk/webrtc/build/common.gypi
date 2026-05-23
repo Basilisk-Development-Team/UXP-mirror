@@ -23,21 +23,15 @@
           ['build_with_chromium==1', {
             'build_with_libjingle': 1,
             'webrtc_root%': '<(DEPTH)/third_party/webrtc',
-            'apk_tests_path%': '<(DEPTH)/third_party/webrtc/build/apk_tests_noop.gyp',
-            'modules_java_gyp_path%': '<(DEPTH)/third_party/webrtc/modules/modules_java_chromium.gyp',
           }, {
             'build_with_libjingle%': 0,
             'webrtc_root%': '<(DEPTH)/webrtc',
-            'apk_tests_path%': '<(DEPTH)/webrtc/build/apk_tests.gyp',
-            'modules_java_gyp_path%': '<(DEPTH)/webrtc/modules/modules_java.gyp',
           }],
         ],
       },
       'build_with_chromium%': '<(build_with_chromium)',
       'build_with_libjingle%': '<(build_with_libjingle)',
       'webrtc_root%': '<(webrtc_root)',
-      'apk_tests_path%': '<(apk_tests_path)',
-      'modules_java_gyp_path%': '<(modules_java_gyp_path)',
       'webrtc_vp8_dir%': '<(webrtc_root)/modules/video_coding/codecs/vp8',
       'webrtc_vp9_dir%': '<(webrtc_root)/modules/video_coding/codecs/vp9',
       'webrtc_h264_dir%': '<(webrtc_root)/modules/video_coding/codecs/h264',
@@ -52,8 +46,6 @@
     'build_with_chromium%': '<(build_with_chromium)',
     'build_with_libjingle%': '<(build_with_libjingle)',
     'webrtc_root%': '<(webrtc_root)',
-    'apk_tests_path%': '<(apk_tests_path)',
-    'modules_java_gyp_path%': '<(modules_java_gyp_path)',
     'webrtc_vp8_dir%': '<(webrtc_vp8_dir)',
     'webrtc_vp9_dir%': '<(webrtc_vp9_dir)',
     'webrtc_h264_dir%': '<(webrtc_h264_dir)',
@@ -114,11 +106,6 @@
     'libvpx_dir%': '<(DEPTH)/third_party/libvpx',
     'libyuv_dir%': '<(DEPTH)/third_party/libyuv',
     'opus_dir%': '<(opus_dir)',
-
-    # Use Java based audio layer as default for Android.
-    # Change this setting to 1 to use Open SL audio instead.
-    # TODO(henrika): add support for Open SL ES.
-    'enable_android_opensl%': 0,
 
     # Link-Time Optimizations
     # Executes code generation at link-time instead of compile-time
@@ -367,12 +354,6 @@
           'WEBRTC_POSIX',
         ],
       }],
-      ['OS=="ios"', {
-        'defines': [
-          'WEBRTC_MAC',
-          'WEBRTC_IOS',
-        ],
-      }],
       ['OS=="linux"', {
 #        'conditions': [
 #          ['have_clock_monotonic==1', {
@@ -404,35 +385,6 @@
         # Re-enable some warnings that Chromium disables.
         'msvs_disabled_warnings!': [4189,],
       }],
-      # used on GONK as well
-      ['enable_android_opensl==1 and OS=="android"', {
-        'defines': [
-          'WEBRTC_ANDROID_OPENSLES',
-        ],
-      }],
-      ['moz_webrtc_omx==1', {
-        'defines' : [
-          'MOZ_WEBRTC_OMX'
-        ],
-      }],
-      ['OS=="android"', {
-        'defines': [
-          'WEBRTC_LINUX',
-          'WEBRTC_ANDROID',
-         ],
-         'conditions': [
-           ['clang!=1', {
-             # The Android NDK doesn't provide optimized versions of these
-             # functions. Ensure they are disabled for all compilers.
-             'cflags': [
-               '-fno-builtin-cos',
-               '-fno-builtin-sin',
-               '-fno-builtin-cosf',
-               '-fno-builtin-sinf',
-             ],
-           }],
-         ],
-      }],
     ], # conditions
     'direct_dependent_settings': {
       'conditions': [
@@ -463,12 +415,6 @@
             'WEBRTC_MAC',
           ],
         }],
-        ['OS=="ios"', {
-          'defines': [
-            'WEBRTC_MAC',
-            'WEBRTC_IOS',
-          ],
-        }],
         ['OS=="win"', {
           'defines': [
             'WEBRTC_WIN',
@@ -478,19 +424,6 @@
           'defines': [
             'WEBRTC_LINUX',
           ],
-        }],
-        ['OS=="android"', {
-          'defines': [
-            'WEBRTC_LINUX',
-            'WEBRTC_ANDROID',
-           ],
-           'conditions': [
-             ['enable_android_opensl==1', {
-               'defines': [
-                 'WEBRTC_ANDROID_OPENSLES',
-               ],
-             }]
-           ],
         }],
         ['os_posix==1', {
           # For access to standard POSIXish features, use WEBRTC_POSIX instead

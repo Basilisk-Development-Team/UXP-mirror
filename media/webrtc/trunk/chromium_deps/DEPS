@@ -566,20 +566,6 @@ skip_child_includes = [
 
 hooks = [
   {
-    # This downloads binaries for Native Client's newlib toolchain.
-    # Done in lieu of building the toolchain from scratch as it can take
-    # anywhere from 30 minutes to 4 hours depending on platform to build.
-    "pattern": ".",
-    "action": [
-        "python", "src/build/download_nacl_toolchains.py",
-         "--no-arm-trusted",
-         "--optional-pnacl",
-         "--save-downloads-dir",
-             "src/native_client_sdk/src/build_tools/toolchain_archives",
-         "--keep",
-    ],
-  },
-  {
     # Pull clang on mac. If nothing changed, or on non-mac platforms, this takes
     # zero seconds to run. If something changed, it downloads a prebuilt clang,
     # which takes ~20s, but clang speeds up builds by more than 20s.

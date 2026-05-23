@@ -49,15 +49,6 @@
 #include "webrtc/base/stream.h"
 #include "webrtc/base/stringutils.h"
 
-#if defined(WEBRTC_IOS)
-// Defined in iosfilesystem.mm.  No header file to discourage use
-// elsewhere; other places should use GetApp{Data,Temp}Folder() in
-// this file.  Don't copy/paste.  I mean it.
-char* IOSDataDirectory();
-char* IOSTempDirectory();
-void IOSAppName(rtc::Pathname* path);
-#endif
-
 namespace rtc {
 
 #if !defined(WEBRTC_ANDROID) && !defined(WEBRTC_IOS)

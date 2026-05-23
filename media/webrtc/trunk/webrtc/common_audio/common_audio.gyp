@@ -278,26 +278,10 @@
             ['rtc_use_openmax_dl==1', {
               'defines': ['RTC_USE_OPENMAX_DL',],
             }],
-            ['OS=="android"', {
-              'dependencies': [
-                '<(DEPTH)/testing/android/native_test.gyp:native_test_native_code',
-              ],
-            }],
           ],
         },
       ],  # targets
       'conditions': [
-        ['OS=="android"', {
-          'targets': [
-            {
-              'target_name': 'common_audio_unittests_apk_target',
-              'type': 'none',
-              'dependencies': [
-                '<(apk_tests_path):common_audio_unittests_apk',
-              ],
-            },
-          ],
-        }],
         ['test_isolation_mode != "noop"', {
           'targets': [
             {

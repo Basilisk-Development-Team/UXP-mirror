@@ -13,11 +13,7 @@
 #include <vector>
 #if defined(WEBRTC_POSIX)
 #include <sys/types.h>
-#if !defined(WEBRTC_ANDROID)
 #include <ifaddrs.h>
-#else
-#include "webrtc/base/ifaddrs-android.h"
-#endif
 #endif
 #include "webrtc/base/gunit.h"
 #if defined(WEBRTC_WIN)
