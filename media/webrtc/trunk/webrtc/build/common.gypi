@@ -302,7 +302,7 @@
         ],
       }],
       # Mozilla: if we support Mozilla on MIPS, we'll need to mod the cflags entries here
-      ['target_arch=="mipsel" and mips_arch_variant!="r6" and android_webview_build==0', {
+      ['target_arch=="mipsel" and mips_arch_variant!="r6"', {
         'defines': [
           'MIPS32_LE',
         ],
