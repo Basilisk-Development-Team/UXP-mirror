@@ -36,8 +36,8 @@ bool MediaEngineCameraVideoSource::AppendToTrack(SourceMediaStream* aSource,
   return aSource->AppendToTrack(aID, &(segment));
 }
 
-// Sub-classes (B2G or desktop) should overload one of both of these two methods
-// to provide capabilities
+// Subclasses should overload one or both of these methods to provide
+// capabilities.
 size_t
 MediaEngineCameraVideoSource::NumCapabilities() const
 {
