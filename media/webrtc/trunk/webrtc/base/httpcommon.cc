@@ -382,7 +382,6 @@ bool HttpDateToSeconds(const std::string& date, time_t* seconds) {
     }
     gmt = non_gmt + kTimeZoneOffsets[zindex] * 60 * 60;
   }
-  // TODO: Android should support timezone, see b/2441195
 #if defined(WEBRTC_MAC)  || defined(BSD)
   tm *tm_for_timezone = localtime(&gmt);
   *seconds = gmt + tm_for_timezone->tm_gmtoff;

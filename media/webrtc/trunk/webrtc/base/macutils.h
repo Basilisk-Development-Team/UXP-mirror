@@ -21,8 +21,8 @@ namespace rtc {
 
 ///////////////////////////////////////////////////////////////////////////////
 
-// Note that some of these functions work for both iOS and Mac OS X.  The ones
-// that are specific to Mac are #ifdef'ed as such.
+// Note that some of these functions are specific to Mac and are #ifdef'ed as
+// such.
 
 bool ToUtf8(const CFStringRef str16, std::string* str8);
 bool ToUtf16(const std::string& str8, CFStringRef* str16);

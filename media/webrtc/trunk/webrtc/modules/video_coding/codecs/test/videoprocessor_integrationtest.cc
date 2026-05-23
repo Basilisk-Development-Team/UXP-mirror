@@ -802,14 +802,11 @@ TEST_F(VideoProcessorIntegrationTest, Process10PercentPacketLoss) {
                          rc_metrics);
 }
 
-// The tests below are currently disabled for Android. For ARM, the encoder
-// uses |cpu_speed| = 12, as opposed to default |cpu_speed| <= 6 for x86,
-// which leads to significantly different quality. The quality and rate control
-// settings in the tests below are defined for encoder speed setting
-// |cpu_speed| <= ~6. A number of settings would need to be significantly
-// modified for the |cpu_speed| = 12 case. For now, keep the tests below
-// disabled on Android. Some quality parameter in the above test has been
-// adjusted to also pass for |cpu_speed| <= 12.
+// For ARM, the encoder uses |cpu_speed| = 12, as opposed to default
+// |cpu_speed| <= 6 for x86, which leads to significantly different quality.
+// The quality and rate control settings in the tests below are defined for
+// encoder speed setting |cpu_speed| <= ~6. Some quality parameter in the above
+// test has been adjusted to also pass for |cpu_speed| <= 12.
 
 // VP8: Run with no packet loss, with varying bitrate (3 rate updates):
 // low to high to medium. Check that quality and encoder response to the new
