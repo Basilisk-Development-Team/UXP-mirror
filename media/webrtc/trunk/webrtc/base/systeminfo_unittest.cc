@@ -76,7 +76,7 @@ TEST(SystemInfoTest, MachineModelKnown) {
           rtc::string_match(machine_model, "Macmini*") ||
           rtc::string_match(machine_model, "iMac*") ||
           rtc::string_match(machine_model, "Xserve*");
-#elif !defined(WEBRTC_IOS)
+#else
   // All other machines return Not available.
   known = rtc::string_match(info.GetMachineModel().c_str(),
                                   "Not available");

@@ -306,18 +306,14 @@ void NetEqDecodingTest::LoadDecoders() {
   ASSERT_EQ(0, neteq_->RegisterPayloadType(kDecoderPCMu, 0));
   // Load PCMa.
   ASSERT_EQ(0, neteq_->RegisterPayloadType(kDecoderPCMa, 8));
-#ifndef WEBRTC_ANDROID
   // Load iLBC.
   ASSERT_EQ(0, neteq_->RegisterPayloadType(kDecoderILBC, 102));
-#endif  // WEBRTC_ANDROID
   // Load iSAC.
   ASSERT_EQ(0, neteq_->RegisterPayloadType(kDecoderISAC, 103));
-#ifndef WEBRTC_ANDROID
   // Load iSAC SWB.
   ASSERT_EQ(0, neteq_->RegisterPayloadType(kDecoderISACswb, 104));
   // Load iSAC FB.
   ASSERT_EQ(0, neteq_->RegisterPayloadType(kDecoderISACfb, 105));
-#endif  // WEBRTC_ANDROID
   // Load PCM16B nb.
   ASSERT_EQ(0, neteq_->RegisterPayloadType(kDecoderPCM16B, 93));
   // Load PCM16B wb.
