@@ -828,7 +828,7 @@ class XcodeSettings(object):
     LINKER_FILE = r'(\S+)'
     WORD = r'\S+'
     linker_flags = [
-      ['-exported_symbols_list', LINKER_FILE],    # Needed for NaCl.
+      ['-exported_symbols_list', LINKER_FILE],
       ['-unexported_symbols_list', LINKER_FILE],
       ['-reexported_symbols_list', LINKER_FILE],
       ['-sectcreate', WORD, WORD, LINKER_FILE],   # Needed for remoting.
