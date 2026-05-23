@@ -804,9 +804,7 @@ nsHttpHandler::InitUserAgentComponents()
     if (GetVersionEx(&info)) {
 #pragma warning(pop)
         const char *format;
-#if defined _M_IA64
-        format = WNT_BASE W64_PREFIX "; IA64";
-#elif defined _M_X64 || defined _M_AMD64
+#if defined _M_X64 || defined _M_AMD64
         format = WNT_BASE W64_PREFIX "; x64";
 #else
         BOOL isWow64 = FALSE;
