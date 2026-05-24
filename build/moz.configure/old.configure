@@ -152,6 +152,7 @@ def old_configure_options(*options):
     '--enable-jitspew',
     '--enable-js-lto',
     '--enable-leak-sanitizer',
+    '--enable-libaom',
     '--enable-libjpeg-turbo',
     '--enable-libproxy',
     '--enable-llvm-hacks',

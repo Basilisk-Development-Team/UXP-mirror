@@ -570,7 +570,13 @@ pref("media.mediasource.webm.enabled", true);
 pref("media.mediasource.webm.audio.enabled", true);
 
 #ifdef MOZ_AV1
+// Whether to enable AV1 support
+#ifdef AV1_USE_AOM
+// libAOM is not performant, so disbale by default.
+pref("media.av1.enabled", false);
+#else
 pref("media.av1.enabled", true);
+#endif
 #endif
 
 // Use new MediaFormatReader architecture for plain ogg.
