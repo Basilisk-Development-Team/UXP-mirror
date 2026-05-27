@@ -8,8 +8,8 @@
  *  be found in the AUTHORS file in the root of the source tree.
  */
 
-#ifndef WEBRTC_MODULES_AUDIO_DEVICE_ANDROID_SINGLE_RW_FIFO_H_
-#define WEBRTC_MODULES_AUDIO_DEVICE_ANDROID_SINGLE_RW_FIFO_H_
+#ifndef DOM_MEDIA_WEBRTC_SINGLE_RW_FIFO_H_
+#define DOM_MEDIA_WEBRTC_SINGLE_RW_FIFO_H_
 
 #include "webrtc/base/scoped_ptr.h"
 #include "webrtc/system_wrappers/interface/atomic32.h"
@@ -17,10 +17,9 @@
 
 namespace webrtc {
 
-// Implements a lock-free FIFO losely based on
+// Implements a lock-free FIFO loosely based on
 // http://src.chromium.org/viewvc/chrome/trunk/src/media/base/audio_fifo.cc
-// Note that this class assumes there is one producer (writer) and one
-// consumer (reader) thread.
+// This class assumes there is one producer and one consumer thread.
 class SingleRwFifo {
  public:
   explicit SingleRwFifo(int capacity);
@@ -28,8 +27,6 @@ class SingleRwFifo {
 
   void Push(int8_t* mem);
   int8_t* Pop();
-
-  void Clear();
 
   int size() { return size_.Value(); }
   int capacity() const { return capacity_; }
@@ -46,4 +43,4 @@ class SingleRwFifo {
 
 }  // namespace webrtc
 
-#endif  // WEBRTC_MODULES_AUDIO_DEVICE_ANDROID_SINGLE_RW_FIFO_H_
+#endif  // DOM_MEDIA_WEBRTC_SINGLE_RW_FIFO_H_
