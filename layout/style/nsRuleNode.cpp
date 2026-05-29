@@ -8610,7 +8610,7 @@ nsRuleNode::ComputeBorderData(void* aStartStruct,
   {
     const nsCSSPropertyID* subprops =
       nsCSSProps::SubpropertyEntryFor(eCSSProperty_border_radius);
-    const float RADIUS_MAX = (1 << 31) - 1; // Int32.MaxValue
+    const float RADIUS_MAX = 17895697; // CSS length clamp value
     NS_FOR_CSS_FULL_CORNERS(corner) {
       int cx = FullToHalfCorner(corner, false);
       int cy = FullToHalfCorner(corner, true);
