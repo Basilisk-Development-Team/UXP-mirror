@@ -2395,7 +2395,7 @@ void MacroAssemblerLOONGARCH64::wasmLoadImpl(const wasm::MemoryAccessDesc& acces
                                          Register ptrScratch,
                                          AnyRegister output, Register tmp) {
   uint32_t offset = access.offset();
-  MOZ_ASSERT(offset < asMasm().wasmMaxOffsetGuardLimit());
+  MOZ_ASSERT(offset < wasm::OffsetGuardLimit);
   MOZ_ASSERT_IF(offset, ptrScratch != InvalidReg);
 
   // Maybe add the offset.
@@ -2442,7 +2442,7 @@ void MacroAssemblerLOONGARCH64::wasmStoreImpl(const wasm::MemoryAccessDesc& acce
                                           Register memoryBase, Register ptr,
                                           Register ptrScratch, Register tmp) {
   uint32_t offset = access.offset();
-  MOZ_ASSERT(offset < asMasm().wasmMaxOffsetGuardLimit());
+  MOZ_ASSERT(offset < wasm::OffsetGuardLimit);
   MOZ_ASSERT_IF(offset, ptrScratch != InvalidReg);
 
   // Maybe add the offset.
@@ -2488,7 +2488,7 @@ void MacroAssemblerLOONGARCH64Compat::wasmLoadI64Impl(
     const wasm::MemoryAccessDesc& access, Register memoryBase, Register ptr,
     Register ptrScratch, Register64 output, Register tmp) {
   uint32_t offset = access.offset();
-  MOZ_ASSERT(offset < asMasm().wasmMaxOffsetGuardLimit());
+  MOZ_ASSERT(offset < wasm::OffsetGuardLimit);
   MOZ_ASSERT_IF(offset, ptrScratch != InvalidReg);
 
   // Maybe add the offset.
@@ -2534,7 +2534,7 @@ void MacroAssemblerLOONGARCH64Compat::wasmStoreI64Impl(
     const wasm::MemoryAccessDesc& access, Register64 value, Register memoryBase,
     Register ptr, Register ptrScratch, Register tmp) {
   uint32_t offset = access.offset();
-  MOZ_ASSERT(offset < asMasm().wasmMaxOffsetGuardLimit());
+  MOZ_ASSERT(offset < wasm::OffsetGuardLimit);
   MOZ_ASSERT_IF(offset, ptrScratch != InvalidReg);
 
   // Maybe add the offset.
@@ -2774,12 +2774,13 @@ CodeOffset MacroAssembler::nopPatchableToNearJump() {
 }
 
 void MacroAssembler::patchNopToNearJump(uint8_t* jump, uint8_t* target) {
-  MOZ_ASSERT(reinterpret_cast<Instruction*>(jump)->is<InstNOP>());
+  MOZ_ASSERT(reinterpret_cast<Instruction*>(jump)->encode() == NopInst);
   new (jump) InstJump(op_b, JOffImm26(target - jump));
 }
 
 void MacroAssembler::patchNearJumpToNop(uint8_t* jump) {
-  MOZ_ASSERT(reinterpret_cast<Instruction*>(jump)->is<InstJump>());
+  MOZ_ASSERT(reinterpret_cast<Instruction*>(jump)->extractBitField(31, 26) ==
+             (uint32_t)op_b >> 26);
   new (jump) InstNOP();
 }
 
