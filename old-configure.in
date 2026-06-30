@@ -2150,8 +2150,7 @@ MOZ_ENABLE_NPAPI_GTK2=1
 
 MOZ_ARG_DISABLE_BOOL(npapi-gtk2,
 [  --disable-npapi-gtk2     Disable GTK2 support for NPAPI plugins ],
-    MOZ_ENABLE_NPAPI_GTK2=
-    MOZ_DISABLE_NPAPI_GTK2=1,
+    MOZ_ENABLE_NPAPI_GTK2=,
     MOZ_ENABLE_NPAPI_GTK2=1)
 
 if test "$MOZ_ENABLE_NPAPI"
@@ -2214,7 +2213,7 @@ gtk*)
     ;;
 esac
 
-if test "$MOZ_WIDGET_TOOLKIT" = gtk2 -a "$MOZ_DISABLE_NPAPI_GTK2"; then
+if test "$MOZ_WIDGET_TOOLKIT" = gtk2 -a -z "$MOZ_ENABLE_NPAPI_GTK2"; then
   AC_MSG_ERROR([--disable-npapi-gtk2 cannot be used with GTK2 browser builds.])
 fi
 
