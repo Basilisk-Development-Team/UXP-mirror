@@ -4679,7 +4679,7 @@ PluginInstanceChild::Destroy()
 
     mPendingAsyncCalls.Clear();
     
-#ifdef MOZ_ENABLE_NPAPI_GTK2
+#if defined(MOZ_WIDGET_GTK) && defined (MOZ_ENABLE_NPAPI_GTK2)
     if (mWindow.type == NPWindowTypeWindow && !mXEmbed) {
       xt_client_xloop_destroy();
     }

@@ -36,7 +36,7 @@
 
 #include <map>
 
-#ifdef MOZ_ENABLE_NPAPI_GTK2
+#if defined(MOZ_WIDGET_GTK) && defined(MOZ_ENABLE_NPAPI_GTK2)
 #include "gtk2xtbin.h"
 #endif
 

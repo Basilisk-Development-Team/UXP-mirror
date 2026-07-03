@@ -2136,6 +2136,16 @@ fi
 AC_SUBST(XULRUNNER_STUB_NAME)
 
 dnl ========================================================
+
+dnl there are a lot of tests on MOZ_ENABLE_GTK below, that are more convenient
+dnl to keep that way than testing against MOZ_WIDGET_TOOLKIT
+case "$MOZ_WIDGET_TOOLKIT" in
+gtk*)
+    MOZ_ENABLE_GTK=1
+    ;;
+esac
+
+dnl ========================================================
 dnl = NPAPI support
 dnl ========================================================
 
@@ -2146,25 +2156,28 @@ MOZ_ARG_DISABLE_BOOL(npapi,
     MOZ_ENABLE_NPAPI=,
     MOZ_ENABLE_NPAPI=1)
 
-MOZ_ENABLE_NPAPI_GTK2=1
-
-MOZ_ARG_DISABLE_BOOL(npapi-gtk2,
-[  --disable-npapi-gtk2     Disable GTK2 support for NPAPI plugins ],
-    MOZ_ENABLE_NPAPI_GTK2=,
-    MOZ_ENABLE_NPAPI_GTK2=1)
-
 if test "$MOZ_ENABLE_NPAPI"
 then
     AC_DEFINE(MOZ_ENABLE_NPAPI)
 fi
 
-if test "$MOZ_ENABLE_NPAPI" -a "$MOZ_ENABLE_NPAPI_GTK2"
-then
-    AC_DEFINE(MOZ_ENABLE_NPAPI_GTK2)
-fi
-
 AC_SUBST(MOZ_ENABLE_NPAPI)
-AC_SUBST(MOZ_ENABLE_NPAPI_GTK2)
+
+if test -n "$MOZ_ENABLE_GTK" ; then
+    MOZ_ENABLE_NPAPI_GTK2=1
+
+    MOZ_ARG_DISABLE_BOOL(npapi-gtk2,
+    [  --disable-npapi-gtk2     Disable GTK2 support for NPAPI plugins ],
+        MOZ_ENABLE_NPAPI_GTK2=,
+        MOZ_ENABLE_NPAPI_GTK2=1)
+
+    if test "$MOZ_ENABLE_NPAPI" -a "$MOZ_ENABLE_NPAPI_GTK2"
+    then
+        AC_DEFINE(MOZ_ENABLE_NPAPI_GTK2)
+    fi
+
+    AC_SUBST(MOZ_ENABLE_NPAPI_GTK2)
+fi
 
 dnl ========================================================
 dnl =
@@ -2203,14 +2216,6 @@ cocoa)
     MOZ_FS_LAYOUT=bundle
     ;;
 
-esac
-
-dnl there are a lot of tests on MOZ_ENABLE_GTK below, that are more convenient
-dnl to keep that way than testing against MOZ_WIDGET_TOOLKIT
-case "$MOZ_WIDGET_TOOLKIT" in
-gtk*)
-    MOZ_ENABLE_GTK=1
-    ;;
 esac
 
 if test "$MOZ_WIDGET_TOOLKIT" = gtk2 -a -z "$MOZ_ENABLE_NPAPI_GTK2"; then
