@@ -50,11 +50,14 @@ FFmpegLibWrapper::Link()
     AV_FUNC_59 = 1 << 1,
     AV_FUNC_60 = 1 << 2,
     AV_FUNC_61 = 1 << 3,
+    AV_FUNC_62 = 1 << 4,
     AV_FUNC_AVUTIL_58 = AV_FUNC_58 | AV_FUNC_AVUTIL_MASK,
     AV_FUNC_AVUTIL_59 = AV_FUNC_59 | AV_FUNC_AVUTIL_MASK,
     AV_FUNC_AVUTIL_60 = AV_FUNC_60 | AV_FUNC_AVUTIL_MASK,
     AV_FUNC_AVUTIL_61 = AV_FUNC_61 | AV_FUNC_AVUTIL_MASK,
-    AV_FUNC_AVCODEC_ALL = AV_FUNC_58 | AV_FUNC_59 | AV_FUNC_60 | AV_FUNC_61,
+    AV_FUNC_AVUTIL_62 = AV_FUNC_62 | AV_FUNC_AVUTIL_MASK,
+    AV_FUNC_AVCODEC_ALL =
+      AV_FUNC_58 | AV_FUNC_59 | AV_FUNC_60 | AV_FUNC_61 | AV_FUNC_62,
     AV_FUNC_AVUTIL_ALL = AV_FUNC_AVCODEC_ALL | AV_FUNC_AVUTIL_MASK
   };
 
@@ -70,6 +73,9 @@ FFmpegLibWrapper::Link()
       break;
     case 61:
       version = AV_FUNC_61;
+      break;
+    case 62:
+      version = AV_FUNC_62;
       break;
     default:
       FFMPEG_LOG("Unknown avcodec version: %d", macro);
@@ -95,7 +101,8 @@ FFmpegLibWrapper::Link()
 
   AV_FUNC(av_lockmgr_register, AV_FUNC_58)
   AV_FUNC(avcodec_alloc_context3, AV_FUNC_AVCODEC_ALL)
-  AV_FUNC(avcodec_close, AV_FUNC_AVCODEC_ALL)
+  AV_FUNC(avcodec_free_context, AV_FUNC_62)
+  AV_FUNC(avcodec_close, (AV_FUNC_58 | AV_FUNC_59 | AV_FUNC_60 | AV_FUNC_61))
   AV_FUNC(avcodec_decode_audio4, AV_FUNC_58)
   AV_FUNC(avcodec_decode_video2, AV_FUNC_58)
   AV_FUNC(avcodec_find_decoder, AV_FUNC_AVCODEC_ALL)
@@ -108,8 +115,8 @@ FFmpegLibWrapper::Link()
   AV_FUNC(av_parser_parse2, AV_FUNC_AVCODEC_ALL)
   AV_FUNC(avcodec_send_packet, AV_FUNC_AVCODEC_ALL)
   AV_FUNC(avcodec_receive_frame, AV_FUNC_AVCODEC_ALL)
-  AV_FUNC(av_packet_alloc, AV_FUNC_61)
-  AV_FUNC(av_packet_free, AV_FUNC_61)
+  AV_FUNC(av_packet_alloc, (AV_FUNC_61 | AV_FUNC_62))
+  AV_FUNC(av_packet_free, (AV_FUNC_61 | AV_FUNC_62))
   AV_FUNC(av_log_set_level, AV_FUNC_AVUTIL_ALL)
   AV_FUNC(av_malloc, AV_FUNC_AVUTIL_ALL)
   AV_FUNC(av_freep, AV_FUNC_AVUTIL_ALL)

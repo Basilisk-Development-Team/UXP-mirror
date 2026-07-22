@@ -266,8 +266,11 @@ FFmpegVideoDecoder<LIBAV_VER>::DoDecode(MediaRawData* aSample,
       return MediaResult(NS_ERROR_DOM_MEDIA_DECODE_ERR,
                          RESULT_DETAIL("avcodec_receive_frame error: %d", res));
     }
-    MediaResult rv = CreateImage(mFrame->pkt_pos, GetFramePts(mFrame),
-                                 Duration(mFrame));
+    int64_t offset = 0;
+#if LIBAVCODEC_VERSION_MAJOR < 62
+    offset = mFrame->pkt_pos;
+#endif
+    MediaResult rv = CreateImage(offset, GetFramePts(mFrame), Duration(mFrame));
     if (NS_FAILED(rv)) {
       return rv;
     }
@@ -348,7 +351,11 @@ FFmpegVideoDecoder<LIBAV_VER>::CreateImage(int64_t aOffset, int64_t aPts,
                                   aPts,
                                   aDuration,
                                   b,
+#if LIBAVCODEC_VERSION_MAJOR >= 62
+                                  !!(mFrame->flags & AV_FRAME_FLAG_KEY),
+#else
                                   !!mFrame->key_frame,
+#endif
                                   -1,
                                   mInfo.ScaledImageRect(mFrame->width,
                                                         mFrame->height),
