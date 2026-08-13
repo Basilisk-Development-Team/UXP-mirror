@@ -20,7 +20,7 @@
 #include "gfxUtils.h"                   // for gfxUtils, etc
 #include "gfx2DGlue.h"
 #include "mozilla/DebugOnly.h"          // for DebugOnly
-#include "mozilla/ToString.h"
+#include "mozilla/StringUtils.h"        // for ToString
 #include "mozilla/dom/Animation.h"      // for ComputedTimingFunction
 #include "mozilla/gfx/2D.h"             // for DrawTarget
 #include "mozilla/gfx/BaseSize.h"       // for BaseSize

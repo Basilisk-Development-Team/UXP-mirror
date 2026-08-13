@@ -7,7 +7,7 @@
 #include "nsTArray.h"
 #include "gfx2DGlue.h"
 #include "gfxUtils.h"
-#include "mozilla/ToString.h"
+#include "mozilla/StringUtils.h"
 
 bool nsRegion::Contains(const nsRegion& aRgn) const
 {

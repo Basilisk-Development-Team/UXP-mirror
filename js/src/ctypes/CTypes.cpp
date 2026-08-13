@@ -9,6 +9,7 @@
 #include "mozilla/MemoryReporting.h"
 #include "mozilla/SizePrintfMacros.h"
 #include "mozilla/Sprintf.h"
+#include "mozilla/StringUtils.h"
 #include "mozilla/Vector.h"
 
 #include <limits>
@@ -3144,17 +3145,6 @@ IntegerToString(IntegerType i, int radix, mozilla::Vector<CharType, N, AP>& resu
   MOZ_ASSERT(cp >= buffer);
   if (!result.append(cp, end))
     return;
-}
-
-template<class CharType>
-static size_t
-strnlen(const CharType* begin, size_t max)
-{
-  for (const CharType* s = begin; s != begin + max; ++s)
-    if (*s == 0)
-      return s - begin;
-
-  return max;
 }
 
 // Convert C binary value 'data' of CType 'typeObj' to a JS primitive, where

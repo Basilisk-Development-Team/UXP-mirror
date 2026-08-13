@@ -27,7 +27,7 @@
 #include "imgIContainer.h"
 #include "mozilla/gfx/2D.h"
 #include "Units.h"
-#include "mozilla/ToString.h"
+#include "mozilla/StringUtils.h"
 #include "mozilla/ReflowOutput.h"
 #include "ImageContainer.h"
 #include "gfx2DGlue.h"

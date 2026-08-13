@@ -12,6 +12,7 @@
 #include "jsprf.h"
 
 #include "mozilla/Sprintf.h"
+#include "mozilla/StringUtils.h"
 #include "mozilla/Vector.h"
 
 #include <stdarg.h>
