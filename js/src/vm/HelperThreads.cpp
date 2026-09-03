@@ -943,7 +943,7 @@ GlobalHelperThreadState::maxParseThreads() const
     if (cpuCount < 4)
         return 2;
     //return cpuCount - 2;
-    // XXX Issue #3050 XXX
+    // XXX Issue #3172 XXX
     // For the time being, return a hard-coded value of 2 on all targets and CPUs.
     // It's unclear where the contention happens, but it has shown to be detrimental
     // especially on *nixes and older hardware. 
