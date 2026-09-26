@@ -49,6 +49,7 @@ struct FFmpegLibWrapper
   unsigned (*avcodec_version)();
   int (*av_lockmgr_register)(int (*cb)(void** mutex, int op));
   AVCodecContext* (*avcodec_alloc_context3)(const AVCodec* codec);
+  void (*avcodec_free_context)(AVCodecContext** avctx);
   int (*avcodec_close)(AVCodecContext* avctx);
   int (*avcodec_decode_audio4)(AVCodecContext* avctx, AVFrame* frame, int* got_frame_ptr, const AVPacket* avpkt);
   int (*avcodec_decode_video2)(AVCodecContext* avctx, AVFrame* picture, int* got_picture_ptr, const AVPacket* avpkt);
