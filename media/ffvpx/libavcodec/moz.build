@@ -82,8 +82,10 @@ SOURCES += [
 
 # When building debug, there's a linker symbol inclusion issue, requiring us to
 # include dummy function definitions to have symbols exposed.
+# Enable this in both debug builds and with MSVC CL (since it may have `-Od`
+# outside of debug builds)
 # See discussion in UXP issue #2725
-if CONFIG['MOZ_DEBUG']:
+if CONFIG['MOZ_DEBUG'] or CONFIG['_MSC_VER']:
     SOURCES += [
         'dummy_funcs.c',
     ]
