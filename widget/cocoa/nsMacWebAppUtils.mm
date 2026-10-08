@@ -70,7 +70,7 @@ NS_IMETHODIMP nsMacWebAppUtils::TrashApp(const nsAString& path, nsITrashAppCallb
   NSString* tempString = [NSString stringWithCharacters:reinterpret_cast<const unichar*>(((nsString)path).get())
                                    length:path.Length()];
 
-#if defined(MAC_OS_X_VERSION_10_6) && MAC_OS_X_VERSION_MAX_ALLOWED >= MAC_OS_X_VERSION_10_6
+#if defined(MAC_OS_X_VERSION_10_6) && MAC_OS_X_VERSION_MAX_ALLOWED >= MAC_OS_X_VERSION_10_6 && defined(__clang__)
   [[NSWorkspace sharedWorkspace] recycleURLs: [NSArray arrayWithObject:[NSURL fileURLWithPath:tempString]]
     completionHandler: ^(NSDictionary *newURLs, NSError *error) {
       nsresult rv = (error == nil) ? NS_OK : NS_ERROR_FAILURE;
