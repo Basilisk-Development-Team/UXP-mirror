@@ -1929,9 +1929,19 @@ nsChildView::RectContainingTitlebarControls()
   }
 
   // Add the rects of the titlebar controls.
+  #if defined(__clang__)
   for (id view in [window titlebarControls]) {
     rect = NSUnionRect(rect, [mView convertRect:[view bounds] fromView:view]);
   }
+  #else
+  NSArray *controls = [window titlebarControls];
+  NSUInteger count = [controls count];
+
+  for (NSUInteger i = 0; i < count; i++) {
+    id view = [controls objectAtIndex:i];
+    rect = NSUnionRect(rect, [mView convertRect:[view bounds] fromView:view]);
+  }
+#endif
   return CocoaPointsToDevPixels(rect);
 #else
   // Actually, stuff all that. We've gotta get on with these.

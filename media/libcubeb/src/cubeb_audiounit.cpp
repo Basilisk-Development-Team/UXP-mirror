@@ -642,6 +642,15 @@ audiounit_reinit_stream(cubeb_stream * stm)
   return CUBEB_OK;
 }
 
+static void audiounit_reinit_stream_routine(void* context) {
+  cubeb_stream* stm = static_cast<cubeb_stream*>(context);
+  if (audiounit_reinit_stream(stm) != CUBEB_OK) {
+    stm->state_callback(stm, stm->user_ptr, CUBEB_STATE_STOPPED);
+    LOG("(%p) Could not reopen the stream after switching.", stm);
+  }
+  stm->switching_device = false;
+}
+
 static OSStatus
 audiounit_property_listener_callback(AudioObjectID /* id */, UInt32 address_count,
                                      const AudioObjectPropertyAddress * addresses,
@@ -703,15 +712,15 @@ audiounit_property_listener_callback(AudioObjectID /* id */, UInt32 address_coun
   // Use a new thread, through the queue, to avoid deadlock when calling
   // Get/SetProperties method from inside notify callback
 #if defined(MAC_OS_X_VERSION_10_6) && (MAC_OS_X_VERSION_MAX_ALLOWED >= MAC_OS_X_VERSION_10_6)
-  dispatch_async(stm->context->serial_queue, ^() {
-#endif
-    if (audiounit_reinit_stream(stm) != CUBEB_OK) {
-      stm->state_callback(stm, stm->user_ptr, CUBEB_STATE_STOPPED);
-      LOG("(%p) Could not reopen the stream after switching.", stm);
-    }
-    stm->switching_device = false;
-#if defined(MAC_OS_X_VERSION_10_6) && (MAC_OS_X_VERSION_MAX_ALLOWED >= MAC_OS_X_VERSION_10_6)
-  });
+  #if defined(__clang__)
+    dispatch_async(stm->context->serial_queue, ^() {
+      audiounit_reinit_stream_routine(stm);
+    });
+  #else
+    dispatch_async_f(stm->context->serial_queue, stm, audiounit_reinit_stream_routine);
+  #endif
+#else
+  audiounit_reinit_stream_routine(stm);
 #endif
 
   return noErr;
@@ -1418,10 +1427,16 @@ audiounit_set_buffer_size(cubeb_stream * stm, uint32_t new_size_frames, set_buff
       PRINT_ERROR_CODE("AudioUnitSetProperty/output/kAudioDevicePropertyBufferFrameSize", r);
     }
 
+#if defined(MAC_OS_X_VERSION_10_5) && MAC_OS_X_VERSION_MAX_ALLOWED >= MAC_OS_X_VERSION_10_5
     r = AudioUnitRemovePropertyListenerWithUserData(au,
                                                     kAudioDevicePropertyBufferFrameSize,
                                                     buffer_size_changed_callback,
                                                     stm);
+#else
+    r = AudioUnitRemovePropertyListener(au,
+                                        kAudioDevicePropertyBufferFrameSize,
+                                        buffer_size_changed_callback);
+#endif
     if (r != noErr) {
       if (set_side == INPUT) {
         PRINT_ERROR_CODE("AudioUnitAddPropertyListener/input/kAudioDevicePropertyBufferFrameSize", r);
@@ -1444,10 +1459,17 @@ audiounit_set_buffer_size(cubeb_stream * stm, uint32_t new_size_frames, set_buff
     LOG("(%p) audiounit_set_buffer_size : wait count = %d", stm, count);
   }
 
+#if defined(MAC_OS_X_VERSION_10_5) && MAC_OS_X_VERSION_MAX_ALLOWED >= MAC_OS_X_VERSION_10_5
   r = AudioUnitRemovePropertyListenerWithUserData(au,
                                                   kAudioDevicePropertyBufferFrameSize,
                                                   buffer_size_changed_callback,
                                                   stm);
+#else
+    r = AudioUnitRemovePropertyListener(au,
+                                        kAudioDevicePropertyBufferFrameSize,
+                                        buffer_size_changed_callback);
+#endif
+
   if (r != noErr) {
     if (set_side == INPUT) {
       PRINT_ERROR_CODE("AudioUnitAddPropertyListener/input/kAudioDevicePropertyBufferFrameSize", r);
@@ -1914,6 +1936,12 @@ audiounit_close_stream(cubeb_stream *stm)
   cubeb_resampler_destroy(stm->resampler);
 }
 
+static void audiounit_close_stream_routine(void* context) {
+  cubeb_stream* stm = static_cast<cubeb_stream*>(context);
+  auto_lock lock(stm->mutex);
+  audiounit_close_stream(stm);
+}
+
 static void
 audiounit_stream_destroy(cubeb_stream * stm)
 {
@@ -1935,14 +1963,15 @@ audiounit_stream_destroy(cubeb_stream * stm)
   // Execute close in serial queue to avoid collision
   // with reinit when un/plug devices
 #if defined(MAC_OS_X_VERSION_10_6) && (MAC_OS_X_VERSION_MAX_ALLOWED >= MAC_OS_X_VERSION_10_6)
-  dispatch_sync(stm->context->serial_queue, ^()
-#endif
-  {
-    auto_lock lock(stm->mutex);
-    audiounit_close_stream(stm);
-  }
-#if defined(MAC_OS_X_VERSION_10_6) && (MAC_OS_X_VERSION_MAX_ALLOWED >= MAC_OS_X_VERSION_10_6)
-  );
+  #if defined(__clang__)
+    dispatch_sync(stm->context->serial_queue, ^() {
+      audiounit_close_stream_routine(stm);
+    });
+  #else
+    dispatch_sync_f(stm->context->serial_queue, stm, audiounit_close_stream_routine);
+  #endif
+#else
+  audiounit_close_stream_routine(stm);
 #endif
 
   assert(stm->context->active_streams >= 1);
