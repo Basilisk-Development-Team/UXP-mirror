@@ -216,20 +216,25 @@ WeakRefObject::trace(JSTracer* trc, JSObject* obj)
             if (!target)
                 return;
 
-            if (!data->enabled) {
-                // Pref disabled, don't do anything.
-            } else if (IsInsideNursery(target)) {
-                // Weak edges must be tenured; trace strongly while referent is in the nursery.
+            if (!data->enabled || IsInsideNursery(target)) {
+                // Weak edges must be tenured; trace strongly while referent is in
+                // the nursery or if WeakRefs are disabled by pref.
                 TraceManuallyBarrieredEdge(trc, data->objectTarget.unsafeGet(),
-                                           "WeakRef nursery referent");
+                                           "WeakRef strong referent");
             } else {
                 TraceWeakEdge(trc, &data->objectTarget, "WeakRef referent");
             }
         } else {
             MOZ_ASSERT(data->isSymbol());
             JS::Symbol* target = data->symbolTarget.unbarrieredGet();
-            if (data->enabled && target)
-                TraceWeakEdge(trc, &data->symbolTarget, "WeakRef symbol referent");
+            if (target) {
+                if (data->enabled) {
+                    TraceWeakEdge(trc, &data->symbolTarget, "WeakRef symbol referent");
+                } else {
+                    TraceManuallyBarrieredEdge(trc, data->symbolTarget.unsafeGet(),
+                                               "WeakRef strong symbol referent");
+                }
+            }
         }
     }
 }

@@ -119,9 +119,9 @@ struct WeakCell {
             if (!target)
                 return;
 
-            if (!enabled) {
-              // Do nothing
-            } else if (IsInsideNursery(target)) {
+            if (!enabled || IsInsideNursery(target)) {
+                // Weak edges must be tenured.
+                // Trace strongly if inside nursery or WeakRef disabled.
                 TraceManuallyBarrieredEdge(trc, object.unsafeGet(), name);
             } else {
                 if (trc->isMarkingTracer() && !target->asTenured().zone()->isCollecting())
@@ -130,10 +130,15 @@ struct WeakCell {
             }
         } else if (kind == WeakCellKind::Symbol) {
             JS::Symbol* target = symbol.unbarrieredGet();
-            if (enabled && target) {
-                if (trc->isMarkingTracer() && !target->asTenured().zone()->isCollecting())
-                    return;
-                TraceWeakEdge(trc, &symbol, name);
+            if (target) {
+                if (!enabled) {
+                    // Trace strongly if WeakRef disabled.
+                    TraceManuallyBarrieredEdge(trc, symbol.unsafeGet(), name);
+                } else {
+                    if (trc->isMarkingTracer() && !target->asTenured().zone()->isCollecting())
+                        return;
+                    TraceWeakEdge(trc, &symbol, name);
+                }
             }
         }
     }
