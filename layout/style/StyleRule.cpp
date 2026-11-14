@@ -1295,6 +1295,8 @@ StyleRule::StyleRule(const StyleRule& aCopy)
   : BindingStyleRule(aCopy)
   , mSelector(aCopy.mSelector ? aCopy.mSelector->Clone() : nullptr)
   , mDeclaration(new Declaration(*aCopy.mDeclaration))
+  , mContainerCondition(aCopy.mContainerCondition)
+  , mContainerName(aCopy.mContainerName)
 {
   mDeclaration->SetOwningRule(this);
   // rest is constructed lazily on existing data
@@ -1386,6 +1388,13 @@ StyleRule::SetDeclaration(Declaration* aDecl)
   mDeclaration->SetOwningRule(nullptr);
   mDeclaration = aDecl;
   mDeclaration->SetOwningRule(this);
+}
+
+void
+StyleRule::SetContainerCondition(nsMediaList* aCondition, const nsString& aName)
+{
+  mContainerCondition = aCondition;
+  mContainerName = aName;
 }
 
 #ifdef DEBUG
