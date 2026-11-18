@@ -16,7 +16,7 @@ UXP application's installer with minimal confusion for the user.
 
 The ReleaseD/ directory contains 7zSD.sfx.exe, which is an unmodified binary
 from that build process, ready to be customized for any target application
-with a resource hacker (ResHacker, PE explorer, etc.).
+with a resource hacker or [Resource Cracker](https://www.pelock.com/products/resource-cracker) (ResHacker, PE explorer, etc.).
 Including a compiled binary in the source tree is certainly not preferred, but
 is necessary in this case because the code does not build cleanly under more
 recent compilers. Using an older toolchain also allows us to keep this
@@ -63,7 +63,7 @@ https://web.archive.org/web/20080209175723/http://www.microsoft.com:80/msdownloa
 5) Open the workspace file at src\CPP\7zip\Bundles\SFXSetup\SFXSetup.dsw and
    build it using the "SFXSetup - Win32 ReleaseD" configuration. The output
    executable should be at the path ReleaseD\7zSD.sfx relative to SFXSetup.dsw.
-6) Use Resource Hacker (available from http://angusj.com/resourcehacker/) to
+6) Use Resource Hacker (available from http://angusj.com/resourcehacker/ or [Resource Cracker](https://www.pelock.com/products/resource-cracker)) to
    (if desired) replace the existing icon on 7zSD.sfx and to add the manifest
    as a new resource. Also edit the version info resource to replace CompanyName
    and LegalCopyright with an appropriate vendor name and FileDescription and
