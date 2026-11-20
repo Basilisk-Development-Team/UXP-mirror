@@ -63,7 +63,16 @@ RAM_SIZE = 'dbs'
 IGNORE_SYMBOLS = 'uaci-'
 
 SIMD_NAMESPACES = [
-    'N_SCALAR', 'N_WASM', 'N_NEON', 'N_PPC8', 'N_SSE4', 'N_AVX2', 'N_AVX3']
+    'N_SCALAR', 'N_EMU128',
+    'N_RVV',
+    'N_WASM', 'N_WASM_EMU256',
+    'N_NEON', 'N_NEON_BF16', 'N_NEON_WITHOUT_AES',
+    'N_SVE', 'N_SVE2', 'N_SVE_256', 'N_SVE2_128',
+    'N_PPC8', 'N_PPC9', 'N_PPC10',
+    'N_Z14', 'N_Z15',
+    'N_SSE2', 'N_SSSE3', 'N_SSE4',
+    'N_AVX2', 'N_AVX3', 'N_AVX3_DL', 'N_AVX3_ZEN4', 'N_AVX3_SPR'
+]
 
 
 def LoadSymbols(filename):
@@ -232,7 +241,7 @@ def PrintStats(stats):
   for objstat in stats:
     bin_size = 0
     ram_size = 0
-    for kind, size in list(objstat.size_map.items()):
+    for kind, size in objstat.size_map.items():
       if kind in BIN_SIZE:
         bin_size += size
       if kind in RAM_SIZE:
@@ -263,7 +272,7 @@ def PrintStackStats(tgt_stack_sizes, top_entries=20):
   if not tgt_stack_sizes:
     return
   print(' Stack   Symbol name')
-  for i, (name, size) in zip(itertools.count(), list(tgt_stack_sizes.items())):
+  for i, (name, size) in zip(itertools.count(), tgt_stack_sizes.items()):
     if top_entries > 0 and i >= top_entries:
       break
     print('%8d %s' % (size, name))
@@ -304,7 +313,7 @@ def SizeStats(args):
   # Cache of symbols of a target.
   syms = {}
   # Load the symbols from the all targets and its deps.
-  all_deps = set(tgts.keys()).union(*[set(tgt.deps) for tgt in list(tgts.values())])
+  all_deps = set(tgts.keys()).union(*[set(tgt.deps) for tgt in tgts.values()])
   for entry in all_deps:
     fn = os.path.join(args.build_dir,
                       tgts[entry].filename if entry in tgts else entry)
@@ -396,7 +405,7 @@ def SizeStats(args):
   # Check the maximum stack size.
   exit_code = 0
   if args.max_stack:
-    for name, size in list(tgt_stack_sizes.items()):
+    for name, size in tgt_stack_sizes.items():
       if size > args.max_stack:
         print('Error: %s exceeds stack limit: %d vs %d' % (
                   name, size, args.max_stack),

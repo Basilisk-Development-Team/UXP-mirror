@@ -1364,26 +1364,25 @@ intrinsic_MoveTypedArrayElements(JSContext* cx, unsigned argc, Value* vp)
     // strength-reduce multiplication by 1/2/4/8 into the equivalent shift.
     const size_t ElementShift = TypedArrayShift(tarray->type());
 
-    MOZ_ASSERT((UINT32_MAX >> ElementShift) > to);
+    if (to >= (UINT32_MAX >> ElementShift) ||
+        from >= (UINT32_MAX >> ElementShift) ||
+        count > (UINT32_MAX >> ElementShift)) {
+      JS_ReportErrorNumberASCII(cx, GetErrorMessage, nullptr, JSMSG_TYPED_ARRAY_OUT_OF_BOUNDS);
+      return false;
+    }
+    
     uint32_t byteDest = to << ElementShift;
-
-    MOZ_ASSERT((UINT32_MAX >> ElementShift) > from);
     uint32_t byteSrc = from << ElementShift;
-
-    MOZ_ASSERT((UINT32_MAX >> ElementShift) >= count);
     uint32_t byteSize = count << ElementShift;
+    uint32_t viewByteLength = tarray->byteLength();
 
-    {
-        uint32_t viewByteLength = tarray->byteLength();
-        if (byteSize > viewByteLength ||
-            byteDest >= viewByteLength ||
-            byteSrc >= viewByteLength ||
-            byteDest > viewByteLength - byteSize ||
-            byteSrc > viewByteLength - byteSize) {
-            JS_ReportErrorNumberASCII(
-              cx, GetErrorMessage, nullptr, JSMSG_TYPED_ARRAY_OUT_OF_BOUNDS);
-          return false;
-        }
+    if (byteSize > viewByteLength ||
+        byteDest >= viewByteLength ||
+        byteSrc >= viewByteLength ||
+        byteDest > viewByteLength - byteSize ||
+        byteSrc > viewByteLength - byteSize) {
+      JS_ReportErrorNumberASCII(cx, GetErrorMessage, nullptr, JSMSG_TYPED_ARRAY_OUT_OF_BOUNDS);
+      return false;
     }
 
     SharedMem<uint8_t*> data = tarray->viewDataEither().cast<uint8_t*>();

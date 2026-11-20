@@ -102,7 +102,9 @@ void DesktopDeviceInfoMac::InitializeApplicationList() {
 
 #if defined(MAC_OS_X_VERSION_10_6) && (MAC_OS_X_VERSION_MAX_ALLOWED >= MAC_OS_X_VERSION_10_6)
   NSArray *running = [[NSWorkspace sharedWorkspace] runningApplications];
-  for (NSRunningApplication *ra in running) {
+  for (NSUInteger i = 0; i < [running count]; i++) {
+    NSRunningApplication *ra = [running objectAtIndex:i];
+
     if (ra.activationPolicy != NSApplicationActivationPolicyRegular)
       continue;
 

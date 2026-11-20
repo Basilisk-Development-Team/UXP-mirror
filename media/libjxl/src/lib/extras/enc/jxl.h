@@ -9,17 +9,17 @@
 #include <jxl/encode.h>
 #include <jxl/memory_manager.h>
 #include <jxl/parallel_runner.h>
+#include <jxl/stats.h>
 #include <jxl/thread_parallel_runner.h>
-#include <jxl/types.h>
 
 #include <cstddef>
 #include <cstdint>
 #include <vector>
 
-#include "lib/extras/packed_image.h"
-
 namespace jxl {
 namespace extras {
+
+class PackedPixelFile;
 
 struct JXLOption {
   JXLOption(JxlEncoderFrameSettingId id, int64_t val, size_t frame_index)
@@ -65,6 +65,13 @@ struct JXLCompressParams {
   size_t override_bitdepth = 0;
   int32_t codestream_level = -1;
   int32_t premultiply = -1;
+
+  // Alpha channel stripping:
+  // -1 = encoder chooses (default: strip if empty for lossy, keep for lossless)
+  //  0 = always keep alpha
+  //  1 = always strip
+  //  2 = strip if empty (opaque)
+  int32_t strip_alpha = -1;
 
   // If runner_opaque is set, the encoder uses this parallel runner.
   JxlParallelRunner runner = JxlThreadParallelRunner;

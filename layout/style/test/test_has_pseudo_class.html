@@ -160,6 +160,268 @@ addLoadEvent(function() {
   document.getElementById("empty-child").appendChild(document.createTextNode("text"));
   is(color("empty-anchor"), blue, "text insertion invalidates :empty inside :has()");
 
+  // Child chains must search all branches at exactly the required depth.
+  let depthAnchor = document.createElement("div");
+  depthAnchor.innerHTML = '<div></div><div class="level"><span></span>' +
+    '<span class="leaf"><i class="too-deep"></i></span></div>';
+  document.body.appendChild(depthAnchor);
+  ok(depthAnchor.matches(":has(> .level > .leaf)"),
+     "child-chain search reaches later children and grandchildren");
+  ok(!depthAnchor.matches(":has(> .level > .too-deep)"),
+     "child-chain search does not accept deeper descendants");
+  ok(depthAnchor.matches(":has(> .level > .leaf > .too-deep)"),
+     "longer child chains reach the requested depth");
+  ok(depthAnchor.matches(":has(> .missing > .leaf, > .level > .leaf)"),
+     "a failed bounded search still tries later selector-list branches");
+  ok(depthAnchor.matches(":has(> .level .too-deep)"),
+     "mixed child/descendant chains retain the general search");
+  depthAnchor.remove();
+
+  // Repeated descendant styling shares the same anchor and :has() argument.
+  // Neither positive nor negative results may survive a subsequent flush.
+  let cacheStyle = document.createElement("style");
+  cacheStyle.textContent =
+    ".cache-anchor > .item { color: blue; }" +
+    ".cache-anchor:has(.needle) > .item { color: red; }" +
+    ".cache-anchor:has(.needle) + .cache-sibling { color: red; }" +
+    ".cache-sibling { color: blue; }";
+  document.head.appendChild(cacheStyle);
+  let cacheAnchor = document.createElement("div");
+  cacheAnchor.className = "cache-anchor";
+  for (let i = 0; i < 64; ++i) {
+    let item = document.createElement("span");
+    item.className = "item";
+    item.textContent = "text";
+    cacheAnchor.appendChild(item);
+  }
+  let cacheSibling = document.createElement("div");
+  cacheSibling.className = "cache-sibling";
+  document.body.appendChild(cacheAnchor);
+  document.body.appendChild(cacheSibling);
+  let otherCacheAnchor = document.createElement("div");
+  otherCacheAnchor.className = "cache-anchor";
+  otherCacheAnchor.innerHTML = '<span class="item">other anchor</span>';
+  document.body.appendChild(otherCacheAnchor);
+  function checkCachedColors(expected, message) {
+    for (let item of cacheAnchor.children) {
+      is(getComputedStyle(item).color, expected, message);
+    }
+    is(getComputedStyle(otherCacheAnchor.firstElementChild).color, blue,
+       "cached results are specific to an anchor: " + message);
+    is(getComputedStyle(cacheSibling).color, expected,
+       "outer sibling dependency: " + message);
+  }
+  checkCachedColors(blue, "initial negative result");
+  cacheAnchor.lastElementChild.classList.add("needle");
+  checkCachedColors(red, "negative cache is discarded after class mutation");
+  cacheAnchor.lastElementChild.classList.remove("needle");
+  checkCachedColors(blue, "positive cache is discarded after class mutation");
+
+  document.body.offsetHeight;
+  let utils = SpecialPowers.getDOMWindowUtils(window);
+  let beforeTextChange = utils.elementsRestyled;
+  cacheAnchor.firstElementChild.firstChild.data = "changed text";
+  document.body.offsetHeight;
+  ok(utils.elementsRestyled - beforeTextChange < 32,
+     "text changes do not restyle the whole plain-compound :has() anchor");
+
+  let extraText = document.createTextNode("appended");
+  beforeTextChange = utils.elementsRestyled;
+  cacheAnchor.firstElementChild.appendChild(extraText);
+  document.body.offsetHeight;
+  ok(utils.elementsRestyled - beforeTextChange < 32,
+     "text append does not restyle the whole plain-compound :has() anchor");
+  beforeTextChange = utils.elementsRestyled;
+  extraText.remove();
+  document.body.offsetHeight;
+  ok(utils.elementsRestyled - beforeTextChange < 32,
+     "text removal does not restyle the whole plain-compound :has() anchor");
+  beforeTextChange = utils.elementsRestyled;
+  cacheAnchor.firstElementChild.insertBefore(extraText,
+    cacheAnchor.firstElementChild.firstChild);
+  document.body.offsetHeight;
+  ok(utils.elementsRestyled - beforeTextChange < 32,
+     "text insertion does not restyle the whole plain-compound :has() anchor");
+
+  // Text-sensitive arguments must continue to invalidate after caching.
+  document.getElementById("empty-child").firstChild.data = "";
+  is(color("empty-anchor"), red, "empty text restores :has(> :empty)");
+  document.getElementById("empty-child").firstChild.data = "again";
+  is(color("empty-anchor"), blue, "text changes invalidate cached :empty");
+  document.getElementById("empty-child").firstChild.remove();
+  is(color("empty-anchor"), red, "text removal invalidates cached :empty");
+  cacheAnchor.remove();
+  otherCacheAnchor.remove();
+  cacheSibling.remove();
+  cacheStyle.remove();
+
+  // GitHub inserts hover controls into diff rows. A class-based :has()
+  // must not restyle a large anchor for unrelated inserted/removed subtrees.
+  let contentStyle = document.createElement("style");
+  contentStyle.textContent = ".content-perf { color: blue; }" +
+    ".content-perf:has(.content-watched[aria-disabled=true])," +
+    ".content-perf:has(> .content-direct) { color: red; }";
+  document.head.appendChild(contentStyle);
+  let contentAnchor = document.createElement("div");
+  contentAnchor.className = "content-perf";
+  contentAnchor.innerHTML = '<div></div>' + '<span>text</span>'.repeat(64);
+  document.body.appendChild(contentAnchor);
+  let contentHost = contentAnchor.firstElementChild;
+  document.body.offsetHeight;
+  let unrelated = document.createElement("button");
+  unrelated.className = "hover-control";
+  for (let insert of [true, false]) {
+    let before = utils.elementsRestyled;
+    if (insert) {
+      contentHost.appendChild(unrelated);
+    } else {
+      unrelated.remove();
+    }
+    document.body.offsetHeight;
+    ok(utils.elementsRestyled - before < 32,
+       "unrelated content " + (insert ? "insertion" : "removal") +
+       " does not restyle the :has() anchor subtree");
+  }
+  let beforeInsert = utils.elementsRestyled;
+  contentAnchor.insertBefore(unrelated, contentAnchor.firstChild);
+  document.body.offsetHeight;
+  ok(utils.elementsRestyled - beforeInsert < 32,
+     "unrelated insertion before an existing child avoids subtree restyling");
+  unrelated.remove();
+  function contentColor() { return getComputedStyle(contentAnchor).color; }
+  is(contentColor(), blue, "initially no matching content");
+  let wrapper = document.createElement("div");
+  wrapper.innerHTML = '<span class="content-watched" aria-disabled="true"></span>';
+  contentHost.insertBefore(wrapper, contentHost.firstChild);
+  is(contentColor(), red, "matching descendant in inserted subtree invalidates");
+  wrapper.remove();
+  is(contentColor(), blue, "matching descendant in removed subtree invalidates");
+  // ContentAppended may describe multiple new siblings, not just the first.
+  let fragment = document.createDocumentFragment();
+  fragment.appendChild(document.createElement("div"));
+  fragment.appendChild(wrapper);
+  contentHost.appendChild(fragment);
+  is(contentColor(), red, "later sibling in appended fragment invalidates");
+  wrapper.remove();
+  is(contentColor(), blue, "removing fragment's matching subtree invalidates");
+  let direct = document.createElement("div");
+  direct.className = "content-direct";
+  contentAnchor.appendChild(direct);
+  is(contentColor(), red, "matching direct child insertion invalidates");
+  direct.remove();
+  is(contentColor(), blue, "matching direct child removal invalidates");
+  // A merged branch without a required class must disable this filter.
+  contentStyle.textContent += ".content-perf:has([data-content-match]) { color: red; }";
+  is(contentColor(), blue, "attribute-only alternative starts unmatched");
+  let attrChild = document.createElement("div");
+  attrChild.setAttribute("data-content-match", "");
+  contentHost.appendChild(attrChild);
+  is(contentColor(), red, "classless alternative in merged dependencies invalidates");
+  attrChild.remove();
+  is(contentColor(), blue, "classless alternative removal invalidates");
+  // Nonmatching insertions can change an existing candidate's structural state.
+  contentStyle.textContent = ".content-perf { color: blue; }" +
+    ".content-perf:has(.content-structural:last-child) { color: red; }";
+  // Use fresh anchors: dependencies from removed rules are retained.
+  contentAnchor.remove();
+  contentAnchor = document.createElement("div");
+  contentAnchor.className = "content-perf";
+  contentHost = contentAnchor.appendChild(document.createElement("div"));
+  document.body.appendChild(contentAnchor);
+  let structural = document.createElement("span");
+  structural.className = "content-structural";
+  contentHost.appendChild(structural);
+  is(contentColor(), red, "structural candidate initially matches");
+  contentHost.appendChild(unrelated);
+  is(contentColor(), blue, "unrelated sibling insertion invalidates :last-child");
+  unrelated.remove();
+  is(contentColor(), red, "unrelated sibling removal invalidates :last-child");
+  // Inserting a nonmatching sibling can break an adjacent-sibling relation.
+  contentStyle.textContent = ".content-perf { color: blue; }" +
+    ".content-perf:has(+ .content-adjacent) { color: red; }";
+  contentAnchor.remove();
+  contentAnchor = document.createElement("div");
+  contentAnchor.className = "content-perf";
+  document.body.appendChild(contentAnchor);
+  let adjacent = document.createElement("div");
+  adjacent.className = "content-adjacent";
+  contentAnchor.after(adjacent);
+  is(contentColor(), red, "adjacent sibling initially matches");
+  contentAnchor.after(unrelated);
+  is(contentColor(), blue, "unrelated sibling insertion invalidates adjacency");
+  unrelated.remove();
+  is(contentColor(), red, "unrelated sibling removal restores adjacency");
+  adjacent.remove();
+  contentAnchor.remove();
+  contentStyle.remove();
+
+  // State-only arguments must not turn unrelated attribute changes into a
+  // restyle of the entire anchor subtree (e.g. html:has(:fullscreen)).
+  let stateStyle = document.createElement("style");
+  stateStyle.textContent =
+    ".state-perf { color: blue; }" +
+    ".state-perf:has(:fullscreen), .state-perf:has(:hover)," +
+    ".state-perf:has(:focus), .state-perf:has(:checked)," +
+    ".state-perf:has(:disabled) { color: red; }";
+  document.head.appendChild(stateStyle);
+  let stateAnchor = document.createElement("div");
+  stateAnchor.className = "state-perf";
+  stateAnchor.innerHTML = '<input type="checkbox">' + '<span>text</span>'.repeat(64);
+  document.body.appendChild(stateAnchor);
+  let control = stateAnchor.firstElementChild;
+  let leaf = stateAnchor.lastElementChild;
+  document.body.offsetHeight;
+  for (let attr of ["data-unrelated", "class", "style"]) {
+    let before = utils.elementsRestyled;
+    leaf.setAttribute(attr, attr == "style" ? "opacity: 0.9" : "unrelated");
+    document.body.offsetHeight;
+    let restyled = utils.elementsRestyled - before;
+    ok(restyled < 32,
+       "state-only :has() does not restyle its subtree for " + attr +
+       " (restyled " + restyled + " elements)");
+  }
+  function stateColor() { return getComputedStyle(stateAnchor).color; }
+  is(stateColor(), blue, "initially no matching control state");
+  control.checked = true;
+  is(stateColor(), red, "checked state still invalidates :has()");
+  control.checked = false;
+  is(stateColor(), blue, "removing checked state still invalidates :has()");
+  control.setAttribute("disabled", "");
+  is(stateColor(), red, "attribute-driven disabled state invalidates :has()");
+  control.removeAttribute("disabled");
+  is(stateColor(), blue, "removing disabled attribute invalidates :has()");
+
+  let domUtils = SpecialPowers.Cc["@mozilla.org/inspector/dom-utils;1"]
+                             .getService(SpecialPowers.Ci.inIDOMUtils);
+  for (let pseudo of [":fullscreen", ":hover", ":focus"]) {
+    domUtils.addPseudoClassLock(control, pseudo);
+    is(stateColor(), red, pseudo + " state change invalidates :has()");
+    domUtils.removePseudoClassLock(control, pseudo);
+    is(stateColor(), blue, pseudo + " state removal invalidates :has()");
+  }
+
+  // Explicit attributes in a state compound must still be tracked.
+  stateStyle.textContent = ".state-perf { color: blue; }" +
+    ".state-perf:has([data-watched]:checked) { color: red; }";
+  control.checked = true;
+  is(stateColor(), blue, "state alone does not match the compound");
+  control.setAttribute("data-watched", "");
+  is(stateColor(), red, "explicit attribute dependency is retained");
+  control.removeAttribute("data-watched");
+  is(stateColor(), blue, "explicit attribute removal is observed");
+  // Exercise the document-wide negated selector used by Danbooru too.
+  stateStyle.textContent = "html:not(:has(:fullscreen)) { color: black; }";
+  document.body.offsetHeight;
+  let beforeRootChange = utils.elementsRestyled;
+  leaf.setAttribute("data-unrelated", "changed");
+  document.body.offsetHeight;
+  let rootRestyled = utils.elementsRestyled - beforeRootChange;
+  ok(rootRestyled < 32,
+     "html:not(:has(:fullscreen)) ignores unrelated attributes (restyled " +
+     rootRestyled + " elements)");
+  stateAnchor.remove();
+  stateStyle.remove();
+
   SimpleTest.finish();
 });
 </script>

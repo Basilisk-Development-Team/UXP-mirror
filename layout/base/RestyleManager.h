@@ -321,7 +321,10 @@ public:
                                       EventStates aStateMask = EventStates(),
                                       nsIAtom* aAttribute = nullptr,
                                       const nsAttrValue* aNewClasses = nullptr,
-                                      bool aCompareClasses = false);
+                                      bool aCompareClasses = false,
+                                      bool aIsTextChange = false,
+                                      nsIContent* aChangedContent = nullptr,
+                                      bool aFollowingSiblings = false);
 
   // Process any pending restyles. This should be called after
   // CreateNeededFrames.

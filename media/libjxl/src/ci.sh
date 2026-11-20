@@ -20,7 +20,8 @@ TEXT_BOLD_PURPLE="\033[1;35m"
 TEXT_RESET="\033[0m"
 
 ### Environment parameters:
-TEST_STACK_LIMIT="${TEST_STACK_LIMIT:-256}"
+# TODO(eustas): tighten; only several items need more than 48KiB
+TEST_STACK_LIMIT="${TEST_STACK_LIMIT:-128}"
 BENCHMARK_NUM_THREADS="${BENCHMARK_NUM_THREADS:-0}"
 BUILD_CONFIG=${BUILD_CONFIG:-}
 CMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE:-RelWithDebInfo}
@@ -35,6 +36,7 @@ TARGETS="${TARGETS:-all doc}"
 TEST_SELECTOR="${TEST_SELECTOR:-}"
 BUILD_TARGET="${BUILD_TARGET:-}"
 ENABLE_WASM_SIMD="${ENABLE_WASM_SIMD:-0}"
+CORPUS_DIR="${CORPUS_DIR:-}"
 if [[ -n "${BUILD_TARGET}" ]]; then
   BUILD_DIR="${BUILD_DIR:-${MYDIR}/build-${BUILD_TARGET%%-*}}"
 else
@@ -254,11 +256,16 @@ merge_request_commits() {
     MR_ANCESTOR_SHA=$(git -C "${MYDIR}" rev-parse -q FETCH_HEAD)
   else
     # We are in a local branch, not a pull request workflow.
-    MR_ANCESTOR_SHA=$(git -C "${MYDIR}" rev-parse -q HEAD@{upstream} || true)
+    # using "--verify" to avoid fatal git error when there is no upstream branch for the local branch
+    MR_ANCESTOR_SHA=$(git -C "${MYDIR}" rev-parse -q --verify HEAD@{upstream} 2>/dev/null || true)
   fi
 
   if [[ -z "${MR_ANCESTOR_SHA}" ]]; then
-    echo "Warning, not tracking any branch, using the last commit in HEAD.">&2
+     echo "Warning: current branch has no upstream tracking branch configured" \
+      "(git rev-parse HEAD@{upstream} failed). Falling back to comparing" \
+      "against the parent of HEAD (HEAD^), so only the last commit will be" \
+      "checked. Run 'git branch --set-upstream-to=<remote>/<branch>' to" \
+      "compare against a real base branch instead.">&2
     # This prints the return value with just HEAD.
     MR_ANCESTOR_SHA=$(git -C "${MYDIR}" rev-parse -q "${MR_HEAD_SHA}^")
   else
@@ -302,7 +309,7 @@ export_env() {
 cmake_configure() {
   export_env
 
-  if [[ "${STACK_SIZE:-0}" == 1 ]]; then
+  if [[ "${EMIT_STACK_SIZES:-0}" == 1 ]]; then
     # Dump the stack size of each function in the .stack_sizes section for
     # analysis.
     CMAKE_C_FLAGS+=" -fstack-size-section"
@@ -437,7 +444,9 @@ cmake_build_and_test() {
   fi
   # gtest_discover_tests() runs the test binaries to discover the list of tests
   # at build time, which fails under qemu.
-  ASAN_OPTIONS=detect_leaks=0 cmake --build "${BUILD_DIR}" -- $TARGETS
+  export ASAN_OPTIONS=detect_leaks=0
+  cmake --build "${BUILD_DIR}" -- $TARGETS
+  ctest -N -Q --test-dir "${BUILD_DIR}"
   # Pack test binaries if requested.
   if [[ "${PACK_TEST:-}" == "1" ]]; then
     (cd "${BUILD_DIR}"
@@ -527,6 +536,7 @@ cmd_coverage_report() {
   local gcovr_args=(
     -r "${real_build_dir}"
     --gcov-executable "${LLVM_COV} gcov"
+    --gcov-ignore-parse-errors suspicious_hits.warn_once_per_file
     # Only print coverage information for the libjxl directories. The rest
     # is not part of the code under test.
     --filter '.*jxl/.*'
@@ -715,7 +725,8 @@ cmd_msan_install() {
       ["17"]="17.0.6"
       ["18"]="18.1.8"
       ["19"]="19.1.7"
-      ["20"]="20.1.2"
+      ["20"]="20.1.8"
+      ["21"]="21.1.5"
     ) 
     local llvm_tag="${CLANG_VERSION}.0.0"
     if [[ -n "${llvm_tag_by_version["${CLANG_VERSION}"]}" ]]; then
@@ -847,11 +858,17 @@ cmd_fast_benchmark() {
     curl --show-error -o "${small_corpus_tar}" "${small_corpus_url}"
   fi
 
-  local tmpdir=$(mktemp -d)
-  CLEANUP_FILES+=("${tmpdir}")
-  tar -xf "${small_corpus_tar}" -C "${tmpdir}"
+  local corpus_dir="${CORPUS_DIR}"
+  if [[ -z "${CORPUS_DIR}" ]]; then
+    corpus_dir=$(mktemp -d)
+    CLEANUP_FILES+=("${corpus_dir}")
+  else
+    mkdir -p "${corpus_dir}"
+  fi
 
-  run_benchmark "${tmpdir}" 1048576
+  tar -xf "${small_corpus_tar}" -C "${corpus_dir}"
+
+  run_benchmark "${corpus_dir}" 1048576
 }
 
 cmd_benchmark() {
@@ -860,9 +877,15 @@ cmd_benchmark() {
   curl --show-error -o "${nikon_corpus_tar}" -z "${nikon_corpus_tar}" \
     "https://storage.googleapis.com/artifacts.jpegxl.appspot.com/corpora/nikon-subset.tar"
 
-  local tmpdir=$(mktemp -d)
-  CLEANUP_FILES+=("${tmpdir}")
-  tar -xvf "${nikon_corpus_tar}" -C "${tmpdir}"
+  local corpus_dir="${CORPUS_DIR}"
+  if [[ -z "${CORPUS_DIR}" ]]; then
+    corpus_dir=$(mktemp -d)
+    CLEANUP_FILES+=("${corpus_dir}")
+  else
+    mkdir -p "${corpus_dir}"
+  fi
+
+  tar -xvf "${nikon_corpus_tar}" -C "${corpus_dir}"
 
   local sem_id="jpegxl_benchmark-$$"
   local nprocs=$(nproc --all || echo 1)
@@ -884,13 +907,13 @@ cmd_benchmark() {
     png_filename=$(echo "${png_filename}" | tr '/' '_')
     sem --bg --id "${sem_id}" -j"${nprocs}" -- \
       "${TOOLS_DIR}/decode_and_encode" \
-        "${tmpdir}/${filename}" "${mode}" "${tmpdir}/${png_filename}"
+        "${corpus_dir}/${filename}" "${mode}" "${corpus_dir}/${png_filename}"
     images+=( "${png_filename}" )
-  done < <(cd "${tmpdir}"; ${FIND_BIN} . -name '*.ppm' -type f)
+  done < <(cd "${corpus_dir}"; ${FIND_BIN} . -name '*.ppm' -type f)
   sem --id "${sem_id}" --wait
 
   # We need about 10 GiB per thread on these images.
-  run_benchmark "${tmpdir}" 10485760
+  run_benchmark "${corpus_dir}" 10485760
 }
 
 get_mem_available() {
@@ -1200,7 +1223,7 @@ cmd_fuzz() {
 cmd_lint() {
   merge_request_commits
   { set +x; } 2>/dev/null
-  local versions=(${1:-16 15 14 13 12 11 10 9 8 7 6.0})
+  local versions=(${1:-18 17 16 15 14 13 12 11 10 9 8 7 6.0})
   local clang_format_bins=("${versions[@]/#/clang-format-}" clang-format)
   local tmpdir=$(mktemp -d)
   CLEANUP_FILES+=("${tmpdir}")
@@ -1239,6 +1262,13 @@ cmd_lint() {
     typos -c "${MYDIR}/tools/scripts/typos.toml" ${sources}
   else
     echo -e "${TEXT_BOLD_PURPLE}SKIPPED:${TEXT_RESET} typos not installed; try: cargo install typos-cli"
+  fi
+
+  # It is ok, if zizmor is not installed.
+  if which zizmor >/dev/null; then
+    zizmor "${MYDIR}/.github/workflows/"
+  else
+    echo -e "${TEXT_BOLD_PURPLE}SKIPPED:${TEXT_RESET} zizmor (not installed)"
   fi
 
   local installed=()
@@ -1537,7 +1567,7 @@ You can pass some optional environment variables as well:
  - STORE_IMAGES=0: Makes the benchmark discard the computed images.
  - TEST_STACK_LIMIT: Stack size limit (ulimit -s) during tests, in KiB.
  - TEST_SELECTOR: pass additional arguments to ctest, e.g. "-R .Resample.".
- - STACK_SIZE=1: Generate binaries with the .stack_sizes sections.
+ - EMIT_STACK_SIZES=1: Generate binaries with the .stack_sizes sections.
 
 These optional environment variables are forwarded to the cmake call as
 parameters:

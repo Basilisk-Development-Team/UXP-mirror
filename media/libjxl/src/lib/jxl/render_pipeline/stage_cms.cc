@@ -5,18 +5,23 @@
 
 #include "lib/jxl/render_pipeline/stage_cms.h"
 
+#include <cstddef>
+#include <cstring>
 #include <memory>
+#include <utility>
+#include <vector>
 
+#include "lib/jxl/base/common.h"
+#include "lib/jxl/base/compiler_specific.h"
 #include "lib/jxl/base/status.h"
 #include "lib/jxl/color_encoding_internal.h"
 #include "lib/jxl/dec_xyb.h"
+#include "lib/jxl/render_pipeline/render_pipeline_stage.h"
 
 #undef HWY_TARGET_INCLUDE
 #define HWY_TARGET_INCLUDE "lib/jxl/render_pipeline/stage_cms.cc"
 #include <hwy/foreach_target.h>
 #include <hwy/highway.h>
-
-#include "lib/jxl/dec_xyb-inl.h"
 
 HWY_BEFORE_NAMESPACE();
 namespace jxl {
@@ -24,33 +29,37 @@ namespace HWY_NAMESPACE {
 
 class CmsStage : public RenderPipelineStage {
  public:
-  explicit CmsStage(OutputEncodingInfo output_encoding_info)
+  CmsStage(OutputEncodingInfo output_encoding_info, ColorEncoding c_src,
+           int black_c)
       : RenderPipelineStage(RenderPipelineStage::Settings()),
-        output_encoding_info_(std::move(output_encoding_info)) {
-    c_src_ = output_encoding_info_.linear_color_encoding;
-  }
-
-  bool IsNeeded() const {
-    const size_t channels_src = (c_src_.IsCMYK() ? 4 : c_src_.Channels());
-    const size_t channels_dst = output_encoding_info_.color_encoding.Channels();
-    const bool not_mixing_color_and_grey =
-        (channels_src == channels_dst ||
-         (channels_src == 4 && channels_dst == 3));
-    return (output_encoding_info_.cms_set) &&
-           !c_src_.SameColorEncoding(output_encoding_info_.color_encoding) &&
-           not_mixing_color_and_grey;
-  }
+        output_encoding_info_(std::move(output_encoding_info)),
+        c_src_(std::move(c_src)),
+        black_c_(black_c) {}
 
   Status ProcessRow(const RowInfo& input_rows, const RowInfo& output_rows,
-                    size_t xextra, size_t xsize, size_t xpos, size_t ypos,
-                    size_t thread_id) const final {
+                    size_t xextra_left, size_t xextra_right, size_t xsize,
+                    size_t xpos, size_t ypos, size_t thread_id) const final {
+    JXL_ENSURE(xextra_left == 0 && xextra_right == 0);
     JXL_ENSURE(xsize <= xsize_);
     bool gray_src = (c_src_.Channels() == 1);
     bool gray_dst = (output_encoding_info_.color_encoding.Channels() == 1);
     float* mutable_buf_src = color_space_transform->BufSrc(thread_id);
     float* JXL_RESTRICT buf_dst = color_space_transform->BufDst(thread_id);
     //  interleave
-    if (gray_src) {
+    if (c_src_.IsCMYK()) {
+      float* JXL_RESTRICT row0 = GetInputRow(input_rows, 0, 0);
+      float* JXL_RESTRICT row1 = GetInputRow(input_rows, 1, 0);
+      float* JXL_RESTRICT row2 = GetInputRow(input_rows, 2, 0);
+      float* JXL_RESTRICT row3 = GetInputRow(input_rows, black_c_, 0);
+
+      // TODO(eustas): use StoreInterleaved4
+      for (size_t x = 0; x < xsize; x++) {
+        mutable_buf_src[4 * x + 0] = row0[x];
+        mutable_buf_src[4 * x + 1] = row1[x];
+        mutable_buf_src[4 * x + 2] = row2[x];
+        mutable_buf_src[4 * x + 3] = row3[x];
+      }
+    } else if (gray_src) {
       float* JXL_RESTRICT row0 = GetInputRow(input_rows, 0, 0);
       memcpy(mutable_buf_src, row0, xsize * sizeof(float));
     } else {
@@ -58,6 +67,7 @@ class CmsStage : public RenderPipelineStage {
       float* JXL_RESTRICT row1 = GetInputRow(input_rows, 1, 0);
       float* JXL_RESTRICT row2 = GetInputRow(input_rows, 2, 0);
 
+      // TODO(eustas): use StoreInterleaved3
       for (size_t x = 0; x < xsize; x++) {
         mutable_buf_src[3 * x + 0] = row0[x];
         mutable_buf_src[3 * x + 1] = row1[x];
@@ -79,6 +89,7 @@ class CmsStage : public RenderPipelineStage {
       float* JXL_RESTRICT row0 = GetInputRow(input_rows, 0, 0);
       float* JXL_RESTRICT row1 = GetInputRow(input_rows, 1, 0);
       float* JXL_RESTRICT row2 = GetInputRow(input_rows, 2, 0);
+      // TODO(eustas): is there LoadInterleaved?
       for (size_t x = 0; x < xsize; x++) {
         row0[x] = buf_dst[3 * x + 0];
         row1[x] = buf_dst[3 * x + 1];
@@ -88,17 +99,20 @@ class CmsStage : public RenderPipelineStage {
     return true;
   }
   RenderPipelineChannelMode GetChannelMode(size_t c) const final {
-    return c < 3 ? RenderPipelineChannelMode::kInPlace
-                 : RenderPipelineChannelMode::kIgnored;
+    bool used = (c < 3);
+    used |= c_src_.IsCMYK() && (static_cast<int>(c) == black_c_);
+    return used ? RenderPipelineChannelMode::kInPlace
+                : RenderPipelineChannelMode::kIgnored;
   }
 
   const char* GetName() const override { return "Cms"; }
 
  private:
   OutputEncodingInfo output_encoding_info_;
-  size_t xsize_;
-  std::unique_ptr<jxl::ColorSpaceTransform> color_space_transform;
   ColorEncoding c_src_;
+  const int black_c_;
+  size_t xsize_ = 0;
+  std::unique_ptr<jxl::ColorSpaceTransform> color_space_transform;
 
   Status SetInputSizes(
       const std::vector<std::pair<size_t, size_t>>& input_sizes) override {
@@ -121,11 +135,30 @@ class CmsStage : public RenderPipelineStage {
   }
 };
 
+namespace {
+bool IsCmsStageNeeded(const OutputEncodingInfo& output_encoding_info,
+                      const ColorEncoding& c_src, int black_c) {
+  if (c_src.IsCMYK() && (black_c < 0)) return false;
+  const size_t channels_src = c_src.IsCMYK() ? 4 : c_src.Channels();
+  const size_t channels_dst = output_encoding_info.color_encoding.Channels();
+  const bool mixing_color_and_grey = ((channels_src != channels_dst) &&
+                                      (channels_src != 4 || channels_dst != 3));
+  if (mixing_color_and_grey) return false;
+  return (output_encoding_info.cms_set) &&
+         !c_src.SameColorEncoding(output_encoding_info.color_encoding);
+}
+}  // namespace
+
 std::unique_ptr<RenderPipelineStage> GetCmsStage(
-    const OutputEncodingInfo& output_encoding_info) {
-  auto stage = jxl::make_unique<CmsStage>(output_encoding_info);
-  if (!stage->IsNeeded()) return nullptr;
-  return stage;
+    const OutputEncodingInfo& output_encoding_info, int black_c, bool linear) {
+  const ColorEncoding* c_src;
+  if (linear) {
+    c_src = &output_encoding_info.linear_color_encoding;
+  } else {
+    c_src = &output_encoding_info.orig_color_encoding;
+  }
+  if (!IsCmsStageNeeded(output_encoding_info, *c_src, black_c)) return nullptr;
+  return jxl::make_unique<CmsStage>(output_encoding_info, *c_src, black_c);
 }
 
 // NOLINTNEXTLINE(google-readability-namespace-comments)
@@ -139,8 +172,9 @@ namespace jxl {
 HWY_EXPORT(GetCmsStage);
 
 std::unique_ptr<RenderPipelineStage> GetCmsStage(
-    const OutputEncodingInfo& output_encoding_info) {
-  return HWY_DYNAMIC_DISPATCH(GetCmsStage)(output_encoding_info);
+    const OutputEncodingInfo& output_encoding_info, int black_c, bool linear) {
+  return HWY_DYNAMIC_DISPATCH(GetCmsStage)(output_encoding_info, black_c,
+                                           linear);
 }
 
 }  // namespace jxl

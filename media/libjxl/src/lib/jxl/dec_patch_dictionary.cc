@@ -6,9 +6,9 @@
 #include "lib/jxl/dec_patch_dictionary.h"
 
 #include <jxl/memory_manager.h>
-#include <sys/types.h>
 
 #include <algorithm>
+#include <cstddef>
 #include <cstdint>
 #include <cstdlib>
 #include <utility>
@@ -19,8 +19,10 @@
 #include "lib/jxl/blending.h"
 #include "lib/jxl/common.h"  // kMaxNumReferenceFrames
 #include "lib/jxl/dec_ans.h"
+#include "lib/jxl/dec_bit_reader.h"
 #include "lib/jxl/image.h"
 #include "lib/jxl/image_bundle.h"
+#include "lib/jxl/image_metadata.h"
 #include "lib/jxl/pack_signed.h"
 #include "lib/jxl/patch_dictionary_internal.h"
 
@@ -30,7 +32,11 @@ Status PatchDictionary::Decode(JxlMemoryManager* memory_manager, BitReader* br,
                                size_t xsize, size_t ysize,
                                size_t num_extra_channels,
                                bool* uses_extra_channels) {
+  // The dictionary is reused across frames: blendings_ is indexed by position
+  // index, so stale entries from a previous frame must not remain.
   positions_.clear();
+  ref_positions_.clear();
+  blendings_.clear();
   blendings_stride_ = num_extra_channels + 1;
   std::vector<uint8_t> context_map;
   ANSCode code;
@@ -39,7 +45,7 @@ Status PatchDictionary::Decode(JxlMemoryManager* memory_manager, BitReader* br,
   JXL_ASSIGN_OR_RETURN(ANSSymbolReader decoder,
                        ANSSymbolReader::Create(&code, br));
 
-  auto read_num = [&](size_t context) {
+  auto read_num = [&](size_t context) -> size_t {
     size_t r = decoder.ReadHybridUint(context, br, context_map);
     return r;
   };
@@ -74,10 +80,14 @@ Status PatchDictionary::Decode(JxlMemoryManager* memory_manager, BitReader* br,
     ref_pos.y0 = read_num(kPatchReferencePositionContext);
     ref_pos.xsize = read_num(kPatchSizeContext) + 1;
     ref_pos.ysize = read_num(kPatchSizeContext) + 1;
-    if (ref_pos.x0 + ref_pos.xsize > ib.xsize()) {
+    if ((ref_pos.xsize == 0) || (ref_pos.ysize == 0)) {  // overflow
       return JXL_FAILURE("Invalid position specified in reference frame");
     }
-    if (ref_pos.y0 + ref_pos.ysize > ib.ysize()) {
+    if (ref_pos.xsize > ib.xsize() || ref_pos.ysize > ib.ysize()) {
+      return JXL_FAILURE("Invalid position specified in reference frame");
+    }
+    if ((ref_pos.x0 > ib.xsize() - ref_pos.xsize) ||
+        (ref_pos.y0 > ib.ysize() - ref_pos.ysize)) {
       return JXL_FAILURE("Invalid position specified in reference frame");
     }
     size_t id_count = read_num(kPatchCountContext);
@@ -106,14 +116,14 @@ Status PatchDictionary::Decode(JxlMemoryManager* memory_manager, BitReader* br,
         pos.x = read_num(kPatchPositionContext);
         pos.y = read_num(kPatchPositionContext);
       } else {
-        ssize_t deltax = UnpackSigned(read_num(kPatchOffsetContext));
+        ptrdiff_t deltax = UnpackSigned(read_num(kPatchOffsetContext));
         if (deltax < 0 && static_cast<size_t>(-deltax) > positions_.back().x) {
           return JXL_FAILURE("Invalid patch: negative x coordinate (%" PRIuS
                              " base x %" PRIdS " delta x)",
                              positions_.back().x, deltax);
         }
         pos.x = positions_.back().x + deltax;
-        ssize_t deltay = UnpackSigned(read_num(kPatchOffsetContext));
+        ptrdiff_t deltay = UnpackSigned(read_num(kPatchOffsetContext));
         if (deltay < 0 && static_cast<size_t>(-deltay) > positions_.back().y) {
           return JXL_FAILURE("Invalid patch: negative y coordinate (%" PRIuS
                              " base y %" PRIdS " delta y)",
@@ -121,15 +131,11 @@ Status PatchDictionary::Decode(JxlMemoryManager* memory_manager, BitReader* br,
         }
         pos.y = positions_.back().y + deltay;
       }
-      if (pos.x + ref_pos.xsize > xsize) {
-        return JXL_FAILURE("Invalid patch x: at %" PRIuS " + %" PRIuS
-                           " > %" PRIuS,
-                           pos.x, ref_pos.xsize, xsize);
+      if ((ref_pos.xsize > xsize) || (ref_pos.ysize > ysize)) {
+        return JXL_FAILURE("Invalid patch position");
       }
-      if (pos.y + ref_pos.ysize > ysize) {
-        return JXL_FAILURE("Invalid patch y: at %" PRIuS " + %" PRIuS
-                           " > %" PRIuS,
-                           pos.y, ref_pos.ysize, ysize);
+      if ((pos.x > xsize - ref_pos.xsize) || (pos.y > ysize - ref_pos.ysize)) {
+        return JXL_FAILURE("Invalid patch position");
       }
       for (size_t j = 0; j < blendings_stride_; j++) {
         uint32_t blend_mode = read_num(kPatchBlendModeContext);
@@ -253,8 +259,8 @@ void PatchDictionary::ComputePatchTree() {
     // Fill in sorted_patches_y0_ and sorted_patches_y1_ for the current node.
     node.num = right_start - left_end;
     node.start = sorted_patches_y0_.size();
-    for (ssize_t i = static_cast<ssize_t>(right_start) - 1;
-         i >= static_cast<ssize_t>(left_end); --i) {
+    for (ptrdiff_t i = static_cast<ptrdiff_t>(right_start) - 1;
+         i >= static_cast<ptrdiff_t>(left_end); --i) {
       sorted_patches_y1_.emplace_back(intervals[i].y1, intervals[i].idx);
     }
     sort_by_y0(left_end, right_start);
@@ -285,8 +291,8 @@ std::vector<size_t> PatchDictionary::GetPatchesForRow(size_t y) const {
   std::vector<size_t> result;
   if (y < num_patches_.size() && num_patches_[y] > 0) {
     result.reserve(num_patches_[y]);
-    for (ssize_t tree_idx = 0; tree_idx != -1;) {
-      JXL_DASSERT(tree_idx < static_cast<ssize_t>(patch_tree_.size()));
+    for (ptrdiff_t tree_idx = 0; tree_idx != -1;) {
+      JXL_DASSERT(tree_idx < static_cast<ptrdiff_t>(patch_tree_.size()));
       const auto& node = patch_tree_[tree_idx];
       if (y <= node.y_center) {
         for (size_t i = 0; i < node.num; ++i) {

@@ -497,6 +497,13 @@ nsBlockFrame::GetNaturalBaselineBOffset(mozilla::WritingMode aWM,
                                         BaselineSharingGroup aBaselineGroup,
                                         nscoord*             aBaseline) const
 {
+  // A layout containment box has no baseline.  For vertical-align it is
+  // treated as having none, so the bottom margin edge is used; both green
+  // boxes then align identically and cover the red square.
+  if (MOZ_UNLIKELY(StyleDisplay()->IsContainLayoutEffective())) {
+    return false;
+  }
+
   if (aBaselineGroup == BaselineSharingGroup::eFirst) {
     return nsLayoutUtils::GetFirstLineBaseline(aWM, this, aBaseline);
   }
@@ -1625,7 +1632,11 @@ nsBlockFrame::ComputeFinalSize(const ReflowInput& aReflowInput,
     aMetrics.mCarriedOutBEndMargin.Zero();
   }
   else if (NS_FRAME_IS_COMPLETE(aState.mReflowStatus)) {
-    nscoord contentBSize = blockEndEdgeOfChildren - borderPadding.BStart(wm);
+    // Size containment: our content must not contribute to the block size, so
+    // only border, padding and min/max-bsize apply.
+    nscoord contentBSize = StyleDisplay()->IsContainSizeEffective()
+                             ? 0
+                             : blockEndEdgeOfChildren - borderPadding.BStart(wm);
     nscoord autoBSize = aReflowInput.ApplyMinMaxBSize(contentBSize);
     if (autoBSize != contentBSize) {
       // Our min- or max-bsize value made our bsize change.  Don't carry out
@@ -1713,35 +1724,41 @@ nsBlockFrame::ComputeFinalSize(const ReflowInput& aReflowInput,
 static void
 ConsiderBlockEndEdgeOfChildren(const WritingMode aWritingMode,
                                nscoord aBEndEdgeOfChildren,
+                               const nscoord aBEndPadding,
                                nsOverflowAreas& aOverflowAreas)
 {
   // Factor in the block-end edge of the children.  Child frames will be added
   // to the overflow area as we iterate through the lines, but their margins
   // won't, so we need to account for block-end margins here.
+  // Also factor in our own block-end padding: the padding-box end edge is part
+  // of the scrollable overflow area of a scroll container, so that the padding
+  // can be scrolled into view. This matches Blink and WebKit (block axis only).
+  // See Mozilla bugs 748518 and 1527949.
   // REVIEW: For now, we do this for both visual and scrollable area,
   // although when we make scrollable overflow area not be a subset of
   // visual, we can change this.
   // XXX Currently, overflow areas are stored as physical rects, so we have
   // to handle writing modes explicitly here. If we change overflow rects
   // to be stored logically, this can be simplified again.
+  const nscoord bEndEdge = aBEndEdgeOfChildren + aBEndPadding;
   if (aWritingMode.IsVertical()) {
     if (aWritingMode.IsVerticalLR()) {
       NS_FOR_FRAME_OVERFLOW_TYPES(otype) {
         nsRect& o = aOverflowAreas.Overflow(otype);
-        o.width = std::max(o.XMost(), aBEndEdgeOfChildren) - o.x;
+        o.width = std::max(o.XMost(), bEndEdge) - o.x;
       }
     } else {
       NS_FOR_FRAME_OVERFLOW_TYPES(otype) {
         nsRect& o = aOverflowAreas.Overflow(otype);
         nscoord xmost = o.XMost();
-        o.x = std::min(o.x, xmost - aBEndEdgeOfChildren);
+        o.x = std::min(o.x, xmost - bEndEdge);
         o.width = xmost - o.x;
       }
     }
   } else {
     NS_FOR_FRAME_OVERFLOW_TYPES(otype) {
       nsRect& o = aOverflowAreas.Overflow(otype);
-      o.height = std::max(o.YMost(), aBEndEdgeOfChildren) - o.y;
+      o.height = std::max(o.YMost(), bEndEdge) - o.y;
     }
   }
 }
@@ -1773,8 +1790,10 @@ nsBlockFrame::ComputeOverflowAreas(const nsRect&         aBounds,
       areas.UnionAllWith(outsideBullet->GetRect());
     }
 
-    ConsiderBlockEndEdgeOfChildren(GetWritingMode(),
-                                   aBEndEdgeOfChildren, areas);
+    const WritingMode wm = GetWritingMode();
+    ConsiderBlockEndEdgeOfChildren(
+      wm, aBEndEdgeOfChildren,
+      LogicalMargin(wm, GetUsedPadding()).BEnd(wm), areas);
   }
 
 #ifdef NOISY_COMBINED_AREA
@@ -1831,8 +1850,10 @@ nsBlockFrame::ComputeCustomOverflow(nsOverflowAreas& aOverflowAreas)
   nscoord blockEndEdgeOfChildren =
     GetProperty(BlockEndEdgeOfChildrenProperty(), &found);
   if (found) {
-    ConsiderBlockEndEdgeOfChildren(GetWritingMode(),
-                                   blockEndEdgeOfChildren, aOverflowAreas);
+    const WritingMode wm = GetWritingMode();
+    ConsiderBlockEndEdgeOfChildren(
+      wm, blockEndEdgeOfChildren,
+      LogicalMargin(wm, GetUsedPadding()).BEnd(wm), aOverflowAreas);
   }
 
   // Line cursor invariants depend on the overflow areas of the lines, so

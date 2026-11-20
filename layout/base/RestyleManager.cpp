@@ -389,7 +389,10 @@ RestyleManager::RestyleForHasPseudoClassChange(nsINode* aNode,
                                               EventStates aStateMask,
                                               nsIAtom* aAttribute,
                                               const nsAttrValue* aNewClasses,
-                                              bool aCompareClasses)
+                                              bool aCompareClasses,
+                                              bool aIsTextChange,
+                                              nsIContent* aChangedContent,
+                                              bool aFollowingSiblings)
 {
   MOZ_ASSERT(!aAttribute || aNode->IsElement());
   if (!aNode->OwnerDoc()->GetProperty(nsGkAtoms::hasSelectorDependency)) {
@@ -405,19 +408,27 @@ RestyleManager::RestyleForHasPseudoClassChange(nsINode* aNode,
     PostRestyleEvent(aAnchor, hint, nsChangeHint(0));
   };
 
+  // Keep track of the child below each ancestor that contains the mutation.
+  // This matters for sibling :has() selectors: a class/state change deep
+  // inside a sibling can only affect anchors before that containing child.
+  nsINode* mutationChild = nullptr;
   for (nsINode* node = aNode; node; node = node->GetParentNode()) {
     auto* dependency = static_cast<Dependency*>(
       node->GetProperty(nsGkAtoms::hasSelectorDependency));
     if (!dependency) {
+      mutationChild = node;
       continue;
     }
     if (node->IsElement() && dependency->MightDependOnChange(
           node->AsElement(), aNode, aStateMask, aAttribute, aNewClasses,
-          aCompareClasses, false)) {
+          aCompareClasses, false, false, aIsTextChange,
+          aChangedContent, aFollowingSiblings)) {
       restyleAnchor(node->AsElement(), dependency);
     }
     if (!dependency->MightAffectSiblingAnchor(
-          node, aNode, aStateMask, aAttribute, aNewClasses, aCompareClasses)) {
+          node, aNode, aStateMask, aAttribute, aNewClasses, aCompareClasses,
+          aIsTextChange)) {
+      mutationChild = node;
       continue;
     }
     // The parent is an index of sibling anchors, not itself an anchor. Keep
@@ -426,7 +437,7 @@ RestyleManager::RestyleForHasPseudoClassChange(nsINode* aNode,
     bool nodeIsFollowingSibling = true;
     for (nsIContent* child = node->GetFirstChild(); child;
          child = child->GetNextSibling()) {
-      if (child == aNode) {
+      if (child == mutationChild) {
         nodeIsFollowingSibling = false;
       }
       if (!child->IsElement()) {
@@ -436,10 +447,12 @@ RestyleManager::RestyleForHasPseudoClassChange(nsINode* aNode,
         child->GetProperty(nsGkAtoms::hasSelectorDependency));
       if (siblingDependency && siblingDependency->MightDependOnChange(
             child->AsElement(), aNode, aStateMask, aAttribute, aNewClasses,
-            aCompareClasses, true, nodeIsFollowingSibling)) {
+            aCompareClasses, true, nodeIsFollowingSibling, aIsTextChange)) {
         restyleAnchor(child->AsElement(), siblingDependency);
       }
     }
+
+    mutationChild = node;
   }
 }
 
@@ -469,7 +482,16 @@ RestyleManager::RestyleForAppend(nsIContent* aContainer,
                                  nsIContent* aFirstNewContent)
 {
   // The container cannot be a document, but might be a ShadowRoot.
-  RestyleForHasPseudoClassChange(aContainer);
+  bool onlyText = true;
+  for (nsIContent* child = aFirstNewContent; child;
+       child = child->GetNextSibling()) {
+    if (!child->IsNodeOfType(nsINode::eTEXT)) {
+      onlyText = false;
+      break;
+    }
+  }
+  RestyleForHasPseudoClassChange(aContainer, EventStates(), nullptr, nullptr,
+                                false, onlyText, aFirstNewContent, true);
 
   if (!aContainer->IsElement()) {
     return;
@@ -560,7 +582,11 @@ RestyleManager::RestyleForInsertOrChange(nsINode* aContainer,
                                          nsIContent* aChild)
 {
   // The container might be a document or a ShadowRoot.
-  RestyleForHasPseudoClassChange(aContainer);
+  // Local compounds cannot observe text, but structural pseudo-classes
+  // such as :empty must still be invalidated.
+  RestyleForHasPseudoClassChange(aContainer, EventStates(), nullptr, nullptr,
+                                false, aChild->IsNodeOfType(nsINode::eTEXT),
+                                aChild);
 
   if (!aContainer->IsElement()) {
     return;
@@ -652,7 +678,11 @@ RestyleManager::ContentRemoved(nsINode* aContainer,
                                nsIContent* aFollowingSibling)
 {
   // The container might be a document or a ShadowRoot.
-  RestyleForHasPseudoClassChange(aContainer);
+  // Local compounds cannot observe text, but structural pseudo-classes
+  // such as :empty must still be invalidated.
+  RestyleForHasPseudoClassChange(aContainer, EventStates(), nullptr, nullptr,
+                                false, aOldChild->IsNodeOfType(nsINode::eTEXT),
+                                aOldChild);
 
   if (!aContainer->IsElement()) {
     return;
@@ -856,6 +886,8 @@ RestyleManager::ProcessPendingRestyles()
   NS_PRECONDITION(PresContext()->Document(), "No document?  Pshaw!");
   NS_PRECONDITION(!nsContentUtils::IsSafeToRunScript(),
                   "Missing a script blocker!");
+
+  PresContext()->BumpContainerQueryGeneration();
 
   // First do any queued-up frame creation.  (We should really
   // merge this into the rest of the process, though; see bug 827239.)

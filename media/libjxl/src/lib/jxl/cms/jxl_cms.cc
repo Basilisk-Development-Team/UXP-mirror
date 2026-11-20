@@ -10,6 +10,8 @@
 #endif
 
 #include <jxl/cms_interface.h>
+#include <jxl/color_encoding.h>
+#include <jxl/types.h>
 
 #include <algorithm>
 #include <array>
@@ -18,16 +20,20 @@
 #include <cstdint>
 #include <cstring>
 #include <memory>
+#include <utility>
+#include <vector>
 
 #undef HWY_TARGET_INCLUDE
 #define HWY_TARGET_INCLUDE "lib/jxl/cms/jxl_cms.cc"
 #include <hwy/foreach_target.h>
 #include <hwy/highway.h>
 
+#include "lib/jxl/base/common.h"
 #include "lib/jxl/base/compiler_specific.h"
 #include "lib/jxl/base/matrix_ops.h"
 #include "lib/jxl/base/printf_macros.h"
 #include "lib/jxl/base/status.h"
+#include "lib/jxl/cms/color_encoding_cms.h"
 #include "lib/jxl/cms/jxl_cms_internal.h"
 #include "lib/jxl/cms/transfer_functions-inl.h"
 #include "lib/jxl/color_encoding_internal.h"
@@ -97,18 +103,25 @@ const size_t kX = 0;  // pixel index, multiplied by 3 for RGB
 // xform_src = UndoGammaCompression(buf_src).
 Status BeforeTransform(JxlCms* t, const float* buf_src, float* xform_src,
                        size_t buf_size) {
+  HWY_FULL(float) df;
+  size_t tail = buf_size % Lanes(df);
+  size_t vec_buf_end = buf_size - tail;
   switch (t->preprocess) {
     case ExtraTF::kNone:
       JXL_ENSURE(false);  // unreachable
       break;
 
     case ExtraTF::kPQ: {
-      HWY_FULL(float) df;
       TF_PQ tf_pq(t->intensity_target);
-      for (size_t i = 0; i < buf_size; i += Lanes(df)) {
+      for (size_t i = 0; i < vec_buf_end; i += Lanes(df)) {
         const auto val = Load(df, buf_src + i);
         const auto result = tf_pq.DisplayFromEncoded(df, val);
         Store(result, df, xform_src + i);
+      }
+      if (tail != 0) {
+        const auto val = LoadN(df, buf_src + vec_buf_end, tail);
+        const auto result = tf_pq.DisplayFromEncoded(df, val);
+        StoreN(result, df, xform_src + vec_buf_end, tail);
       }
 #if JXL_CMS_VERBOSE >= 2
       printf("pre in %.4f %.4f %.4f undoPQ %.4f %.4f %.4f\n", buf_src[3 * kX],
@@ -135,11 +148,15 @@ Status BeforeTransform(JxlCms* t, const float* buf_src, float* xform_src,
       break;
 
     case ExtraTF::kSRGB:
-      HWY_FULL(float) df;
-      for (size_t i = 0; i < buf_size; i += Lanes(df)) {
+      for (size_t i = 0; i < vec_buf_end; i += Lanes(df)) {
         const auto val = Load(df, buf_src + i);
         const auto result = TF_SRGB().DisplayFromEncoded(val);
         Store(result, df, xform_src + i);
+      }
+      if (tail != 0) {
+        const auto val = LoadN(df, buf_src + vec_buf_end, tail);
+        const auto result = TF_SRGB().DisplayFromEncoded(val);
+        StoreN(result, df, xform_src + vec_buf_end, tail);
       }
 #if JXL_CMS_VERBOSE >= 2
       printf("pre in %.4f %.4f %.4f undoSRGB %.4f %.4f %.4f\n", buf_src[3 * kX],
@@ -153,17 +170,24 @@ Status BeforeTransform(JxlCms* t, const float* buf_src, float* xform_src,
 
 // Applies gamma compression in-place.
 Status AfterTransform(JxlCms* t, float* JXL_RESTRICT buf_dst, size_t buf_size) {
+  HWY_FULL(float) df;
+  size_t tail = buf_size % Lanes(df);
+  size_t vec_buf_end = buf_size - tail;
   switch (t->postprocess) {
     case ExtraTF::kNone:
       JXL_DEBUG_ABORT("Unreachable");
       break;
     case ExtraTF::kPQ: {
-      HWY_FULL(float) df;
       TF_PQ tf_pq(t->intensity_target);
-      for (size_t i = 0; i < buf_size; i += Lanes(df)) {
+      for (size_t i = 0; i < vec_buf_end; i += Lanes(df)) {
         const auto val = Load(df, buf_dst + i);
         const auto result = tf_pq.EncodedFromDisplay(df, val);
         Store(result, df, buf_dst + i);
+      }
+      if (tail != 0) {
+        const auto val = LoadN(df, buf_dst + vec_buf_end, tail);
+        const auto result = tf_pq.EncodedFromDisplay(df, val);
+        StoreN(result, df, buf_dst + vec_buf_end, tail);
       }
 #if JXL_CMS_VERBOSE >= 2
       printf("after PQ enc %.4f %.4f %.4f\n", buf_dst[3 * kX],
@@ -186,11 +210,15 @@ Status AfterTransform(JxlCms* t, float* JXL_RESTRICT buf_dst, size_t buf_size) {
 #endif
       break;
     case ExtraTF::kSRGB:
-      HWY_FULL(float) df;
-      for (size_t i = 0; i < buf_size; i += Lanes(df)) {
+      for (size_t i = 0; i < vec_buf_end; i += Lanes(df)) {
         const auto val = Load(df, buf_dst + i);
         const auto result = TF_SRGB().EncodedFromDisplay(df, val);
         Store(result, df, buf_dst + i);
+      }
+      if (tail != 0) {
+        const auto val = LoadN(df, buf_dst + vec_buf_end, tail);
+        const auto result = TF_SRGB().EncodedFromDisplay(df, val);
+        StoreN(result, df, buf_dst + vec_buf_end, tail);
       }
 #if JXL_CMS_VERBOSE >= 2
       printf("after SRGB enc %.4f %.4f %.4f\n", buf_dst[3 * kX],
@@ -251,13 +279,20 @@ Status DoColorSpaceTransform(void* cms_data, const size_t thread,
     }  // else: in-place, no need to copy
   } else {
 #if JPEGXL_ENABLE_SKCMS
+    float* xform_dst = (t->channels_dst == 1) ? t->buf_dst[thread] : buf_dst;
     JXL_ENSURE(
         skcms_Transform(xform_src,
                         (t->channels_src == 4 ? skcms_PixelFormat_RGBA_ffff
                                               : skcms_PixelFormat_RGB_fff),
-                        skcms_AlphaFormat_Opaque, &t->profile_src, buf_dst,
+                        skcms_AlphaFormat_Opaque, &t->profile_src, xform_dst,
                         skcms_PixelFormat_RGB_fff, skcms_AlphaFormat_Opaque,
                         &t->profile_dst, xsize));
+    if (t->channels_dst == 1) {
+      // Contract back from 3 to 1 channel, this time forward.
+      for (size_t x = 0; x < xsize; ++x) {
+        buf_dst[x] = xform_dst[x * 3];
+      }
+    }
 #else   // JPEGXL_ENABLE_SKCMS
     cmsDoTransform(t->lcms_transform, xform_src, buf_dst,
                    static_cast<cmsUInt32Number>(xsize));
@@ -267,17 +302,6 @@ Status DoColorSpaceTransform(void* cms_data, const size_t thread,
   printf("xform skip%d: %.4f %.4f %.4f (%p) -> (%p) %.4f %.4f %.4f\n",
          t->skip_lcms, in0, in1, in2, xform_src, buf_dst, buf_dst[3 * kX],
          buf_dst[3 * kX + 1], buf_dst[3 * kX + 2]);
-#endif
-
-#if JPEGXL_ENABLE_SKCMS
-  if (t->channels_dst == 1 && !t->skip_lcms) {
-    // Contract back from 3 to 1 channel, this time forward.
-    float* grayscale_buf_dst = t->buf_dst[thread];
-    for (size_t x = 0; x < xsize; ++x) {
-      grayscale_buf_dst[x] = buf_dst[x * 3];
-    }
-    buf_dst = grayscale_buf_dst;
-  }
 #endif
 
   if (t->postprocess != ExtraTF::kNone) {
@@ -308,7 +332,7 @@ int DoColorSpaceTransform(void* t, size_t thread, const float* buf_src,
 #if JPEGXL_ENABLE_SKCMS
 
 JXL_MUST_USE_RESULT CIExy CIExyFromXYZ(const Color& XYZ) {
-  const float factor = 1.f / (XYZ[0] + XYZ[1] + XYZ[2]);
+  const double factor = 1.0 / static_cast<double>(XYZ[0] + XYZ[1] + XYZ[2]);
   CIExy xy;
   xy.x = XYZ[0] * factor;
   xy.y = XYZ[1] * factor;
@@ -337,6 +361,11 @@ JXL_MUST_USE_RESULT cmsCIEXYZ D50_XYZ() {
 }
 
 // RAII
+
+struct ContextDeleter {
+  void operator()(void* p) { cmsDeleteContext(static_cast<cmsContext>(p)); }
+};
+using Context = std::unique_ptr<void, ContextDeleter>;
 
 struct ProfileDeleter {
   void operator()(void* p) { cmsCloseProfile(p); }
@@ -415,6 +444,105 @@ void MatrixProduct(const skcms_Matrix3x3& matrix, const Color& vector_in,
   }
 }
 
+bool IsAcceptableCHAD(const skcms_Matrix3x3& chad) {
+  Matrix3x3d chad_double;
+  for (int i = 0; i < 3; ++i) {
+    for (int j = 0; j < 3; ++j) {
+      chad_double[i][j] = chad.vals[i][j];
+    }
+  }
+  return Inv3x3Matrix(chad_double);
+}
+
+bool HasICCVersion4DisplayClass(const skcms_ICCProfile& profile) {
+  return profile.buffer != nullptr && profile.size >= 128 &&
+         profile.buffer[8] == 4 && profile.buffer[12] == 'm' &&
+         profile.buffer[13] == 'n' && profile.buffer[14] == 't' &&
+         profile.buffer[15] == 'r' && profile.buffer[36] == 'a' &&
+         profile.buffer[37] == 'c' && profile.buffer[38] == 's' &&
+         profile.buffer[39] == 'p';
+}
+
+bool HasTag(const skcms_ICCProfile& profile, const char* signature) {
+  constexpr size_t kTagCountOffset = 128;
+  constexpr size_t kTagTableOffset = 132;
+  constexpr size_t kTagRecordSize = 12;
+  if (profile.buffer == nullptr || profile.size < kTagCountOffset + 4) {
+    return false;
+  }
+  const uint32_t tag_count =
+      (static_cast<uint32_t>(profile.buffer[kTagCountOffset]) << 24) |
+      (static_cast<uint32_t>(profile.buffer[kTagCountOffset + 1]) << 16) |
+      (static_cast<uint32_t>(profile.buffer[kTagCountOffset + 2]) << 8) |
+      static_cast<uint32_t>(profile.buffer[kTagCountOffset + 3]);
+  if (tag_count > (profile.size - kTagTableOffset) / kTagRecordSize) {
+    return false;
+  }
+  for (uint32_t i = 0; i < tag_count; ++i) {
+    const size_t offset = kTagTableOffset + kTagRecordSize * i;
+    if (std::memcmp(profile.buffer + offset, signature, 4) == 0) {
+      return true;
+    }
+  }
+  return false;
+}
+
+bool HasLUTTags(const skcms_ICCProfile& profile) {
+  for (const char* signature :
+       {"A2B0", "A2B1", "A2B2", "B2A0", "B2A1", "B2A2", "D2B0", "D2B1", "D2B2",
+        "D2B3", "B2D0", "B2D1", "B2D2", "B2D3"}) {
+    if (HasTag(profile, signature)) return true;
+  }
+  return false;
+}
+
+bool HasParametricTRCs(const skcms_ICCProfile& profile) {
+  return profile.trc[0].table_entries == 0 &&
+         profile.trc[1].table_entries == 0 && profile.trc[2].table_entries == 0;
+}
+
+bool IsApproximatelyD50(const Color& XYZ) {
+  static constexpr Color kD50XYZ{0.96420288f, 1.0f, 0.82490540f};
+  constexpr float kTolerance = 1e-3f;
+  return std::abs(XYZ[0] - kD50XYZ[0]) < kTolerance &&
+         std::abs(XYZ[1] - kD50XYZ[1]) < kTolerance &&
+         std::abs(XYZ[2] - kD50XYZ[2]) < kTolerance;
+}
+
+bool GetNonconformingMatrixProfileWhitePoint(const skcms_ICCProfile& profile,
+                                             const Color& media_white_point_XYZ,
+                                             Color& adapted_white_point_XYZ) {
+  // Some v4 display profiles contain a CHAD but retain the pre-v4 media
+  // white point. For a matrix/TRC profile, the colorant column sum is the
+  // adapted neutral and is a more reliable source for undoing that CHAD.
+  if (!HasICCVersion4DisplayClass(profile) ||
+      profile.data_color_space != skcms_Signature_RGB ||
+      profile.pcs != skcms_Signature_XYZ || !profile.has_trc ||
+      !profile.has_toXYZD50 || !HasTag(profile, "chad") ||
+      HasLUTTags(profile) || IsApproximatelyD50(media_white_point_XYZ)) {
+    return false;
+  }
+  Color matrix_white_point_XYZ;
+  for (int i = 0; i < 3; ++i) {
+    matrix_white_point_XYZ[i] = profile.toXYZD50.vals[i][0] +
+                                profile.toXYZD50.vals[i][1] +
+                                profile.toXYZD50.vals[i][2];
+  }
+  if (!IsApproximatelyD50(matrix_white_point_XYZ)) return false;
+  adapted_white_point_XYZ = matrix_white_point_XYZ;
+  return true;
+}
+
+bool RecoverMatrixProfileWhitePoint(const skcms_ICCProfile& profile,
+                                    const Color& media_white_point_XYZ,
+                                    Color& adapted_white_point_XYZ) {
+  skcms_Matrix3x3 CHAD;
+  return HasParametricTRCs(profile) &&
+         GetNonconformingMatrixProfileWhitePoint(profile, media_white_point_XYZ,
+                                                 adapted_white_point_XYZ) &&
+         skcms_GetCHAD(&profile, &CHAD) && IsAcceptableCHAD(CHAD);
+}
+
 // Returns white point that was specified when creating the profile.
 JXL_MUST_USE_RESULT Status UnadaptedWhitePoint(const skcms_ICCProfile& profile,
                                                CIExy* out) {
@@ -429,8 +557,15 @@ JXL_MUST_USE_RESULT Status UnadaptedWhitePoint(const skcms_ICCProfile& profile,
     *out = CIExyFromXYZ(media_white_point_XYZ);
     return true;
   }
-  // Otherwise, it has been adapted to the PCS white point using said matrix,
-  // and the adaptation needs to be undone.
+  Color adapted_white_point_XYZ;
+  if (RecoverMatrixProfileWhitePoint(profile, media_white_point_XYZ,
+                                     adapted_white_point_XYZ)) {
+    media_white_point_XYZ = adapted_white_point_XYZ;
+  }
+  // The media white point is expressed in the PCS after the chromatic
+  // adaptation in the profile. Undo that adaptation to recover the source
+  // white point. The compatibility path above replaces the inconsistent media
+  // white point with the adapted neutral before applying the same operation.
   skcms_Matrix3x3 inverse_CHAD;
   if (!skcms_Matrix3x3_invert(&CHAD, &inverse_CHAD)) {
     return JXL_FAILURE("Non-invertible ChromaticAdaptation matrix");
@@ -512,6 +647,16 @@ Status DetectTransferFunction(const skcms_ICCProfile& profile,
                               ColorEncoding* JXL_RESTRICT c) {
   JXL_ENSURE(c->color_space != ColorSpace::kXYB);
 
+  Color media_white_point_XYZ;
+  Color adapted_white_point_XYZ;
+  if (!HasParametricTRCs(profile) &&
+      skcms_GetWTPT(&profile, media_white_point_XYZ.data()) &&
+      GetNonconformingMatrixProfileWhitePoint(profile, media_white_point_XYZ,
+                                              adapted_white_point_XYZ)) {
+    c->tf.SetTransferFunction(TransferFunction::kUnknown);
+    return true;
+  }
+
   float gamma[3] = {};
   if (profile.has_trc) {
     const auto IsGamma = [](const skcms_TransferFunction& tf) {
@@ -579,8 +724,12 @@ ColorSpace ColorSpaceFromProfile(const Profile& profile) {
 }
 
 // "profile1" is pre-decoded to save time in DetectTransferFunction.
+constexpr double kIccEquivalenceTolerance = 2E-4;
+constexpr double kLegacyMatrixProfileEquivalenceTolerance = 3E-4;
+
 Status ProfileEquivalentToICC(const cmsContext context, const Profile& profile1,
-                              const IccBytes& icc, const ColorEncoding& c) {
+                              const IccBytes& icc, const ColorEncoding& c,
+                              const double tolerance) {
   const uint32_t type_src = Type64(c);
 
   Profile profile2;
@@ -615,7 +764,7 @@ Status ProfileEquivalentToICC(const cmsContext context, const Profile& profile1,
     for (in[0] = init; in[0] < 1.0; in[0] += step / 8) {
       cmsDoTransform(xform1.get(), in, out1, 1);
       cmsDoTransform(xform2.get(), in, out2, 1);
-      if (!cms::ApproxEq(out1[0], out2[0], 2E-4)) {
+      if (!cms::ApproxEq(out1[0], out2[0], tolerance)) {
         return false;
       }
     }
@@ -626,7 +775,7 @@ Status ProfileEquivalentToICC(const cmsContext context, const Profile& profile1,
           cmsDoTransform(xform1.get(), in, out1, 1);
           cmsDoTransform(xform2.get(), in, out2, 1);
           for (size_t i = 0; i < 3; ++i) {
-            if (!cms::ApproxEq(out1[i], out2[i], 2E-4)) {
+            if (!cms::ApproxEq(out1[i], out2[i], tolerance)) {
               return false;
             }
           }
@@ -638,6 +787,116 @@ Status ProfileEquivalentToICC(const cmsContext context, const Profile& profile1,
   return true;
 }
 
+bool HasLUTTags(const Profile& profile) {
+  for (const auto tag :
+       {cmsSigAToB0Tag, cmsSigAToB1Tag, cmsSigAToB2Tag, cmsSigBToA0Tag,
+        cmsSigBToA1Tag, cmsSigBToA2Tag, cmsSigDToB0Tag, cmsSigDToB1Tag,
+        cmsSigDToB2Tag, cmsSigDToB3Tag, cmsSigBToD0Tag, cmsSigBToD1Tag,
+        cmsSigBToD2Tag, cmsSigBToD3Tag}) {
+    if (cmsIsTag(profile.get(), tag)) return true;
+  }
+  return false;
+}
+
+bool HasParametricTRCs(const Profile& profile) {
+  for (const auto tag :
+       {cmsSigRedTRCTag, cmsSigGreenTRCTag, cmsSigBlueTRCTag}) {
+    const auto* trc =
+        static_cast<const cmsToneCurve*>(cmsReadTag(profile.get(), tag));
+    if (trc == nullptr || cmsGetToneCurveParametricType(trc) <= 0) return false;
+  }
+  return true;
+}
+
+bool IsApproximatelyD50(const cmsCIEXYZ& XYZ) {
+  const cmsCIEXYZ d50 = D50_XYZ();
+  constexpr cmsFloat64Number kTolerance = 1e-3;
+  return std::abs(XYZ.X - d50.X) < kTolerance &&
+         std::abs(XYZ.Y - d50.Y) < kTolerance &&
+         std::abs(XYZ.Z - d50.Z) < kTolerance;
+}
+
+bool GetInverseCHAD(const Profile& profile, Matrix3x3d* inverse_chad) {
+  const cmsMAT3* chad = static_cast<const cmsMAT3*>(
+      cmsReadTag(profile.get(), cmsSigChromaticAdaptationTag));
+  if (chad == nullptr) return false;
+  for (int i = 0; i < 3; ++i) {
+    for (int j = 0; j < 3; ++j) {
+      (*inverse_chad)[i][j] = chad->v[i].n[j];
+    }
+  }
+  return Inv3x3Matrix(*inverse_chad);
+}
+
+bool GetNonconformingMatrixProfileWhitePoint(const Profile& profile,
+                                             const cmsCIEXYZ& media_white_point,
+                                             cmsCIEXYZ* matrix_white_point) {
+  const double version = cmsGetProfileVersion(profile.get());
+  if (version < 4.0 || version >= 5.0 ||
+      cmsGetDeviceClass(profile.get()) != cmsSigDisplayClass ||
+      cmsGetColorSpace(profile.get()) != cmsSigRgbData ||
+      cmsGetPCS(profile.get()) != cmsSigXYZData ||
+      cmsReadTag(profile.get(), cmsSigRedColorantTag) == nullptr ||
+      cmsReadTag(profile.get(), cmsSigGreenColorantTag) == nullptr ||
+      cmsReadTag(profile.get(), cmsSigBlueColorantTag) == nullptr ||
+      cmsReadTag(profile.get(), cmsSigRedTRCTag) == nullptr ||
+      cmsReadTag(profile.get(), cmsSigGreenTRCTag) == nullptr ||
+      cmsReadTag(profile.get(), cmsSigBlueTRCTag) == nullptr ||
+      HasLUTTags(profile) || IsApproximatelyD50(media_white_point)) {
+    return false;
+  }
+
+  const cmsCIEXYZ* adapted_r = static_cast<const cmsCIEXYZ*>(
+      cmsReadTag(profile.get(), cmsSigRedColorantTag));
+  const cmsCIEXYZ* adapted_g = static_cast<const cmsCIEXYZ*>(
+      cmsReadTag(profile.get(), cmsSigGreenColorantTag));
+  const cmsCIEXYZ* adapted_b = static_cast<const cmsCIEXYZ*>(
+      cmsReadTag(profile.get(), cmsSigBlueColorantTag));
+  *matrix_white_point = {adapted_r->X + adapted_g->X + adapted_b->X,
+                         adapted_r->Y + adapted_g->Y + adapted_b->Y,
+                         adapted_r->Z + adapted_g->Z + adapted_b->Z};
+  return IsApproximatelyD50(*matrix_white_point);
+}
+
+bool RecoverMatrixProfileWhitePoint(const Profile& profile,
+                                    const cmsCIEXYZ& media_white_point,
+                                    cmsCIEXYZ* unadapted_white_point) {
+  cmsCIEXYZ matrix_white_point;
+  if (!HasParametricTRCs(profile) ||
+      !GetNonconformingMatrixProfileWhitePoint(profile, media_white_point,
+                                               &matrix_white_point)) {
+    return false;
+  }
+
+  Matrix3x3d inverse_chad = {};
+  if (!GetInverseCHAD(profile, &inverse_chad)) return false;
+  const Vector3d adapted = {matrix_white_point.X, matrix_white_point.Y,
+                            matrix_white_point.Z};
+  Vector3d unadapted = {};
+  Mul3x3Vector(inverse_chad, adapted, unadapted);
+  unadapted_white_point->X = unadapted[0];
+  unadapted_white_point->Y = unadapted[1];
+  unadapted_white_point->Z = unadapted[2];
+  return true;
+}
+
+bool HasNonconformingMatrixProfileShape(const Profile& profile) {
+  const cmsCIEXYZ* white_point = static_cast<const cmsCIEXYZ*>(
+      cmsReadTag(profile.get(), cmsSigMediaWhitePointTag));
+  const cmsMAT3* chad = static_cast<const cmsMAT3*>(
+      cmsReadTag(profile.get(), cmsSigChromaticAdaptationTag));
+  cmsCIEXYZ matrix_white_point;
+  return white_point != nullptr && chad != nullptr &&
+         GetNonconformingMatrixProfileWhitePoint(profile, *white_point,
+                                                 &matrix_white_point);
+}
+
+bool IsMatrixProfileWithNonconformingWhitePoint(const Profile& profile) {
+  Matrix3x3d inverse_chad = {};
+  return HasNonconformingMatrixProfileShape(profile) &&
+         GetInverseCHAD(profile, &inverse_chad);
+}
+
 // Returns white point that was specified when creating the profile.
 // NOTE: we can't just use cmsSigMediaWhitePointTag because its interpretation
 // differs between ICC versions.
@@ -646,10 +905,18 @@ JXL_MUST_USE_RESULT cmsCIEXYZ UnadaptedWhitePoint(const cmsContext context,
                                                   const ColorEncoding& c) {
   const cmsCIEXYZ* white_point = static_cast<const cmsCIEXYZ*>(
       cmsReadTag(profile.get(), cmsSigMediaWhitePointTag));
-  if (white_point != nullptr &&
-      cmsReadTag(profile.get(), cmsSigChromaticAdaptationTag) == nullptr) {
+  const cmsMAT3* chad = static_cast<const cmsMAT3*>(
+      cmsReadTag(profile.get(), cmsSigChromaticAdaptationTag));
+  if (white_point != nullptr && chad == nullptr) {
     // No chromatic adaptation matrix: the white point is already unadapted.
     return *white_point;
+  }
+  if (white_point != nullptr && chad != nullptr) {
+    cmsCIEXYZ unadapted_white_point;
+    if (RecoverMatrixProfileWhitePoint(profile, *white_point,
+                                       &unadapted_white_point)) {
+      return unadapted_white_point;
+    }
   }
 
   cmsCIEXYZ XYZ = {1.0, 1.0, 1.0};
@@ -717,14 +984,26 @@ Status IdentifyPrimaries(const cmsContext context, const Profile& profile,
     adapted_b = &converted_rgb[2];
   }
 
-  // TODO(janwas): no longer assume Bradford and D50.
-  // Undo the chromatic adaptation.
-  const cmsCIEXYZ d50 = D50_XYZ();
-
   cmsCIEXYZ r, g, b;
-  cmsAdaptToIlluminant(&r, &d50, &wp_unadapted, adapted_r);
-  cmsAdaptToIlluminant(&g, &d50, &wp_unadapted, adapted_g);
-  cmsAdaptToIlluminant(&b, &d50, &wp_unadapted, adapted_b);
+  Matrix3x3d inverse_chad = {};
+  if (HasParametricTRCs(profile) &&
+      IsMatrixProfileWithNonconformingWhitePoint(profile) &&
+      GetInverseCHAD(profile, &inverse_chad)) {
+    const cmsCIEXYZ* adapted[] = {adapted_r, adapted_g, adapted_b};
+    cmsCIEXYZ* unadapted[] = {&r, &g, &b};
+    for (size_t i = 0; i < 3; ++i) {
+      const Vector3d in = {adapted[i]->X, adapted[i]->Y, adapted[i]->Z};
+      Vector3d out = {};
+      Mul3x3Vector(inverse_chad, in, out);
+      *unadapted[i] = {out[0], out[1], out[2]};
+    }
+  } else {
+    // TODO(janwas): no longer assume Bradford and D50 for other profiles.
+    const cmsCIEXYZ d50 = D50_XYZ();
+    cmsAdaptToIlluminant(&r, &d50, &wp_unadapted, adapted_r);
+    cmsAdaptToIlluminant(&g, &d50, &wp_unadapted, adapted_g);
+    cmsAdaptToIlluminant(&b, &d50, &wp_unadapted, adapted_b);
+  }
 
   const PrimariesCIExy rgb = {CIExyFromXYZ(r), CIExyFromXYZ(g),
                               CIExyFromXYZ(b)};
@@ -734,6 +1013,22 @@ Status IdentifyPrimaries(const cmsContext context, const Profile& profile,
 Status DetectTransferFunction(const cmsContext context, const Profile& profile,
                               ColorEncoding* JXL_RESTRICT c) {
   JXL_ENSURE(c->color_space != ColorSpace::kXYB);
+
+  const bool nonconforming_matrix_profile =
+      HasNonconformingMatrixProfileShape(profile);
+  const bool compatibility_profile =
+      IsMatrixProfileWithNonconformingWhitePoint(profile);
+  if (nonconforming_matrix_profile &&
+      (!compatibility_profile || !HasParametricTRCs(profile))) {
+    c->tf.SetTransferFunction(TransferFunction::kUnknown);
+    return true;
+  }
+  // Matrix/TRC coefficients and the canonical D50 white point are quantized
+  // independently in ICC. Allow that small difference for this compatibility
+  // case while retaining the functional equivalence check.
+  const double equivalence_tolerance =
+      compatibility_profile ? kLegacyMatrixProfileEquivalenceTolerance
+                            : kIccEquivalenceTolerance;
 
   float gamma = 0;
   if (const auto* gray_trc = reinterpret_cast<const cmsToneCurve*>(
@@ -767,7 +1062,8 @@ Status DetectTransferFunction(const cmsContext context, const Profile& profile,
   if (gamma != 0 && c->tf.SetGamma(gamma)) {
     IccBytes icc_test;
     if (MaybeCreateProfile(c->ToExternal(), &icc_test) &&
-        ProfileEquivalentToICC(context, profile, icc_test, *c)) {
+        ProfileEquivalentToICC(context, profile, icc_test, *c,
+                               equivalence_tolerance)) {
       return true;
     }
   }
@@ -780,7 +1076,8 @@ Status DetectTransferFunction(const cmsContext context, const Profile& profile,
 
     IccBytes icc_test;
     if (MaybeCreateProfile(c->ToExternal(), &icc_test) &&
-        ProfileEquivalentToICC(context, profile, icc_test, *c)) {
+        ProfileEquivalentToICC(context, profile, icc_test, *c,
+                               equivalence_tolerance)) {
       return true;
     }
   }
@@ -795,14 +1092,15 @@ void ErrorHandler(cmsContext context, cmsUInt32Number code, const char* text) {
 
 // Returns a context for the current thread, creating it if necessary.
 cmsContext GetContext() {
-  static thread_local void* context_;
+  static thread_local Context context_;
   if (context_ == nullptr) {
-    context_ = cmsCreateContext(nullptr, nullptr);
+    context_.reset(cmsCreateContext(nullptr, nullptr));
     JXL_DASSERT(context_ != nullptr);
 
-    cmsSetLogErrorHandlerTHR(static_cast<cmsContext>(context_), &ErrorHandler);
+    cmsSetLogErrorHandlerTHR(static_cast<cmsContext>(context_.get()),
+                             &ErrorHandler);
   }
-  return static_cast<cmsContext>(context_);
+  return static_cast<cmsContext>(context_.get());
 }
 
 #endif  // JPEGXL_ENABLE_SKCMS

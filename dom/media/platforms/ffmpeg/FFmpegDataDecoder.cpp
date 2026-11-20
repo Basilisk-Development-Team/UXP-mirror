@@ -85,8 +85,12 @@ FFmpegDataDecoder<LIBAV_VER>::InitDecoder()
 
   if (mLib->avcodec_open2(mCodecContext, codec, nullptr) < 0) {
     NS_WARNING("Couldn't initialize ffmpeg decoder");
+#if LIBAVCODEC_VERSION_MAJOR >= 62
+    mLib->avcodec_free_context(&mCodecContext);
+#else
     mLib->avcodec_close(mCodecContext);
     mLib->av_freep(&mCodecContext);
+#endif
     return NS_ERROR_FAILURE;
   }
 
@@ -163,11 +167,15 @@ FFmpegDataDecoder<LIBAV_VER>::ProcessShutdown()
   StaticMutexAutoLock mon(sMonitor);
 
   if (mCodecContext) {
+#if LIBAVCODEC_VERSION_MAJOR >= 62
+    mLib->avcodec_free_context(&mCodecContext);
+#else
     if (mCodecContext->extradata) {
       mLib->av_freep(&mCodecContext->extradata);
     }
     mLib->avcodec_close(mCodecContext);
     mLib->av_freep(&mCodecContext);
+#endif
     mLib->av_frame_free(&mFrame);
   }
 }

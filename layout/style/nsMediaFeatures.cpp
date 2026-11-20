@@ -244,11 +244,24 @@ MakeArray(const nsSize& aSize, nsCSSValue& aResult)
   return NS_OK;
 }
 
+// Helper for aspect-ratio, which needs fractional ratios.
+static nsresult
+MakeFloatArray(const nsSize& aSize, nsCSSValue& aResult)
+{
+  RefPtr<nsCSSValue::Array> a = nsCSSValue::Array::Create(2);
+
+  a->Item(0).SetFloatValue(aSize.width, eCSSUnit_Number);
+  a->Item(1).SetFloatValue(aSize.height, eCSSUnit_Number);
+
+  aResult.SetArrayValue(a, eCSSUnit_Array);
+  return NS_OK;
+}
+
 static nsresult
 GetAspectRatio(nsPresContext* aPresContext, const nsMediaFeature*,
                nsCSSValue& aResult)
 {
-  return MakeArray(GetSize(aPresContext), aResult);
+  return MakeFloatArray(GetSize(aPresContext), aResult);
 }
 
 static nsresult
@@ -612,11 +625,13 @@ GetPrefersMotion(nsPresContext* aPresContext, const nsMediaFeature* aFeature,
 {
   switch(Preferences::GetInt("ui.prefersReducedMotion", 0)) {
     case 1:
-      aResult.SetIntValue(NS_STYLE_PREFERS_REDUCED_MOTION, 
+      aResult.SetIntValue(NS_STYLE_PREFERS_REDUCED_MOTION,
                           eCSSUnit_Enumerated);
       break;
     default:
-      aResult.Reset();
+      aResult.SetIntValue(NS_STYLE_PREFERS_FULL_MOTION,
+                          eCSSUnit_Enumerated);
+      break;
   }
   return NS_OK;
 }
@@ -684,6 +699,22 @@ nsMediaFeatures::features[] = {
     GetHeight
   },
   {
+    &nsGkAtoms::inline_size,
+    nsMediaFeature::eMinMaxAllowed,
+    nsMediaFeature::eLength,
+    nsMediaFeature::eContainerQueryOnly,
+    { nullptr },
+    GetWidth
+  },
+  {
+    &nsGkAtoms::block_size,
+    nsMediaFeature::eMinMaxAllowed,
+    nsMediaFeature::eLength,
+    nsMediaFeature::eContainerQueryOnly,
+    { nullptr },
+    GetHeight
+  },
+  {
     &nsGkAtoms::deviceWidth,
     nsMediaFeature::eMinMaxAllowed,
     nsMediaFeature::eLength,
@@ -710,7 +741,7 @@ nsMediaFeatures::features[] = {
   {
     &nsGkAtoms::aspectRatio,
     nsMediaFeature::eMinMaxAllowed,
-    nsMediaFeature::eIntRatio,
+    nsMediaFeature::eFloatRatio,
     nsMediaFeature::eNoRequirements,
     { nullptr },
     GetAspectRatio

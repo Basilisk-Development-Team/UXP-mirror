@@ -8,6 +8,8 @@
 #include <algorithm>
 #include <cstddef>
 #include <cstdint>
+#include <cstdio>
+#include <vector>
 
 #include "lib/jxl/base/bits.h"
 #include "lib/jxl/base/common.h"
@@ -53,11 +55,13 @@ void FillChannel(Channel& ch, Rng& rng) {
   }
 }
 
-void Check(bool ok) {
+void CheckImpl(bool ok, const char* condition, const char* file, int line) {
   if (!ok) {
+    fprintf(stderr, "Check(%s) failed at %s:%d\n", condition, file, line);
     JXL_CRASH();
   }
 }
+#define Check(OK) CheckImpl((OK), #OK, __FILE__, __LINE__)
 
 void Run(BitReader& reader, JxlMemoryManager* memory_manager) {
   Rng rng(reader.ReadFixedBits<56>());
@@ -78,8 +82,10 @@ void Run(BitReader& reader, JxlMemoryManager* memory_manager) {
   size_t w = jxl::DivCeil(w_orig, upsampling);
   size_t h = jxl::DivCeil(h_orig, upsampling);
 
+  uint64_t volume =
+      static_cast<uint64_t>(w_orig) * h_orig * (nb_chans + nb_extra);
   if ((nb_chans == 2) || ((nb_chans + nb_extra) == 0) || (w * h == 0) ||
-      ((w_orig * h_orig * (nb_chans + nb_extra)) > (1 << 23))) {
+      (volume > (1 << 23))) {
     return;
   }
 

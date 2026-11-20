@@ -482,11 +482,19 @@ nsFilePicker::PutLocalFile(const nsString& inTitle, const nsString& inDefaultNam
     CFStringRef type = UTTypeCreatePreferredIdentifierForTag(kUTTagClassFilenameExtension, (CFStringRef)extension, NULL);
 
     if (type) {
+  #if defined(__clang__)
       thePanel.allowedFileTypes = @[(NSString*)type];
+  #else
+      thePanel.allowedFileTypes = [NSArray arrayWithObject:(NSString*)type];
+#endif
       CFRelease(type);
     } else {
       // if there's no UTI for the file extension, use the extension itself.
+#if defined(__clang__)
       thePanel.allowedFileTypes = @[extension];
+#else
+      thePanel.allowedFileTypes = [NSArray arrayWithObject:extension];
+#endif
     }
   }
   // Allow users to change the extension.

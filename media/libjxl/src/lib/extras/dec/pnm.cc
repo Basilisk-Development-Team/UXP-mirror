@@ -5,17 +5,26 @@
 
 #include "lib/extras/dec/pnm.h"
 
+#include <jxl/codestream_header.h>
 #include <jxl/encode.h>
+#include <jxl/types.h>
 
+#include <algorithm>
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
 #include <cstdlib>
 #include <cstring>
+#include <utility>
+#include <vector>
 
+#include "lib/extras/dec/color_hints.h"
+#include "lib/extras/mmap.h"
+#include "lib/extras/packed_image.h"
 #include "lib/extras/size_constraints.h"
 #include "lib/jxl/base/bits.h"
 #include "lib/jxl/base/c_callback_support.h"
+#include "lib/jxl/base/common.h"
 #include "lib/jxl/base/span.h"
 #include "lib/jxl/base/status.h"
 
@@ -30,12 +39,21 @@ class Parser {
 
   // Sets "pos" to the first non-header byte/pixel on success.
   Status ParseHeader(HeaderPNM* header, const uint8_t** pos) {
-    // codec.cc ensures we have at least two bytes => no range check here.
+    if (static_cast<size_t>(end_ - pos_) < 2) return false;
     if (pos_[0] != 'P') return false;
     const uint8_t type = pos_[1];
     pos_ += 2;
 
     switch (type) {
+      case '1':
+        return JXL_FAILURE("ascii pbm not supported");
+
+      case '2':
+        return JXL_FAILURE("ascii pgm not supported");
+
+      case '3':
+        return JXL_FAILURE("ascii ppm not supported");
+
       case '4':
         return JXL_FAILURE("pbm not supported");
 
@@ -70,8 +88,11 @@ class Parser {
 
     *number = 0;
     while (pos_ < end_ && *pos_ >= '0' && *pos_ <= '9') {
-      *number *= 10;
-      *number += *pos_ - '0';
+      const size_t digit = *pos_ - '0';
+      if (!SafeMul(*number, static_cast<size_t>(10), *number) ||
+          !SafeAdd(*number, digit, *number)) {
+        return JXL_FAILURE("PNM: unsigned number too large");
+      }
       ++pos_;
     }
 
@@ -319,6 +340,35 @@ class Parser {
   const uint8_t* const end_;
 };
 
+// Netpbm requires every sample to be in [0, MaxVal]. MaxVal is 2^bits - 1, so
+// a sample is out of range iff it has a bit set at or above `bits_per_sample`.
+// Samples are big-endian, so for 16-bit storage only the first byte of each
+// sample can hold such bits. `data` holds `size` bytes of integer samples.
+Status VerifySampleRange(const uint8_t* data, size_t size,
+                         size_t bits_per_sample) {
+  // Every value of the storage type is a valid sample.
+  if (bits_per_sample == 8 || bits_per_sample == 16) return true;
+  // OR the input 8 bytes at a time: byte k of `acc` is then the OR of all
+  // bytes at offsets equal to k modulo 8.
+  uint64_t acc = 0;
+  size_t i = 0;
+  for (; i + 8 <= size; i += 8) {
+    uint64_t v;
+    memcpy(&v, data + i, 8);
+    acc |= v;
+  }
+  uint8_t acc_bytes[8];
+  memcpy(acc_bytes, &acc, 8);
+  for (; i < size; ++i) acc_bytes[i % 8] |= data[i];
+  const size_t step = bits_per_sample > 8 ? 2 : 1;
+  const size_t shift =
+      bits_per_sample > 8 ? bits_per_sample - 8 : bits_per_sample;
+  uint8_t bits = 0;
+  for (size_t k = 0; k < 8; k += step) bits |= acc_bytes[k];
+  if (bits >> shift) return JXL_FAILURE("PNM: sample value exceeds MaxVal");
+  return true;
+}
+
 }  // namespace
 
 struct PNMChunkedInputFrame {
@@ -370,7 +420,8 @@ struct PNMChunkedInputFrame {
   const ChunkedPNMDecoder* dec;
 };
 
-StatusOr<ChunkedPNMDecoder> ChunkedPNMDecoder::Init(const char* path) {
+StatusOr<ChunkedPNMDecoder> ChunkedPNMDecoder::Init(
+    const char* path, const SizeConstraints* constraints) {
   ChunkedPNMDecoder dec;
   JXL_ASSIGN_OR_RETURN(dec.pnm_, MemoryMappedFile::Init(path));
   size_t size = dec.pnm_.size();
@@ -391,15 +442,28 @@ StatusOr<ChunkedPNMDecoder> ChunkedPNMDecoder::Init(const char* path) {
   if (header.has_alpha || !header.ec_types.empty() || header.floating_point) {
     return JXL_FAILURE("Only PGM and PPM inputs are supported");
   }
+  JXL_RETURN_IF_ERROR(
+      VerifyDimensions(constraints, header.xsize, header.ysize));
 
   const size_t bytes_per_channel =
       DivCeil(dec.header_.bits_per_sample, jxl::kBitsPerByte);
   const size_t num_channels = dec.header_.is_gray ? 1 : 3;
   const size_t bytes_per_pixel = num_channels * bytes_per_channel;
-  size_t row_size = dec.header_.xsize * bytes_per_pixel;
-  if (size < header.ysize * row_size + dec.data_start_) {
+  size_t row_size;
+  if (!SafeMul(dec.header_.xsize, bytes_per_pixel, row_size)) {
+    return JXL_FAILURE("PNM image dimensions are too large");
+  }
+  size_t required_size;
+  if (!SafeMul(header.ysize, row_size, required_size) ||
+      !SafeAdd(required_size, dec.data_start_, required_size)) {
+    return JXL_FAILURE("PNM image dimensions are too large");
+  }
+  if (size < required_size) {
     return JXL_FAILURE("PNM file too small");
   }
+  JXL_RETURN_IF_ERROR(VerifySampleRange(dec.pnm_.data() + dec.data_start_,
+                                        required_size - dec.data_start_,
+                                        header.bits_per_sample));
   return dec;
 }
 
@@ -497,13 +561,37 @@ Status DecodeImagePNM(const Span<const uint8_t> bytes,
     }
   }
 
+  // No align - pixels are tightly packed.
+  constexpr size_t kAlign = 0;
+  size_t twidth = PackedImage::BitsPerChannel(data_type) / 8;
   const JxlPixelFormat format{
       /*num_channels=*/num_interleaved_channels,
       /*data_type=*/data_type,
       /*endianness=*/header.big_endian ? JXL_BIG_ENDIAN : JXL_LITTLE_ENDIAN,
-      /*align=*/0,
+      kAlign,
   };
-  const JxlPixelFormat ec_format{1, format.data_type, format.endianness, 0};
+  // EC format is same as color, but 1-channel.
+  JxlPixelFormat ec_format = format;
+  ec_format.num_channels = 1;
+  // Compute required pixel-data size with overflow checks. Without these,
+  // a crafted header (large xsize/ysize) wraps the multiplication and lets
+  // the size check below pass while the actual memcpy below reads OOB.
+  size_t total_channels = num_interleaved_channels + header.ec_types.size();
+  size_t required_pnm_size;
+  if (!SafeMul(header.xsize, total_channels, required_pnm_size) ||
+      !SafeMul(required_pnm_size, twidth, required_pnm_size) ||
+      !SafeMul(required_pnm_size, header.ysize, required_pnm_size)) {
+    return JXL_FAILURE("PNM image dimensions are too large");
+  }
+  size_t pnm_remaining_size = bytes.data() + bytes.size() - pos;
+  if (pnm_remaining_size < required_pnm_size) {
+    return JXL_FAILURE("PNM file too small");
+  }
+  if (!header.floating_point) {
+    JXL_RETURN_IF_ERROR(
+        VerifySampleRange(pos, required_pnm_size, header.bits_per_sample));
+  }
+
   ppf->frames.clear();
   {
     JXL_ASSIGN_OR_RETURN(
@@ -512,42 +600,47 @@ Status DecodeImagePNM(const Span<const uint8_t> bytes,
     ppf->frames.emplace_back(std::move(frame));
   }
   auto* frame = &ppf->frames.back();
+  uint8_t* out = reinterpret_cast<uint8_t*>(frame->color.pixels());
+  std::vector<uint8_t*> ec_out;
   for (size_t i = 0; i < header.ec_types.size(); ++i) {
     JXL_ASSIGN_OR_RETURN(
         PackedImage ec,
         PackedImage::Create(header.xsize, header.ysize, ec_format));
     frame->extra_channels.emplace_back(std::move(ec));
+    ec_out.emplace_back(
+        reinterpret_cast<uint8_t*>(frame->extra_channels.back().pixels()));
+    JXL_DASSERT(frame->extra_channels.back().stride == header.xsize * twidth);
   }
-  size_t pnm_remaining_size = bytes.data() + bytes.size() - pos;
-  if (pnm_remaining_size < frame->color.pixels_size) {
-    return JXL_FAILURE("PNM file too small");
-  }
-
-  uint8_t* out = reinterpret_cast<uint8_t*>(frame->color.pixels());
-  std::vector<uint8_t*> ec_out(header.ec_types.size());
-  for (size_t i = 0; i < ec_out.size(); ++i) {
-    ec_out[i] = reinterpret_cast<uint8_t*>(frame->extra_channels[i].pixels());
-  }
+  JXL_DASSERT(frame->color.stride ==
+              header.xsize * num_interleaved_channels * twidth);
   if (ec_out.empty()) {
-    const bool flipped_y = header.bits_per_sample == 32;  // PFMs are flipped
-    for (size_t y = 0; y < header.ysize; ++y) {
-      size_t y_in = flipped_y ? header.ysize - 1 - y : y;
-      const uint8_t* row_in = &pos[y_in * frame->color.stride];
-      uint8_t* row_out = &out[y * frame->color.stride];
-      memcpy(row_out, row_in, frame->color.stride);
+    const bool flipped_y = (header.bits_per_sample == 32);  // PFMs are flipped
+    if (!flipped_y) {
+    // When there are no EC and input is not flipped we can copy the whole
+    // image at once.
+      memcpy(out, pos, header.ysize * frame->color.stride);
+    } else {
+      // Otherwise copy row-by-row.
+      for (size_t y = 0; y < header.ysize; ++y) {
+        size_t y_out = header.ysize - 1 - y;
+        const uint8_t* row_in = pos + y * frame->color.stride;
+        uint8_t* row_out = out + y_out * frame->color.stride;
+        memcpy(row_out, row_in, frame->color.stride);
+      }
     }
   } else {
+    // In case there are EC, we have to deinterleave data pixel-wise.
     JXL_RETURN_IF_ERROR(PackedImage::ValidateDataType(data_type));
-    size_t pwidth = PackedImage::BitsPerChannel(data_type) / 8;
+    size_t color_stride = twidth * num_interleaved_channels;
     for (size_t y = 0; y < header.ysize; ++y) {
       for (size_t x = 0; x < header.xsize; ++x) {
         memcpy(out, pos, frame->color.pixel_stride());
-        out += frame->color.pixel_stride();
-        pos += frame->color.pixel_stride();
+        out += color_stride;
+        pos += color_stride;
         for (auto& p : ec_out) {
-          memcpy(p, pos, pwidth);
-          pos += pwidth;
-          p += pwidth;
+          memcpy(p, pos, twidth);
+          pos += twidth;
+          p += twidth;
         }
       }
     }

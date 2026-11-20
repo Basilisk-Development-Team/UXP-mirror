@@ -35,6 +35,7 @@ struct nsMediaFeature
     eFloat,      // values are eCSSUnit_Number
     eBoolInteger,// values are eCSSUnit_Integer (0, -0, or 1 only)
     eIntRatio,   // values are eCSSUnit_Array of two eCSSUnit_Integer
+    eFloatRatio, // values are eCSSUnit_Array of two eCSSUnit_Number
     eResolution, // values are in eCSSUnit_Inch (for dpi),
                  //   eCSSUnit_Pixel (for dppx), or
                  //   eCSSUnit_Centimeter (for dpcm)
@@ -57,7 +58,11 @@ struct nsMediaFeature
     // Feature is only supported if the pref
     // "layout.css.prefixes.device-pixel-ratio-webkit" is enabled.
     // (Should only be used for -webkit-device-pixel-ratio.)
-    eWebkitDevicePixelRatioPrefEnabled = 1 << 1
+    eWebkitDevicePixelRatioPrefEnabled = 1 << 1,
+
+    // Feature is only valid inside @container, not @media.
+    // (Should only be used for the container size features.)
+    eContainerQueryOnly = 1 << 2
   };
   uint8_t mReqFlags;
 

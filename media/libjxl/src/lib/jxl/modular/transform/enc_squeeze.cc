@@ -7,12 +7,18 @@
 
 #include <jxl/memory_manager.h>
 
+#include <cstddef>
+#include <cstdint>
 #include <cstdlib>
+#include <utility>
+#include <vector>
 
+#include "lib/jxl/base/compiler_specific.h"
 #include "lib/jxl/base/data_parallel.h"
+#include "lib/jxl/base/status.h"
 #include "lib/jxl/modular/modular_image.h"
 #include "lib/jxl/modular/transform/squeeze.h"
-#include "lib/jxl/modular/transform/transform.h"
+#include "lib/jxl/modular/transform/squeeze_params.h"
 
 namespace jxl {
 
@@ -21,16 +27,19 @@ namespace jxl {
 Status FwdHSqueeze(Image &input, int c, int rc) {
   const Channel &chin = input.channel[c];
   JxlMemoryManager *memory_manager = input.memory_manager();
+  int new_hshift = (chin.hshift >= 0) ? chin.hshift + 1 : chin.hshift;
 
   JXL_DEBUG_V(4, "Doing horizontal squeeze of channel %i to new channel %i", c,
               rc);
 
   JXL_ASSIGN_OR_RETURN(Channel chout,
                        Channel::Create(memory_manager, (chin.w + 1) / 2, chin.h,
-                                       chin.hshift + 1, chin.vshift));
+                                       new_hshift, chin.vshift));
   JXL_ASSIGN_OR_RETURN(Channel chout_residual,
                        Channel::Create(memory_manager, chin.w - chout.w,
-                                       chout.h, chin.hshift + 1, chin.vshift));
+                                       chout.h, new_hshift, chin.vshift));
+  chout.component = chin.component;
+  chout_residual.component = chin.component;
 
   for (size_t y = 0; y < chout.h; y++) {
     const pixel_type *JXL_RESTRICT p_in = chin.Row(y);
@@ -70,17 +79,21 @@ Status FwdHSqueeze(Image &input, int c, int rc) {
 Status FwdVSqueeze(Image &input, int c, int rc) {
   const Channel &chin = input.channel[c];
   JxlMemoryManager *memory_manager = input.memory_manager();
+  int new_vshift = (chin.vshift >= 0) ? chin.vshift + 1 : chin.vshift;
 
   JXL_DEBUG_V(4, "Doing vertical squeeze of channel %i to new channel %i", c,
               rc);
 
   JXL_ASSIGN_OR_RETURN(Channel chout,
                        Channel::Create(memory_manager, chin.w, (chin.h + 1) / 2,
-                                       chin.hshift, chin.vshift + 1));
+                                       chin.hshift, new_vshift));
   JXL_ASSIGN_OR_RETURN(Channel chout_residual,
                        Channel::Create(memory_manager, chin.w, chin.h - chout.h,
-                                       chin.hshift, chin.vshift + 1));
-  intptr_t onerow_in = chin.plane.PixelsPerRow();
+                                       chin.hshift, new_vshift));
+  chout.component = chin.component;
+  chout_residual.component = chin.component;
+
+  ptrdiff_t onerow_in = chin.plane.PixelsPerRow();
   for (size_t y = 0; y < chout_residual.h; y++) {
     const pixel_type *JXL_RESTRICT p_in = chin.Row(y * 2);
     pixel_type *JXL_RESTRICT p_out = chout.Row(y);
@@ -102,7 +115,7 @@ Status FwdVSqueeze(Image &input, int c, int rc) {
         next_avg = p_in[x + 2 * onerow_in];
       }
       pixel_type top =
-          (y > 0 ? p_in[static_cast<ssize_t>(x) - onerow_in] : avg);
+          (y > 0 ? p_in[static_cast<ptrdiff_t>(x) - onerow_in] : avg);
       pixel_type tendency = SmoothTendency(top, avg, next_avg);
 
       p_res[x] = diff - tendency;

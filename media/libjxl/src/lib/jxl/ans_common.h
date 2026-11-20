@@ -35,7 +35,18 @@ GetPopulationCountPrecision(uint32_t logcount, uint32_t shift) {
 // Returns a histogram where the counts are positive, differ by at most 1,
 // and add up to total_count. The bigger counts (if any) are at the beginning
 // of the histogram.
-std::vector<int32_t> CreateFlatHistogram(int length, int total_count);
+static JXL_MAYBE_UNUSED JXL_INLINE std::vector<int32_t> CreateFlatHistogram(
+    int length, int total_count) {
+  JXL_DASSERT(length > 0);
+  JXL_DASSERT(length <= total_count);
+  const int count = total_count / length;
+  std::vector<int32_t> result(length, count);
+  const int rem_counts = total_count % length;
+  for (int i = 0; i < rem_counts; ++i) {
+    ++result[i];
+  }
+  return result;
+}
 
 // An alias table implements a mapping from the [0, ANS_TAB_SIZE) range into
 // the [0, ANS_MAX_ALPHABET_SIZE) range, satisfying the following conditions:
@@ -96,7 +107,9 @@ struct AliasTable {
 
 #if JXL_BYTE_ORDER_LITTLE
     uint64_t entry;
-    memcpy(&entry, &table[i].cutoff, sizeof(entry));
+    static_assert(sizeof(table[i]) == sizeof(entry),
+                  "ANS table entries must match the lookup word size");
+    memcpy(&entry, &table[i], sizeof(entry));
     const size_t cutoff = entry & 0xFF;              // = MOVZX
     const size_t right_value = (entry >> 8) & 0xFF;  // = MOVZX
     const size_t freq0 = (entry >> 16) & 0xFFFF;

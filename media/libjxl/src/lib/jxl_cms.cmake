@@ -23,6 +23,8 @@ target_include_directories(jxl_cms PRIVATE
 generate_export_header(jxl_cms
   BASE_NAME JXL_CMS
   EXPORT_FILE_NAME include/jxl/jxl_cms_export.h)
+target_compile_definitions(jxl_cms PUBLIC
+  "$<$<NOT:$<BOOL:${BUILD_SHARED_LIBS}>>:JXL_CMS_STATIC_DEFINE>")
 target_include_directories(jxl_cms BEFORE PUBLIC
   "$<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}>")
 
@@ -44,11 +46,17 @@ set_target_properties(jxl_cms PROPERTIES
         SOVERSION ${JPEGXL_LIBRARY_SOVERSION})
 
 # Check whether the linker support excluding libs
-set(LINKER_EXCLUDE_LIBS_FLAG "-Wl,--exclude-libs=ALL")
-include(CheckCSourceCompiles)
-list(APPEND CMAKE_EXE_LINKER_FLAGS ${LINKER_EXCLUDE_LIBS_FLAG})
-check_c_source_compiles("int main(){return 0;}" LINKER_SUPPORT_EXCLUDE_LIBS)
-list(REMOVE_ITEM CMAKE_EXE_LINKER_FLAGS ${LINKER_EXCLUDE_LIBS_FLAG})
+if (MSVC)
+  # MSVC ignores this flag (with a warning), so CMake thinks it supports that.
+  set(LINKER_EXCLUDE_LIBS_FLAG "")
+  set(LINKER_SUPPORT_EXCLUDE_LIBS FALSE)
+else()
+  set(LINKER_EXCLUDE_LIBS_FLAG "-Wl,--exclude-libs=ALL")
+  include(CheckCSourceCompiles)
+  list(APPEND CMAKE_REQUIRED_LINK_OPTIONS ${LINKER_EXCLUDE_LIBS_FLAG})
+  check_c_source_compiles("int main(){return 0;}" LINKER_SUPPORT_EXCLUDE_LIBS)
+  list(REMOVE_ITEM CMAKE_REQUIRED_LINK_OPTIONS ${LINKER_EXCLUDE_LIBS_FLAG})
+endif()
 
 if(LINKER_SUPPORT_EXCLUDE_LIBS)
   set_property(TARGET jxl_cms APPEND_STRING PROPERTY
@@ -62,10 +70,10 @@ install(TARGETS jxl_cms
 
 if (BUILD_SHARED_LIBS)
   set(JPEGXL_REQUIRES_TYPE "Requires.private")
-  set(JPEGXL_CMS_PRIVATE_LIBS "-lm ${PKGCONFIG_CXX_LIB}")
+  set(JPEGXL_CMS_PRIVATE_LIBS "${PKGCONFIG_MATH_LIB} ${PKGCONFIG_CXX_LIB}")
 else()
   set(JPEGXL_REQUIRES_TYPE "Requires")
-  set(JPEGXL_CMS_PRIVATE_LIBS "-lm ${PKGCONFIG_CXX_LIB}")
+  set(JPEGXL_CMS_PRIVATE_LIBS "${PKGCONFIG_MATH_LIB} ${PKGCONFIG_CXX_LIB}")
 endif()
 
 configure_file("${CMAKE_CURRENT_SOURCE_DIR}/jxl/libjxl_cms.pc.in"

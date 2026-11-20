@@ -5,11 +5,20 @@
 
 #include "lib/extras/dec/pgx.h"
 
-#include <string.h>
+#include <jxl/codestream_header.h>
+#include <jxl/types.h>
 
+#include <cstdint>
+#include <cstring>
+#include <limits>
+#include <utility>
+
+#include "lib/extras/dec/color_hints.h"
+#include "lib/extras/packed_image.h"
 #include "lib/extras/size_constraints.h"
-#include "lib/jxl/base/bits.h"
-#include "lib/jxl/base/compiler_specific.h"
+#include "lib/jxl/base/common.h"
+#include "lib/jxl/base/span.h"
+#include "lib/jxl/base/status.h"
 
 namespace jxl {
 namespace extras {
@@ -31,7 +40,7 @@ class Parser {
 
   // Sets "pos" to the first non-header byte/pixel on success.
   Status ParseHeader(HeaderPGX* header, const uint8_t** pos) {
-    // codec.cc ensures we have at least two bytes => no range check here.
+    if (static_cast<size_t>(end_ - pos_) < 2) return false;
     if (pos_[0] != 'P' || pos_[1] != 'G') return false;
     pos_ += 2;
     return ParseHeaderPGX(header, pos);
@@ -44,8 +53,11 @@ class Parser {
 
     *number = 0;
     while (pos_ < end_ && *pos_ >= '0' && *pos_ <= '9') {
-      *number *= 10;
-      *number += *pos_ - '0';
+      const size_t digit = static_cast<size_t>(*pos_ - '0');
+      if (*number > (std::numeric_limits<size_t>::max() - digit) / 10) {
+        return JXL_FAILURE("PGX: number too large");
+      }
+      *number = *number * 10 + digit;
       ++pos_;
     }
 
@@ -129,9 +141,14 @@ class Parser {
       return JXL_FAILURE("PGX: signed not yet supported");
     }
 
-    size_t numpixels = header->xsize * header->ysize;
-    size_t bytes_per_pixel = header->bits_per_sample <= 8 ? 1 : 2;
-    if (pos_ + numpixels * bytes_per_pixel > end_) {
+    const size_t bytes_per_pixel = header->bits_per_sample <= 8 ? 1 : 2;
+    size_t numpixels;
+    size_t bytes_needed;
+    if (!SafeMul(header->xsize, header->ysize, numpixels) ||
+        !SafeMul(numpixels, bytes_per_pixel, bytes_needed)) {
+      return JXL_FAILURE("PGX: image dimensions are too large");
+    }
+    if (static_cast<size_t>(end_ - pos_) < bytes_needed) {
       return JXL_FAILURE("PGX: data too small");
     }
 

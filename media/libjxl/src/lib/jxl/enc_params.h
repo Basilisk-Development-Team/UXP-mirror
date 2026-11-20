@@ -84,8 +84,8 @@ struct CompressParams {
 
   JxlCmsInterface cms;
   bool cms_set = false;
-  void SetCms(const JxlCmsInterface& cms) {
-    this->cms = cms;
+  void SetCms(const JxlCmsInterface& new_cms) {
+    cms = new_cms;
     cms_set = true;
   }
 
@@ -93,6 +93,9 @@ struct CompressParams {
   // effects on the decoded pixels, while still being JPEG-compliant and
   // allowing reconstruction of the original JPEG.
   bool force_cfl_jpeg_recompression = true;
+  // Apply LF Smoothing when doing JPEG recompression. Same applies as above.
+  // Default to non-subsampled smoothing only until decoders update.
+  int force_lfs_jpeg_recompression = -1;
 
   // Use brotli compression for any boxes derived from a JPEG frame.
   bool jpeg_compress_boxes = true;
@@ -169,6 +172,8 @@ struct CompressParams {
 
   // See JXL_ENC_FRAME_SETTING_BUFFERING option value.
   int buffering = -1;
+  // Output streaming mode: 0=buffered, 1=seek-based streaming, 2=OOO jxlp.
+  int output_mode = 0;
   // See JXL_ENC_FRAME_SETTING_USE_FULL_IMAGE_HEURISTICS option value.
   bool use_full_image_heuristics = true;
 
@@ -180,7 +185,7 @@ struct CompressParams {
   Tree custom_fixed_tree;
   // If not empty, these custom splines will be used instead of the computed
   // ones. Used in jxl_from_tee tool.
-  Splines custom_splines;
+  SplineDataView custom_splines{};
   // If not null, overrides progressive mode settings. Used in decode_test.
   const ProgressiveMode* custom_progressive_mode = nullptr;
 
@@ -196,7 +201,9 @@ static constexpr float kMinButteraugliToSubtractOriginalPatches = 3.0f;
 static constexpr float kMinButteraugliForNoise = 99.0f;
 
 // Minimum butteraugli distance the encoder accepts.
-static constexpr float kMinButteraugliDistance = 0.001f;
+// Below d0.05 is not useful and risks going outside Level 5 limits
+// (in particular modular_16bit_buffers becomes an issue for DC)
+static constexpr float kMinButteraugliDistance = 0.05f;
 
 // Tile size for encoder-side processing. Must be equal to color tile dim in the
 // current implementation.

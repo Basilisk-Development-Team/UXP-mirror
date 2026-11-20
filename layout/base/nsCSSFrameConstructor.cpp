@@ -3588,7 +3588,8 @@ nsCSSFrameConstructor::FindHTMLData(Element* aElement,
     SIMPLE_TAG_CREATE(audio, NS_NewHTMLVideoFrame),
     SIMPLE_TAG_CREATE(progress, NS_NewProgressFrame),
     SIMPLE_TAG_CREATE(meter, NS_NewMeterFrame),
-    COMPLEX_TAG_CREATE(details, &nsCSSFrameConstructor::ConstructDetailsFrame)
+    COMPLEX_TAG_CREATE(details, &nsCSSFrameConstructor::ConstructDetailsFrame),
+    { &nsGkAtoms::area, SUPPRESS_FCDATA() }
   };
 
   return FindDataByTag(aTag, aElement, aStyleContext, sHTMLData,
@@ -4875,6 +4876,8 @@ nsCSSFrameConstructor::ConstructNonScrollableBlockWithConstructor(
   if ((aDisplay->IsAbsolutelyPositionedStyle() ||
        aDisplay->IsFloatingStyle() ||
        StyleDisplay::InlineBlock == aDisplay->mDisplay ||
+       (aDisplay->IsContainLayoutEffective() &&
+        StyleDisplay::Inline != aDisplay->mDisplay) ||
        clipPaginatedOverflow) &&
       !aParentFrame->IsSVGText()) {
     flags = NS_BLOCK_FORMATTING_CONTEXT_STATE_BITS;

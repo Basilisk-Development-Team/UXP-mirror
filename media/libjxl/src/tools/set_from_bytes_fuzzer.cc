@@ -7,13 +7,19 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <cstdio>
+#include <vector>
 
 #include "lib/extras/codec.h"
+#include "lib/extras/codec_in_out.h"
+#include "lib/extras/dec/color_hints.h"
+#include "lib/extras/dec/decode.h"
+#include "lib/extras/packed_image.h"
 #include "lib/extras/size_constraints.h"
+#include "lib/jxl/base/common.h"
 #include "lib/jxl/base/compiler_specific.h"
 #include "lib/jxl/base/span.h"
 #include "lib/jxl/base/status.h"
-#include "lib/jxl/codec_in_out.h"
 #include "lib/jxl/fuzztest.h"
 #include "tools/thread_pool_internal.h"
 #include "tools/tracking_memory_manager.h"
@@ -27,19 +33,37 @@ using ::jxl::Bytes;
 using ::jxl::CodecInOut;
 using ::jxl::SizeConstraints;
 using ::jxl::Status;
+using ::jxl::extras::ColorHints;
+using ::jxl::extras::DecodeBytes;
+using ::jxl::extras::PackedPixelFile;
 
-void Check(bool ok) {
+void CheckImpl(bool ok, const char* condition, const char* file, int line) {
   if (!ok) {
+    fprintf(stderr, "Check(%s) failed at %s:%d\n", condition, file, line);
     JXL_CRASH();
   }
+}
+#define Check(OK) CheckImpl((OK), #OK, __FILE__, __LINE__)
+
+// Dry-run produces (and accounts for) all intermediate images.
+bool DryRun(const uint8_t* data, size_t size, JxlMemoryManager* memory_manager,
+            const SizeConstraints& constraints) {
+  if (size < 9) return true;
+  auto io = jxl::make_unique<CodecInOut>(memory_manager);
+  ThreadPoolInternal pool(0);
+  PackedPixelFile ppf;
+  return DecodeBytes(Bytes(data, size), ColorHints(), &ppf, &constraints,
+                     /*orig_codec=*/nullptr, io->memory_manager,
+                     /*coalescing=*/false);
 }
 
 Status Run(const uint8_t* data, size_t size, JxlMemoryManager* memory_manager,
            const SizeConstraints& constraints) {
-  CodecInOut io{memory_manager};
+  auto io = jxl::make_unique<CodecInOut>(memory_manager);
   ThreadPoolInternal pool(0);
 
-  (void)jxl::SetFromBytes(Bytes(data, size), &io, pool.get(), &constraints);
+  (void)jxl::SetFromBytes(Bytes(data, size), io.get(), pool.get(),
+                          &constraints);
   return true;
 }
 
@@ -51,9 +75,13 @@ int DoTestOneInput(const uint8_t* data, size_t size) {
 
   TrackingMemoryManager memory_manager{/* cap */ 1 * kGiB,
                                        /* total_cap */ 5 * kGiB};
-  // It is OK to fail.
-  (void)Run(data, size, memory_manager.get(), constraints);
+  bool dry_run_ok = DryRun(data, size, memory_manager.get(), constraints);
   Check(memory_manager.Reset());
+  if (dry_run_ok) {
+    // It is OK to fail.
+    (void)Run(data, size, memory_manager.get(), constraints);
+    Check(memory_manager.Reset());
+  }
 
   return 0;
 }

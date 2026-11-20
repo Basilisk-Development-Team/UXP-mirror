@@ -132,6 +132,30 @@ int32_t DoCompare(Numeric a, Numeric b)
   return 1;
 }
 
+static bool
+IsRatioComponent(const nsCSSValue& aValue)
+{
+  return aValue.GetUnit() == eCSSUnit_Number ||
+         aValue.GetUnit() == eCSSUnit_Integer;
+}
+
+static bool
+IsRatioValue(const nsCSSValue& aValue)
+{
+  return aValue.GetUnit() == eCSSUnit_Array &&
+         aValue.GetArrayValue()->Count() == 2 &&
+         IsRatioComponent(aValue.GetArrayValue()->Item(0)) &&
+         IsRatioComponent(aValue.GetArrayValue()->Item(1));
+}
+
+static double
+RatioComponentValue(const nsCSSValue& aValue, uint32_t aIndex)
+{
+  const nsCSSValue& v = aValue.GetArrayValue()->Item(aIndex);
+  return v.GetUnit() == eCSSUnit_Integer ? double(v.GetIntValue())
+                                         : double(v.GetFloatValue());
+}
+
 struct MediaQueryTypedCalcLengthResult
 {
   double mValue;
@@ -348,31 +372,19 @@ nsMediaExpression::Matches(nsPresContext *aPresContext,
       }
       break;
     case nsMediaFeature::eIntRatio:
+    case nsMediaFeature::eFloatRatio:
       {
-        NS_ASSERTION(actual.GetUnit() == eCSSUnit_Array &&
-                     actual.GetArrayValue()->Count() == 2 &&
-                     actual.GetArrayValue()->Item(0).GetUnit() ==
-                       eCSSUnit_Integer &&
-                     actual.GetArrayValue()->Item(1).GetUnit() ==
-                       eCSSUnit_Integer,
-                     "bad actual value");
-        NS_ASSERTION(required.GetUnit() == eCSSUnit_Array &&
-                     required.GetArrayValue()->Count() == 2 &&
-                     required.GetArrayValue()->Item(0).GetUnit() ==
-                       eCSSUnit_Integer &&
-                     required.GetArrayValue()->Item(1).GetUnit() ==
-                       eCSSUnit_Integer,
-                     "bad required value");
-        // Convert to int64_t so we can multiply without worry.  Note
+        NS_ASSERTION(IsRatioValue(actual), "bad actual value");
+        NS_ASSERTION(IsRatioValue(required), "bad required value");
+        // Convert to double so we can multiply without worry.  Note
         // that while the spec requires that both halves of |required|
         // be positive, the numerator or denominator of |actual| might
         // be zero (e.g., when testing 'aspect-ratio' on a 0-width or
         // 0-height iframe).
-        int64_t actualNum = actual.GetArrayValue()->Item(0).GetIntValue(),
-                actualDen = actual.GetArrayValue()->Item(1).GetIntValue(),
-                requiredNum = required.GetArrayValue()->Item(0).GetIntValue(),
-                requiredDen = required.GetArrayValue()->Item(1).GetIntValue();
-        cmp = DoCompare(actualNum * requiredDen, requiredNum * actualDen);
+        cmp = DoCompare(RatioComponentValue(actual, 0) *
+                        RatioComponentValue(required, 1),
+                        RatioComponentValue(required, 0) *
+                        RatioComponentValue(actual, 1));
       }
       break;
     case nsMediaFeature::eResolution:
@@ -606,6 +618,104 @@ nsDocumentRuleResultCacheKey::SizeOfExcludingThis(MallocSizeOf aMallocSizeOf) co
 }
 
 void
+AppendMediaExpressionToString(nsAString& aString,
+                              const nsMediaExpression& aExpression)
+{
+  const nsMediaFeature* feature = aExpression.mFeature;
+  if (feature->mReqFlags & nsMediaFeature::eHasWebkitPrefix) {
+    aString.AppendLiteral("-webkit-");
+  }
+  if (aExpression.mRange == nsMediaExpression::eMin) {
+    aString.AppendLiteral("min-");
+  } else if (aExpression.mRange == nsMediaExpression::eMax) {
+    aString.AppendLiteral("max-");
+  }
+
+  aString.Append(nsDependentAtomString(*feature->mName));
+
+  if (aExpression.mValue.GetUnit() != eCSSUnit_Null) {
+    if (aExpression.mRange == nsMediaExpression::eMinExclusive) {
+      aString.AppendLiteral(" > ");
+    } else if (aExpression.mRange == nsMediaExpression::eMaxExclusive) {
+      aString.AppendLiteral(" < ");
+    } else {
+      aString.AppendLiteral(": ");
+    }
+    switch (feature->mValueType) {
+      case nsMediaFeature::eLength:
+        NS_ASSERTION(aExpression.mValue.IsLengthUnit() ||
+                     aExpression.mValue.IsCalcUnit(), "bad unit");
+        // Use 'width' as a property that takes length values
+        // written in the normal way.
+        aExpression.mValue.AppendToString(eCSSProperty_width, aString,
+                                          nsCSSValue::eNormalized);
+        break;
+      case nsMediaFeature::eInteger:
+      case nsMediaFeature::eBoolInteger:
+        NS_ASSERTION(aExpression.mValue.GetUnit() == eCSSUnit_Integer,
+                     "bad unit");
+        // Use 'z-index' as a property that takes integer values
+        // written without anything extra.
+        aExpression.mValue.AppendToString(eCSSProperty_z_index, aString,
+                                          nsCSSValue::eNormalized);
+        break;
+      case nsMediaFeature::eFloat:
+        {
+          NS_ASSERTION(aExpression.mValue.GetUnit() == eCSSUnit_Number,
+                       "bad unit");
+          // Use 'line-height' as a property that takes float values
+          // written in the normal way.
+          aExpression.mValue.AppendToString(eCSSProperty_line_height, aString,
+                                            nsCSSValue::eNormalized);
+        }
+        break;
+      case nsMediaFeature::eIntRatio:
+      case nsMediaFeature::eFloatRatio:
+        {
+          NS_ASSERTION(IsRatioValue(aExpression.mValue), "bad unit");
+          nsCSSValue::Array* array = aExpression.mValue.GetArrayValue();
+          NS_ASSERTION(array->Count() == 2, "unexpected length");
+          array->Item(0).AppendToString(eCSSProperty_z_index, aString,
+                                        nsCSSValue::eNormalized);
+          if (RatioComponentValue(aExpression.mValue, 1) != 1.0) {
+            aString.Append('/');
+            array->Item(1).AppendToString(eCSSProperty_z_index, aString,
+                                          nsCSSValue::eNormalized);
+          }
+        }
+        break;
+      case nsMediaFeature::eResolution:
+        {
+          aString.AppendFloat(aExpression.mValue.GetFloatValue());
+          if (aExpression.mValue.GetUnit() == eCSSUnit_Inch) {
+            aString.AppendLiteral("dpi");
+          } else if (aExpression.mValue.GetUnit() == eCSSUnit_Pixel) {
+            aString.AppendLiteral("dppx");
+          } else {
+            NS_ASSERTION(aExpression.mValue.GetUnit() == eCSSUnit_Centimeter,
+                         "bad unit");
+            aString.AppendLiteral("dpcm");
+          }
+        }
+        break;
+      case nsMediaFeature::eEnumerated:
+        NS_ASSERTION(aExpression.mValue.GetUnit() == eCSSUnit_Enumerated,
+                     "bad unit");
+        AppendASCIItoUTF16(
+            nsCSSProps::ValueToKeyword(aExpression.mValue.GetIntValue(),
+                                       feature->mData.mKeywordTable),
+            aString);
+        break;
+      case nsMediaFeature::eIdent:
+        NS_ASSERTION(aExpression.mValue.GetUnit() == eCSSUnit_Ident,
+                     "bad unit");
+        aString.Append(aExpression.mValue.GetStringBufferValue());
+        break;
+    }
+  }
+}
+
+void
 nsMediaQuery::AppendToString(nsAString& aString) const
 {
   if (mHadUnknownExpression) {
@@ -630,102 +740,7 @@ nsMediaQuery::AppendToString(nsAString& aString) const
       aString.AppendLiteral(" and ");
     aString.Append('(');
 
-    const nsMediaExpression &expr = mExpressions[i];
-    const nsMediaFeature *feature = expr.mFeature;
-    if (feature->mReqFlags & nsMediaFeature::eHasWebkitPrefix) {
-      aString.AppendLiteral("-webkit-");
-    }
-    if (expr.mRange == nsMediaExpression::eMin) {
-      aString.AppendLiteral("min-");
-    } else if (expr.mRange == nsMediaExpression::eMax) {
-      aString.AppendLiteral("max-");
-    }
-
-    aString.Append(nsDependentAtomString(*feature->mName));
-
-    if (expr.mValue.GetUnit() != eCSSUnit_Null) {
-      if (expr.mRange == nsMediaExpression::eMinExclusive) {
-        aString.AppendLiteral(" > ");
-      } else if (expr.mRange == nsMediaExpression::eMaxExclusive) {
-        aString.AppendLiteral(" < ");
-      } else {
-        aString.AppendLiteral(": ");
-      }
-      switch (feature->mValueType) {
-        case nsMediaFeature::eLength:
-          NS_ASSERTION(expr.mValue.IsLengthUnit() || expr.mValue.IsCalcUnit(),
-                       "bad unit");
-          // Use 'width' as a property that takes length values
-          // written in the normal way.
-          expr.mValue.AppendToString(eCSSProperty_width, aString,
-                                     nsCSSValue::eNormalized);
-          break;
-        case nsMediaFeature::eInteger:
-        case nsMediaFeature::eBoolInteger:
-          NS_ASSERTION(expr.mValue.GetUnit() == eCSSUnit_Integer,
-                       "bad unit");
-          // Use 'z-index' as a property that takes integer values
-          // written without anything extra.
-          expr.mValue.AppendToString(eCSSProperty_z_index, aString,
-                                     nsCSSValue::eNormalized);
-          break;
-        case nsMediaFeature::eFloat:
-          {
-            NS_ASSERTION(expr.mValue.GetUnit() == eCSSUnit_Number,
-                         "bad unit");
-            // Use 'line-height' as a property that takes float values
-            // written in the normal way.
-            expr.mValue.AppendToString(eCSSProperty_line_height, aString,
-                                       nsCSSValue::eNormalized);
-          }
-          break;
-        case nsMediaFeature::eIntRatio:
-          {
-            NS_ASSERTION(expr.mValue.GetUnit() == eCSSUnit_Array,
-                         "bad unit");
-            nsCSSValue::Array *array = expr.mValue.GetArrayValue();
-            NS_ASSERTION(array->Count() == 2, "unexpected length");
-            NS_ASSERTION(array->Item(0).GetUnit() == eCSSUnit_Integer,
-                         "bad unit");
-            NS_ASSERTION(array->Item(1).GetUnit() == eCSSUnit_Integer,
-                         "bad unit");
-            array->Item(0).AppendToString(eCSSProperty_z_index, aString,
-                                          nsCSSValue::eNormalized);
-            aString.Append('/');
-            array->Item(1).AppendToString(eCSSProperty_z_index, aString,
-                                          nsCSSValue::eNormalized);
-          }
-          break;
-        case nsMediaFeature::eResolution:
-          {
-            aString.AppendFloat(expr.mValue.GetFloatValue());
-            if (expr.mValue.GetUnit() == eCSSUnit_Inch) {
-              aString.AppendLiteral("dpi");
-            } else if (expr.mValue.GetUnit() == eCSSUnit_Pixel) {
-              aString.AppendLiteral("dppx");
-            } else {
-              NS_ASSERTION(expr.mValue.GetUnit() == eCSSUnit_Centimeter,
-                           "bad unit");
-              aString.AppendLiteral("dpcm");
-            }
-          }
-          break;
-        case nsMediaFeature::eEnumerated:
-          NS_ASSERTION(expr.mValue.GetUnit() == eCSSUnit_Enumerated,
-                       "bad unit");
-          AppendASCIItoUTF16(
-              nsCSSProps::ValueToKeyword(expr.mValue.GetIntValue(),
-                                         feature->mData.mKeywordTable),
-              aString);
-          break;
-        case nsMediaFeature::eIdent:
-          NS_ASSERTION(expr.mValue.GetUnit() == eCSSUnit_Ident,
-                       "bad unit");
-          aString.Append(expr.mValue.GetStringBufferValue());
-          break;
-      }
-    }
-
+    AppendMediaExpressionToString(aString, mExpressions[i]);
     aString.Append(')');
   }
 }
@@ -2142,6 +2157,7 @@ CSSStyleSheet::InsertRuleIntoGroup(const nsAString & aRule,
   switch (rule->GetType()) {
     case css::Rule::STYLE_RULE:
     case css::Rule::MEDIA_RULE:
+    case css::Rule::CONTAINER_RULE:
     case css::Rule::FONT_FACE_RULE:
     case css::Rule::PAGE_RULE:
     case css::Rule::KEYFRAMES_RULE:

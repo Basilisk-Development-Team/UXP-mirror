@@ -995,6 +995,38 @@ Element::GetBoundingClientRect()
   return rect.forget();
 }
 
+bool
+Element::CheckVisibility(const CheckVisibilityOptions& aOptions)
+{
+  // https://drafts.csswg.org/cssom-view/#dom-element-checkvisibility
+  nsIFrame* frame = GetPrimaryFrame(Flush_Frames);
+  if (!frame) {
+    // No associated box, e.g. display:none on this element or an ancestor,
+    // display:contents, or not in a document.
+    return false;
+  }
+
+  // We don't support content-visibility, so aOptions.mContentVisibilityAuto
+  // has nothing to check.
+
+  if (aOptions.mCheckOpacity || aOptions.mOpacityProperty) {
+    for (nsIFrame* f = frame; f; f = f->GetParent()) {
+      if (f->StyleEffects()->mOpacity == 0.0f) {
+        return false;
+      }
+    }
+  }
+
+  if (aOptions.mCheckVisibilityCSS || aOptions.mVisibilityProperty) {
+    // visibility is inherited, so the element's own computed value is enough.
+    if (!frame->StyleVisibility()->IsVisible()) {
+      return false;
+    }
+  }
+
+  return true;
+}
+
 already_AddRefed<DOMRectList>
 Element::GetClientRects()
 {
@@ -1021,7 +1053,9 @@ Element::AddToIdTable(nsIAtom* aId)
   NS_ASSERTION(HasID(), "Node doesn't have an ID?");
   if (IsInShadowTree()) {
     ShadowRoot* containingShadow = GetContainingShadow();
-    containingShadow->AddToIdTable(this, aId);
+    if (nsContentUtils::IsInSameAnonymousTree(this, containingShadow)) {
+      containingShadow->AddToIdTable(this, aId);
+    }
   } else {
     nsIDocument* doc = GetUncomposedDoc();
     if (doc && (!IsInAnonymousSubtree() || doc->IsXULDocument())) {
@@ -1040,9 +1074,12 @@ Element::RemoveFromIdTable()
   nsIAtom* id = DoGetID();
   if (IsInShadowTree()) {
     ShadowRoot* containingShadow = GetContainingShadow();
-    // Check for containingShadow because it may have
-    // been deleted during unlinking.
-    if (containingShadow) {
+    // Check for containingShadow because it may have been deleted during
+    // unlinking. We can't use the stricter IsInSameAnonymousTree because our
+    // ancestors may have already been unbound.
+    if (containingShadow &&
+        IsInNativeAnonymousSubtree() ==
+            containingShadow->IsInNativeAnonymousSubtree()) {
       containingShadow->RemoveFromIdTable(this, id);
     }
   } else {

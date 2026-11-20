@@ -14,7 +14,7 @@
 namespace jxl {
 
 std::unique_ptr<RenderPipelineStage> GetCmsStage(
-    const OutputEncodingInfo& output_encoding_info);
+    const OutputEncodingInfo& output_encoding_info, int black_c, bool linear);
 
 }  // namespace jxl
 

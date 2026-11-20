@@ -271,7 +271,7 @@ StyleSheet::AddAdopter(nsIDocument* aDocument)
 {
   MOZ_ASSERT(IsConstructed());
   MOZ_ASSERT(aDocument);
-  MOZ_ASSERT(ConstructorDocument() == aDocument);
+  MOZ_ASSERT_IF(ConstructorDocument(), ConstructorDocument() == aDocument);
 
   if (mAdoptionCount++ == 0) {
     SetAssociatedDocument(aDocument, NotOwnedByDocument);
@@ -292,7 +292,7 @@ StyleSheet::RemoveAdopter(nsIDocument* aDocument)
 {
   MOZ_ASSERT(IsConstructed());
   MOZ_ASSERT(aDocument);
-  MOZ_ASSERT(ConstructorDocument() == aDocument);
+  MOZ_ASSERT_IF(ConstructorDocument(), ConstructorDocument() == aDocument);
   MOZ_ASSERT(mAdoptionCount > 0);
 
   if (mAdoptionCount == 0) {
@@ -455,7 +455,14 @@ StyleSheet::AreRulesAvailable(nsIPrincipal& aSubjectPrincipal,
 JSObject*
 StyleSheet::WrapObject(JSContext* aCx, JS::Handle<JSObject*> aGivenProto)
 {
-  return dom::CSSStyleSheetBinding::Wrap(aCx, this, aGivenProto);
+  // An imported sheet may be kept alive only by an import rule awaiting
+  // deletion by the cycle collector, and Wrap() might GC.
+  JS::Rooted<JSObject*> result(aCx);
+  {
+    RefPtr kungFuDeathGrip{this};
+    result = dom::CSSStyleSheetBinding::Wrap(aCx, this, aGivenProto);
+  }
+  return result;
 }
 
 } // namespace mozilla
