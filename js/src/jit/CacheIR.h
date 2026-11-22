@@ -85,6 +85,7 @@ class ObjOperandId : public OperandId
     _(GuardProto)                         \
     _(GuardClass)                         \
     _(GuardSpecificObject)                \
+    _(GuardSpecificAtom)                  \
     _(GuardNoDetachedTypedObjects)        \
     _(GuardNoUnboxedExpando)              \
     _(GuardAndLoadUnboxedExpando)         \
@@ -111,6 +112,7 @@ struct StubField {
         Shape,
         ObjectGroup,
         JSObject,
+        JSString,
         Limit
     };
 
@@ -272,6 +274,10 @@ class MOZ_RAII CacheIRWriter
         writeOpWithOperandId(CacheOp::GuardSpecificObject, obj);
         addStubWord(uintptr_t(expected), StubField::GCType::JSObject);
     }
+    void guardSpecificAtom(ValOperandId val, JSAtom* expected) {
+        writeOpWithOperandId(CacheOp::GuardSpecificAtom, val);
+        addStubWord(uintptr_t(expected), StubField::GCType::JSString);
+    }
     void guardNoDetachedTypedObjects() {
         writeOp(CacheOp::GuardNoDetachedTypedObjects);
     }
@@ -409,7 +415,8 @@ class MOZ_RAII GetPropIRGenerator
     enum class PreliminaryObjectAction { None, Unlink, NotePreliminary };
     PreliminaryObjectAction preliminaryObjectAction_;
 
-    [[nodiscard]] bool tryAttachNative(CacheIRWriter& writer, HandleObject obj, ObjOperandId objId);
+    [[nodiscard]] bool tryAttachNative(CacheIRWriter& writer, HandleObject obj, ObjOperandId objId,
+                                      bool missingOnly = false);
     [[nodiscard]] bool tryAttachUnboxed(CacheIRWriter& writer, HandleObject obj, ObjOperandId objId);
     [[nodiscard]] bool tryAttachUnboxedExpando(CacheIRWriter& writer, HandleObject obj,
                                               ObjOperandId objId);
@@ -432,6 +439,7 @@ class MOZ_RAII GetPropIRGenerator
     bool emitted() const { return emitted_; }
 
     [[nodiscard]] bool tryAttachStub(mozilla::Maybe<CacheIRWriter>& writer);
+    [[nodiscard]] bool tryAttachMissingGetElemStub(mozilla::Maybe<CacheIRWriter>& writer);
 
     bool shouldUnlinkPreliminaryObjectStubs() const {
         return preliminaryObjectAction_ == PreliminaryObjectAction::Unlink;
@@ -443,7 +451,8 @@ class MOZ_RAII GetPropIRGenerator
 
 enum class CacheKind
 {
-    GetProp
+    GetProp,
+    GetElem
 };
 
 } // namespace jit
