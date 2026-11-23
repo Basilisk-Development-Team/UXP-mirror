@@ -246,19 +246,23 @@ PDMFactory::CreateDecoderWithPDM(PlatformDecoderModule* aPDM,
   if (checkResult.mReason != ChromaChecker::Reason::kFullySupported) {
 #if defined(MOZ_FFMPEG)
     if (MediaPrefs::PDMFFmpegEnabled() && !mFFmpegFailedToLoad) {
-#ifdef XP_WIN
+#if defined(XP_WIN) || defined(MOZ_APPLEMEDIA)
+#if defined(XP_WIN)
       if (MediaPrefs::PDMWMFEnabled() && !mWMFFailedToLoad) {
-        int FFmpegPos = 1; /* WMF = 0, FFmpeg = 1 */
+#elif defined(MOZ_APPLEMEDIA)
+      if (MediaPrefs::PDMAppleEnabled()) {
+#endif // MOZ_APPLEMEDIA
+        int FFmpegPos = 1; /* WMF & Apple = 0, FFmpeg = 1 */
 #ifdef MOZ_FFVPX
         if (MediaPrefs::PDMFFVPXEnabled()) {
-          FFmpegPos++; /* WMF = 0, FFVPX = 1, FFmpeg = 2 */
+          FFmpegPos++; /* WMF & Apple = 0, FFVPX = 1, FFmpeg = 2 */
         }
-#endif
+#endif // MOZ_FFVPX
         aPDM = mCurrentPDMs.ElementAt(FFmpegPos);
       }
-#endif
+#endif // XP_WIN || MOZ_APPLEMEDIA
     } else {
-#endif
+#endif // MOZ_FFMPEG
       DecoderDoctorDiagnostics* diagnostics = aParams.mDiagnostics;
       if (checkResult.mReason == ChromaChecker::Reason::kVideoFormatNotFullySupported) {
         if (diagnostics) {
@@ -362,12 +366,20 @@ PDMFactory::CreatePDMs()
   }
 #endif
 
+#ifdef MOZ_APPLEMEDIA
+  if (MediaPrefs::PDMAppleEnabled()) {
+    m = new AppleDecoderModule();
+    StartupPDM(m);
+  }
+#endif
+
 #ifdef MOZ_FFVPX
   if (MediaPrefs::PDMFFVPXEnabled()) {
     m = FFVPXRuntimeLinker::CreateDecoderModule();
     StartupPDM(m);
   }
 #endif
+
 #ifdef MOZ_FFMPEG
   if (MediaPrefs::PDMFFmpegEnabled()) {
     m = FFmpegRuntimeLinker::CreateDecoderModule();
@@ -375,10 +387,6 @@ PDMFactory::CreatePDMs()
   } else {
     mFFmpegFailedToLoad = false;
   }
-#endif
-#ifdef MOZ_APPLEMEDIA
-  m = new AppleDecoderModule();
-  StartupPDM(m);
 #endif
 
   m = new AgnosticDecoderModule();
