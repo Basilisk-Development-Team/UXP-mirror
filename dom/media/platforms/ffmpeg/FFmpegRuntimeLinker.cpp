@@ -31,6 +31,12 @@ static const char* sLibs[] = {
   "libavcodec.60.dylib",
   "libavcodec.59.dylib",
   "libavcodec.58.dylib",
+#elif defined(XP_WIN)
+  "avcodec-62.dll",
+  "avcodec-61.dll",
+  "avcodec-60.dll",
+  "avcodec-59.dll",
+  "avcodec-58.dll",
 #else
   "libavcodec.so.62",
   "libavcodec.so.61",
@@ -40,6 +46,16 @@ static const char* sLibs[] = {
   "libavcodec-ffmpeg.so.58",
 #endif
 };
+
+#if defined(XP_WIN)
+static const char* sUtils[] = {
+  "avutil-60.dll",
+  "avutil-59.dll",
+  "avutil-58.dll",
+  "avutil-57.dll",
+  "avutil-56.dll",
+};
+#endif
 
 /* static */ bool
 FFmpegRuntimeLinker::Init()
@@ -59,7 +75,15 @@ FFmpegRuntimeLinker::Init()
     lspec.value.pathname = lib;
     sLibAV.mAVCodecLib = PR_LoadLibraryWithFlags(lspec, PR_LD_NOW | PR_LD_LOCAL);
     if (sLibAV.mAVCodecLib) {
+#if defined(XP_WIN)
+      const char* util = sUtils[i];
+      PRLibSpec lutil;
+      lutil.type = PR_LibSpec_Pathname;
+      lutil.value.pathname = util;
+      sLibAV.mAVUtilLib = PR_LoadLibraryWithFlags(lutil, PR_LD_NOW | PR_LD_LOCAL);
+#else
       sLibAV.mAVUtilLib = sLibAV.mAVCodecLib;
+#endif
       switch (sLibAV.Link()) {
         case FFmpegLibWrapper::LinkResult::Success:
           sLinkStatus = LinkStatus_SUCCEEDED;
