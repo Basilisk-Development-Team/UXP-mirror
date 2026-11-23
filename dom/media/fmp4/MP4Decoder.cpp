@@ -38,31 +38,6 @@ MediaDecoderStateMachine* MP4Decoder::CreateStateMachine()
   return new MediaDecoderStateMachine(this, mReader);
 }
 
-static bool
-IsWhitelistedH264Codec(const nsAString& aCodec)
-{
-  int16_t profile = 0, level = 0;
-
-  if (!ExtractH264CodecDetails(aCodec, profile, level)) {
-    return false;
-  }
-
-  // Just assume what we can play on all platforms the codecs/formats that
-  // WMF can play, since we don't have documentation about what other
-  // platforms can play... According to the WMF documentation:
-  // http://msdn.microsoft.com/en-us/library/windows/desktop/dd797815%28v=vs.85%29.aspx
-  // "The Media Foundation H.264 video decoder is a Media Foundation Transform
-  // that supports decoding of Baseline, Main, and High profiles, up to level
-  // 5.1.". We also report that we can play Extended profile, as there are
-  // bitstreams that are Extended compliant that are also Baseline compliant.
-  return level >= H264_LEVEL_1 &&
-         level <= H264_LEVEL_5_1 &&
-         (profile == H264_PROFILE_BASE ||
-          profile == H264_PROFILE_MAIN ||
-          profile == H264_PROFILE_EXTENDED ||
-          profile == H264_PROFILE_HIGH);
-}
-
 /* static */
 bool
 MP4Decoder::CanHandleMediaType(const MediaContentType& aType,
@@ -153,7 +128,7 @@ MP4Decoder::CanHandleMediaType(const MediaContentType& aType,
 #endif
       // Note: Only accept H.264 in a video content type, not in an audio
       // content type.
-      if (IsWhitelistedH264Codec(codec) && isMP4Video) {
+      if (isMP4Video) {
         trackInfos.AppendElement(
           CreateTrackInfoWithMIMETypeAndContentTypeExtraParameters(
             NS_LITERAL_CSTRING("video/avc"), aType));
