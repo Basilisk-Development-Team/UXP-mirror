@@ -69,14 +69,13 @@ public:
 StaticAutoPtr<PDMFactoryImpl> PDMFactory::sInstance;
 StaticMutex PDMFactory::sMonitor;
 
-class SupportChecker
+class ChromaChecker
 {
 public:
   enum class Reason : uint8_t
   {
-    kSupported,
-    kVideoFormatNotSupported,
-    kAudioFormatNotSupported,
+    kFullySupported,
+    kVideoFormatNotFullySupported,
     kUnknown,
   };
 
@@ -115,12 +114,11 @@ public:
           mp4_demuxer::SPSData spsdata;
           // WMF H.264 Video Decoder and Apple ATDecoder
           // do not support YUV444 format.
-          // For consistency, all decoders should be checked.
           if (mp4_demuxer::H264::DecodeSPSFromExtraData(extraData, spsdata) &&
               (spsdata.profile_idc == 244 /* Hi444PP */ ||
                spsdata.chroma_format_idc == PDMFactory::kYUV444)) {
             return CheckResult(
-              SupportChecker::Reason::kVideoFormatNotSupported,
+              ChromaChecker::Reason::kVideoFormatNotFullySupported,
               MediaResult(
                 NS_ERROR_DOM_MEDIA_FATAL_ERR,
                 RESULT_DETAIL("Decoder may not have the capability to handle"
@@ -128,28 +126,28 @@ public:
                               " with YUV444 chroma subsampling.")));
           }
         }
-        return CheckResult(SupportChecker::Reason::kSupported);
+        return CheckResult(ChromaChecker::Reason::kFullySupported);
       });
     }
   }
 
-  SupportChecker::CheckResult
+  ChromaChecker::CheckResult
   Check()
   {
     for (auto& checker : mCheckerList) {
       auto result = checker();
-        if (result.mReason != SupportChecker::Reason::kSupported) {
+        if (result.mReason != ChromaChecker::Reason::kFullySupported) {
           return result;
       }
     }
-    return CheckResult(SupportChecker::Reason::kSupported);
+    return CheckResult(ChromaChecker::Reason::kFullySupported);
   }
 
   void Clear() { mCheckerList.Clear(); }
 
 private:
   nsTArray<mozilla::function<CheckResult()>> mCheckerList;
-}; // SupportChecker
+}; // ChromaChecker
 
 PDMFactory::PDMFactory()
 {
@@ -240,29 +238,40 @@ PDMFactory::CreateDecoderWithPDM(PlatformDecoderModule* aPDM,
   RefPtr<MediaDataDecoder> m;
   MediaResult* result = aParams.mError;
 
-  SupportChecker supportChecker;
+  ChromaChecker chromaChecker;
   const TrackInfo& config = aParams.mConfig;
-  supportChecker.AddMediaFormatChecker(config);
+  chromaChecker.AddMediaFormatChecker(config);
 
-  auto checkResult = supportChecker.Check();
-  if (checkResult.mReason != SupportChecker::Reason::kSupported) {
-    DecoderDoctorDiagnostics* diagnostics = aParams.mDiagnostics;
-    if (checkResult.mReason == SupportChecker::Reason::kVideoFormatNotSupported) {
-      if (diagnostics) {
-        diagnostics->SetVideoNotSupported();
+  auto checkResult = chromaChecker.Check();
+  if (checkResult.mReason != ChromaChecker::Reason::kFullySupported) {
+#if defined(MOZ_FFMPEG)
+    if (MediaPrefs::PDMFFmpegEnabled() && !mFFmpegFailedToLoad) {
+#ifdef XP_WIN
+      if (MediaPrefs::PDMWMFEnabled() && !mWMFFailedToLoad) {
+        int FFmpegPos = 1; /* WMF = 0, FFmpeg = 1 */
+#ifdef MOZ_FFVPX
+        if (MediaPrefs::PDMFFVPXEnabled()) {
+          FFmpegPos++; /* WMF = 0, FFVPX = 1, FFmpeg = 2 */
+        }
+#endif
+        aPDM = mCurrentPDMs.ElementAt(FFmpegPos);
       }
-      if (result) {
-        *result = checkResult.mMediaResult;
+#endif
+    } else {
+#endif
+      DecoderDoctorDiagnostics* diagnostics = aParams.mDiagnostics;
+      if (checkResult.mReason == ChromaChecker::Reason::kVideoFormatNotFullySupported) {
+        if (diagnostics) {
+          diagnostics->SetVideoNotSupported();
+        }
+        if (result) {
+          *result = checkResult.mMediaResult;
+        }
       }
-    } else if (checkResult.mReason == SupportChecker::Reason::kAudioFormatNotSupported) {
-      if (diagnostics) {
-        diagnostics->SetAudioNotSupported();
-      }
-      if (result) {
-        *result = checkResult.mMediaResult;
-      }
-    }
-    return nullptr;
+      return nullptr;
+#ifdef MOZ_FFMPEG
+    } // MediaPrefs::PDMFFmpegEnabled()
+#endif
   }
 
   if (config.IsAudio()) {
@@ -352,6 +361,7 @@ PDMFactory::CreatePDMs()
     mWMFFailedToLoad = MediaPrefs::DecoderDoctorWMFDisabledIsFailure();
   }
 #endif
+
 #ifdef MOZ_FFVPX
   if (MediaPrefs::PDMFFVPXEnabled()) {
     m = FFVPXRuntimeLinker::CreateDecoderModule();
