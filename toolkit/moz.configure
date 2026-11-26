@@ -235,7 +235,7 @@ option('--disable-ffmpeg',
 def ffmpeg(value, target):
     enabled = bool(value)
     if value.origin == 'default':
-        enabled = target.os not in ('WINNT')
+        enabled = True
     if enabled:
         return True
 
