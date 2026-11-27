@@ -398,7 +398,10 @@ pref("media.wmf.disable-d3d11-for-dlls", "igd11dxva64.dll: 20.19.15.4463, 20.19.
 pref("media.wmf.disable-d3d9-for-dlls", "igdumd64.dll: 8.15.10.2189, 8.15.10.2119, 8.15.10.2104, 8.15.10.2102, 8.771.1.0; atiumd64.dll: 7.14.10.833, 7.14.10.867, 7.14.10.885, 7.14.10.903, 7.14.10.911, 8.14.10.768, 9.14.10.1001, 9.14.10.1017, 9.14.10.1080, 9.14.10.1128, 9.14.10.1162, 9.14.10.1171, 9.14.10.1183, 9.14.10.1197, 9.14.10.945, 9.14.10.972, 9.14.10.984, 9.14.10.996");
 #endif
 #if defined(MOZ_FFMPEG)
-#if defined(XP_MACOSX)
+// Whether to enable loading outside FFmpeg libraries
+#if defined(XP_WIN) && !defined(HAVE_64BIT_BUILD)
+// There is no installer in 32-bit x86 Windows, and some recent builds of
+// FFmpeg 8.1.3 are crashing the application, so disable by default.
 pref("media.ffmpeg.enabled", false);
 #else
 pref("media.ffmpeg.enabled", true);
@@ -420,8 +423,7 @@ pref("media.opus.enabled", true);
 pref("media.wave.enabled", true);
 pref("media.webm.enabled", true);
 #ifdef MOZ_APPLEMEDIA
-pref("media.apple.mp3.enabled", true);
-pref("media.apple.mp4.enabled", true);
+pref("media.apple.enabled", true);
 #endif
 
 #ifdef MOZ_GMP

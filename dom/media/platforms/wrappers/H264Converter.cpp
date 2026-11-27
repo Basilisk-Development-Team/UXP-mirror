@@ -180,18 +180,7 @@ H264Converter::CreateDecoder(DecoderDoctorDiagnostics* aDiagnostics)
   UpdateConfigFromExtraData(mCurrentConfig.mExtraData);
 
   mp4_demuxer::SPSData spsdata;
-  if (mp4_demuxer::H264::DecodeSPSFromExtraData(mCurrentConfig.mExtraData, spsdata)) {
-    // Do some format check here.
-    // WMF H.264 Video Decoder and Apple ATDecoder do not support YUV444 format.
-    if (spsdata.profile_idc == 244 /* Hi444PP */ ||
-        spsdata.chroma_format_idc == PDMFactory::kYUV444) {
-      mLastError = NS_ERROR_FAILURE;
-      if (aDiagnostics) {
-        aDiagnostics->SetVideoNotSupported();
-      }
-      return NS_ERROR_FAILURE;
-    }
-  } else {
+  if (!mp4_demuxer::H264::DecodeSPSFromExtraData(mCurrentConfig.mExtraData, spsdata)) {
     // SPS was invalid.
     mLastError = NS_ERROR_FAILURE;
     return NS_ERROR_FAILURE;

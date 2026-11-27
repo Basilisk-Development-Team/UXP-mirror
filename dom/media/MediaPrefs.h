@@ -98,6 +98,9 @@ private:
 
   // PlatformDecoderModule
   DECL_MEDIA_PREF("media.apple.forcevda",                     AppleForceVDA, bool, false);
+#ifdef MOZ_APPLEMEDIA
+  DECL_MEDIA_PREF("media.apple.enabled",                      PDMAppleEnabled, bool, true);
+#endif
 #ifdef MOZ_GMP
   DECL_MEDIA_PREF("media.gmp.insecure.allow",                 GMPAllowInsecure, bool, false);
   DECL_MEDIA_PREF("media.gmp.async-shutdown-timeout",         GMPAsyncShutdownTimeout, uint32_t, GMP_DEFAULT_ASYNC_SHUTDOWN_TIMEOUT);
